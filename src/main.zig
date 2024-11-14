@@ -1,5 +1,5 @@
 const std = @import("std");
-const system_data = @import("system_data");
+const system_data = @import("system_data.zig");
 const erd = system_data.erd;
 
 pub fn main() !void {
@@ -11,14 +11,15 @@ pub fn main() !void {
     var data_model = system_data.init();
 
     try stdout.print("Data Model Read\n", .{});
-    const applicationVersion: u32 = data_model.read(erd.applicationVersion);
+    const applicationVersion = data_model.read(erd.applicationVersion); // Type should be inferred as u32
+    try stdout.print("Application Version: {x}\n", .{applicationVersion});
+
+    try stdout.print("\n");
+
+    try stdout.print("Data Model Write\n", .{});
+    const newApplicationVersion = 0x12345678;
+    data_model.write(erd.applicationVersion, newApplicationVersion);
+    try stdout.print("New Application Version: {x}\n", .{applicationVersion});
 
     try bw.flush(); // don't forget to flush!
-}
-
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
 }
