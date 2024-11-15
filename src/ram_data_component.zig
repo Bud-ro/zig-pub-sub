@@ -6,6 +6,8 @@ const RamDataComponent = @This();
 // ERD definitions
 const RamErdDefinition = struct {
     application_version: Erd = .{ .T = u32 },
+    some_bool: Erd = .{ .T = bool },
+    unaligned_u16: Erd = .{ .T = u16 },
 };
 pub const erds = blk: {
     var _erds = RamErdDefinition{};

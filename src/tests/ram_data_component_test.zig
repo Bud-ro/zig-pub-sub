@@ -11,3 +11,9 @@ test "ram data component read and write" {
     ram_data.write(erd.application_version, new_application_version);
     try std.testing.expectEqual(new_application_version, ram_data.read(erd.application_version));
 }
+
+test "unaligned read and write" {
+    var ram_data = RamDataComponent{};
+    ram_data.write(erd.unaligned_u16, 0x1234);
+    try std.testing.expectEqual(@as(u16, 0x1234), ram_data.read(erd.unaligned_u16));
+}
