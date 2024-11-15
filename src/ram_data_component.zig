@@ -1,24 +1,28 @@
 const std = @import("std");
 const Erd = @import("erd.zig").Erd;
-const ErdType = @import("erd.zig").ErdType;
 
 const RamDataComponent = @This();
 
 // ERD definitions
 const RamErdDefinition = struct {
-    application_version: Erd = .{ .erd_handle = 0x0000, .T = u32 },
+    application_version: Erd = .{ .T = u32 },
 };
-pub const erds = RamErdDefinition{};
+pub const erds = blk: {
+    var _erds = RamErdDefinition{};
+    for (std.meta.fieldNames(RamErdDefinition), 0..) |erd_field_name, i| {
+        @field(_erds, erd_field_name).idx = i;
+    }
 
-// const erd = RamErdDefinition{};
+    break :blk _erds;
+};
 
 const num_erds = std.meta.fields(RamErdDefinition).len;
 const ram_offsets = blk: {
     var _ram_offsets: [num_erds]usize = undefined;
     var cur_offset = 0;
-    for (std.meta.fieldNames(RamErdDefinition), 0..) |erdName, i| {
+    for (std.meta.fieldNames(RamErdDefinition), 0..) |erd_field_name, i| {
         _ram_offsets[i] = cur_offset;
-        cur_offset += @sizeOf(@field(erds, erdName).T);
+        cur_offset += @sizeOf(@field(erds, erd_field_name).T);
     }
 
     break :blk _ram_offsets;
@@ -26,22 +30,24 @@ const ram_offsets = blk: {
 
 pub fn store_size() usize {
     var size: usize = 0;
-    inline for (std.meta.fieldNames(RamErdDefinition)) |erdName| {
-        size += @sizeOf(@field(erds, erdName).T);
+    inline for (std.meta.fieldNames(RamErdDefinition)) |erd_field_name| {
+        size += @sizeOf(@field(erds, erd_field_name).T);
     }
     return size;
 }
 
 var storage = std.mem.zeroes([store_size()]u8);
 
-pub fn read(self: RamDataComponent, erd: Erd) ErdType(erd) {
+pub fn read(self: RamDataComponent, erd: Erd) erd.T {
     _ = self;
-    const result: ErdType(erd) =
-        @bitCast(storage[ram_offsets[erd.erd_handle] .. ram_offsets[erd.erd_handle] + @sizeOf(erd.T)].*);
+    const idx = erd.idx;
+    const result: erd.T =
+        @bitCast(storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*);
     return result;
 }
 
-pub fn write(self: RamDataComponent, erd: Erd, data: ErdType(erd)) void {
+pub fn write(self: RamDataComponent, erd: Erd, data: erd.T) void {
     _ = self;
-    storage[ram_offsets[erd.erd_handle] .. ram_offsets[erd.erd_handle] + @sizeOf(erd.T)].* = @bitCast(data);
+    const idx = erd.idx;
+    storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = @bitCast(data);
 }
