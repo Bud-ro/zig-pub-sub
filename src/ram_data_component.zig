@@ -3,6 +3,13 @@ const Erd = @import("erd.zig").Erd;
 
 const RamDataComponent = @This();
 
+storage: [store_size()]u8,
+
+pub fn init() RamDataComponent {
+    const ram_data_component = RamDataComponent{ .storage = std.mem.zeroes([store_size()]u8) };
+    return ram_data_component;
+}
+
 // ERD definitions
 const RamErdDefinition = struct {
     application_version: Erd = .{ .T = u32 },
@@ -38,18 +45,30 @@ pub fn store_size() usize {
     return size;
 }
 
-var storage = std.mem.zeroes([store_size()]u8);
-
-pub fn read(self: RamDataComponent, erd: Erd) erd.T {
-    _ = self;
+pub fn read(self: *RamDataComponent, erd: Erd) erd.T {
     const idx = erd.idx;
-    const result: erd.T =
-        @bitCast(storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*);
+
+    const result: erd.T = switch (@typeInfo(erd.T)) {
+        .Bool => blk: {
+            break :blk @as(u8, @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*)) != 0;
+        },
+        else => blk: {
+            break :blk @as(erd.T, @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*));
+        },
+    };
+
     return result;
 }
 
-pub fn write(self: RamDataComponent, erd: Erd, data: erd.T) void {
-    _ = self;
+pub fn write(self: *RamDataComponent, erd: Erd, data: erd.T) void {
     const idx = erd.idx;
-    storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = @bitCast(data);
+
+    switch (@typeInfo(erd.T)) {
+        .Bool => {
+            self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = @bitCast(@as(u8, @intFromBool(data)));
+        },
+        else => {
+            self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = @bitCast(data);
+        },
+    }
 }
