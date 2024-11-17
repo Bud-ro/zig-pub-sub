@@ -1,0 +1,22 @@
+- [ ] Implement and design a virtual data component
+  - [ ] Appliance API is essentially just a special virtual data component. Think of a way to programmatically extend an existing virtual data component or its configuration so that just one can be used.
+- [ ] Create a novel bump allocator data source? Not even sure how this one would work
+- [ ] Implement System Data
+- [ ] Define ERDs top down (pass down from system data into other components)
+- [ ] Pub sub
+  - [ ] Subscription lists are stored local to data components
+    - [ ] ERDs that don't make sense to subscribe to can cause a compile error
+    - [ ] Entire data components can have their subscribe function be a `@compileError`
+  - [ ] `comptime` known upperbound of subscriptions which can be used to hold callbacks in an array instead of wasting a shit ton of memory (and time) on linked list pointers.
+    - [ ] Benefit of this is that you don't need to explicitly mark ERDs as Sub_Y, it will just be inferred from whether it's ever subbed to
+  - [ ] Unsubscribe removes the corresponding function pointer and moves the last function pointer in the array to the empty position to maintain memory continuity
+- [ ] Rename this project to embedded starter kit and start implementing:
+  - [ ] Timer Module
+    - [ ] `comptime` known upper bound of timers so an array can be used for storing `Timer`s
+    - [ ] Using it as an array lowers memory footprint, allows for super quick determinations of time of next expire, likely better usage of cache lines, etc.
+      - [ ] Memory discontinuity will have to be tolerated when timers are removed. Timers cannot be rearranged due to the returning of handles, unless we use extra storage to store a handle to index lookup. 
+        - [ ] Fewer modules will be concerned about changing timer periods or stopping them, so maybe the storage overhead is small. An extra parameter can be passed to determine whether to return a handle or return void. 
+    - [ ] Psuedo-linked list? Store the function pointer and the index of the next timer to expire
+      - [ ] `Timer` looks like `struct{next_idx: ?usize, fn *ptr, options: TimerOptions }`
+      - [ ] Consider struct of arrays approach in this case
+      - [ ] Can return handle (just the index) for fast modifications to timer (pause, remove, change period)
