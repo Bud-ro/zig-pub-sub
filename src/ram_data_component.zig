@@ -9,7 +9,7 @@ storage: [store_size()]u8 = undefined,
 
 pub fn init() RamDataComponent {
     var ram_data_component = RamDataComponent{};
-    @memset(&ram_data_component.storage, 0);
+    @memset(ram_data_component.storage[0..], 0);
     return ram_data_component;
 }
 
@@ -43,11 +43,13 @@ const ram_offsets = blk: {
 };
 
 pub fn store_size() usize {
-    var size: usize = 0;
-    inline for (std.meta.fieldNames(RamErdDefinition)) |erd_field_name| {
-        size += @sizeOf(@field(erds, erd_field_name).T);
+    comptime {
+        var size: usize = 0;
+        for (std.meta.fieldNames(RamErdDefinition)) |erd_field_name| {
+            size += @sizeOf(@field(erds, erd_field_name).T);
+        }
+        return size;
     }
-    return size;
 }
 
 pub fn read(self: *RamDataComponent, erd: Erd) erd.T {
