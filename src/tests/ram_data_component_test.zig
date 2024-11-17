@@ -28,3 +28,11 @@ test "read and write of type where @bitSizeOf != @sizeOf" {
     ram_data.write(erd.some_bool, true);
     try std.testing.expectEqual(@as(bool, true), ram_data.read(erd.some_bool));
 }
+
+test "failure upon writing incorrect types" {
+    return error.SkipZigTest;
+    // TODO: Enable this test once you can test for compile errors
+
+    // var ram_data = RamDataComponent.init();
+    // std.testing.expectError(, ram_data.write(erd.some_bool, 20));
+}

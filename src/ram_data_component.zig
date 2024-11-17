@@ -3,18 +3,23 @@ const Erd = @import("erd.zig").Erd;
 
 const RamDataComponent = @This();
 
-storage: [store_size()]u8,
+// TODO: Add a flag that reorders fields to efficiently pack this
+// and another that guarantees alignment for faster R/W.
+storage: [store_size()]u8 = undefined,
 
 pub fn init() RamDataComponent {
-    const ram_data_component = RamDataComponent{ .storage = std.mem.zeroes([store_size()]u8) };
+    var ram_data_component = RamDataComponent{};
+    @memset(&ram_data_component.storage, 0);
     return ram_data_component;
 }
 
 // ERD definitions
 const RamErdDefinition = struct {
-    application_version: Erd = .{ .T = u32 },
-    some_bool: Erd = .{ .T = bool },
-    unaligned_u16: Erd = .{ .T = u16 },
+    // zig fmt: off
+    application_version: Erd = .{ .T = u32  },
+    some_bool:           Erd = .{ .T = bool },
+    unaligned_u16:       Erd = .{ .T = u16  },
+    // zig fmt: on
 };
 pub const erds = blk: {
     var _erds = RamErdDefinition{};
@@ -50,7 +55,7 @@ pub fn read(self: *RamDataComponent, erd: Erd) erd.T {
 
     const result: erd.T = switch (@typeInfo(erd.T)) {
         .Bool => blk: {
-            break :blk @as(u8, @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*)) != 0;
+            break :blk self.storage[ram_offsets[idx]] != 0;
         },
         else => blk: {
             break :blk @as(erd.T, @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*));
@@ -65,7 +70,7 @@ pub fn write(self: *RamDataComponent, erd: Erd, data: erd.T) void {
 
     switch (@typeInfo(erd.T)) {
         .Bool => {
-            self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = @bitCast(@as(u8, @intFromBool(data)));
+            self.storage[ram_offsets[idx]] = @intFromBool(data);
         },
         else => {
             self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = @bitCast(data);
