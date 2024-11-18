@@ -1,8 +1,14 @@
-- [ ] Implement and design a virtual data component
-  - [ ] Appliance API is essentially just a special virtual data component. Think of a way to programmatically extend an existing virtual data component or its configuration so that just one can be used.
-- [ ] Create a novel bump allocator data source? Not even sure how this one would work
+- [ ] Implement a few more data components
+  - [ ] Implement and design a virtual data component
+    - [ ] Appliance API is essentially just a special virtual data component. Think of a way to programmatically extend an existing virtual data component or its configuration so that just one can be used.
+    - [ ] Maybe instead of implementing these as function calls, it's better to just have them read from a specific address instead? So it dedupes data that way
+  - [ ] Create a novel bump allocator data component? Not even sure how this one would work
+  - [ ] External data component
+    - [ ] Swapping
+    - [ ] Reads/writes are done using public ERD handles, so you don't really get any type safety (TODO: is this true?)
 - [ ] Implement System Data
-- [ ] Define ERDs top down (pass down from system data into other components)
+  - [ ] Define ERDs top down (pass down from system data into other components)
+  - [ ] Allow for definition of public ERD handles
 - [ ] Pub sub
   - [ ] Subscription lists are stored local to data components
     - [ ] ERDs that don't make sense to subscribe to can cause a compile error
