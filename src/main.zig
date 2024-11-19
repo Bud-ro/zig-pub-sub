@@ -3,11 +3,12 @@ const std = @import("std");
 // const erd = system_data.erd;
 
 pub fn main() !void {
-    // const stdout_file = std.io.getStdOut().writer();
-    // var bw = std.io.bufferedWriter(stdout_file);
-    // const stdout = bw.writer();
+    const stdout_file = std.io.getStdOut().writer();
+    var bw = std.io.bufferedWriter(stdout_file);
+    const stdout = bw.writer();
 
-    // try stdout.print("Data Model Init\n", .{});
+    try stdout.print("Data Model Init\n", .{});
+    try bw.flush();
     // var data_model = system_data.init();
 
     // try stdout.print("Data Model Read\n", .{});
