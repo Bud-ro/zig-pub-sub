@@ -1,3 +1,7 @@
+//! This module provides a RAM data component, which stores data in a packed array.
+//! `comptime` makes it so ERD reads and writes are direct,
+//! even when performed through higher level abstractions like system_data
+
 const std = @import("std");
 const Erd = @import("erd.zig").Erd;
 

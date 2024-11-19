@@ -1,7 +1,7 @@
 - [ ] Implement a few more data components
-  - [ ] Implement and design a virtual data component
-    - [ ] Appliance API is essentially just a special virtual data component. Think of a way to programmatically extend an existing virtual data component or its configuration so that just one can be used.
-    - [ ] Maybe instead of implementing these as function calls, it's better to just have them read from a specific address instead? So it dedupes data that way
+  - [x] Implement and design a virtual data component
+    - [x] ~~Think of a way to programmatically extend an existing virtual data component or its configuration so that just one can be used. Appliance API is essentially just a special virtual data component.~~ Not going to do this.
+    - [x] Implement as function calls, while still retaining type safety.
   - [ ] Create a novel bump allocator data component? Not even sure how this one would work
   - [ ] External data component
     - [ ] Swapping
