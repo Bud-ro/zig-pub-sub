@@ -2,11 +2,20 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug",
-            "preLaunchTask": "zig-build",
+            "name": "exe",
+            "preLaunchTask": "zig-build-exe",
             "request": "launch",
             "type": "cppvsdbg",
             "program": "${workspaceFolder}/zig-out/bin/zig-pub-sub.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "test",
+            "preLaunchTask": "zig-build-test",
+            "request": "launch",
+            "type": "cppvsdbg",
+            "program": "${workspaceFolder}/zig-out/bin/test",
             "args": [],
             "cwd": "${workspaceFolder}"
         }
