@@ -106,6 +106,7 @@ pub fn read(self: *RamDataComponent, erd: Erd) erd.T {
             }
         },
         else => blk: {
+            // TODO: I'm pretty sure this branch can be used if std.meta.hasUniqueRepresentation is true.
             break :blk @as(erd.T, @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*));
         },
     };
