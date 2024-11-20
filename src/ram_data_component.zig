@@ -31,10 +31,10 @@ const PaddedStruct = extern struct {
 };
 
 const PackedFr = packed struct {
-    a: u1,
-    b: u1,
-    c: u1,
-    d: u1,
+    a: u5,
+    b: u5,
+    c: u5,
+    d: u5,
     e: u1,
     f: u1,
     g: u1,
@@ -91,6 +91,12 @@ pub fn read(self: *RamDataComponent, erd: Erd) erd.T {
         },
         .Struct => |_struct| blk: {
             if (_struct.backing_integer) |backing_integer| {
+                // TODO: This code for packed structs is probably incorrect on the basis
+                // that @sizeOf(u24) = 4 for example. This will need to be revisited in the future
+                // if it is deemed that packed structs should seriously be considered for use
+                //
+                // Packed structs have no issues if their bitsize is a multiple of 8 however, and could use the below code
+                // TODO: Consider checking for this and deferring to that branch
                 const byte_multiple_bits = @sizeOf(backing_integer) * 8;
                 const widened_int = std.meta.Int(.unsigned, byte_multiple_bits);
                 const representative_bytes: widened_int = @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*);
