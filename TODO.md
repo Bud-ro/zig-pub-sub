@@ -6,6 +6,9 @@
   - [ ] External data component
     - [ ] Swapping
     - [ ] Reads/writes are done using public ERD handles, so you don't really get any type safety (TODO: is this true?)
+  - [ ] Converted data component once subscriptions are in implemented
+    - [ ] Subscribe to ERDs in it
+    - [ ] Denote *multiple* ERDs as a dependency 
 - [ ] Implement System Data
   - [ ] Define ERDs top down (pass down from system data into other components)
   - [ ] Allow for definition of public ERD handles
