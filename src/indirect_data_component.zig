@@ -9,14 +9,16 @@ const IndirectDataComponent = @This();
 
 const num_erds = std.meta.fields(IndirectErdDefinition).len;
 
-// TODO: Find a better way to do this other than type erasing the functions
-// OR if you do type erase functions, at least make sure that it's safe on init
-// By making it a compile error to pair functions that don't return an ERD's type
 read_functions: [num_erds](*const anyopaque) = undefined,
 
 pub const IndirectErdMapping = struct {
     erd: Erd,
     fn_ptr: *const anyopaque,
+
+    /// Generates a valid mapping, verifying that the function's return type matches the ERD's type
+    pub fn map(erd: Erd, func: *const fn () erd.T) IndirectErdMapping {
+        return .{ .erd = erd, .fn_ptr = @ptrCast(func) };
+    }
 };
 
 pub fn init(erdMappings: []const IndirectErdMapping) IndirectDataComponent {
