@@ -40,6 +40,11 @@ test "structs" {
     ram_data.write(erd.actually_packed_fr, .{ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 });
     const packed_st_with_data = ram_data.read(erd.actually_packed_fr);
     try std.testing.expectEqual(@TypeOf(packed_st_with_data){ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 }, packed_st_with_data);
+
+    ram_data.write(erd.padded, .{ .a = 0x12, .b = 0x3456, .c = 0x78, .d = 0x09ABCDEF });
+
+    const padded = ram_data.read(erd.padded);
+    try std.testing.expectEqual(@TypeOf(padded){ .a = 0x12, .b = 0x3456, .c = 0x78, .d = 0x09ABCDEF }, padded);
 }
 
 test "failure upon writing incorrect types" {

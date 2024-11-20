@@ -23,7 +23,7 @@ const WellPackedStruct = extern struct {
     c: u16,
 };
 
-const PaddedStruct = struct {
+const PaddedStruct = extern struct {
     a: u8,
     b: u16,
     c: u8,
