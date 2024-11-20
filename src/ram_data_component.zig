@@ -17,12 +17,38 @@ pub fn init() RamDataComponent {
     return ram_data_component;
 }
 
+const WellPackedStruct = extern struct {
+    a: u8,
+    b: u8,
+    c: u16,
+};
+
+const PaddedStruct = struct {
+    a: u8,
+    b: u16,
+    c: u8,
+    d: u32,
+};
+
+const PackedFr = packed struct {
+    a: u1,
+    b: u1,
+    c: u1,
+    d: u1,
+    e: u1,
+    f: u1,
+    g: u1,
+};
+
 // ERD definitions
 const RamErdDefinition = struct {
     // zig fmt: off
-    application_version: Erd = .{ .T = u32  },
-    some_bool:           Erd = .{ .T = bool },
-    unaligned_u16:       Erd = .{ .T = u16  },
+    application_version: Erd = .{ .T = u32              },
+    some_bool:           Erd = .{ .T = bool             },
+    unaligned_u16:       Erd = .{ .T = u16              },
+    well_packed:         Erd = .{ .T = WellPackedStruct },
+    padded:              Erd = .{ .T = PaddedStruct     },
+    actually_packed_fr:  Erd = .{ .T = PackedFr         },
     // zig fmt: on
 };
 pub const erds = blk: {
@@ -63,6 +89,16 @@ pub fn read(self: *RamDataComponent, erd: Erd) erd.T {
         .Bool => blk: {
             break :blk self.storage[ram_offsets[idx]] != 0;
         },
+        .Struct => |_struct| blk: {
+            if (_struct.backing_integer) |backing_integer| {
+                const byte_multiple_bits = @sizeOf(backing_integer) * 8;
+                const widened_int = std.meta.Int(.unsigned, byte_multiple_bits);
+                const representative_bytes: widened_int = @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*);
+                break :blk @bitCast(@as(backing_integer, @truncate(representative_bytes)));
+            } else {
+                break :blk @as(erd.T, @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*));
+            }
+        },
         else => blk: {
             break :blk @as(erd.T, @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*));
         },
@@ -77,6 +113,16 @@ pub fn write(self: *RamDataComponent, erd: Erd, data: erd.T) void {
     switch (@typeInfo(erd.T)) {
         .Bool => {
             self.storage[ram_offsets[idx]] = @intFromBool(data);
+        },
+        .Struct => |_struct| {
+            if (_struct.backing_integer) |backing_integer| {
+                const byte_multiple_bits = @sizeOf(backing_integer) * 8;
+                const widened_int = std.meta.Int(.unsigned, byte_multiple_bits);
+                self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* =
+                    @bitCast(@as(widened_int, @intCast(@as(backing_integer, @bitCast(data)))));
+            } else {
+                self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = @bitCast(data);
+            }
         },
         else => {
             self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = @bitCast(data);

@@ -21,12 +21,25 @@ test "unaligned read and write" {
     try std.testing.expectEqual(@as(bool, false), ram_data.read(erd.some_bool));
 }
 
-test "read and write of type where @bitSizeOf != @sizeOf" {
+test "read and write of type where @bitSizeOf is not multiple of 8" {
     var ram_data = RamDataComponent.init();
     try std.testing.expectEqual(@as(bool, false), ram_data.read(erd.some_bool));
 
     ram_data.write(erd.some_bool, true);
     try std.testing.expectEqual(@as(bool, true), ram_data.read(erd.some_bool));
+}
+
+test "structs" {
+    var ram_data = RamDataComponent.init();
+    const st = ram_data.read(erd.well_packed);
+    try std.testing.expectEqual(@as(@TypeOf(st), .{ .a = 0, .b = 0, .c = 0 }), st);
+
+    const packed_st = ram_data.read(erd.actually_packed_fr);
+    try std.testing.expectEqual(std.mem.zeroes(@TypeOf(packed_st)), packed_st);
+
+    ram_data.write(erd.actually_packed_fr, .{ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 });
+    const packed_st_with_data = ram_data.read(erd.actually_packed_fr);
+    try std.testing.expectEqual(@TypeOf(packed_st_with_data){ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 }, packed_st_with_data);
 }
 
 test "failure upon writing incorrect types" {
