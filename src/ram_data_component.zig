@@ -17,16 +17,16 @@ pub fn init() RamDataComponent {
     return ram_data_component;
 }
 
-const WellPackedStruct = extern struct {
+const WellPackedStruct = struct {
     a: u8,
     b: u8,
     c: u16,
 };
 
-const PaddedStruct = extern struct {
+const PaddedStruct = struct {
     a: u8,
     b: u16,
-    c: u8,
+    c: bool,
     d: u32,
 };
 
@@ -85,54 +85,11 @@ pub fn store_size() usize {
 pub fn read(self: *RamDataComponent, erd: Erd) erd.T {
     const idx = erd.idx;
 
-    const result: erd.T = switch (@typeInfo(erd.T)) {
-        .Bool => blk: {
-            break :blk self.storage[ram_offsets[idx]] != 0;
-        },
-        .Struct => |_struct| blk: {
-            if (_struct.backing_integer) |backing_integer| {
-                // TODO: This code for packed structs is probably incorrect on the basis
-                // that @sizeOf(u24) = 4 for example. This will need to be revisited in the future
-                // if it is deemed that packed structs should seriously be considered for use
-                //
-                // Packed structs have no issues if their bitsize is a multiple of 8 however, and could use the below code
-                // TODO: Consider checking for this and deferring to that branch
-                const byte_multiple_bits = @sizeOf(backing_integer) * 8;
-                const widened_int = std.meta.Int(.unsigned, byte_multiple_bits);
-                const representative_bytes: widened_int = @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*);
-                break :blk @bitCast(@as(backing_integer, @truncate(representative_bytes)));
-            } else {
-                break :blk @as(erd.T, @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*));
-            }
-        },
-        else => blk: {
-            // TODO: I'm pretty sure this branch can be used if std.meta.hasUniqueRepresentation is true.
-            break :blk @as(erd.T, @bitCast(self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].*));
-        },
-    };
-
-    return result;
+    return std.mem.bytesAsValue(erd.T, self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)]).*;
 }
 
 pub fn write(self: *RamDataComponent, erd: Erd, data: erd.T) void {
     const idx = erd.idx;
 
-    switch (@typeInfo(erd.T)) {
-        .Bool => {
-            self.storage[ram_offsets[idx]] = @intFromBool(data);
-        },
-        .Struct => |_struct| {
-            if (_struct.backing_integer) |backing_integer| {
-                const byte_multiple_bits = @sizeOf(backing_integer) * 8;
-                const widened_int = std.meta.Int(.unsigned, byte_multiple_bits);
-                self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* =
-                    @bitCast(@as(widened_int, @intCast(@as(backing_integer, @bitCast(data)))));
-            } else {
-                self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = @bitCast(data);
-            }
-        },
-        else => {
-            self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = @bitCast(data);
-        },
-    }
+    self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = std.mem.toBytes(data);
 }
