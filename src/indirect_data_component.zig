@@ -3,7 +3,7 @@
 //! If you want code to run on write, then you should use an ERD subscription
 
 const std = @import("std");
-const Erd = @import("erd.zig").Erd;
+const Erd = @import("erd.zig");
 
 const IndirectDataComponent = @This();
 

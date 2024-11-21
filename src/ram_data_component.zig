@@ -3,7 +3,7 @@
 //! even when performed through higher level abstractions like system_data
 
 const std = @import("std");
-const Erd = @import("erd.zig").Erd;
+const Erd = @import("erd.zig");
 
 const RamDataComponent = @This();
 
