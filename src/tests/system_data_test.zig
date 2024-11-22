@@ -35,3 +35,24 @@ test "mutable system_data passing without error" {
     try ExampleDo(&system_data);
     try std.testing.expectEqual(0x87654321, system_data.read(SystemErds.erd.application_version));
 }
+
+var persisted_system_data: *SystemData = undefined;
+fn ExampleCallbackEffect() !void {
+    try std.testing.expectEqual(42, persisted_system_data.read(SystemErds.erd.always_42));
+
+    const new_application_version: u32 = 0xCAFEBABE;
+    persisted_system_data.write(SystemErds.erd.application_version, new_application_version);
+}
+
+fn ExampleInit(system_data: *SystemData) void {
+    persisted_system_data = system_data;
+}
+
+test "retain reference to system_data" {
+    var system_data = SystemData.init();
+
+    ExampleInit(&system_data);
+
+    try ExampleCallbackEffect();
+    try std.testing.expectEqual(0xCAFEBABE, system_data.read(SystemErds.erd.application_version));
+}
