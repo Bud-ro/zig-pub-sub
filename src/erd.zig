@@ -15,7 +15,7 @@ owner: ErdOwner,
 idx: comptime_int = undefined,
 
 /// ERD identifier, allows for ERDs to be referenced externally
-pub const ErdHandle = enum(u16) { _ };
+pub const ErdHandle = u16; // TODO: Evaluate if this should be an inexhaustive enum `ErdHandle = enum { _ };`
 
 // TODO: Consider moving this into system_data.zig
 pub const ErdOwner = enum {

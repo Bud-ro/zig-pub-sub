@@ -4,15 +4,15 @@ const ErdOwner = Erd.ErdOwner;
 
 pub const ErdDefinitions = struct {
     // zig fmt: off
-    application_version:  Erd = .{ .erd_number = null,   .T = u32,              .owner = .Ram      },
-    some_bool:            Erd = .{ .erd_number = null,   .T = bool,             .owner = .Ram      },
-    unaligned_u16:        Erd = .{ .erd_number = null,   .T = u16,              .owner = .Ram      },
-    well_packed:          Erd = .{ .erd_number = null,   .T = WellPackedStruct, .owner = .Ram      },
-    padded:               Erd = .{ .erd_number = null,   .T = PaddedStruct,     .owner = .Ram      },
+    application_version:  Erd = .{ .erd_number = 0x0000, .T = u32,              .owner = .Ram      },
+    some_bool:            Erd = .{ .erd_number = 0x0001, .T = bool,             .owner = .Ram      },
+    unaligned_u16:        Erd = .{ .erd_number = 0x0002, .T = u16,              .owner = .Ram      },
+    well_packed:          Erd = .{ .erd_number = 0x0003, .T = WellPackedStruct, .owner = .Ram      },
+    padded:               Erd = .{ .erd_number = 0x0004, .T = PaddedStruct,     .owner = .Ram      },
     actually_packed_fr:   Erd = .{ .erd_number = null,   .T = PackedFr,         .owner = .Ram      },
-    always_42:            Erd = .{ .erd_number = null,   .T = u16,              .owner = .Indirect },
-    pointer_to_something: Erd = .{ .erd_number = null,   .T = ?*u16,            .owner = .Ram      },
-    another_erd_plus_one: Erd = .{ .erd_number = null,   .T = u16,              .owner = .Indirect },
+    always_42:            Erd = .{ .erd_number = 0x0006, .T = u16,              .owner = .Indirect },
+    pointer_to_something: Erd = .{ .erd_number = 0x0007, .T = ?*u16,            .owner = .Ram      },
+    another_erd_plus_one: Erd = .{ .erd_number = 0x0008, .T = u16,              .owner = .Indirect },
     // zig fmt: on
 };
 
