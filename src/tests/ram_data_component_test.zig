@@ -5,7 +5,7 @@ const SystemErds = @import("../system_erds.zig");
 test "ram data component read and write" {
     var ram_data = RamDataComponent.init();
     // Should zero init
-    try std.testing.expectEqual(@as(u32, 0), ram_data.read(SystemErds.erd.application_version));
+    try std.testing.expectEqual(0, ram_data.read(SystemErds.erd.application_version));
 
     const new_application_version: u32 = 0x12345678;
     ram_data.write(SystemErds.erd.application_version, new_application_version);
@@ -15,27 +15,27 @@ test "ram data component read and write" {
 test "unaligned read and write" {
     var ram_data = RamDataComponent.init();
     ram_data.write(SystemErds.erd.unaligned_u16, 0x1234);
-    try std.testing.expectEqual(@as(u16, 0x1234), ram_data.read(SystemErds.erd.unaligned_u16));
+    try std.testing.expectEqual(0x1234, ram_data.read(SystemErds.erd.unaligned_u16));
 
-    try std.testing.expectEqual(@as(u32, 0), ram_data.read(SystemErds.erd.application_version));
-    try std.testing.expectEqual(@as(bool, false), ram_data.read(SystemErds.erd.some_bool));
+    try std.testing.expectEqual(0, ram_data.read(SystemErds.erd.application_version));
+    try std.testing.expectEqual(false, ram_data.read(SystemErds.erd.some_bool));
 }
 
 test "read and write of type where @bitSizeOf is not multiple of 8" {
     var ram_data = RamDataComponent.init();
-    try std.testing.expectEqual(@as(bool, false), ram_data.read(SystemErds.erd.some_bool));
+    try std.testing.expectEqual(false, ram_data.read(SystemErds.erd.some_bool));
 
     ram_data.write(SystemErds.erd.some_bool, true);
-    try std.testing.expectEqual(@as(bool, true), ram_data.read(SystemErds.erd.some_bool));
+    try std.testing.expectEqual(true, ram_data.read(SystemErds.erd.some_bool));
 }
 
 test "pointers read/write" {
     var ram_data = RamDataComponent.init();
-    try std.testing.expectEqual(@as(?*u16, @ptrFromInt(0)), ram_data.read(SystemErds.erd.pointer_to_something));
+    try std.testing.expectEqual(null, ram_data.read(SystemErds.erd.pointer_to_something));
 
     var temp: u16 = 2;
     ram_data.write(SystemErds.erd.pointer_to_something, &temp);
-    try std.testing.expectEqual(@as(u16, 2), ram_data.read(SystemErds.erd.pointer_to_something).?.*);
+    try std.testing.expectEqual(2, ram_data.read(SystemErds.erd.pointer_to_something).?.*);
 }
 
 test "structs" {

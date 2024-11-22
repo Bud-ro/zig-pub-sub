@@ -17,8 +17,8 @@ test "indirect data component read" {
         IndirectErdMapping.map(SystemErds.erd.another_erd_plus_one, plus_one),
     });
 
-    try std.testing.expectEqual(@as(u32, 42), indirect_data.read(SystemErds.erd.always_42));
-    try std.testing.expectEqual(@as(u32, 42 + 1), indirect_data.read(SystemErds.erd.another_erd_plus_one));
+    try std.testing.expectEqual(42, indirect_data.read(SystemErds.erd.always_42));
+    try std.testing.expectEqual(42 + 1, indirect_data.read(SystemErds.erd.another_erd_plus_one));
 }
 
 test "indirect data component write" {
@@ -30,5 +30,5 @@ test "indirect data component write" {
     //     .{ .erd = SystemErds.erd.another_erd_plus_one, .fn_ptr = &plus_one },
     // });
 
-    // try std.testing.expectEqual(@as(u32, 42), indirect_data.write(SystemErds.erd.always_42, 41));
+    // indirect_data.write(SystemErds.erd.always_42, 41);
 }
