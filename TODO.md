@@ -19,6 +19,7 @@
   - [ ] `comptime` known upperbound of subscriptions which can be used to hold callbacks in an array instead of wasting a shit ton of memory (and time) on linked list pointers.
     - [ ] Benefit of this is that you don't need to explicitly mark ERDs as Sub_Y, it will just be inferred from whether it's ever subbed to
   - [ ] Unsubscribe removes the corresponding function pointer and moves the last function pointer in the array to the empty position to maintain memory continuity
+- [ ] JSON Serializer for SystemErds 
 - [ ] Rename this project to embedded starter kit and start implementing:
   - [ ] Timer Module
     - [ ] `comptime` known upper bound of timers so an array can be used for storing `Timer`s
