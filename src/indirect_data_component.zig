@@ -26,7 +26,9 @@ pub fn init(erdMappings: [num_erds]IndirectErdMapping) IndirectDataComponent {
     var indirect_data_component = IndirectDataComponent{};
 
     inline for (erdMappings) |mapping| {
-        std.debug.assert(mapping.erd.owner == .Indirect);
+        comptime {
+            std.debug.assert(mapping.erd.owner == .Indirect);
+        }
         indirect_data_component.read_functions[mapping.erd.idx] = mapping.fn_ptr;
     }
     return indirect_data_component;

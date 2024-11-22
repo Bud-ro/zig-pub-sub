@@ -10,7 +10,6 @@ const Erd = @import("erd.zig");
 const RamDataComponent = @import("ram_data_component.zig");
 const IndirectDataComponent = @import("indirect_data_component.zig");
 const SystemErds = @import("system_erds.zig");
-const ErdDefinitions = SystemErds.ErdDefinitions;
 
 const SystemData = @This();
 
