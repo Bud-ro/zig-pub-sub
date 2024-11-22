@@ -10,4 +10,4 @@ erd_handle: ErdHandle = undefined,
 T: type,
 
 // ERDs only need 16 bits. If your system has more than 65535 statically known and named variables, then find god
-pub const ErdHandle = u16;
+pub const ErdHandle = enum(u16) { _ };
