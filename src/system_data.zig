@@ -47,6 +47,6 @@ pub fn read(this: SystemData, erd: Erd) erd.T {
 pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
     switch (erd.owner) {
         .Ram => this.ram.write(erd, data),
-        .Indirect => unreachable,
+        .Indirect => comptime unreachable,
     }
 }
