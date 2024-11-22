@@ -45,7 +45,11 @@ fn ExampleCallbackEffect() !void {
 }
 
 fn ExampleInit(system_data: *SystemData) void {
-    persisted_system_data = system_data;
+    if (!@inComptime()) {
+        persisted_system_data = system_data;
+    } else {
+        @compileError("This NEEDS to be able to be runtime");
+    }
 }
 
 test "retain reference to system_data" {
