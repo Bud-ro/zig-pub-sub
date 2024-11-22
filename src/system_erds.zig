@@ -11,6 +11,7 @@ pub const ErdDefinitions = struct {
     padded:               Erd = .{ .erd_number = null,   .T = PaddedStruct,     .owner = .Ram      },
     actually_packed_fr:   Erd = .{ .erd_number = null,   .T = PackedFr,         .owner = .Ram      },
     always_42:            Erd = .{ .erd_number = null,   .T = u16,              .owner = .Indirect },
+    pointer_to_something: Erd = .{ .erd_number = null,   .T = ?*u16,            .owner = .Ram      },
     another_erd_plus_one: Erd = .{ .erd_number = null,   .T = u16,              .owner = .Indirect },
     // zig fmt: on
 };

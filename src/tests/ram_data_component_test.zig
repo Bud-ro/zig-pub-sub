@@ -29,6 +29,15 @@ test "read and write of type where @bitSizeOf is not multiple of 8" {
     try std.testing.expectEqual(@as(bool, true), ram_data.read(SystemErds.erd.some_bool));
 }
 
+test "pointers read/write" {
+    var ram_data = RamDataComponent.init();
+    try std.testing.expectEqual(@as(?*u16, @ptrFromInt(0)), ram_data.read(SystemErds.erd.pointer_to_something));
+
+    var temp: u16 = 2;
+    ram_data.write(SystemErds.erd.pointer_to_something, &temp);
+    try std.testing.expectEqual(@as(u16, 2), ram_data.read(SystemErds.erd.pointer_to_something).?.*);
+}
+
 test "structs" {
     var ram_data = RamDataComponent.init();
     const st = ram_data.read(SystemErds.erd.well_packed);
