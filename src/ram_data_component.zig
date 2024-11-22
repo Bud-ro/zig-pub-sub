@@ -46,11 +46,14 @@ pub fn read(self: RamDataComponent, erd: Erd) erd.T {
     return std.mem.bytesAsValue(erd.T, self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)]).*;
 }
 
-// TODO: Consider making this return bool for whether the value changed or not. This would possibly allow
-// for subscriptions to not have to be implemented per data component. Instead you implement them at the
-// system-data level.
-pub fn write(self: *RamDataComponent, erd: Erd, data: erd.T) void {
+pub fn write(self: *RamDataComponent, erd: Erd, data: erd.T) bool {
     const idx = erd.idx;
 
-    self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = std.mem.toBytes(data);
+    const buf = self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)];
+    const data_bytes = std.mem.toBytes(data);
+
+    const data_changed = !std.mem.eql(u8, buf, &data_bytes);
+    buf.* = data_bytes;
+
+    return data_changed;
 }

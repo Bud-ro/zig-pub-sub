@@ -44,8 +44,17 @@ pub fn read(this: SystemData, erd: Erd) erd.T {
 }
 
 pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
-    switch (erd.owner) {
+    const publish_required = switch (erd.owner) {
         .Ram => this.ram.write(erd, data),
         .Indirect => comptime unreachable,
+    };
+
+    if (publish_required) {
+        this.publish(erd);
     }
+}
+
+fn publish(this: *SystemData, erd: Erd) void {
+    _ = this;
+    _ = erd;
 }
