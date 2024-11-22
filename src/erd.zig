@@ -1,13 +1,24 @@
+//! This ERD struct is meant for use at the data component level, and for the end user to use
+//! when making calls to SystemData or any general data component
+//! This is a generated type, the top level initialization should be done from within system_data.zig
+
 const Erd = @This();
 
+/// This is an optional public handle for an ERD.
+/// Without this, the ERD will not appear in the generated ERD JSON.
+erd_number: ?ErdHandle,
+/// Type of the ERD
+T: type,
+/// Owning Data Component
+owner: ErdOwner,
 /// The relative index of the ERD in its data component
 idx: comptime_int = undefined,
-/// The idea is that this will be an optional public handle that you can statically attach to an ERD
-/// Internally you'd use the Erd type to perform a lookup, since it has all the type nicities.
-/// External reads would have to go through a lookup to find the Erd using the erd_handle
-/// What makes this nice is that "public" and "private" "ERDs" are greatly distinguished
-erd_handle: ErdHandle = undefined,
-T: type,
 
-// ERDs only need 16 bits. If your system has more than 65535 statically known and named variables, then find god
+/// ERD identifier, allows for ERDs to be referenced externally
 pub const ErdHandle = enum(u16) { _ };
+
+// TODO: Consider moving this into system_data.zig
+pub const ErdOwner = enum {
+    Ram,
+    Indirect,
+};

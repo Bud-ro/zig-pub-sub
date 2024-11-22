@@ -9,9 +9,9 @@
   - [ ] Converted data component once subscriptions are in implemented
     - [ ] Subscribe to ERDs in it
     - [ ] Denote *multiple* ERDs as a dependency 
-- [ ] Implement System Data
+- [x] Implement System Data
   - [ ] Define ERDs top down (pass down from system data into other components)
-  - [ ] Allow for definition of public ERD handles
+  - [x] Allow for definition of public ERD handles
 - [ ] Pub sub
   - [ ] Subscription lists are stored local to data components
     - [ ] ERDs that don't make sense to subscribe to can cause a compile error
