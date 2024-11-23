@@ -29,13 +29,13 @@ pub fn init(erdMappings: [num_erds]IndirectErdMapping) IndirectDataComponent {
         comptime {
             std.debug.assert(mapping.erd.owner == .Indirect);
         }
-        indirect_data_component.read_functions[mapping.erd.idx] = mapping.fn_ptr;
+        indirect_data_component.read_functions[mapping.erd.data_component_idx] = mapping.fn_ptr;
     }
     return indirect_data_component;
 }
 
 pub fn read(self: IndirectDataComponent, erd: Erd) erd.T {
-    const fn_ptr: *const fn () erd.T = @ptrCast(self.read_functions[erd.idx]);
+    const fn_ptr: *const fn () erd.T = @ptrCast(self.read_functions[erd.data_component_idx]);
     return fn_ptr();
 }
 

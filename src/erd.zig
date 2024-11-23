@@ -12,7 +12,9 @@ T: type,
 /// Owning Data Component
 owner: ErdOwner,
 /// The relative index of the ERD in its data component
-idx: comptime_int = undefined,
+data_component_idx: comptime_int = undefined,
+/// The relative index of the ERD in the aggregate system data
+system_data_idx: comptime_int = undefined,
 
 /// ERD identifier, allows for ERDs to be referenced externally
 pub const ErdHandle = u16; // TODO: Evaluate if this should be an inexhaustive enum `ErdHandle = enum { _ };`

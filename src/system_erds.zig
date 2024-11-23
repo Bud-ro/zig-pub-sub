@@ -22,8 +22,12 @@ pub const erd = blk: {
     var _erds = ErdDefinitions{};
     for (std.meta.fieldNames(ErdDefinitions)) |erd_field_name| {
         const idx = @intFromEnum(@field(_erds, erd_field_name).owner);
-        @field(_erds, erd_field_name).idx = owning_counts[idx];
+        @field(_erds, erd_field_name).data_component_idx = owning_counts[idx];
         owning_counts[idx] += 1;
+    }
+
+    for (std.meta.fieldNames(ErdDefinitions), 0..) |erd_field_name, i| {
+        @field(_erds, erd_field_name).system_data_idx = i;
     }
 
     break :blk _erds;

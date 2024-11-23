@@ -41,13 +41,13 @@ fn store_size() usize {
 }
 
 pub fn read(self: RamDataComponent, erd: Erd) erd.T {
-    const idx = erd.idx;
+    const idx = erd.data_component_idx;
 
     return std.mem.bytesAsValue(erd.T, self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)]).*;
 }
 
 pub fn write(self: *RamDataComponent, erd: Erd, data: erd.T) bool {
-    const idx = erd.idx;
+    const idx = erd.data_component_idx;
 
     const buf = self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)];
     const data_bytes = std.mem.toBytes(data);

@@ -1,6 +1,7 @@
 const std = @import("std");
 const SystemData = @import("../system_data.zig");
 const SystemErds = @import("../system_erds.zig");
+const Subscription = @import("../subscription.zig");
 
 test "ram data component read and write" {
     var system_data = SystemData.init();
@@ -59,4 +60,21 @@ test "retain reference to system_data" {
 
     try ExampleCallbackEffect();
     try std.testing.expectEqual(0xCAFEBABE, system_data.read(SystemErds.erd.application_version));
+}
+
+fn turn_off_some_bool_and_increment_application_version(system_data: *SystemData) void {
+    system_data.write(SystemErds.erd.some_bool, false);
+    system_data.write(SystemErds.erd.application_version, system_data.read(SystemErds.erd.application_version) + 1);
+}
+
+var some_bool_sub = Subscription{ .callback = turn_off_some_bool_and_increment_application_version };
+
+test "subscription_test" {
+    var system_data = SystemData.init();
+
+    system_data.subscribe(SystemErds.erd.some_bool, &some_bool_sub);
+
+    system_data.write(SystemErds.erd.some_bool, true);
+    try std.testing.expectEqual(false, system_data.read(SystemErds.erd.some_bool));
+    try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
 }
