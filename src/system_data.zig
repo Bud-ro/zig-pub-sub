@@ -16,12 +16,7 @@ const SystemData = @This();
 
 ram: RamDataComponent = undefined,
 indirect: IndirectDataComponent = undefined,
-subscriptions: [std.meta.fields(SystemErds.ErdDefinitions).len]Subscription = undefined,
-
-fn dummy_sub_callback(system_data: *SystemData) void {
-    _ = system_data;
-    unreachable;
-}
+subscriptions: [std.meta.fields(SystemErds.ErdDefinitions).len]?*Subscription = undefined,
 
 fn always_42() u16 {
     return 42;
@@ -41,7 +36,8 @@ pub fn init() SystemData {
     this.ram = RamDataComponent.init();
     this.indirect = IndirectDataComponent.init(indirectErdMapping);
 
-    @memset(&this.subscriptions, Subscription{ .callback = dummy_sub_callback, .next_sub = null });
+    @memset(&this.subscriptions, null);
+
     return this;
 }
 
@@ -64,23 +60,32 @@ pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
 }
 
 pub fn subscribe(this: *SystemData, erd: Erd, sub: *Subscription) void {
+    comptime {
+        // TODO: Consider how to not enumerate these to save `@sizeOf(?*Subscription) * num_unsubabble_erds` memory
+        // It could be done by storing subscriptions local to data components, but this is not strictly required.
+        std.debug.assert(erd.owner != .Indirect);
+    }
     const sub_idx = erd.system_data_idx;
 
-    var last_valid_item = &this.subscriptions[sub_idx];
-    var next = this.subscriptions[sub_idx].next_sub;
+    if (this.subscriptions[sub_idx] == null) {
+        this.subscriptions[sub_idx] = sub;
+        return;
+    }
+
+    var next: ?*Subscription = this.subscriptions[sub_idx];
     while (next) |item| {
-        last_valid_item = item;
+        if (item.next_sub == null) {
+            item.next_sub = sub;
+            return;
+        }
         next = item.next_sub;
     }
-    last_valid_item.next_sub = sub;
 }
 
 fn publish(this: *SystemData, erd: Erd) void {
     const sub_idx = erd.system_data_idx;
 
-    var next = this.subscriptions[sub_idx].next_sub;
-    // Purposely skip the head of the list, since that will always be the dummy sub.
-    // TODO: Make a proper linked list head so that we don't waste `num_erds * @sizeOf(callback)` on holding callbacks
+    var next: ?*Subscription = this.subscriptions[sub_idx];
     while (next) |item| {
         item.callback(this);
         next = item.next_sub;
