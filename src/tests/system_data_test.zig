@@ -84,3 +84,26 @@ test "subscription_test" {
     // try std.testing.expectEqual(true, system_data.read(SystemErds.erd.some_bool));
     // try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
 }
+
+fn bump_some_u16(system_data: *SystemData) void {
+    system_data.write(SystemErds.erd.unaligned_u16, system_data.read(SystemErds.erd.unaligned_u16) + 1);
+}
+
+test "double sub test" {
+    var system_data = SystemData.init();
+    var some_bool_sub = Subscription{ .callback = turn_off_some_bool_and_increment_application_version };
+    var some_bool_side_effect_sub = Subscription{ .callback = bump_some_u16 };
+    system_data.subscribe(SystemErds.erd.some_bool, &some_bool_sub);
+    system_data.subscribe(SystemErds.erd.some_bool, &some_bool_side_effect_sub);
+
+    system_data.write(SystemErds.erd.some_bool, true);
+    try std.testing.expectEqual(false, system_data.read(SystemErds.erd.some_bool));
+    try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
+    try std.testing.expectEqual(2, system_data.read(SystemErds.erd.unaligned_u16));
+
+    system_data.unsubscribe(SystemErds.erd.some_bool, &some_bool_sub);
+    system_data.write(SystemErds.erd.some_bool, true);
+    try std.testing.expectEqual(true, system_data.read(SystemErds.erd.some_bool));
+    try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
+    try std.testing.expectEqual(3, system_data.read(SystemErds.erd.unaligned_u16));
+}
