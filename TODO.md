@@ -16,10 +16,11 @@
   - [x] ~~Subscription lists are stored local to data components~~ Subscription Linked List Stored in System Data
     - [x] ERDs that don't make sense to subscribe to can cause a compile error
     - [x] ~~Entire data components can have their subscribe function be a `@compileError`~~ N/A since sub is done at the system data level
-  - [ ] `comptime` known upperbound of subscriptions which can be used to hold callbacks in an array instead of wasting a shit ton of memory (and time) on linked list pointers.
-    - [ ] Benefit of this is that you don't need to explicitly mark ERDs as Sub_Y, it will just be inferred from whether it's ever subbed to
-  - [ ] Unsubscribe removes the corresponding function pointer and moves the last function pointer in the array to the empty position to maintain memory continuity
-    - [ ] This is only possible if order of the callbacks doesn't matter. FYI it SHOULDN'T matter. 
+  - [x] Linked List unsubscribe
+  - [ ] FURTHER INVESTIGATION NEEDED: `comptime` known upperbound of subscriptions which can be used to hold callbacks in an array instead of wasting a shit ton of memory (and time) on linked list pointers.
+    - Benefit of this is that you don't need to explicitly mark ERDs as Sub_Y, it will just be inferred from whether it's ever subbed to
+    - Unsubscribe removes the corresponding function pointer and moves the last function pointer in the array to the empty position to maintain memory continuity
+      - This is only possible if order of the callbacks doesn't matter. FYI it SHOULDN'T matter.
 - [ ] JSON Serializer for SystemErds 
 - [ ] Rename this project to embedded starter kit and start implementing:
   - [ ] Timer Module

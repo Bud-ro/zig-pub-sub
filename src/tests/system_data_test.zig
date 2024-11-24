@@ -67,14 +67,20 @@ fn turn_off_some_bool_and_increment_application_version(system_data: *SystemData
     system_data.write(SystemErds.erd.application_version, system_data.read(SystemErds.erd.application_version) + 1);
 }
 
-var some_bool_sub = Subscription{ .callback = turn_off_some_bool_and_increment_application_version };
-
 test "subscription_test" {
     var system_data = SystemData.init();
-
+    var some_bool_sub = Subscription{ .callback = turn_off_some_bool_and_increment_application_version };
     system_data.subscribe(SystemErds.erd.some_bool, &some_bool_sub);
+    // Subscriptions can be stored on the stack if it lives through all of its callbacks.
+    // defer pattern only makes sense if you stack initialize this. Here it's to show that it's safe to call unsub multiple times
+    defer system_data.unsubscribe(SystemErds.erd.some_bool, &some_bool_sub);
 
     system_data.write(SystemErds.erd.some_bool, true);
     try std.testing.expectEqual(false, system_data.read(SystemErds.erd.some_bool));
     try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
+
+    // system_data.unsubscribe(SystemErds.erd.some_bool, &some_bool_sub);
+    // system_data.write(SystemErds.erd.some_bool, true);
+    // try std.testing.expectEqual(true, system_data.read(SystemErds.erd.some_bool));
+    // try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
 }

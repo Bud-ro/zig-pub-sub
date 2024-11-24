@@ -82,6 +82,28 @@ pub fn subscribe(this: *SystemData, erd: Erd, sub: *Subscription) void {
     }
 }
 
+pub fn unsubscribe(this: *SystemData, erd: Erd, sub: *Subscription) void {
+    comptime {
+        // Definitely a programmer error if you try to unsub (or sub!) to one of these.
+        std.debug.assert(erd.owner != .Indirect);
+    }
+
+    const sub_idx = erd.system_data_idx;
+    var prev_ptr: *?*Subscription = &this.subscriptions[sub_idx];
+    var next: ?*Subscription = this.subscriptions[sub_idx];
+    while (next) |item| {
+        if (item == sub) {
+            if (item.next_sub) |next_sub| {
+                prev_ptr.* = next_sub;
+            } else {
+                prev_ptr.* = null;
+            }
+        }
+        prev_ptr = &item.next_sub;
+        next = item.next_sub;
+    }
+}
+
 fn publish(this: *SystemData, erd: Erd) void {
     const sub_idx = erd.system_data_idx;
 
