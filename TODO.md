@@ -8,27 +8,39 @@
     - [ ] Reads/writes are done using public ERD handles, so you don't really get any type safety (TODO: is this true?)
   - [ ] Converted data component once subscriptions are in implemented
     - [ ] Subscribe to ERDs in it
-    - [ ] Denote *multiple* ERDs as a dependency 
+    - [ ] Denote *multiple* ERDs as a dependency
+      - This depends on array based subscriptions, or a guarantee that it's the last subscription
 - [x] Implement System Data
   - [ ] Define ERDs top down (pass down from system data into other components)
+    - This buys:
+      - Fully committing to storing subscriptions in data components
+      - Differing `.subscribe`, `.unsubscribe`, etc. functions for instance, which more flexibily allow for certain data components to not be subscribable
+      - Allows for init of data components with different ERD tables
   - [x] Allow for definition of public ERD handles
 - [x] Pub sub
   - [x] ~~Subscription lists are stored local to data components~~ Subscription Linked List Stored in System Data
     - [x] ERDs that don't make sense to subscribe to can cause a compile error
     - [x] ~~Entire data components can have their subscribe function be a `@compileError`~~ N/A since sub is done at the system data level
   - [x] Linked List unsubscribe
+  - [ ] `.subscribe_all` and `.unsubscribe_all`
   - [ ] FURTHER INVESTIGATION NEEDED: `comptime` known upperbound of subscriptions which can be used to hold callbacks in an array instead of wasting a shit ton of memory (and time) on linked list pointers.
     - Benefit of this is that you don't need to explicitly mark ERDs as Sub_Y, it will just be inferred from whether it's ever subbed to
     - Unsubscribe removes the corresponding function pointer and moves the last function pointer in the array to the empty position to maintain memory continuity
       - This is only possible if order of the callbacks doesn't matter. FYI it SHOULDN'T matter.
-- [ ] JSON Serializer for SystemErds 
-- [ ] Rename this project to embedded starter kit and start implementing:
-  - [ ] Timer Module
-    - [ ] `comptime` known upper bound of timers so an array can be used for storing `Timer`s
-    - [ ] Using it as an array lowers memory footprint, allows for super quick determinations of time of next expire, likely better usage of cache lines, etc.
-      - [ ] Memory discontinuity will have to be tolerated when timers are removed. Timers cannot be rearranged due to the returning of handles, unless we use extra storage to store a handle to index lookup. 
-        - [ ] Fewer modules will be concerned about changing timer periods or stopping them, so maybe the storage overhead is small. An extra parameter can be passed to determine whether to return a handle or return void. 
-    - [ ] Psuedo-linked list? Store the function pointer and the index of the next timer to expire
-      - [ ] `Timer` looks like `struct{next_idx: ?usize, fn *ptr, options: TimerOptions }`
-      - [ ] Consider struct of arrays approach in this case
-      - [ ] Can return handle (just the index) for fast modifications to timer (pause, remove, change period)
+    - Could be done by storing a comptime counter in the ERD table.
+- [ ] JSON Serializer for SystemErds
+- [ ] Zig alternative to Lua for generating parametric data
+- [ ] Rename this project to embedded starter kit
+- [ ] Timer Module
+  - [ ] `comptime` known upper bound of timers so an array can be used for storing `Timer`s
+  - [ ] Using it as an array lowers memory footprint, allows for super quick determinations of time of next expire, likely better usage of cache lines, etc.
+    - [ ] Memory discontinuity will have to be tolerated when timers are removed. Timers cannot be rearranged due to the returning of handles, unless we use extra storage to store a handle to index lookup. 
+      - [ ] Fewer modules will be concerned about changing timer periods or stopping them, so maybe the storage overhead is small. An extra parameter can be passed to determine whether to return a handle or return void. 
+  - [ ] Psuedo-linked list? Store the function pointer and the index of the next timer to expire
+    - [ ] `Timer` looks like `struct{next_idx: ?usize, fn const *callback, options: packed struct TimerOptions }`
+    - [ ] Consider struct of arrays approach in this case
+    - [ ] Can return handle (just the index) for fast modifications to timer (pause, remove, change period)
+- [ ] Build ELF for Cortex-M
+  - [ ] Linker script
+  - [ ] Flash just the application
+  - [ ] Flash the application + ethically sourced bootloader
