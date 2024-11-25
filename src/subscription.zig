@@ -6,6 +6,6 @@
 const SystemData = @import("system_data.zig");
 
 const Subscription = @This();
-const SubscriptionCallback = ?*const fn (*SystemData) void;
+pub const SubscriptionCallback = *const fn (*SystemData) void;
 
-callback: SubscriptionCallback,
+callback: ?SubscriptionCallback,

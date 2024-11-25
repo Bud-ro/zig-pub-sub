@@ -82,7 +82,7 @@ pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
     }
 }
 
-pub fn subscribe(this: *SystemData, erd: Erd, sub: Subscription) void {
+pub fn subscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.SubscriptionCallback) void {
     comptime {
         std.debug.assert(erd.subs > 0);
 
@@ -92,12 +92,12 @@ pub fn subscribe(this: *SystemData, erd: Erd, sub: Subscription) void {
 
     for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |_sub| {
         // Subscriptions cannot be added to the same list twice
-        std.debug.assert(_sub.callback != sub.callback);
+        std.debug.assert(_sub.callback != fn_ptr);
     }
 
     for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
         if (_sub.*.callback == null) {
-            _sub.* = sub;
+            _sub.*.callback = fn_ptr;
             return;
         }
     }
@@ -110,7 +110,7 @@ pub fn subscribe(this: *SystemData, erd: Erd, sub: Subscription) void {
     }
 }
 
-pub fn unsubscribe(this: *SystemData, erd: Erd, sub: Subscription) void {
+pub fn unsubscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.SubscriptionCallback) void {
     comptime {
         std.debug.assert(erd.subs > 0);
 
@@ -121,7 +121,7 @@ pub fn unsubscribe(this: *SystemData, erd: Erd, sub: Subscription) void {
     const sub_offset = subscription_offsets[erd.system_data_idx];
 
     for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
-        if (_sub.*.callback == sub.callback) {
+        if (_sub.*.callback == fn_ptr) {
             _sub.*.callback = null;
             return;
         }

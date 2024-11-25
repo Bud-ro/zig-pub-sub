@@ -1,4 +1,4 @@
-# zig-pub-sub
+# zig-embedded-starter-kit
 A pub-sub Data Storage Abstraction Intended for Embedded Applications
 
 ## Design Goals
@@ -7,61 +7,40 @@ to aid in the creation of multi-storage medium systems, without compromising on 
 
 ## Features
 - Premier event based programming.
-- Almost everything happens at comptime, so in the best case lookups can be elided, and the worst case will be a read from the appropriate data component rather than requiring a search through all the data components. External reads will still require lookups however.
+- Lower memory usage compared to alternatives
+- Extensive use of `comptime` allows for lookups to be elided when possible, or in the worst case a direct function call to the correct data component as opposed to searching for which data component it belongs to. External reads will still require some form of lookup however.
 
 ## Interfaces
 
 ```zig
-/// System data is the intended endpoint for all general interactions
-/// It's basically the composite data component
+/// System data is the intended endpoint for all system level interactions
 SystemData
-  .init(ComponentEnumType: type, /* Probably more needed... */) -> !SystemData
-  // Creates a SystemData object. This object should be passed around the system and is the main way to enable cross-module communication.
-  // SystemData takes a user enum type and uses this to create a unique object
-  
-  .register_component(data_component: *DataComponent, data_component_id: ComponentEnumType) -> !void
-  // Tells SystemData about a component
-  // TODO: Do we need this? Or can system_data.zig be expected to just init everything it needs? 
-
-  .fetch_component(data_component_id: ComponentEnumType) -> !*DataComponent
-  // Similar to reads from RAM, this can be optimized to a single variable read.
-  // TODO: Do we need this? comptime should be able to introduce any needed optimizations where we would want to interact with the ram data component directly
-  // TODO: Is it possible to make this a comptime error?
-
-/// I_DataSource_t equivalent
-DataComponent
-  .init(.{ /* Implementation specific arguments */}) -> !*DataComponent
-  // TODO: Should this error? I assume not, comptime can probably catch any issues
+  /// Creates a SystemData object. This object should be passed around the system and is the main way to enable cross-module communication.
+  /// It automatically handles initialization of the data components it owns. Users can minimally edit it to add new components
+  .init() -> SystemData
+  /// Returns a reference to SystemData's child Data .
+  /// Note that there is no DataComponent interface, instead each data component uses duck typing
+  .fetch_component(erd_owner: ErdOwner) -> *OwningDataComponent(erd_owner)
+  /// SubscriptionOwner is the same type as whatever holds the sub.
+  // This can be SystemData, RamDataComponent, SimpleMovingAverage, etc. 
+  // At compile time the provided callback is checked to ensure it matches
+  const SubscriptionCallback = *const fn (*SubscriptionOwner) void;
+  /// subscribe can panic if the backing array is full
+  /// in -OReleaseSmall builds the subscription simply won't be put on the array
+  /// We assume that after app init all subscriptions will be full. Unsubs may happen, 
+  /// as well as re-subs but the arrays can never grow beyond their size at init
+  /// This may preclude certain stack-based defer subscription patterns.    
+  .subscribe(erd: Erd, context: ?*anyopaque, callback: SubscriptionCallback) -> void
+  /// Uses the callback to find and remove the subscription
+  .unsubscribe(erd: Erd, callback: SubscriptionCallback) -> void
+  /// Walks the ERD's subscription array and 
+  .publish(erd: Erd) -> void
 
 /// Methods that are common to the two types
-  .read(erd: Erd) -> !(comptime erd_type(erd)) 
-  .write(erd: Erd, data: (comptime erd_type(erd))) -> !void
-  // Notice how under this scheme, a seperate function for read/write pointer is not necessary.
-  // erd_type would successfully provide the type as a nullable pointer: !?*ptr_type
-  // TODO: Investigate whether reads/writes can error or if they can be comptime errors.
-  .publish(erd: Erd) -> !void
-  // Publishes to the on-change event for that specific erd and SystemData
-  // What this means is to walk an array of callbacks ( SubscriptionCallback = fn(?*anyopaque, *SystemData) void ) and pass in the context (?*anyopaque)
-  // TODO: Consider if this should even be exposed or not. Maybe it's just an internal construct. 
-  // TODO: Should SubscriptionCallback also call the function with the changed value? If so, how? *anyopaque would work but ehhhhh
-  .subscribe(erd: Erd, context: ?*anyopaque, callback: SubscriptionCallback) -> !void
-  // Notice how subscribe does not take an *Event. This type doesn't even exist because we don't need linked lists to implement this.
-  // Each subscription will have its own array of {context, callback} tuples. These are stored locally in the data component. 
-  // Ideally the length of this array will be determined at comptime, based on how many times subscribe is called.
+  .read(erd: Erd) -> erd.T
+  .write(erd: Erd, data: erd.T) -> bool // May be stubbed out into a compile error for some data components
+  /// Each piece holds a special array of callbacks that is called upon data component/dependent data component change.
   .subscribeAll(context: ?*anyopaque, callback: SubscriptionCallback) -> void
-  // Each data component (and system data itself) holds a special array of callbacks that is called upon data component/dependent data component change.
-```
-
-## Typedefs
-```
-ComponentId = enum {
-  // My app's data components
-  // The ones listed at the top will be the first to be searched
-  // for ERDs. The search should be able to be performed at comptime for the ones at the top.
-  // Runtime searches might be necessary for things like off-board reads/writes. 
-  ram,
-  flash,
-  eeprom,
-  appliance_api,
-}
+  /// Walks the subscribe all array and performs the callbacks with context and a self reference
+  .publishAll() -> void
 ```

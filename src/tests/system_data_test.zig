@@ -69,16 +69,18 @@ fn turn_off_some_bool_and_increment_application_version(system_data: *SystemData
 
 test "subscription_test" {
     var system_data = SystemData.init();
-    system_data.subscribe(SystemErds.erd.some_bool, Subscription{ .callback = turn_off_some_bool_and_increment_application_version });
+    // system_data.subscribe(SystemErds.erd.some_bool, null); // This is a compile error!
+
+    system_data.subscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
     // Subscriptions can be stored on the stack if it lives through all of its callbacks.
     // defer pattern only makes sense if you stack initialize this. Here it's to show that it's safe to call unsub multiple times
-    defer system_data.unsubscribe(SystemErds.erd.some_bool, Subscription{ .callback = turn_off_some_bool_and_increment_application_version });
+    defer system_data.unsubscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
 
     system_data.write(SystemErds.erd.some_bool, true);
     try std.testing.expectEqual(false, system_data.read(SystemErds.erd.some_bool));
     try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
 
-    system_data.unsubscribe(SystemErds.erd.some_bool, Subscription{ .callback = turn_off_some_bool_and_increment_application_version });
+    system_data.unsubscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
     system_data.write(SystemErds.erd.some_bool, true);
     try std.testing.expectEqual(true, system_data.read(SystemErds.erd.some_bool));
     try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
@@ -90,15 +92,15 @@ fn bump_some_u16(system_data: *SystemData) void {
 
 test "double sub test" {
     var system_data = SystemData.init();
-    system_data.subscribe(SystemErds.erd.some_bool, Subscription{ .callback = turn_off_some_bool_and_increment_application_version });
-    system_data.subscribe(SystemErds.erd.some_bool, Subscription{ .callback = bump_some_u16 });
+    system_data.subscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
+    system_data.subscribe(SystemErds.erd.some_bool, bump_some_u16);
 
     system_data.write(SystemErds.erd.some_bool, true);
     try std.testing.expectEqual(false, system_data.read(SystemErds.erd.some_bool));
     try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
     try std.testing.expectEqual(2, system_data.read(SystemErds.erd.unaligned_u16));
 
-    system_data.unsubscribe(SystemErds.erd.some_bool, Subscription{ .callback = turn_off_some_bool_and_increment_application_version });
+    system_data.unsubscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
     system_data.write(SystemErds.erd.some_bool, true);
     try std.testing.expectEqual(true, system_data.read(SystemErds.erd.some_bool));
     try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
@@ -110,14 +112,11 @@ fn whatever(system_data: *SystemData) void {
 }
 
 test "exact subscription enforcement" {
-    const dummy_sub_0 = Subscription{ .callback = whatever };
-    const dummy_sub_1 = Subscription{ .callback = bump_some_u16 };
-    const dummy_sub_2 = Subscription{ .callback = turn_off_some_bool_and_increment_application_version };
     var system_data = SystemData.init();
 
-    system_data.subscribe(SystemErds.erd.some_bool, dummy_sub_0);
-    system_data.subscribe(SystemErds.erd.some_bool, dummy_sub_1);
-    system_data.subscribe(SystemErds.erd.some_bool, dummy_sub_2);
+    system_data.subscribe(SystemErds.erd.some_bool, whatever);
+    system_data.subscribe(SystemErds.erd.some_bool, bump_some_u16);
+    system_data.subscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
 
     // TODO: Replace all of the above with application.init() once that is implemented.
     try system_data.verify_all_subs_are_saturated();
