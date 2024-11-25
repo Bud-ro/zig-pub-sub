@@ -45,8 +45,8 @@ const Pl011_UART = packed struct {
         }, // overrun error
         unused: u4,
     },
-    reserved_0: [12]u8,
-    unused_1: [4]u8,
+    reserved_0: u96,
+    unused_1: u32,
     fr: packed struct(u16) {
         cts: enum(u1) {
             clear_to_send = 0,
@@ -87,21 +87,21 @@ const Pl011_UART = packed struct {
             ring_indicator_high = 0,
             ring_indicator_low = 1, // TODO: Idk  what this means
         },
-        unused: u8,
+        unused: u7,
     },
-    unused_2: [2]u8,
-    reserved_2: [4]u8,
+    unused_2: u16,
+    reserved_2: u32,
     ilpr: u8, // TODO: expand upon this
-    unused_3: [3]u8,
+    unused_3: u24,
     ibrd: packed struct(u16) { // integer baud rate register
         baud_divint: u16,
     },
-    unused_4: [2]u8,
+    unused_4: u16,
     fbrd: packed struct(u8) { // fractional baud rate register
         baud_divfrac: u5,
         unused: u3,
     },
-    unused_5: [3]u8,
+    unused_5: u24,
     lcr_h: packed struct(u16) { // line control register
         brk: enum(u1) {
             dont_send_break = 0,
@@ -135,7 +135,7 @@ const Pl011_UART = packed struct {
         },
         unused: u8,
     },
-    unused_6: [2]u8,
+    unused_6: u16,
     cr: packed struct(u16) { // control register
         uarten: enum(u1) {
             uart_disabled = 0,
@@ -178,10 +178,10 @@ const Pl011_UART = packed struct {
         },
         ctsen: enum(u1) {
             cts_hardware_flow_disabled = 0,
-            cts_hardware_flow_enabled = 0,
+            cts_hardware_flow_enabled = 1,
         },
     },
-    unused_7: [2]u8,
+    unused_7: u16,
     ifls: packed struct(u16) {
         // Read these as fractions. Aka fifo_1_8 means 1/8th full
         txiflsel: enum(u3) { // Transmit interrupt FIFO level select. Trigger at <=
@@ -202,7 +202,7 @@ const Pl011_UART = packed struct {
         },
         unused: u10,
     },
-    unused_8: [2]u8,
+    unused_8: u16,
     imsc: packed struct(u16) { // Interrupt Mask Set/Clear Register
         rimim: u1, // TODO: make enums for these
         ctsmim: u1,
@@ -217,7 +217,7 @@ const Pl011_UART = packed struct {
         oiem: u1,
         unused: u5,
     },
-    unused_9: [2]u8,
+    unused_9: u16,
     ris: packed struct(u16) { // Raw Interrupt Status Register
         // TODO: enum
         rirmis: u1,
@@ -233,7 +233,7 @@ const Pl011_UART = packed struct {
         oeris: u1,
         unused: u5,
     },
-    unused_10: [2]u8,
+    unused_10: u16,
     mis: packed struct(u16) { // Masked interrupt status register
         rimmis: u1,
         ctsmmis: u1,
@@ -248,7 +248,7 @@ const Pl011_UART = packed struct {
         oemis: u1,
         unused: u5,
     },
-    unused_11: [2]u8,
+    unused_11: u16,
     icr: packed struct(u16) { // Interrupt clear register
         // TODO: enum
         rimic: u1,
@@ -264,7 +264,7 @@ const Pl011_UART = packed struct {
         oeic: u1,
         unused: u5,
     },
-    unused_12: [2]u8,
+    unused_12: u16,
     dmacr: packed struct(u16) { // DMA Control Register
         rxdmae: enum(u1) {
             receive_dma_disable = 0,
@@ -280,14 +280,14 @@ const Pl011_UART = packed struct {
         },
         unused: u13,
     },
-    reserved_3: [48]u8, // I have no clue why there's just 48 bytes floating around out here but the data sheets says there are
-    unused_13: [4]u8,
-    reserved_4: [12]u8, // Reserved for test purposes
-    unused_14: [4]u8,
-    reserved_5: [0xFCC - 0x090]u8, // Reserved
-    unused_15: [4]u8,
-    reserved_6: [0xFDC - 0xFD0]u8, // Reserved for future ID expansion
-    unused_16: [4]u8,
+    reserved_3: u384, // I have no clue why there's just 48 bytes floating around out here but the data sheets says there are
+    unused_13: u32,
+    reserved_4: u96, // Reserved for test purposes
+    unused_14: u32,
+    reserved_5: u31200, // Reserved
+    unused_15: u32,
+    reserved_6: u96, // Reserved for future ID expansion
+    unused_16: u32,
     // TODO: I'm including the unused space here as well, gotta fix that later
     periph_id0: u32,
     periph_id1: u32,
@@ -300,19 +300,19 @@ const Pl011_UART = packed struct {
 };
 
 comptime {
-    std.debug.assert(@sizeOf(Pl011_UART) == 0xFFF);
+    std.debug.assert(@sizeOf(Pl011_UART) == 0x1000);
 }
 
 registers: *volatile Pl011_UART = undefined,
 base_clock: u64,
 baudrate: u32 = undefined,
 
-fn calculate_divisiors(this: *Pl011, integer: *u32, fractional: *u32) void {
+fn calculate_divisiors(this: *Pl011, integer: *u16, fractional: *u16) void {
     // 64 * F_UARTCLK / (16 * B) = 4 * F_UARTCLK / B
-    const div: u32 = 4 * @divTrunc(this.base_clock, this.baudrate); // TODO: divExact?
+    const div: u64 = 4 * @divTrunc(this.base_clock, this.baudrate); // TODO: divExact?
 
-    fractional.* = div & 0x3f;
-    integer.* = (div >> 6) & 0xffff;
+    fractional.* = @intCast(div & 0x3f);
+    integer.* = @intCast((div >> 6) & 0xffff);
 }
 
 fn wait_tx_complete(this: *Pl011) void {
@@ -320,17 +320,17 @@ fn wait_tx_complete(this: *Pl011) void {
 }
 
 pub fn init(base_address: usize, base_clock: u64) Pl011 {
-    var pl011: Pl011 = .{ .base_clock = base_clock, .registers = @ptrFromInt(base_address) };
-
-    pl011.baudrate = 115200;
-    // const data_bits = .eight_bits;
-    // const stop_bits = .dont_send_two_stop_bits;
+    var pl011: Pl011 = .{
+        .base_clock = base_clock,
+        .registers = @ptrFromInt(base_address),
+        .baudrate = 115200,
+    };
 
     pl011.reset();
     return pl011;
 }
 
-fn reset(this: Pl011) void {
+fn reset(this: *Pl011) void {
     // Disable UART before anything else
     this.registers.cr.uarten = .uart_disabled;
 
@@ -341,11 +341,11 @@ fn reset(this: Pl011) void {
     this.registers.lcr_h.fen = .disable_fifos;
 
     // Set frequency divisors (UARTIBRD and UARTFBRD) to configure the speed
-    var ibrd: u32 = undefined;
-    var fbrd: u32 = undefined;
+    var ibrd: u16 = undefined;
+    var fbrd: u16 = undefined;
     this.calculate_divisiors(&ibrd, &fbrd);
     this.registers.ibrd.baud_divint = ibrd;
-    this.registers.fbrd.baud_divfrac = fbrd;
+    this.registers.fbrd.baud_divfrac = @intCast(fbrd);
 
     // Configure data frame format according to the parameters (UARTLCR_H).
     // We don't actually use all the possibilities, so this part of the code
@@ -356,10 +356,23 @@ fn reset(this: Pl011) void {
 
     // Mask all interrupts by setting corresponding bits to 1
     // TODO: This is terrible
-    this.registers.imsc = .{ .beim = 1, .ctsmim = 1, .dcdmim = 1, .dsrmim = 1, .feim = 1, .oiem = 1, .peim = 1, .rimim = 1, .rtim = 1, .rxim = 1, .txim = 1, .unused = 0 };
+    this.registers.imsc = .{
+        .beim = 1,
+        .ctsmim = 1,
+        .dcdmim = 1,
+        .dsrmim = 1,
+        .feim = 1,
+        .oiem = 1,
+        .peim = 1,
+        .rimim = 1,
+        .rtim = 1,
+        .rxim = 1,
+        .txim = 1,
+        .unused = 0,
+    };
 
     // Disable DMA by setting all bits to 0
-    this.registers.dmacr = .{ .dmaonerr = 0, .rxdmae = 0, .txdmae = 0, .unused = 0 };
+    this.registers.dmacr = .{ .dmaonerr = .no_dma_on_error, .rxdmae = .receive_dma_disable, .txdmae = .transmit_dma_disable, .unused = 0 };
 
     // I only need transmission, so that's the only thing I enabled.
     this.registers.cr.txe = .transmit_enabled;
