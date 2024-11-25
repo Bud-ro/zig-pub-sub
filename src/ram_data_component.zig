@@ -20,6 +20,7 @@ pub fn init() RamDataComponent {
 
 const num_ram_erds = SystemErds.ram_definitions.len;
 const ram_offsets = blk: {
+    // TODO: Change this to Erd.ErdHandle
     var _ram_offsets: [num_ram_erds]usize = undefined;
     var cur_offset = 0;
     for (SystemErds.ram_definitions, 0..) |erd, i| {

@@ -11,6 +11,12 @@ erd_number: ?ErdHandle,
 T: type,
 /// Owning Data Component
 owner: ErdOwner,
+/// The number of subscriptions we have to deal with at MAX.
+/// Due to limitations with incremental-compliation, we cannot determine this at compile time,
+/// instead a runtime test will verify that this number is not over, and not under what it needs to be.
+/// This comes with the modest assumption that after initialization: ALL of your subscription arrays will be full,
+/// `unsubscribe`s can only happen after application init, and subscriptions can only be re-added after init.
+subs: comptime_int,
 /// The relative index of the ERD in its data component
 data_component_idx: comptime_int = undefined,
 /// The relative index of the ERD in the aggregate system data
