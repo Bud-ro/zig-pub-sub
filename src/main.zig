@@ -13,14 +13,14 @@ pub fn main() !void {
 
     try stdout.print("Data Model Read\n", .{});
     const applicationVersion = system_data.read(SystemErds.erd.application_version);
-    try stdout.print("Application Version: {x}\n", .{applicationVersion});
+    try stdout.print("Application Version: 0x{x:0>8}\n", .{applicationVersion});
 
     try stdout.print("\n", .{});
 
     try stdout.print("Data Model Write\n", .{});
     const newApplicationVersion = 0x12345678;
     system_data.write(SystemErds.erd.application_version, newApplicationVersion);
-    try stdout.print("New Application Version: 0x{x}\n", .{system_data.read(SystemErds.erd.application_version)});
+    try stdout.print("New Application Version: 0x{x:0>8}\n", .{system_data.read(SystemErds.erd.application_version)});
 
     try bw.flush(); // don't forget to flush!
 }

@@ -1,6 +1,5 @@
 const std = @import("std");
 const Erd = @import("erd.zig");
-const ErdOwner = Erd.ErdOwner;
 
 pub const ErdDefinitions = struct {
     // zig fmt: off
@@ -18,68 +17,61 @@ pub const ErdDefinitions = struct {
 
 /// Erd Definitions with autofilled indexes
 pub const erd = blk: {
-    var owning_counts = std.mem.zeroes([std.meta.fields(ErdOwner).len]u16);
     var _erds = ErdDefinitions{};
+
+    var owning_counts = std.mem.zeroes([std.meta.fields(Erd.ErdOwner).len]u16);
     for (std.meta.fieldNames(ErdDefinitions)) |erd_field_name| {
         const idx = @intFromEnum(@field(_erds, erd_field_name).owner);
         @field(_erds, erd_field_name).data_component_idx = owning_counts[idx];
         owning_counts[idx] += 1;
     }
 
+    // Assert because prints below assume this ERD size
+    std.debug.assert(0xffff == std.math.maxInt(Erd.ErdHandle));
+    var set = std.bit_set.ArrayBitSet(usize, std.math.maxInt(Erd.ErdHandle)).initEmpty();
+
     for (std.meta.fieldNames(ErdDefinitions), 0..) |erd_field_name, i| {
         @field(_erds, erd_field_name).system_data_idx = i;
+
+        if (@field(_erds, erd_field_name).erd_number) |num| {
+            if (set.isSet(num)) {
+                @compileError(std.fmt.comptimePrint("Multiple ERD definitions with number 0x{x:0>4}", .{num}));
+            } else {
+                set.set(num);
+            }
+        }
     }
 
     break :blk _erds;
 };
 
-fn num_ram_erds() comptime_int {
+fn num_erds(owner: Erd.ErdOwner) comptime_int {
     var i = 0;
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
-        if (@field(erd, erd_name).owner == .Ram) {
+        if (@field(erd, erd_name).owner == owner) {
             i += 1;
         }
     }
     return i;
 }
 
-pub const ram_definitions: [num_ram_erds()]Erd = blk: {
-    var _erds: [num_ram_erds()]Erd = undefined;
+fn component_definitions(comptime owner: Erd.ErdOwner) [num_erds(owner)]Erd {
+    var _erds: [num_erds(owner)]Erd = undefined;
     var i = 0;
 
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
-        if (@field(erd, erd_name).owner == .Ram) {
+        if (@field(erd, erd_name).owner == owner) {
             _erds[i] = @field(erd, erd_name);
             i += 1;
         }
     }
 
-    break :blk _erds;
-};
-
-fn num_indirect_erds() comptime_int {
-    var i = 0;
-    for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
-        if (@field(erd, erd_name).owner == .Indirect) {
-            i += 1;
-        }
-    }
-    return i;
+    return _erds;
 }
 
-pub const indirect_definitions: [num_indirect_erds()]Erd = blk: {
-    var _erds: [num_indirect_erds()]Erd = undefined;
-    var i = 0;
-
-    for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
-        if (@field(erd, erd_name).owner == .Indirect) {
-            _erds[i] = @field(erd, erd_name);
-            i += 1;
-        }
-    }
-
-    break :blk _erds;
-};
+// Array versions of ERDs. For easier iteration.
+pub const ram_definitions = component_definitions(.Ram);
+pub const indirect_definitions = component_definitions(.Indirect);
 
 const WellPackedStruct = struct {
     a: u8,
