@@ -5,7 +5,7 @@ pub const ErdDefinitions = struct {
     // zig fmt: off
     application_version:  Erd = .{ .erd_number = 0x0000, .T = u32,              .owner = .Ram,      .subs = 0 },
     some_bool:            Erd = .{ .erd_number = 0x0001, .T = bool,             .owner = .Ram,      .subs = 3 },
-    unaligned_u16:        Erd = .{ .erd_number = 0x0002, .T = u16,              .owner = .Ram,      .subs = 0 },
+    unaligned_u16:        Erd = .{ .erd_number = 0x0002, .T = u16,              .owner = .Ram,      .subs = 1 },
     well_packed:          Erd = .{ .erd_number = 0x0003, .T = WellPackedStruct, .owner = .Ram,      .subs = 0 },
     padded:               Erd = .{ .erd_number = 0x0004, .T = PaddedStruct,     .owner = .Ram,      .subs = 0 },
     actually_packed_fr:   Erd = .{ .erd_number = null,   .T = PackedFr,         .owner = .Ram,      .subs = 0 },

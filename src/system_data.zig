@@ -17,6 +17,9 @@ const SystemData = @This();
 ram: RamDataComponent = undefined,
 indirect: IndirectDataComponent = undefined,
 subscriptions: [subscription_count()]Subscription = undefined,
+/// This is a bump allocator meant to be reset at the end of a run to complete
+scratch: std.heap.FixedBufferAllocator = undefined,
+scratch_buf: [2048]u8 align(@alignOf(usize)) = undefined, // TODO: Does this actually need to be aligned?
 
 fn subscription_count() usize {
     comptime {
@@ -59,6 +62,7 @@ pub fn init() SystemData {
     var this = SystemData{};
     this.ram = RamDataComponent.init();
     this.indirect = IndirectDataComponent.init(indirectErdMapping);
+    this.scratch = std.heap.FixedBufferAllocator.init(&this.scratch_buf);
 
     @memset(&this.subscriptions, Subscription{ .callback = null });
     return this;
@@ -136,6 +140,26 @@ fn publish(this: *SystemData, erd: Erd) void {
             _callback(this);
         }
     }
+}
+
+/// Returns a slice allocated to the scratch buffer.
+/// You must not assume that the data you receive back is zero initialized.
+pub fn scratch_alloc(this: *SystemData, comptime T: type, n: usize) []T {
+    // Use threadSafeAllocator until it is known how this interacts with
+    // interrupts. In all likelyhood we will never want to free or resize anyways,
+    // so it's fine to use this.
+    //
+    // catch unreachable because we'll assume that a single RTC + interrupts can never overflow this
+    // TODO: Is there something better that can be done here?
+    // TODO: Consider if this can somehow be used for RX/TX buffers???
+    // Or do those need to last more than one RTC? If so, is there an alternate strategy that can be employed?
+    return this.scratch.threadSafeAllocator().alloc(T, n) catch unreachable;
+}
+
+/// Call this at the end of a run to complete in your main-loop
+pub fn scratch_reset(this: *SystemData) void {
+    // TODO: Should this also zero out the buffer just to prevent any misuse?
+    return this.scratch.reset();
 }
 
 /// A test only function used to verify that after initialization, all of your subscriptions arrays are fully saturated

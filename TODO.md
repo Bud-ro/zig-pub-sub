@@ -2,14 +2,17 @@
   - [x] Implement and design a virtual data component
     - [x] ~~Think of a way to programmatically extend an existing virtual data component or its configuration so that just one can be used. Appliance API is essentially just a special virtual data component.~~ Not going to do this.
     - [x] Implement as function calls, while still retaining type safety.
-  - [ ] Create a novel bump allocator data component? Not even sure how this one would work
+  - [x] System Data bump allocator ~~data component~~ top level variable. 
+    - Designed to last for a single run-to-completion (RTC). 
+    - Can be used instead of stack allocator, which is only capable of a fixed number of allocation sizes
+    - Improves memory report since it removes implicit assumption that we have enough stack space to support them
+      - It does assume that we don't exceed 2 kiB (or however much configured) of scratch space used per RTC
   - [ ] External data component
     - [ ] Swapping
     - [ ] Reads/writes are done using public ERD handles, so you don't really get any type safety (TODO: is this true?)
   - [ ] Converted data component once subscriptions are in implemented
     - [ ] Subscribe to ERDs in it
     - [ ] Denote *multiple* ERDs as a dependency
-      - This depends on array based subscriptions, or a guarantee that it's the last subscription
 - [x] Implement System Data
   - [ ] Define ERDs top down (pass down from system data into other components)
     - This buys:

@@ -117,7 +117,38 @@ test "exact subscription enforcement" {
     system_data.subscribe(SystemErds.erd.some_bool, whatever);
     system_data.subscribe(SystemErds.erd.some_bool, bump_some_u16);
     system_data.subscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
+    system_data.subscribe(SystemErds.erd.unaligned_u16, whatever);
 
     // TODO: Replace all of the above with application.init() once that is implemented.
     try system_data.verify_all_subs_are_saturated();
+}
+
+fn scratch_allocating(system_data: *SystemData) void {
+    const allocated = system_data.scratch_alloc(u32, system_data.read(SystemErds.erd.unaligned_u16));
+    for (allocated, 1..) |*item, i| {
+        item.* = @intCast(i);
+    }
+
+    system_data.write(SystemErds.erd.application_version, allocated[allocated.len - 1]);
+}
+
+test "scratch allocations" {
+    var system_data = SystemData.init();
+
+    system_data.subscribe(SystemErds.erd.unaligned_u16, scratch_allocating);
+    system_data.write(SystemErds.erd.unaligned_u16, 7);
+    try std.testing.expectEqual(7, system_data.read(SystemErds.erd.application_version));
+
+    system_data.scratch_reset();
+
+    system_data.write(SystemErds.erd.unaligned_u16, 5);
+    try std.testing.expectEqual(5, system_data.read(SystemErds.erd.application_version));
+
+    const more_allocation = system_data.scratch_alloc(u8, system_data.read(SystemErds.erd.application_version));
+    @memset(more_allocation, 0); // Can't assume the data is zeroed at all, even if never used
+    system_data.scratch_reset();
+    // NOTE: Notice how this does not fail!
+    // One must be very careful since this data is now considered freed, but there's no runtime check on it.
+    system_data.write(SystemErds.erd.application_version, more_allocation[0]);
+    try std.testing.expectEqual(0, system_data.read(SystemErds.erd.application_version));
 }
