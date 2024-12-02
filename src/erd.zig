@@ -2,6 +2,7 @@
 //! when making calls to SystemData or any general data component
 //! This is a generated type, the top level initialization should be done from within system_data.zig
 
+const std = @import("std");
 const Erd = @This();
 
 /// This is an optional public handle for an ERD.
@@ -30,3 +31,31 @@ pub const ErdOwner = enum {
     Ram,
     Indirect,
 };
+
+/// Allows ERDs to be printed
+pub fn format(self: *const Erd, comptime fmt: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+    if (fmt.len != 0) {
+        std.fmt.invalidFmtError(fmt, self);
+    }
+
+    if (self.erd_number) |number| {
+        return writer.print("0x{x:0>4}", .{number});
+    } else {
+        std.fmt.invalidFmtError(fmt, self);
+    }
+}
+
+/// Allows ERDs to be directly transformed into JSON
+pub fn jsonStringify(comptime self: Erd, jws: anytype) !void {
+    if (self.erd_number) |number| {
+        _ = number;
+        try jws.beginObject();
+        try jws.objectField("erd");
+        try jws.print("\"{}\"", .{self});
+        try jws.objectField("typeinfo");
+        try jws.write(@typeInfo(self.T));
+        try jws.endObject();
+    } else {
+        @panic("Programmer error, ERDs with null erd_number should not be serialized!!!");
+    }
+}
