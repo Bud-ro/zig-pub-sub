@@ -6,24 +6,29 @@ pub const ErdDefinitions = struct {
     application_version:  Erd = .{ .erd_number = 0x0000, .T = u32,              .owner = .Ram,      .subs = 0 },
     some_bool:            Erd = .{ .erd_number = 0x0001, .T = bool,             .owner = .Ram,      .subs = 3 },
     unaligned_u16:        Erd = .{ .erd_number = 0x0002, .T = u16,              .owner = .Ram,      .subs = 1 },
-    // well_packed:          Erd = .{ .erd_number = 0x0003, .T = WellPackedStruct, .owner = .Ram,      .subs = 0 },
-    // padded:               Erd = .{ .erd_number = 0x0004, .T = PaddedStruct,     .owner = .Ram,      .subs = 0 },
-    // actually_packed_fr:   Erd = .{ .erd_number = null,   .T = PackedFr,         .owner = .Ram,      .subs = 0 },
-    // always_42:            Erd = .{ .erd_number = 0x0006, .T = u16,              .owner = .Indirect, .subs = 0 },
-    // pointer_to_something: Erd = .{ .erd_number = 0x0007, .T = ?*u16,            .owner = .Ram,      .subs = 0 },
+    well_packed:          Erd = .{ .erd_number = null,   .T = WellPackedStruct, .owner = .Ram,      .subs = 0 },
+    padded:               Erd = .{ .erd_number = null,   .T = PaddedStruct,     .owner = .Ram,      .subs = 0 },
+    actually_packed_fr:   Erd = .{ .erd_number = null,   .T = PackedFr,         .owner = .Ram,      .subs = 0 },
+    always_42:            Erd = .{ .erd_number = 0x0006, .T = u16,              .owner = .Indirect, .subs = 0 },
+    pointer_to_something: Erd = .{ .erd_number = null,   .T = ?*u16,            .owner = .Ram,      .subs = 0 },
     another_erd_plus_one: Erd = .{ .erd_number = 0x0008, .T = u16,              .owner = .Indirect, .subs = 0 },
     // zig fmt: on
 
     pub fn jsonStringify(self: ErdDefinitions, jws: anytype) !void {
         const erd_names = comptime std.meta.fieldNames(ErdDefinitions);
         try jws.beginObject();
+        try jws.objectField("erd-json-version");
+        try jws.write("0.1.0");
+        try jws.objectField("namespace");
+        try jws.write("zig-embedded-starter-kit");
+        try jws.objectField("erds");
+        try jws.beginArray();
         inline for (erd_names) |erd_name| {
-            if (@field(self, erd_name).erd_number) |erd_number| {
-                _ = erd_number;
-                try jws.objectField(erd_name);
+            if (@field(self, erd_name).erd_number != null) {
                 try jws.write(@field(self, erd_name));
             }
         }
+        try jws.endArray();
         try jws.endObject();
     }
 };

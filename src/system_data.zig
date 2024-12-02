@@ -107,11 +107,9 @@ pub fn subscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.SubscriptionC
     }
 
     // In tests this verifies we aren't subscribing beyond our array length
-    if (erd.erd_number) |num| {
-        std.debug.panic("ERD 0x{x:0>4} oversubscribed!", .{num});
-    } else {
-        std.debug.panic("ERD with system data index {d} oversubscribed!", .{erd.system_data_idx});
-    }
+    // These names should be stripped out of the binary
+    const erd_names = comptime std.meta.fieldNames(SystemErds.ErdDefinitions);
+    std.debug.panic("ERD {s} oversubscribed!", .{erd_names[erd.system_data_idx]});
 }
 
 pub fn unsubscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.SubscriptionCallback) void {

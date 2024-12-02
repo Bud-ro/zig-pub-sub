@@ -4,6 +4,7 @@
 
 const std = @import("std");
 const Erd = @This();
+const ErdDefinitions = @import("system_erds.zig").ErdDefinitions;
 
 /// This is an optional public handle for an ERD.
 /// Without this, the ERD will not appear in the generated ERD JSON.
@@ -32,7 +33,7 @@ pub const ErdOwner = enum {
     Indirect,
 };
 
-/// Allows ERDs to be printed
+/// Allows ERDs to be printed as `0xXXXX`
 pub fn format(self: *const Erd, comptime fmt: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
     if (fmt.len != 0) {
         std.fmt.invalidFmtError(fmt, self);
@@ -47,15 +48,67 @@ pub fn format(self: *const Erd, comptime fmt: []const u8, _: std.fmt.FormatOptio
 
 /// Allows ERDs to be directly transformed into JSON
 pub fn jsonStringify(comptime self: Erd, jws: anytype) !void {
-    if (self.erd_number) |number| {
-        _ = number;
+    if (self.erd_number != null) {
+        const erd_names = comptime std.meta.fieldNames(ErdDefinitions);
+
         try jws.beginObject();
-        try jws.objectField("erd");
+        try jws.objectField("name");
+        try jws.write(erd_names[self.system_data_idx]);
+        try jws.objectField("id");
         try jws.print("\"{}\"", .{self});
-        try jws.objectField("typeinfo");
-        try jws.write(@typeInfo(self.T));
+        try jws.objectField("type");
+        // TODO: Convert the type into type info consumable by external tools, rather than just a type name,
+        // Consider: https://jsontypedef.com/ ?
+        //
+        // try serialize_type(self.T, jws);
+        try jws.print("\"{}\"", .{self.T});
         try jws.endObject();
     } else {
         @panic("Programmer error, ERDs with null erd_number should not be serialized!!!");
+    }
+}
+
+/// TODO: Serializes a type into information that can be used by external tools
+/// to interpret bytes as the type. Thus the scheme must precisely denote layout,
+/// names of values for enums, packed enums, extern and packed structs, union(enum) (https://github.com/ziglang/zig/issues/1922),
+/// arrays, vectors, and primitives (bool, int types including arbitrary int sizes, floats)
+///
+/// There will be no plans to serialize: bare structs, pointers, optionals, errors, or void
+fn serialize_type(T: type, jws: anytype) error{OutOfMemory}!void {
+    const type_info: std.builtin.Type = @typeInfo(T);
+    switch (type_info) {
+        // .Type => {},
+        // .Void => {},
+        // .NoReturn => {},
+        .Bool, .Int, .Float => {
+            try jws.write(type_info);
+        },
+        // .Pointer => {},
+        // .Array => {},
+        // .Struct => |container_type_info| {
+        //     try jws.beginObject();
+        //     const container_type_info_fields = comptime std.meta.fieldNames(@TypeOf(container_type_info));
+        //     inline for (container_type_info_fields) |field_name| {
+        //         try jws.objectField(field_name);
+        //         try serialize_type(@typeInfo(@TypeOf(@field(container_type_info, field_name))), jws);
+        //     }
+        //     try jws.endObject();
+        // },
+        // .ComptimeFloat => {},
+        // .ComptimeInt => {},
+        // .Undefined => {},
+        // .Null => {},
+        // .Optional => {},
+        // .ErrorUnion => {},
+        // .ErrorSet => {},
+        // .Enum => {},
+        // .Union => {},
+        // .Fn => {},
+        // .Opaque => {},
+        // .Frame => {},
+        // .AnyFrame => {},
+        // .Vector => {},
+        // .EnumLiteral => {},
+        inline else => @compileError("A type was not serializable!"),
     }
 }
