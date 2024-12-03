@@ -1,9 +1,9 @@
 //! Timer Module and associated typedefs
 //! A Timer Module supports:
 //! - Starting/Stopping
-//! - Pausing/Resuming
 //! - Periodic Execution
 //! - One-shot Execution
+//! NOTE: Pausing/Resuming must be implemented by the caller
 
 const std = @import("std");
 
@@ -17,14 +17,16 @@ pub const Timer = struct {
     expiration: Ticks = undefined,
     /// 0 means one-shot
     period: Ticks = undefined,
-    ctx: *anyopaque,
-    callback: *const fn (ctx: *anyopaque) void,
+    ctx: ?*anyopaque,
+    callback: TimerCallback,
     next_timer: ?*Timer = null,
 
-    pub fn init(context: *anyopaque, callback: *const fn (ctx: *anyopaque) void) Timer {
+    pub fn init(context: ?*anyopaque, callback: TimerCallback) Timer {
         const this = Timer{ .ctx = context, .callback = callback };
         return this;
     }
+
+    const TimerCallback = *const fn (ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void;
 };
 
 pub const TimerModule = struct {
@@ -49,7 +51,8 @@ pub const TimerModule = struct {
             //
             // TODO: Try an `@atomicLoad`?
             if (timer.expiration <= self.current_time) {
-                timer.callback(timer.ctx);
+                const was_periodic = (timer.period != 0);
+                timer.callback(timer.ctx, self, timer);
                 if (timer.period != 0) {
                     const new_time = self.current_time; // TODO: Do we need volatile or something like that here?
                     timer.expiration = new_time + timer.period; // Start the new timer
@@ -57,7 +60,11 @@ pub const TimerModule = struct {
                     self.remove_timer(timer);
                     self.insert_timer(timer);
                 } else {
-                    self.remove_timer(timer);
+                    const was_stopped = was_periodic;
+                    if (!was_stopped) {
+                        // Removes one-shots, but not stopped periodic timers
+                        self.remove_timer(timer);
+                    }
                 }
                 return true; // Only perform one timer callback per RTC
             }
@@ -66,6 +73,7 @@ pub const TimerModule = struct {
         return false;
     }
 
+    /// Starts a timer that is removed after it expires
     pub fn start_one_shot(self: *TimerModule, timer: *Timer, duration: Ticks) void {
         timer.*.expiration = self.current_time + duration;
         timer.*.period = 0;
@@ -73,11 +81,29 @@ pub const TimerModule = struct {
         self.insert_timer(timer);
     }
 
+    /// Starts a periodic timer, with first expiration set to current time + period
     pub fn start_periodic(self: *TimerModule, timer: *Timer, period: Ticks) void {
-        timer.*.expiration = self.current_time + period;
+        @call(.always_inline, start_periodic_delayed, .{ self, timer, period, period });
+    }
+
+    /// Starts a periodic timer with a custom delay for the first expiration
+    pub fn start_periodic_delayed(self: *TimerModule, timer: *Timer, period: Ticks, initial_delay: Ticks) void {
+        // TODO: 99.99% of the time `period` should be `comptime` known. Can this be a `comptime` check?
+        // Can there instead be a `start_periodic_runtime_known_period`?
+        std.debug.assert(period != 0);
+        timer.*.expiration = self.current_time + initial_delay;
         timer.*.period = period;
 
         self.insert_timer(timer);
+    }
+
+    /// Stops a timer and returns the remaining time on it
+    /// Stopping a timer that is not running is a logic bug and will cause a panic
+    pub fn stop(self: *TimerModule, timer: *Timer) Ticks {
+        std.debug.assert(timer.expiration >= self.current_time);
+        timer.period = 0; // Needed for removal of periodic timers during a timer_module callback
+        self.remove_timer(timer);
+        return timer.expiration - self.current_time;
     }
 
     fn insert_timer(self: *TimerModule, timer: *Timer) void {
