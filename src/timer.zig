@@ -122,7 +122,6 @@ pub const TimerModule = struct {
         } else {
             // Empty list.
             self.timers = timer;
-            timer.next_timer = null; // TODO: Remove this
         }
     }
 
