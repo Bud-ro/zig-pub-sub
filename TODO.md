@@ -34,15 +34,12 @@
 - [ ] JSON Serializer for SystemErds
 - [ ] Zig alternative to Lua for generating parametric data
 - [ ] Rename this project to embedded starter kit
-- [ ] Timer Module
-  - [ ] `comptime` known upper bound of timers so an array can be used for storing `Timer`s
-  - [ ] Using it as an array lowers memory footprint, allows for super quick determinations of time of next expire, likely better usage of cache lines, etc.
-    - [ ] Memory discontinuity will have to be tolerated when timers are removed. Timers cannot be rearranged due to the returning of handles, unless we use extra storage to store a handle to index lookup. 
-      - [ ] Fewer modules will be concerned about changing timer periods or stopping them, so maybe the storage overhead is small. An extra parameter can be passed to determine whether to return a handle or return void. 
-  - [ ] Psuedo-linked list? Store the function pointer and the index of the next timer to expire
-    - [ ] `Timer` looks like `struct{next_idx: ?usize, fn const *callback, options: packed struct TimerOptions }`
-    - [ ] Consider struct of arrays approach in this case
-    - [ ] Can return handle (just the index) for fast modifications to timer (pause, remove, change period)
+- [x] Timer Module with linked lists
+- [ ] Timer Module using struct of arrays, and psuedo-linked list
+  - [ ] `comptime` configured upper bound of timers 
+    - [ ] Application test will tell you when to increase this number (`application.init(); assert(timer_module.active_timers >= 0.90*max_timers)`)
+  - [ ] Use handles with generation for modifications to a timer
+    - [ ] Callbacks will return the timer handle
 - [ ] Build ELF for Cortex-M
   - [ ] Linker script
   - [ ] Flash just the application

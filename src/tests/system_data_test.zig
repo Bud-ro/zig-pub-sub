@@ -119,7 +119,8 @@ test "exact subscription enforcement" {
     system_data.subscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
     system_data.subscribe(SystemErds.erd.unaligned_u16, whatever);
 
-    // TODO: Replace all of the above with application.init() once that is implemented.
+    // TODO: Move this test into the Application test file
+    // and replace all of the above with `application.init`
     try system_data.verify_all_subs_are_saturated();
 }
 
