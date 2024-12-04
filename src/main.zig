@@ -4,6 +4,8 @@ const SystemErds = @import("system_erds.zig");
 const TimerModule = @import("timer.zig").TimerModule;
 const Application = @import("application/application.zig");
 const Hardware = @import("hardware/hardware.zig");
+const uart = @import("hardware/uart.zig");
+const peripherals = @import("hardware/atmega2560.zig").peripherals;
 
 export fn main() void {
     var system_data = SystemData.init();
@@ -17,10 +19,29 @@ export fn main() void {
     var application: Application = undefined;
     application.init(&system_data);
 
+    // TODO: Figure out why my config is borked and UART prints wrong characters
+    uart.init(115200);
+    uart.write("All your codebase are belong to us!\r\n\r\n");
+
     while (true) {
-        if (!timer_module.run()) {
-            // Sleep
-            std.atomic.spinLoopHint();
-        }
+        var data = peripherals.PORTB.*.PORTB;
+        data ^= 1 << 7;
+        peripherals.PORTB.*.PORTB = data;
+
+        delay_cycles(50000);
+    }
+
+    // while (true) {
+    //     if (!timer_module.run()) {
+    //         // Sleep
+    //         std.atomic.spinLoopHint();
+    //     }
+    // }
+}
+
+fn delay_cycles(cycles: u32) void {
+    var count: u32 = 0;
+    while (count < cycles) : (count += 1) {
+        asm volatile ("nop");
     }
 }

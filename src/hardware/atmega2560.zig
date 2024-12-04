@@ -4,6 +4,8 @@
 // Definitions for the Arduino Mega 2560 Rev3
 // https://store.arduino.cc/products/arduino-mega-2560-rev3
 
+pub const CPU_FREQ = 16_000_000;
+
 pub const VectorTable = extern struct {
     RESET: InterruptVector,
     ///  External Interrupt Request 0
@@ -1991,7 +1993,7 @@ pub const types = struct {
 const std = @import("std");
 
 pub fn Mmio(comptime PackedT: type) type {
-    const size = @sizeOf(PackedT);
+    const size = @bitSizeOf(PackedT);
     if ((size % 8) != 0)
         @compileError("size must be divisible by 8!");
 
