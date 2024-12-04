@@ -1,6 +1,8 @@
 const std = @import("std");
 const Erd = @import("erd.zig");
 
+const TimerModule = @import("timer.zig").TimerModule;
+
 pub const ErdDefinitions = struct {
     // zig fmt: off
     application_version:  Erd = .{ .erd_number = 0x0000, .T = u32,              .owner = .Ram,      .subs = 0 },
@@ -12,6 +14,7 @@ pub const ErdDefinitions = struct {
     always_42:            Erd = .{ .erd_number = 0x0006, .T = u16,              .owner = .Indirect, .subs = 0 },
     pointer_to_something: Erd = .{ .erd_number = 0x0007, .T = ?*u16,            .owner = .Ram,      .subs = 0 },
     another_erd_plus_one: Erd = .{ .erd_number = 0x0008, .T = u16,              .owner = .Indirect, .subs = 0 },
+    timer_module:         Erd = .{ .erd_number = 0x0009, .T = ?*TimerModule,    .owner = .Ram,      .subs = 0 },
     // zig fmt: on
 };
 
@@ -28,7 +31,8 @@ pub const erd = blk: {
 
     // Assert because prints below assume this ERD size
     std.debug.assert(0xffff == std.math.maxInt(Erd.ErdHandle));
-    var set = std.bit_set.ArrayBitSet(usize, std.math.maxInt(Erd.ErdHandle)).initEmpty();
+    // TODO: Scrutinize this piece of code some more
+    var set = std.bit_set.ArrayBitSet(u8, std.math.maxInt(usize) - 8).initEmpty();
 
     for (std.meta.fieldNames(ErdDefinitions), 0..) |erd_field_name, i| {
         @field(_erds, erd_field_name).system_data_idx = i;

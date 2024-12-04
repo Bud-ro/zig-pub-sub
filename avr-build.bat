@@ -1,0 +1,1 @@
+zig build-obj -OReleaseSmall -target avr-freestanding-eabi .\src\main.zig -femit-bin=.\zig-out\bin\main.o

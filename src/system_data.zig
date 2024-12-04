@@ -61,7 +61,8 @@ const indirectErdMapping = [_]IndirectDataComponent.IndirectErdMapping{
 pub fn init() SystemData {
     var this = SystemData{};
     this.ram = RamDataComponent.init();
-    this.indirect = IndirectDataComponent.init(indirectErdMapping);
+    // TODO: Renable this once flash function pointers are figured out
+    // this.indirect = IndirectDataComponent.init(indirectErdMapping);
     this.scratch = std.heap.FixedBufferAllocator.init(&this.scratch_buf);
 
     @memset(&this.subscriptions, Subscription{ .callback = null });

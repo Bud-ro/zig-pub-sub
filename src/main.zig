@@ -1,26 +1,26 @@
 const std = @import("std");
 const SystemData = @import("system_data.zig");
 const SystemErds = @import("system_erds.zig");
+const TimerModule = @import("timer.zig").TimerModule;
+const Application = @import("application/application.zig");
+const Hardware = @import("hardware/hardware.zig");
 
-pub fn main() !void {
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    try stdout.print("Data Model Init\n", .{});
-    try bw.flush();
+export fn main() void {
     var system_data = SystemData.init();
+    var timer_module = TimerModule.init();
+    system_data.write(SystemErds.erd.timer_module, &timer_module);
 
-    try stdout.print("Data Model Read\n", .{});
-    const applicationVersion = system_data.read(SystemErds.erd.application_version);
-    try stdout.print("Application Version: 0x{x:0>8}\n", .{applicationVersion});
+    var hardware: Hardware = undefined;
+    hardware.init(&system_data);
 
-    try stdout.print("\n", .{});
+    // Should be initted after hardware
+    var application: Application = undefined;
+    application.init(&system_data);
 
-    try stdout.print("Data Model Write\n", .{});
-    const newApplicationVersion = 0x12345678;
-    system_data.write(SystemErds.erd.application_version, newApplicationVersion);
-    try stdout.print("New Application Version: 0x{x:0>8}\n", .{system_data.read(SystemErds.erd.application_version)});
-
-    try bw.flush(); // don't forget to flush!
+    while (true) {
+        if (!timer_module.run()) {
+            // Sleep
+            std.atomic.spinLoopHint();
+        }
+    }
 }

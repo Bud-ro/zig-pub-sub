@@ -40,6 +40,7 @@
     - [ ] Application test will tell you when to increase this number (`application.init(); assert(timer_module.active_timers >= 0.90*max_timers)`)
   - [ ] Use handles with generation for modifications to a timer
     - [ ] Callbacks will return the timer handle
+- [ ] Hardware Interfaces
 - [ ] Build ELF for Cortex-M
   - [ ] Linker script
   - [ ] Flash just the application
