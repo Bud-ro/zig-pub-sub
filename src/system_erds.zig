@@ -31,8 +31,7 @@ pub const erd = blk: {
 
     // Assert because prints below assume this ERD size
     std.debug.assert(0xffff == std.math.maxInt(Erd.ErdHandle));
-    // TODO: Scrutinize this piece of code some more
-    var set = std.bit_set.ArrayBitSet(u8, std.math.maxInt(usize) - 8).initEmpty();
+    var set = std.bit_set.ArrayBitSet(u8, 8192).initEmpty();
 
     for (std.meta.fieldNames(ErdDefinitions), 0..) |erd_field_name, i| {
         @field(_erds, erd_field_name).system_data_idx = i;

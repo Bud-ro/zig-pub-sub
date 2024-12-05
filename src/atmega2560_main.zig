@@ -20,23 +20,25 @@ pub fn main() void {
     application.init(&system_data);
 
     // TODO: Figure out why my config is borked and UART prints wrong characters
-    uart.init(115200);
-    uart.write("All your codebase are belong to us!\r\n\r\n");
+    // uart.init(115200);
+    // uart.write("All your codebase are belong to us!\r\n\r\n");
 
     while (true) {
-        var data = peripherals.PORTB.*.PORTB;
-        data ^= 1 << 7;
-        peripherals.PORTB.*.PORTB = data;
+        // delay_cycles(50000);
+        // var data = peripherals.PORTB.*.PORTB;
+        // data ^= 1 << 7;
+        // peripherals.PORTB.*.PORTB = data;
 
-        delay_cycles(50000);
+        // _ = timer_module.run();
+        asm volatile ("cli");
+        _ = timer_module.run();
+        asm volatile ("sei");
+        // if (!timer_module.run()) {
+        //     // Sleep
+        //     // std.atomic.spinLoopHint();
+        //     asm volatile ("sleep");
+        // }
     }
-
-    // while (true) {
-    //     if (!timer_module.run()) {
-    //         // Sleep
-    //         std.atomic.spinLoopHint();
-    //     }
-    // }
 }
 
 fn delay_cycles(cycles: u32) void {
