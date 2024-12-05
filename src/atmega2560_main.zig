@@ -7,7 +7,7 @@ const Hardware = @import("hardware/hardware.zig");
 const uart = @import("hardware/uart.zig");
 const peripherals = @import("hardware/atmega2560.zig").peripherals;
 
-export fn main() void {
+pub fn main() void {
     var system_data = SystemData.init();
     var timer_module = TimerModule.init();
     system_data.write(SystemErds.erd.timer_module, &timer_module);

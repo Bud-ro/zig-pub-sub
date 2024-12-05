@@ -1,4 +1,4 @@
-// Original File from: https://github.com/FireFox317/avr-arduino-zig/blob/master/src/uart.zig
+// A substantial portion of this came from: https://github.com/FireFox317/avr-arduino-zig/blob/master/src/uart.zig
 // Original License:
 //
 // MIT License
