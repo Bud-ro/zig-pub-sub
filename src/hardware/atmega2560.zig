@@ -2050,7 +2050,8 @@ const InterruptVector = extern union {
 const unhandled = InterruptVector{
     .C = &(struct {
         fn tmp() callconv(.C) noreturn {
-            @panic("unhandled interrupt");
+            while (true) {}
+            // @panic("unhandled interrupt");
         }
     }.tmp),
 };

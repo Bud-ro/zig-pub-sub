@@ -12,27 +12,28 @@ pub fn main() void {
     var timer_module = TimerModule.init();
     system_data.write(SystemErds.erd.timer_module, &timer_module);
 
+    asm volatile ("cli");
     var hardware: Hardware = undefined;
     hardware.init(&system_data);
 
     // Should be initted after hardware
     var application: Application = undefined;
     application.init(&system_data);
+    asm volatile ("sei");
 
     // TODO: Figure out why my config is borked and UART prints wrong characters
     // uart.init(115200);
     // uart.write("All your codebase are belong to us!\r\n\r\n");
 
     while (true) {
-        // delay_cycles(50000);
+        delay_cycles(50000);
+        uart.write("hello");
         // var data = peripherals.PORTB.*.PORTB;
         // data ^= 1 << 7;
         // peripherals.PORTB.*.PORTB = data;
 
-        // _ = timer_module.run();
-        asm volatile ("cli");
         _ = timer_module.run();
-        asm volatile ("sei");
+        // std.mem.doNotOptimizeAway(timer_module.run());
         // if (!timer_module.run()) {
         //     // Sleep
         //     // std.atomic.spinLoopHint();
