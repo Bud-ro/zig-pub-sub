@@ -15,11 +15,17 @@ fn stop_timer_callback(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *T
     _ = _timer_module.stop(_timer);
 }
 
+test "empty timer run does nothing" {
+    var timer_module = TimerModule.init();
+
+    try std.testing.expectEqual(false, timer_module.run());
+}
+
 test "timer periodic run" {
     var timer_module = TimerModule.init();
 
     var local_ctx: u32 = 0;
-    var timer1 = Timer.init(&local_ctx, timer_callback);
+    var timer1: Timer = .{ .ctx = &local_ctx, .callback = timer_callback };
 
     timer_module.start_periodic(&timer1, 50);
     try std.testing.expectEqual(false, timer_module.run());
@@ -35,7 +41,7 @@ test "timer periodic run" {
 test "stopping periodic timer during callback" {
     var timer_module = TimerModule.init();
 
-    var timer1 = Timer.init(null, stop_timer_callback);
+    var timer1: Timer = .{ .ctx = null, .callback = stop_timer_callback };
 
     timer_module.start_periodic(&timer1, 50);
 
@@ -51,8 +57,8 @@ test "multiple periodics" {
 
     var local_ctx1: u32 = 0;
     var local_ctx2: u32 = 0;
-    var timer1 = Timer.init(&local_ctx1, timer_callback);
-    var timer2 = Timer.init(&local_ctx2, timer_callback);
+    var timer1: Timer = .{ .ctx = &local_ctx1, .callback = timer_callback };
+    var timer2: Timer = .{ .ctx = &local_ctx2, .callback = timer_callback };
 
     timer_module.start_periodic(&timer1, 50);
     timer_module.start_periodic(&timer2, 50);
@@ -78,9 +84,9 @@ test "multiple repeated periodics" {
     var local_ctx1: u32 = 0;
     var local_ctx2: u32 = 0;
     var local_ctx3: u32 = 0;
-    var timer1 = Timer.init(&local_ctx1, timer_callback);
-    var timer2 = Timer.init(&local_ctx2, timer_callback);
-    var timer3 = Timer.init(&local_ctx3, timer_callback);
+    var timer1: Timer = .{ .ctx = &local_ctx1, .callback = timer_callback };
+    var timer2: Timer = .{ .ctx = &local_ctx2, .callback = timer_callback };
+    var timer3: Timer = .{ .ctx = &local_ctx3, .callback = timer_callback };
 
     timer_module.start_periodic(&timer1, 50);
     timer_module.start_periodic(&timer2, 50);
@@ -112,8 +118,8 @@ test "delayed periodic" {
 
     var local_ctx1: u32 = 0;
     var local_ctx2: u32 = 0;
-    var timer1 = Timer.init(&local_ctx1, timer_callback);
-    var timer2 = Timer.init(&local_ctx2, timer_callback);
+    var timer1: Timer = .{ .ctx = &local_ctx1, .callback = timer_callback };
+    var timer2: Timer = .{ .ctx = &local_ctx2, .callback = timer_callback };
 
     timer_module.start_periodic_delayed(&timer1, 50, 100);
     timer_module.start_periodic(&timer2, 50);
@@ -155,7 +161,7 @@ test "timer stopping and resuming" {
     var timer_module = TimerModule.init();
 
     var local_ctx1: u32 = 0;
-    var timer1 = Timer.init(&local_ctx1, timer_callback);
+    var timer1: Timer = .{ .ctx = &local_ctx1, .callback = timer_callback };
     timer_module.start_one_shot(&timer1, 50);
 
     timer_module.start_one_shot(&timer1, timer_module.stop(&timer1));
