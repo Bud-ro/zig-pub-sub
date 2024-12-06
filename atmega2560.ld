@@ -8,6 +8,8 @@ SECTIONS
 {
     .text :
     {
+        . = ALIGN(4);
+        __vectors = .;
         KEEP(*(.vectors))
 
         *(.text*)

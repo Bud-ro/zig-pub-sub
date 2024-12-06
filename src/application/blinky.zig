@@ -16,9 +16,7 @@ fn blink_period_expired(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *
     const self: *Blinky = @ptrCast(@alignCast(ctx.?));
     _ = self;
 
-    var data = peripherals.PORTB.*.PORTB;
-    data ^= 1 << 7;
-    peripherals.PORTB.*.PORTB = data;
+    peripherals.PORTB.*.PORTB ^= 1 << 7;
 }
 
 pub fn init(self: *Blinky, timer_module: *TimerModule, period: Ticks) void {

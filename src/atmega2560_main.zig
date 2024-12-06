@@ -5,7 +5,6 @@ const TimerModule = @import("timer.zig").TimerModule;
 const Application = @import("application/application.zig");
 const Hardware = @import("hardware/hardware.zig");
 const uart = @import("hardware/uart.zig");
-const peripherals = @import("hardware/atmega2560.zig").peripherals;
 
 pub fn main() void {
     var system_data = SystemData.init();
@@ -15,7 +14,6 @@ pub fn main() void {
     asm volatile ("cli");
     var hardware: Hardware = undefined;
     hardware.init(&system_data);
-
     // Should be initted after hardware
     var application: Application = undefined;
     application.init(&system_data);
@@ -26,14 +24,8 @@ pub fn main() void {
     // uart.write("All your codebase are belong to us!\r\n\r\n");
 
     while (true) {
-        delay_cycles(50000);
-        uart.write("hello");
-        // var data = peripherals.PORTB.*.PORTB;
-        // data ^= 1 << 7;
-        // peripherals.PORTB.*.PORTB = data;
+        asm volatile ("sleep");
 
-        _ = timer_module.run();
-        // std.mem.doNotOptimizeAway(timer_module.run());
         // if (!timer_module.run()) {
         //     // Sleep
         //     // std.atomic.spinLoopHint();

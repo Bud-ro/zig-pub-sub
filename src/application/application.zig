@@ -12,5 +12,5 @@ blinky: Blinky = undefined,
 pub fn init(self: *Application, system_data: *SystemData) void {
     const timer_module = system_data.read(SystemErds.erd.timer_module).?;
 
-    self.blinky.init(timer_module, 2000);
+    self.blinky.init(timer_module, 1000);
 }
