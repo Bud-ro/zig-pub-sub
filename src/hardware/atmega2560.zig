@@ -2055,3 +2055,11 @@ const unhandled = InterruptVector{
         }
     }.tmp),
 };
+
+pub fn cli() void {
+    asm volatile ("cli" ::: "memory");
+}
+
+pub fn sei() void {
+    asm volatile ("sei" ::: "memory");
+}

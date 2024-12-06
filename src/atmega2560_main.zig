@@ -5,19 +5,20 @@ const TimerModule = @import("timer.zig").TimerModule;
 const Application = @import("application/application.zig");
 const Hardware = @import("hardware/hardware.zig");
 const uart = @import("hardware/uart.zig");
+const atmega2560 = @import("hardware/atmega2560.zig");
 
 pub fn main() void {
     var system_data = SystemData.init();
     var timer_module = TimerModule.init();
     system_data.write(SystemErds.erd.timer_module, &timer_module);
 
-    asm volatile ("cli");
+    atmega2560.cli();
     var hardware: Hardware = undefined;
     hardware.init(&system_data);
     // Should be initted after hardware
     var application: Application = undefined;
     application.init(&system_data);
-    asm volatile ("sei");
+    atmega2560.sei();
 
     // TODO: Figure out why my config is borked and UART prints wrong characters
     // uart.init(115200);
