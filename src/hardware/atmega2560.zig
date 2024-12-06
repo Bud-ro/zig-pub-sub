@@ -2025,7 +2025,7 @@ pub fn Mmio(comptime PackedT: type) type {
 
         pub inline fn modify(addr: *volatile Self, fields: anytype) void {
             var val = read(addr);
-            inline for (@typeInfo(@TypeOf(fields)).Struct.fields) |field| {
+            inline for (@typeInfo(@TypeOf(fields)).@"struct".fields) |field| {
                 @field(val, field.name) = @field(fields, field.name);
             }
             write(addr, val);
@@ -2033,7 +2033,7 @@ pub fn Mmio(comptime PackedT: type) type {
 
         pub inline fn toggle(addr: *volatile Self, fields: anytype) void {
             var val = read(addr);
-            inline for (@typeInfo(@TypeOf(fields)).Struct.fields) |field| {
+            inline for (@typeInfo(@TypeOf(fields)).@"struct".fields) |field| {
                 @field(val, @tagName(field.default_value.?)) = !@field(val, @tagName(field.default_value.?));
             }
             write(addr, val);

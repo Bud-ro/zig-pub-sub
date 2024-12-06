@@ -21,8 +21,8 @@ pub fn main() void {
     atmega2560.sei();
 
     // TODO: Figure out why my config is borked and UART prints wrong characters
-    // uart.init(115200);
-    // uart.write("All your codebase are belong to us!\r\n\r\n");
+    uart.init(115200);
+    uart.write("All your codebase are belong to us!\r\n\r\n");
 
     while (true) {
         asm volatile ("sleep");

@@ -57,22 +57,21 @@ comptime {
             if (@hasDecl(hardware.interrupts, field.name)) {
                 const handler = @field(hardware.interrupts, field.name);
                 const calling_convention = switch (@typeInfo(@TypeOf(@field(hardware.interrupts, field.name)))) {
-                    .Fn => |info| info.calling_convention,
+                    .@"fn" => |info| info.calling_convention,
                     else => @compileError("Declarations in 'interrupts' namespace must all be functions. '" ++ field.name ++ "' is not a function"),
                 };
 
                 const exported_fn = switch (calling_convention) {
-                    .Unspecified => struct {
-                        fn wrapper() callconv(.C) void {
-                            //if (calling_convention == .Unspecified) // TODO: workaround for some weird stage1 bug
+                    .auto => struct {
+                        fn wrapper() callconv(.avr_interrupt) void {
                             @call(.always_inline, handler, .{});
                         }
                     }.wrapper,
                     else => @compileError("Just leave interrupt handlers with an unspecified calling convention"),
                 };
 
-                const options = .{ .name = field.name, .linkage = .strong };
-                @export(exported_fn, options);
+                const options: std.builtin.ExportOptions = .{ .name = field.name, .linkage = .strong };
+                @export(&exported_fn, options);
                 break :overload "jmp " ++ field.name;
             } else {
                 break :overload "jmp _unhandled_vector";

@@ -15,7 +15,8 @@ var t: u16 = 0;
 pub const interrupts = struct {
     // System Tick
     pub fn TIMER0_COMPA() void {
-        // timer_module.increment_current_time(1);
+        // timer_module.increment_current_time(1000);
+        // atmega2560.peripherals.PORTB.*.PORTB = 0;
         t += 1;
         if (t >= 1000) {
             atmega2560.peripherals.PORTB.*.PORTB ^= 1 << 7;
