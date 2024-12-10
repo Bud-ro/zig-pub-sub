@@ -2,6 +2,7 @@ const std = @import("std");
 const SystemData = @import("system_data.zig");
 const SystemErds = @import("system_erds.zig");
 const TimerModule = @import("timer.zig").TimerModule;
+const bcm2711 = @import("hardware/bcm2711_lpa.zig");
 
 pub export fn main() void {
     var system_data = SystemData.init();

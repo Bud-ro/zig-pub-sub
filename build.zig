@@ -10,7 +10,7 @@ pub fn build(b: *std.Build) void {
         .abi = .none,
     };
 
-    const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSmall });
+    const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
         .name = "zig-pub-sub-raspi4.elf",
