@@ -43,4 +43,16 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_lib_unit_tests.step);
+
+    // Executable that does not install itself, and hence avoids the LLVM step
+    const exe_check = b.addExecutable(.{
+        .name = "zig-pub-sub-raspi4.elf",
+        .root_source_file = b.path("src/raspi4_main.zig"),
+        .target = b.resolveTargetQuery(raspi4),
+        .optimize = optimize,
+    });
+
+    // The step "check" comes from the zls config `zls --show-config-path`
+    const check = b.step("check", "Check if foo compiles");
+    check.dependOn(&exe_check.step);
 }
