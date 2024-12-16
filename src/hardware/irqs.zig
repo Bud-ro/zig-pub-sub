@@ -1,0 +1,32 @@
+//! ARM Cortex-A72 Specific Interrupt Numbers
+
+pub const SGI0_IRQn: u10 = 0; // Software generated interrupt 0
+pub const SGI1_IRQn: u10 = 1; // Software generated interrupt 1
+pub const SGI2_IRQn: u10 = 2; // Software generated interrupt 2
+pub const SGI3_IRQn: u10 = 3; // Software generated interrupt 3
+pub const SGI4_IRQn: u10 = 4; // Software generated interrupt 4
+pub const SGI5_IRQn: u10 = 5; // Software generated interrupt 5
+pub const SGI6_IRQn: u10 = 6; // Software generated interrupt 6
+pub const SGI7_IRQn: u10 = 7; // Software generated interrupt 7
+pub const SGI8_IRQn: u10 = 8; // Software generated interrupt 8
+pub const SGI9_IRQn: u10 = 9; // Software generated interrupt 9
+pub const SGI10_IRQn: u10 = 10; // Software generated interrupt 10
+pub const SGI11_IRQn: u10 = 11; // Software generated interrupt 11
+pub const SGI12_IRQn: u10 = 12; // Software generated interrupt 12
+pub const SGI13_IRQn: u10 = 13; // Software generated interrupt 13
+pub const SGI14_IRQn: u10 = 14; // Software generated interrupt 14
+pub const SGI15_IRQn: u10 = 15; // Software generated interrupt 15
+pub const EMMC_IRQn: u10 = 62; // OR of EMMC and EMMC2
+pub const TIMER_0_IRQn: u10 = 96; // Timer 0 matched
+pub const TIMER_1_IRQn: u10 = 97; // Timer 1 matched
+pub const TIMER_2_IRQn: u10 = 98; // Timer 2 matched
+pub const TIMER_3_IRQn: u10 = 99; // Timer 3 matched
+pub const USB_IRQn: u10 = 105; // USB interrupt
+pub const AUX_IRQn: u10 = 125; // Interrupt from AUX
+pub const GPIO0_IRQn: u10 = 145; // Interrupt from bank 0
+pub const GPIO1_IRQn: u10 = 146; // Interrupt from bank 1
+pub const GPIO2_IRQn: u10 = 147; // Interrupt from bank 2
+pub const GPIO_IRQn: u10 = 148; // OR of all GPIO interrupts
+pub const I2C_IRQn: u10 = 149; // OR of all I2C interrupts
+pub const SPI_IRQn: u10 = 150; // OR of all SPI interrupts except 1 and 2
+pub const UART_IRQn: u10 = 153; // OR of all UART interrupts except 1
