@@ -46,15 +46,13 @@ pub const TimerModule = struct {
     pub fn run(self: *TimerModule) bool {
         var current_timer = self.timers;
         while (current_timer) |timer| {
-            // TODO: Will we ever have issues if an interrupt increments self.current_time
-            // but we're in the middle of reading it?
-            //
-            // TODO: Try an `@atomicLoad`?
-            if (timer.expiration <= self.current_time) {
+            const current_time = @atomicLoad(Ticks, &self.current_time, std.builtin.AtomicOrder.seq_cst);
+
+            if (timer.expiration <= current_time) {
                 const was_periodic = (timer.period != 0);
                 timer.callback(timer.ctx, self, timer);
                 if (timer.period != 0) {
-                    const new_time = self.current_time; // TODO: Do we need volatile or something like that here?
+                    const new_time = @atomicLoad(Ticks, &self.current_time, std.builtin.AtomicOrder.seq_cst);
                     timer.expiration = new_time + timer.period; // Start the new timer
                     // Shift the timer to where it will expire after everything
                     self.remove_timer(timer);
@@ -150,8 +148,7 @@ pub const TimerModule = struct {
 
     /// Called in the interrupt context, this can happen while a call to `run` is happening.
     pub fn increment_current_time(self: *TimerModule, ticks_to_increment_by: Ticks) void {
-        // TODO: See if this works. Or try @atomicStore
-        // @atomicRmw(Ticks, &self.current_time, .Add, ticks_to_increment_by, .monotonic);
-        self.current_time += ticks_to_increment_by;
+        // This can be weakened into an atomic load and atomic store.
+        _ = @atomicRmw(Ticks, &self.current_time, .Add, ticks_to_increment_by, std.builtin.AtomicOrder.monotonic);
     }
 };

@@ -12,20 +12,9 @@ pub export fn main() void {
     bcm2711.peripherals.GPIO.GPFSEL2 |= (0b001 << 21); // Set GPIO 27 as output
 
     while (true) {
-        // const no_timers_expired = !timer_module.run();
-        // if (no_timers_expired) {
-        //     asm volatile ("sleep");
-        // }
-        delay_cycles(5000000);
-        bcm2711.peripherals.GPIO.GPSET0 |= 1 << 27;
-        delay_cycles(5000000);
-        bcm2711.peripherals.GPIO.GPCLR0 |= 1 << 27;
-    }
-}
-
-fn delay_cycles(cycles: u32) void {
-    var count: u32 = 0;
-    while (count < cycles) : (count += 1) {
-        asm volatile ("nop");
+        const no_more_timers_to_expire_this_tick = !timer_module.run();
+        if (no_more_timers_to_expire_this_tick) {
+            std.atomic.spinLoopHint();
+        }
     }
 }
