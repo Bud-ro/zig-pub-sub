@@ -12,18 +12,18 @@ var timer_module: *TimerModule = undefined;
 var t: u16 = 0;
 
 // Put interrupt handlers here with same name from the vector table
-pub const interrupts = struct {
-    // System Tick
-    pub fn TIMER0_COMPA() void {
-        // timer_module.increment_current_time(1000);
-        // atmega2560.peripherals.PORTB.*.PORTB = 0;
-        t += 1;
-        if (t >= 1000) {
-            atmega2560.peripherals.PORTB.*.PORTB ^= 1 << 7;
-            t -= 1000;
-        }
-    }
-};
+// pub const interrupts = struct {
+//     // System Tick
+//     pub fn TIMER0_COMPA() void {
+//         // timer_module.increment_current_time(1000);
+//         // atmega2560.peripherals.PORTB.*.PORTB = 0;
+//         t += 1;
+//         if (t >= 1000) {
+//             atmega2560.peripherals.PORTB.*.PORTB ^= 1 << 7;
+//             t -= 1000;
+//         }
+//     }
+// };
 
 // f_OC = f_clk / (2 * N (1 + OCR1A))
 // => OCR1A = f_clk / (2*N*f_OC) - 1
