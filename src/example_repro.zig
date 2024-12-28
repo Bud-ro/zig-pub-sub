@@ -18,6 +18,6 @@ pub const ErdDefinitions = struct {
 
 const erds = ErdDefinitions{};
 
-pub fn main() void {
+pub export fn main() void {
     std.log.err("some_bool has {} subs", .{erds.some_bool.subs});
 }
