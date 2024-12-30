@@ -2,7 +2,9 @@
 //! when making calls to SystemData or any general data component
 //! This is a generated type, the top level initialization should be done from within system_data.zig
 
+const std = @import("std");
 const Erd = @This();
+const ErdDefinitions = @import("system_erds.zig").ErdDefinitions;
 
 /// This is an optional public handle for an ERD.
 /// Without this, the ERD will not appear in the generated ERD JSON.
@@ -30,3 +32,38 @@ pub const ErdOwner = enum {
     Ram,
     Indirect,
 };
+
+/// Allows ERDs to be printed as `0xXXXX`
+pub fn format(self: *const Erd, comptime fmt: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+    if (fmt.len != 0) {
+        std.fmt.invalidFmtError(fmt, self);
+    }
+
+    if (self.erd_number) |number| {
+        return writer.print("0x{x:0>4}", .{number});
+    } else {
+        std.fmt.invalidFmtError(fmt, self);
+    }
+}
+
+/// Allows ERDs to be directly transformed into JSON
+pub fn jsonStringify(comptime self: Erd, jws: anytype) !void {
+    if (self.erd_number != null) {
+        const erd_names = comptime std.meta.fieldNames(ErdDefinitions);
+
+        try jws.beginObject();
+        try jws.objectField("name");
+        try jws.write(erd_names[self.system_data_idx]);
+        try jws.objectField("id");
+        try jws.print("\"{}\"", .{self});
+        try jws.objectField("type");
+        // TODO: Convert the type into type info consumable by external tools, rather than just a type name,
+        // Consider: https://jsontypedef.com/ ?
+        //
+        // try serialize_type(self.T, jws);
+        try jws.print("\"{}\"", .{self.T});
+        try jws.endObject();
+    } else {
+        @panic("Programmer error, ERDs with null erd_number should not be serialized!!!");
+    }
+}

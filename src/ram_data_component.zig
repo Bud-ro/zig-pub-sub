@@ -25,7 +25,7 @@ const StoreStruct = blk: {
     }
 
     const ram_data_struct = @Type(.{
-        .Struct = .{
+        .@"struct" = .{
             .layout = .auto,
             .fields = fields[0..],
             .decls = &[_]std.builtin.Type.Declaration{},
