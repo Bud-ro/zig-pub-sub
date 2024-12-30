@@ -107,7 +107,8 @@ pub fn subscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.SubscriptionC
     }
 
     // In tests this verifies we aren't subscribing beyond our array length
-    // These names should be stripped out of the binary
+    // These names should be stripped out of the binary if a panic handler isn't set.
+    // TODO: Validate this assumption and switch to using something lighter if needed
     const erd_names = comptime std.meta.fieldNames(SystemErds.ErdDefinitions);
     std.debug.panic("ERD {s} oversubscribed!", .{erd_names[erd.system_data_idx]});
 }
