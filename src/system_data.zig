@@ -35,9 +35,7 @@ const subscription_offsets = blk: {
     var cur_offset = 0;
 
     for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_field_name, i| {
-        if (@field(SystemErds.erd, erd_field_name).subs == 0) {
-            _offsets[i] = 0xffff;
-        } else {
+        if (@field(SystemErds.erd, erd_field_name).subs != 0) {
             _offsets[i] = cur_offset;
         }
         cur_offset += @field(SystemErds.erd, erd_field_name).subs;
@@ -54,15 +52,15 @@ fn plus_one() u16 {
 }
 
 const indirectErdMapping = [_]IndirectDataComponent.IndirectErdMapping{
-    IndirectDataComponent.IndirectErdMapping.map(SystemErds.erd.always_42, always_42),
-    IndirectDataComponent.IndirectErdMapping.map(SystemErds.erd.another_erd_plus_one, plus_one),
+    .map(SystemErds.erd.always_42, always_42),
+    .map(SystemErds.erd.another_erd_plus_one, plus_one),
 };
 
 pub fn init() SystemData {
     var this = SystemData{};
-    this.ram = RamDataComponent.init();
-    this.indirect = IndirectDataComponent.init(indirectErdMapping);
-    this.scratch = std.heap.FixedBufferAllocator.init(&this.scratch_buf);
+    this.ram = .init();
+    this.indirect = .init(indirectErdMapping);
+    this.scratch = .init(&this.scratch_buf);
 
     @memset(&this.subscriptions, Subscription{ .callback = null });
     return this;
@@ -89,18 +87,15 @@ pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
 pub fn subscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.SubscriptionCallback) void {
     comptime {
         std.debug.assert(erd.subs > 0);
-
         std.debug.assert(erd.owner != .Indirect);
     }
     const sub_offset = subscription_offsets[erd.system_data_idx];
 
-    for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |_sub| {
+    for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
         // Subscriptions cannot be added to the same list twice
         std.debug.assert(_sub.callback != fn_ptr);
-    }
 
-    for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
-        if (_sub.*.callback == null) {
+        if (_sub.callback == null) {
             _sub.*.callback = fn_ptr;
             return;
         }
@@ -116,8 +111,7 @@ pub fn subscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.SubscriptionC
 pub fn unsubscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.SubscriptionCallback) void {
     comptime {
         std.debug.assert(erd.subs > 0);
-
-        // Definitely a programmer error if you try to unsub (or sub!) to one of these.
+        // We know you can't sub/unsub to these:
         std.debug.assert(erd.owner != .Indirect);
     }
 
@@ -142,23 +136,15 @@ fn publish(this: *SystemData, erd: Erd) void {
 }
 
 /// Returns a slice allocated to the scratch buffer.
-/// You must not assume that the data you receive back is zero initialized.
 pub fn scratch_alloc(this: *SystemData, comptime T: type, n: usize) []T {
-    // Use threadSafeAllocator until it is known how this interacts with
-    // interrupts. In all likelyhood we will never want to free or resize anyways,
-    // so it's fine to use this.
-    //
-    // catch unreachable because we'll assume that a single RTC + interrupts can never overflow this
-    // TODO: Is there something better that can be done here?
     // TODO: Consider if this can somehow be used for RX/TX buffers???
     // Or do those need to last more than one RTC? If so, is there an alternate strategy that can be employed?
-    return this.scratch.threadSafeAllocator().alloc(T, n) catch unreachable;
+    return this.scratch.allocator().alloc(T, n) catch @panic("We ran out of scratch memory!!!");
 }
 
 /// Call this at the end of a run to complete in your main-loop
 pub fn scratch_reset(this: *SystemData) void {
-    // TODO: Should this also zero out the buffer just to prevent any misuse?
-    return this.scratch.reset();
+    this.scratch.reset();
 }
 
 /// A test only function used to verify that after initialization, all of your subscriptions arrays are fully saturated
@@ -166,11 +152,12 @@ pub fn verify_all_subs_are_saturated(this: *SystemData) !void {
     inline for (std.meta.fields(SystemErds.ErdDefinitions), 0..) |field_info, i| {
         const erd_field_name = field_info.name;
         const sub_offset = subscription_offsets[i];
-        if (sub_offset == 0xffff) {
+        const num_subs = @field(SystemErds.erd, erd_field_name).subs;
+        if (num_subs == 0) {
             continue;
         }
 
-        for (this.subscriptions[sub_offset .. sub_offset + @field(SystemErds.erd, erd_field_name).subs]) |_sub| {
+        for (this.subscriptions[sub_offset .. sub_offset + num_subs]) |_sub| {
             if (_sub.callback == null) {
                 std.debug.panic("ERD: {s} has not fully filled its subscription buffer after init!", .{erd_field_name});
             }

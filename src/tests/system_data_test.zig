@@ -134,7 +134,7 @@ fn scratch_allocating(system_data: *SystemData) void {
 }
 
 test "scratch allocations" {
-    var system_data = SystemData.init();
+    var system_data: SystemData = .init();
 
     system_data.subscribe(SystemErds.erd.unaligned_u16, scratch_allocating);
     system_data.write(SystemErds.erd.unaligned_u16, 7);
@@ -146,10 +146,11 @@ test "scratch allocations" {
     try std.testing.expectEqual(5, system_data.read(SystemErds.erd.application_version));
 
     const more_allocation = system_data.scratch_alloc(u8, system_data.read(SystemErds.erd.application_version));
-    @memset(more_allocation, 0); // Can't assume the data is zeroed at all, even if never used
+    try std.testing.expect(system_data.scratch.ownsSlice(more_allocation));
+
     system_data.scratch_reset();
     // NOTE: Notice how this does not fail!
     // One must be very careful since this data is now considered freed, but there's no runtime check on it.
     system_data.write(SystemErds.erd.application_version, more_allocation[0]);
-    try std.testing.expectEqual(0, system_data.read(SystemErds.erd.application_version));
+    try std.testing.expectEqual(0b10101010, system_data.read(SystemErds.erd.application_version));
 }
