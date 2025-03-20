@@ -10,14 +10,14 @@ const IndirectDataComponent = @This();
 
 const num_erds = SystemErds.indirect_definitions.len;
 
-read_functions: [num_erds](*const anyopaque) = undefined,
+read_functions: [num_erds](*addrspace(.flash) const anyopaque) = undefined,
 
 pub const IndirectErdMapping = struct {
     erd: Erd,
-    fn_ptr: *const anyopaque,
+    fn_ptr: *addrspace(.flash) const anyopaque,
 
     /// Compile-time guarantees a valid mapping
-    pub fn map(erd: Erd, func: *const fn () erd.T) IndirectErdMapping {
+    pub fn map(erd: Erd, func: *addrspace(.flash) const fn () erd.T) IndirectErdMapping {
         return .{ .erd = erd, .fn_ptr = @ptrCast(func) };
     }
 };

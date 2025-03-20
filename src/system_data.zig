@@ -54,15 +54,15 @@ fn plus_one() u16 {
 }
 
 const indirectErdMapping = [_]IndirectDataComponent.IndirectErdMapping{
-    IndirectDataComponent.IndirectErdMapping.map(SystemErds.erd.always_42, always_42),
-    IndirectDataComponent.IndirectErdMapping.map(SystemErds.erd.another_erd_plus_one, plus_one),
+    .map(SystemErds.erd.always_42, always_42),
+    .map(SystemErds.erd.another_erd_plus_one, plus_one),
 };
 
 pub fn init() SystemData {
     var this = SystemData{};
     this.ram = RamDataComponent.init();
     // TODO: Renable this once flash function pointers are figured out
-    // this.indirect = IndirectDataComponent.init(indirectErdMapping);
+    this.indirect = IndirectDataComponent.init(indirectErdMapping);
     this.scratch = std.heap.FixedBufferAllocator.init(&this.scratch_buf);
 
     @memset(&this.subscriptions, Subscription{ .callback = null });
