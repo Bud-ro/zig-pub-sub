@@ -16,7 +16,7 @@ const StoreStruct = blk: {
         fields[i] = .{
             .name = fieldName,
             .type = erd.T,
-            .default_value = null,
+            .default_value_ptr = null,
             .is_comptime = false,
             // Proper alignment is the default. If you want denser memory
             // then set alignment to 1.

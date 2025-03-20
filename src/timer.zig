@@ -21,9 +21,12 @@ pub const Timer = struct {
     callback: TimerCallback,
     next_timer: ?*Timer = null,
 
-    pub fn init(context: ?*anyopaque, callback: TimerCallback) Timer {
-        const this = Timer{ .ctx = context, .callback = callback };
-        return this;
+    pub fn init(self: *Timer, context: ?*anyopaque, callback: TimerCallback) void {
+        self.*.expiration = 0;
+        self.*.period = 0;
+        self.*.next_timer = null;
+        self.*.ctx = context;
+        self.*.callback = callback;
     }
 
     const TimerCallback = *const fn (ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void;

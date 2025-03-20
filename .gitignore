@@ -1,5 +1,9 @@
+zig-master
 zig-out
 .zig-cache
 *.exe
 *.obj
 *.pdb
+*.o
+*.elf
+*.hex
