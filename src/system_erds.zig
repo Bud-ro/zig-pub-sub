@@ -101,11 +101,11 @@ const WellPackedStruct = struct {
     c: u16,
 };
 
-const PaddedStruct = struct {
+const PaddedStruct = extern struct {
     a: u8,
     b: u16,
-    c: bool,
     d: u32,
+    c: bool,
 };
 
 const PackedFr = packed struct {
