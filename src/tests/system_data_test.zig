@@ -62,16 +62,16 @@ test "retain reference to system_data" {
     try std.testing.expectEqual(0xCAFEBABE, system_data.read(SystemErds.erd.application_version));
 }
 
-fn turn_off_some_bool_and_increment_application_version(system_data: *SystemData) void {
+fn turn_off_some_bool_and_increment_application_version(_: ?*anyopaque, system_data: *SystemData) void {
     system_data.write(SystemErds.erd.some_bool, false);
     system_data.write(SystemErds.erd.application_version, system_data.read(SystemErds.erd.application_version) + 1);
 }
 
 test "subscription_test" {
     var system_data = SystemData.init();
-    // system_data.subscribe(SystemErds.erd.some_bool, null); // This is a compile error!
+    // system_data.subscribe(SystemErds.erd.some_bool, null, null); // This is a compile error!
 
-    system_data.subscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
+    system_data.subscribe(SystemErds.erd.some_bool, null, turn_off_some_bool_and_increment_application_version);
     // Subscriptions can be stored on the stack if it lives through all of its callbacks.
     // defer pattern only makes sense if you stack initialize this. Here it's to show that it's safe to call unsub multiple times
     defer system_data.unsubscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
@@ -86,14 +86,30 @@ test "subscription_test" {
     try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
 }
 
-fn bump_some_u16(system_data: *SystemData) void {
+fn forward_context(context: ?*anyopaque, system_data: *SystemData) void {
+    const a: *u8 = @ptrCast(context.?);
+
+    system_data.write(SystemErds.erd.unaligned_u16, a.*);
+}
+
+test "subscription test with context" {
+    var system_data = SystemData.init();
+
+    var a: u8 = 17;
+    system_data.subscribe(SystemErds.erd.some_bool, &a, forward_context);
+    system_data.write(SystemErds.erd.some_bool, true);
+
+    try std.testing.expectEqual(17, system_data.read(SystemErds.erd.unaligned_u16));
+}
+
+fn bump_some_u16(_: ?*anyopaque, system_data: *SystemData) void {
     system_data.write(SystemErds.erd.unaligned_u16, system_data.read(SystemErds.erd.unaligned_u16) + 1);
 }
 
 test "double sub test" {
     var system_data = SystemData.init();
-    system_data.subscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
-    system_data.subscribe(SystemErds.erd.some_bool, bump_some_u16);
+    system_data.subscribe(SystemErds.erd.some_bool, null, turn_off_some_bool_and_increment_application_version);
+    system_data.subscribe(SystemErds.erd.some_bool, null, bump_some_u16);
 
     system_data.write(SystemErds.erd.some_bool, true);
     try std.testing.expectEqual(false, system_data.read(SystemErds.erd.some_bool));
@@ -107,24 +123,24 @@ test "double sub test" {
     try std.testing.expectEqual(3, system_data.read(SystemErds.erd.unaligned_u16));
 }
 
-fn whatever(system_data: *SystemData) void {
+fn whatever(_: ?*anyopaque, system_data: *SystemData) void {
     _ = system_data;
 }
 
 test "exact subscription enforcement" {
     var system_data = SystemData.init();
 
-    system_data.subscribe(SystemErds.erd.some_bool, whatever);
-    system_data.subscribe(SystemErds.erd.some_bool, bump_some_u16);
-    system_data.subscribe(SystemErds.erd.some_bool, turn_off_some_bool_and_increment_application_version);
-    system_data.subscribe(SystemErds.erd.unaligned_u16, whatever);
+    system_data.subscribe(SystemErds.erd.some_bool, null, whatever);
+    system_data.subscribe(SystemErds.erd.some_bool, null, bump_some_u16);
+    system_data.subscribe(SystemErds.erd.some_bool, null, turn_off_some_bool_and_increment_application_version);
+    system_data.subscribe(SystemErds.erd.unaligned_u16, null, whatever);
 
     // TODO: Move this test into the Application test file
     // and replace all of the above with `application.init`
     try system_data.verify_all_subs_are_saturated();
 }
 
-fn scratch_allocating(system_data: *SystemData) void {
+fn scratch_allocating(_: ?*anyopaque, system_data: *SystemData) void {
     const allocated = system_data.scratch_alloc(u32, system_data.read(SystemErds.erd.unaligned_u16));
     for (allocated, 1..) |*item, i| {
         item.* = @intCast(i);
@@ -136,7 +152,7 @@ fn scratch_allocating(system_data: *SystemData) void {
 test "scratch allocations" {
     var system_data: SystemData = .init();
 
-    system_data.subscribe(SystemErds.erd.unaligned_u16, scratch_allocating);
+    system_data.subscribe(SystemErds.erd.unaligned_u16, null, scratch_allocating);
     system_data.write(SystemErds.erd.unaligned_u16, 7);
     try std.testing.expectEqual(7, system_data.read(SystemErds.erd.application_version));
 

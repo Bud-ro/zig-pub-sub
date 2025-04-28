@@ -62,7 +62,7 @@ pub fn init() SystemData {
     this.indirect = .init(indirectErdMapping);
     this.scratch = .init(&this.scratch_buf);
 
-    @memset(&this.subscriptions, Subscription{ .callback = null });
+    @memset(&this.subscriptions, Subscription{ .context = null, .callback = null });
     return this;
 }
 
@@ -84,7 +84,12 @@ pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
     }
 }
 
-pub fn subscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.SubscriptionCallback) void {
+pub fn subscribe(
+    this: *SystemData,
+    erd: Erd,
+    context: ?*anyopaque,
+    fn_ptr: Subscription.SubscriptionCallback,
+) void {
     comptime {
         std.debug.assert(erd.subs > 0);
         std.debug.assert(erd.owner != .Indirect);
@@ -96,6 +101,7 @@ pub fn subscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.SubscriptionC
         std.debug.assert(_sub.callback != fn_ptr);
 
         if (_sub.callback == null) {
+            _sub.*.context = context;
             _sub.*.callback = fn_ptr;
             return;
         }
@@ -130,7 +136,7 @@ fn publish(this: *SystemData, erd: Erd) void {
 
     for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |_sub| {
         if (_sub.callback) |_callback| {
-            _callback(this);
+            _callback(_sub.context, this);
         }
     }
 }
