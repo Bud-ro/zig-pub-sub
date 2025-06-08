@@ -1,6 +1,23 @@
 const std = @import("std");
 const Erd = @import("erd.zig");
 
+// TODO: Instead of SystemErds.erd.erd_name could it be done using this syntax:
+//       .{ .erd = .erd_name }, and alternatively .{ .erd_handle = 0x0001 },
+// const ErdRequestType = enum {
+//     comptime_erd,
+//     runtime_erd,
+// };
+
+// const ErdRequest = union(ErdRequestType) {
+//     comptime_erd: ComptimeErdHandle,
+//     runtime_erd: RuntimeErdHandle,
+// };
+
+// TODO: Depending on the .owner, extra data may be required. For .Indirect this is externalized
+//       as IndirectDataComponent.IndirectErdMapping which requires extra validation
+//       and might pessimize optimization.
+//       By switching to a tagged union we could do: `.owner = .Indirect{ .fn = func }`
+
 pub const ErdDefinitions = struct {
     // zig fmt: off
     application_version:  Erd = .{ .erd_number = 0x0000, .T = u32,              .owner = .Ram,      .subs = 0 },

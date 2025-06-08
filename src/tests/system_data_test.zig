@@ -92,7 +92,7 @@ fn forward_context(context: ?*anyopaque, system_data: *SystemData) void {
     system_data.write(SystemErds.erd.unaligned_u16, a.*);
 }
 
-test "subscription test with context" {
+test "subscription with context" {
     var system_data = SystemData.init();
 
     var a: u8 = 17;

@@ -14,14 +14,20 @@ const Subscription = @import("subscription.zig");
 
 const SystemData = @This();
 
+// TODO: Add args to subscriptions once comptime/runtime ERDs sorted out
+// pub const SystemDataOnChangeArgs = struct {
+//     system_data_idx: u16,
+//     data: *const anyopaque,
+// };
+
 ram: RamDataComponent = undefined,
 indirect: IndirectDataComponent = undefined,
-subscriptions: [subscription_count()]Subscription = undefined,
+subscriptions: [total_subscriptions()]Subscription = undefined,
 /// This is a bump allocator meant to be reset at the end of a run to complete
 scratch: std.heap.FixedBufferAllocator = undefined,
 scratch_buf: [2048]u8 align(@alignOf(usize)) = undefined, // TODO: Does this actually need to be aligned?
 
-fn subscription_count() usize {
+fn total_subscriptions() usize {
     comptime {
         var size: usize = 0;
         for (std.meta.fieldNames(SystemErds.ErdDefinitions)) |erd_field_name| {
@@ -30,6 +36,7 @@ fn subscription_count() usize {
         return size;
     }
 }
+
 const subscription_offsets = blk: {
     var _offsets: [std.meta.fields(SystemErds.ErdDefinitions).len]usize = undefined;
     var cur_offset = 0;
@@ -41,6 +48,17 @@ const subscription_offsets = blk: {
         cur_offset += @field(SystemErds.erd, erd_field_name).subs;
     }
     break :blk _offsets;
+};
+
+/// u8 array of the number of subscriptions an ERD has (indexed by `system_data_idx`)
+/// So 1 byte is consumed per ERD.
+const subscription_count = blk: {
+    var _counts: [std.meta.fields(SystemErds.ErdDefinitions).len]u8 = undefined;
+    for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_field_name, i| {
+        _counts[i] = @field(SystemErds.erd, erd_field_name).subs;
+    }
+
+    break :blk _counts;
 };
 
 fn always_42() u16 {
@@ -80,7 +98,17 @@ pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
     };
 
     if (publish_required and erd.subs != 0) {
-        this.publish(erd);
+        this.publish(erd.system_data_idx);
+    }
+}
+
+fn publish(this: *SystemData, system_data_idx: u16) void {
+    const sub_offset = subscription_offsets[system_data_idx];
+
+    for (this.subscriptions[sub_offset .. sub_offset + subscription_count[system_data_idx]]) |_sub| {
+        if (_sub.callback) |_callback| {
+            _callback(_sub.context, this);
+        }
     }
 }
 
@@ -127,16 +155,6 @@ pub fn unsubscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.Subscriptio
         if (_sub.*.callback == fn_ptr) {
             _sub.*.callback = null;
             return;
-        }
-    }
-}
-
-fn publish(this: *SystemData, erd: Erd) void {
-    const sub_offset = subscription_offsets[erd.system_data_idx];
-
-    for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |_sub| {
-        if (_sub.callback) |_callback| {
-            _callback(_sub.context, this);
         }
     }
 }
