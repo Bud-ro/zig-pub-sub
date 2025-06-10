@@ -37,8 +37,10 @@ fn total_subscriptions() usize {
     }
 }
 
+const SystemErdsLength: usize = std.meta.fields(SystemErds.ErdDefinitions).len;
+
 const subscription_offsets = blk: {
-    var _offsets: [std.meta.fields(SystemErds.ErdDefinitions).len]usize = undefined;
+    var _offsets: [SystemErdsLength]usize = undefined;
     var cur_offset = 0;
 
     for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_field_name, i| {
@@ -50,16 +52,19 @@ const subscription_offsets = blk: {
     break :blk _offsets;
 };
 
-/// u8 array of the number of subscriptions an ERD has (indexed by `system_data_idx`)
-/// So 1 byte is consumed per ERD.
-const subscription_count = blk: {
-    var _counts: [std.meta.fields(SystemErds.ErdDefinitions).len]u8 = undefined;
+/// Returns a column from system_erds as an array
+fn system_erds_collect(T: type, name: []const u8) [SystemErdsLength]T {
+    var field_values: [SystemErdsLength]T = undefined;
     for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_field_name, i| {
-        _counts[i] = @field(SystemErds.erd, erd_field_name).subs;
+        field_values[i] = @field(@field(SystemErds.erd, erd_field_name), name);
     }
 
-    break :blk _counts;
-};
+    return field_values;
+}
+
+const subscription_count = system_erds_collect(u8, "subs");
+const owner_from_idx = system_erds_collect(Erd.ErdOwner, "owner");
+const data_component_idx_from_idx = system_erds_collect(u16, "data_component_idx");
 
 fn always_42() u16 {
     return 42;
@@ -91,6 +96,16 @@ pub fn read(this: SystemData, erd: Erd) erd.T {
     }
 }
 
+pub fn runtime_read(this: SystemData, system_data_idx: u16, data: *anyopaque) void {
+    const owner: Erd.ErdOwner = owner_from_idx[system_data_idx];
+    const data_component_idx: u16 = data_component_idx_from_idx[system_data_idx];
+
+    switch (owner) {
+        .Ram => this.ram.runtime_read(data_component_idx, data),
+        .Indirect => this.indirect.runtime_read(data_component_idx, data),
+    }
+}
+
 pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
     const publish_required = switch (erd.owner) {
         .Ram => this.ram.write(erd, data),
@@ -99,6 +114,17 @@ pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
 
     if (publish_required and erd.subs != 0) {
         this.publish(erd.system_data_idx);
+    }
+}
+
+pub fn runtime_write(this: *SystemData, system_data_idx: u16, data: *const anyopaque) void {
+    const publish_required = switch (owner_from_idx[system_data_idx]) {
+        .Ram => this.ram.runtime_write(data_component_idx_from_idx[system_data_idx], data),
+        .Indirect => comptime unreachable,
+    };
+
+    if (publish_required and subscription_count[system_data_idx] != 0) {
+        this.publish(system_data_idx);
     }
 }
 
