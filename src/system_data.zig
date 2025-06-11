@@ -37,8 +37,10 @@ fn total_subscriptions() usize {
     }
 }
 
+const SystemErdsLength: usize = std.meta.fields(SystemErds.ErdDefinitions).len;
+
 const subscription_offsets = blk: {
-    var _offsets: [std.meta.fields(SystemErds.ErdDefinitions).len]usize = undefined;
+    var _offsets: [SystemErdsLength]usize = undefined;
     var cur_offset = 0;
 
     for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_field_name, i| {
@@ -50,23 +52,29 @@ const subscription_offsets = blk: {
     break :blk _offsets;
 };
 
-/// u8 array of the number of subscriptions an ERD has (indexed by `system_data_idx`)
-/// So 1 byte is consumed per ERD.
-const subscription_count = blk: {
-    var _counts: [std.meta.fields(SystemErds.ErdDefinitions).len]u8 = undefined;
+/// Returns a column from system_erds as an array
+fn system_erds_collect(T: type, name: []const u8) [SystemErdsLength]T {
+    var field_values: [SystemErdsLength]T = undefined;
     for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_field_name, i| {
-        _counts[i] = @field(SystemErds.erd, erd_field_name).subs;
+        field_values[i] = @field(@field(SystemErds.erd, erd_field_name), name);
     }
 
-    break :blk _counts;
-};
-
-fn always_42() u16 {
-    return 42;
+    return field_values;
 }
 
-fn plus_one() u16 {
-    return always_42() + 1;
+const subscription_count = system_erds_collect(u8, "subs");
+const owner_from_idx = system_erds_collect(Erd.ErdOwner, "owner");
+const data_component_idx_from_idx = system_erds_collect(u16, "data_component_idx");
+
+fn always_42(data: *u16) void {
+    data.* = 42;
+}
+
+fn plus_one(data: *u16) void {
+    var should_be_42: u16 = undefined;
+    always_42(&should_be_42);
+
+    data.* = should_be_42 + 1;
 }
 
 const indirectErdMapping = [_]IndirectDataComponent.IndirectErdMapping{
@@ -84,6 +92,8 @@ pub fn init() SystemData {
     return this;
 }
 
+/// Read an ERD by-value using comptime information (the `Erd` type)
+/// Due to the performance and code size benefits, this should be preferred over `runtime_read`.
 pub fn read(this: SystemData, erd: Erd) erd.T {
     switch (erd.owner) {
         .Ram => return this.ram.read(erd),
@@ -91,6 +101,22 @@ pub fn read(this: SystemData, erd: Erd) erd.T {
     }
 }
 
+/// Read an ERD into the provided `data` pointer, using the ERD's corresponding system_data_idx
+/// This will be significantly slower than a comptime read, and should only be used sparingly, for example:
+/// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
+/// - Reading an ERD using info from an on-change callback
+pub fn runtime_read(this: SystemData, system_data_idx: u16, data: *anyopaque) void {
+    const owner: Erd.ErdOwner = owner_from_idx[system_data_idx];
+    const data_component_idx: u16 = data_component_idx_from_idx[system_data_idx];
+
+    switch (owner) {
+        .Ram => this.ram.runtime_read(data_component_idx, data),
+        .Indirect => this.indirect.runtime_read(data_component_idx, data),
+    }
+}
+
+/// Write to an ERD by-value using comptime information (the `Erd` type)
+/// Due to the performance and code size benefits, this should be preferred over `runtime_write`.
 pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
     const publish_required = switch (erd.owner) {
         .Ram => this.ram.write(erd, data),
@@ -102,7 +128,26 @@ pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
     }
 }
 
+/// Write to an ERD from the provided `data` pointer, using the ERD's corresponding system_data_idx
+/// This will be significantly slower than a comptime write, and should only be used sparingly, for example:
+/// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
+/// - Writing an ERD using info from an on-change callback (common for ERD multiplexers)
+pub fn runtime_write(this: *SystemData, system_data_idx: u16, data: *const anyopaque) void {
+    const publish_required = switch (owner_from_idx[system_data_idx]) {
+        .Ram => this.ram.runtime_write(data_component_idx_from_idx[system_data_idx], data),
+        .Indirect => comptime unreachable,
+    };
+
+    if (publish_required and subscription_count[system_data_idx] != 0) {
+        this.publish(system_data_idx);
+    }
+}
+
 fn publish(this: *SystemData, system_data_idx: u16) void {
+    // TODO: Add a "publish depth" counter, which can be used to implement a global subscription
+    //       that is only published to when a normal publish finishes and it wasn't triggered by another publish
+    // this.publish_depth += 1;
+
     const sub_offset = subscription_offsets[system_data_idx];
 
     for (this.subscriptions[sub_offset .. sub_offset + subscription_count[system_data_idx]]) |_sub| {
@@ -110,6 +155,11 @@ fn publish(this: *SystemData, system_data_idx: u16) void {
             _callback(_sub.context, this);
         }
     }
+
+    // this.publish_depth -= 1;
+    // if (this.publish_depth == 0) {
+    //     this.publish_patient_subscriptions();
+    // }
 }
 
 pub fn subscribe(

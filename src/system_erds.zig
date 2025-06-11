@@ -8,11 +8,6 @@ const Erd = @import("erd.zig");
 //     runtime_erd,
 // };
 
-// const ErdRequest = union(ErdRequestType) {
-//     comptime_erd: ComptimeErdHandle,
-//     runtime_erd: RuntimeErdHandle,
-// };
-
 // TODO: Depending on the .owner, extra data may be required. For .Indirect this is externalized
 //       as IndirectDataComponent.IndirectErdMapping which requires extra validation
 //       and might pessimize optimization.

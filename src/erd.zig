@@ -21,8 +21,11 @@ owner: ErdOwner,
 subs: comptime_int,
 /// The relative index of the ERD in its data component
 data_component_idx: comptime_int = undefined,
-/// The relative index of the ERD in the aggregate system data
-system_data_idx: comptime_int = undefined,
+/// The relative index of the ERD in the aggregate system data.
+/// This field is sufficient for runtime ERD read/write/subscriptions.
+/// Performance is negatively affected due to constant-time lookups of `owner` and `data_component_idx`
+/// however this allows for enforcing a small code footprint
+system_data_idx: u16 = undefined,
 
 /// ERD identifier, allows for ERDs to be referenced externally
 pub const ErdHandle = u16; // TODO: Evaluate if this should be an inexhaustive enum `ErdHandle = enum { _ };`

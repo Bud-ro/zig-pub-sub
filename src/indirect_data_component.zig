@@ -8,21 +8,21 @@ const SystemErds = @import("system_erds.zig");
 
 const IndirectDataComponent = @This();
 
-const num_erds = SystemErds.indirect_definitions.len;
+const num_indirect_erds = SystemErds.indirect_definitions.len;
 
-read_functions: [num_erds](*const anyopaque) = undefined,
+read_functions: [num_indirect_erds](*const anyopaque) = undefined,
 
 pub const IndirectErdMapping = struct {
     erd: Erd,
     fn_ptr: *const anyopaque,
 
     /// Compile-time guarantees a valid mapping
-    pub fn map(erd: Erd, func: *const fn () erd.T) IndirectErdMapping {
-        return .{ .erd = erd, .fn_ptr = @ptrCast(func) };
+    pub fn map(erd: Erd, func: *const fn (*erd.T) void) IndirectErdMapping {
+        return .{ .erd = erd, .fn_ptr = func };
     }
 };
 
-pub fn init(erdMappings: [num_erds]IndirectErdMapping) IndirectDataComponent {
+pub fn init(erdMappings: [num_indirect_erds]IndirectErdMapping) IndirectDataComponent {
     var indirect_data_component = IndirectDataComponent{};
 
     inline for (erdMappings) |mapping| {
@@ -35,12 +35,27 @@ pub fn init(erdMappings: [num_erds]IndirectErdMapping) IndirectDataComponent {
 }
 
 pub fn read(self: IndirectDataComponent, erd: Erd) erd.T {
-    const fn_ptr: *const fn () erd.T = @ptrCast(self.read_functions[erd.data_component_idx]);
-    return fn_ptr();
+    const fn_ptr: *const fn (*erd.T) void = @ptrCast(self.read_functions[erd.data_component_idx]);
+
+    var temp: erd.T = undefined;
+    fn_ptr(&temp);
+    return temp;
 }
 
-pub fn write(self: IndirectDataComponent, erd: Erd, data: erd.T) void {
+pub fn runtime_read(self: IndirectDataComponent, data_component_idx: u16, data: *anyopaque) void {
+    const fn_ptr: *const fn ([*]u8) void = @ptrCast(self.read_functions[data_component_idx]);
+    fn_ptr(@ptrCast(data));
+}
+
+pub fn write(self: *IndirectDataComponent, erd: Erd, data: erd.T) bool {
     _ = self;
+    _ = data;
+    @compileError("Indirect ERD writes are not allowed");
+}
+
+pub fn runtime_write(self: *IndirectDataComponent, data_component_idx: u16, data: *const anyopaque) bool {
+    _ = self;
+    _ = data_component_idx;
     _ = data;
     @compileError("Indirect ERD writes are not allowed");
 }

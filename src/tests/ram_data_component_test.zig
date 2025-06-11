@@ -64,3 +64,31 @@ test "failure upon writing incorrect types" {
     // var ram_data = RamDataComponent.init();
     // std.testing.expectError(, ram_data.write(SystemErds.erd.some_bool, 20));
 }
+
+test "runtime reads" {
+    var ram_data = RamDataComponent.init();
+
+    _ = ram_data.write(SystemErds.erd.some_bool, true);
+
+    var bool_val: bool = undefined;
+    ram_data.runtime_read(SystemErds.erd.some_bool.data_component_idx, &bool_val);
+
+    try std.testing.expectEqual(true, bool_val);
+}
+
+test "runtime writes" {
+    var ram_data = RamDataComponent.init();
+
+    const very_true = true;
+    var changed = ram_data.runtime_write(SystemErds.erd.some_bool.data_component_idx, &very_true);
+    try std.testing.expect(changed);
+
+    const bool_val = ram_data.read(SystemErds.erd.some_bool);
+    try std.testing.expectEqual(true, bool_val);
+
+    changed = ram_data.write(SystemErds.erd.some_bool, true);
+    try std.testing.expect(!changed);
+
+    changed = ram_data.write(SystemErds.erd.some_bool, false);
+    try std.testing.expect(changed);
+}
