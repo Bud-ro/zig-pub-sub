@@ -13,6 +13,22 @@ test "ram data component read and write" {
     try std.testing.expectEqual(new_application_version, system_data.read(SystemErds.erd.application_version));
 }
 
+test "runtime read/write matches data components" {
+    var system_data = SystemData.init();
+    var ver: u32 = undefined;
+    system_data.runtime_read(SystemErds.erd.application_version.system_data_idx, &ver);
+    try std.testing.expectEqual(0, ver);
+
+    system_data.write(SystemErds.erd.application_version, 1234);
+    system_data.runtime_read(SystemErds.erd.application_version.system_data_idx, &ver);
+    try std.testing.expectEqual(1234, ver);
+
+    var should_be_42: u16 = undefined;
+    system_data.runtime_read(SystemErds.erd.always_42.system_data_idx, &should_be_42);
+    system_data.runtime_read(SystemErds.erd.always_42.system_data_idx, &ver);
+    try std.testing.expectEqual(42, should_be_42);
+}
+
 test "indirect data component read and a note on reads" {
     var system_data = SystemData.init();
     try std.testing.expectEqual(42, system_data.read(SystemErds.erd.always_42));

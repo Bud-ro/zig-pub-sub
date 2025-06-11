@@ -66,12 +66,15 @@ const subscription_count = system_erds_collect(u8, "subs");
 const owner_from_idx = system_erds_collect(Erd.ErdOwner, "owner");
 const data_component_idx_from_idx = system_erds_collect(u16, "data_component_idx");
 
-fn always_42() u16 {
-    return 42;
+fn always_42(data: *u16) void {
+    data.* = 42;
 }
 
-fn plus_one() u16 {
-    return always_42() + 1;
+fn plus_one(data: *u16) void {
+    var should_be_42: u16 = undefined;
+    always_42(&should_be_42);
+
+    data.* = should_be_42 + 1;
 }
 
 const indirectErdMapping = [_]IndirectDataComponent.IndirectErdMapping{
