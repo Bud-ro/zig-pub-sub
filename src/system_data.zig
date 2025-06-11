@@ -92,6 +92,8 @@ pub fn init() SystemData {
     return this;
 }
 
+/// Read an ERD by-value using comptime information (the `Erd` type)
+/// Due to the performance and code size benefits, this should be preferred over `runtime_read`.
 pub fn read(this: SystemData, erd: Erd) erd.T {
     switch (erd.owner) {
         .Ram => return this.ram.read(erd),
@@ -99,6 +101,10 @@ pub fn read(this: SystemData, erd: Erd) erd.T {
     }
 }
 
+/// Read an ERD into the provided `data` pointer, using the ERD's corresponding system_data_idx
+/// This will be significantly slower than a comptime read, and should only be used sparingly, for example:
+/// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
+/// - Reading an ERD using info from an on-change callback
 pub fn runtime_read(this: SystemData, system_data_idx: u16, data: *anyopaque) void {
     const owner: Erd.ErdOwner = owner_from_idx[system_data_idx];
     const data_component_idx: u16 = data_component_idx_from_idx[system_data_idx];
@@ -109,6 +115,8 @@ pub fn runtime_read(this: SystemData, system_data_idx: u16, data: *anyopaque) vo
     }
 }
 
+/// Write to an ERD by-value using comptime information (the `Erd` type)
+/// Due to the performance and code size benefits, this should be preferred over `runtime_write`.
 pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
     const publish_required = switch (erd.owner) {
         .Ram => this.ram.write(erd, data),
@@ -120,6 +128,10 @@ pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
     }
 }
 
+/// Write to an ERD from the provided `data` pointer, using the ERD's corresponding system_data_idx
+/// This will be significantly slower than a comptime write, and should only be used sparingly, for example:
+/// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
+/// - Writing an ERD using info from an on-change callback (common for ERD multiplexers)
 pub fn runtime_write(this: *SystemData, system_data_idx: u16, data: *const anyopaque) void {
     const publish_required = switch (owner_from_idx[system_data_idx]) {
         .Ram => this.ram.runtime_write(data_component_idx_from_idx[system_data_idx], data),
@@ -132,6 +144,10 @@ pub fn runtime_write(this: *SystemData, system_data_idx: u16, data: *const anyop
 }
 
 fn publish(this: *SystemData, system_data_idx: u16) void {
+    // TODO: Add a "publish depth" counter, which can be used to implement a global subscription
+    //       that is only published to when a normal publish finishes and it wasn't triggered by another publish
+    // this.publish_depth += 1;
+
     const sub_offset = subscription_offsets[system_data_idx];
 
     for (this.subscriptions[sub_offset .. sub_offset + subscription_count[system_data_idx]]) |_sub| {
@@ -139,6 +155,11 @@ fn publish(this: *SystemData, system_data_idx: u16) void {
             _callback(_sub.context, this);
         }
     }
+
+    // this.publish_depth -= 1;
+    // if (this.publish_depth == 0) {
+    //     this.publish_patient_subscriptions();
+    // }
 }
 
 pub fn subscribe(
