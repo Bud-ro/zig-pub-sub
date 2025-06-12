@@ -1,13 +1,6 @@
 const std = @import("std");
 const Erd = @import("erd.zig");
 
-// TODO: Instead of SystemErds.erd.erd_name could it be done using this syntax:
-//       .{ .erd = .erd_name }, and alternatively .{ .erd_handle = 0x0001 },
-// const ErdRequestType = enum {
-//     comptime_erd,
-//     runtime_erd,
-// };
-
 // TODO: Depending on the .owner, extra data may be required. For .Indirect this is externalized
 //       as IndirectDataComponent.IndirectErdMapping which requires extra validation
 //       and might pessimize optimization.
