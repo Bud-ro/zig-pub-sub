@@ -124,7 +124,7 @@ pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
     };
 
     if (publish_required and erd.subs != 0) {
-        this.publish(erd.system_data_idx);
+        this.publish(erd.system_data_idx, &data);
     }
 }
 
@@ -132,6 +132,8 @@ pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
 /// This will be significantly slower than a comptime write, and should only be used sparingly, for example:
 /// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
 /// - Writing an ERD using info from an on-change callback (common for ERD multiplexers)
+///
+/// NOTE: `data` must be aligned!
 pub fn runtime_write(this: *SystemData, system_data_idx: u16, data: *const anyopaque) void {
     const publish_required = switch (owner_from_idx[system_data_idx]) {
         .Ram => this.ram.runtime_write(data_component_idx_from_idx[system_data_idx], data),
@@ -139,11 +141,11 @@ pub fn runtime_write(this: *SystemData, system_data_idx: u16, data: *const anyop
     };
 
     if (publish_required and subscription_count[system_data_idx] != 0) {
-        this.publish(system_data_idx);
+        this.publish(system_data_idx, data);
     }
 }
 
-fn publish(this: *SystemData, system_data_idx: u16) void {
+fn publish(this: *SystemData, system_data_idx: u16, data: *const anyopaque) void {
     // TODO: Add a "publish depth" counter, which can be used to implement a global subscription
     //       that is only published to when a normal publish finishes and it wasn't triggered by another publish
     // this.publish_depth += 1;
@@ -152,7 +154,7 @@ fn publish(this: *SystemData, system_data_idx: u16) void {
 
     for (this.subscriptions[sub_offset .. sub_offset + subscription_count[system_data_idx]]) |_sub| {
         if (_sub.callback) |_callback| {
-            _callback(_sub.context, this);
+            _callback(_sub.context, data, this);
         }
     }
 

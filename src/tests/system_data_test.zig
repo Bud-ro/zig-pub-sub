@@ -78,7 +78,7 @@ test "retain reference to system_data" {
     try std.testing.expectEqual(0xCAFEBABE, system_data.read(SystemErds.erd.application_version));
 }
 
-fn turn_off_some_bool_and_increment_application_version(_: ?*anyopaque, system_data: *SystemData) void {
+fn turn_off_some_bool_and_increment_application_version(_: ?*anyopaque, _: *const anyopaque, system_data: *SystemData) void {
     system_data.write(SystemErds.erd.some_bool, false);
     system_data.write(SystemErds.erd.application_version, system_data.read(SystemErds.erd.application_version) + 1);
 }
@@ -102,7 +102,7 @@ test "subscription_test" {
     try std.testing.expectEqual(2, system_data.read(SystemErds.erd.application_version));
 }
 
-fn forward_context(context: ?*anyopaque, system_data: *SystemData) void {
+fn forward_context(context: ?*anyopaque, _: *const anyopaque, system_data: *SystemData) void {
     const a: *u8 = @ptrCast(context.?);
 
     system_data.write(SystemErds.erd.unaligned_u16, a.*);
@@ -118,7 +118,31 @@ test "subscription with context" {
     try std.testing.expectEqual(17, system_data.read(SystemErds.erd.unaligned_u16));
 }
 
-fn bump_some_u16(_: ?*anyopaque, system_data: *SystemData) void {
+fn context_must_match_args(context: ?*anyopaque, args: *const anyopaque, system_data: *SystemData) void {
+    const a: *u16 = @alignCast(@ptrCast(context.?));
+    const b: *const u16 = @alignCast(@ptrCast(args));
+
+    system_data.write(SystemErds.erd.some_bool, a.* == b.*);
+}
+
+test "subscription with args" {
+    var system_data = SystemData.init();
+
+    var a: u16 = 1;
+    system_data.subscribe(SystemErds.erd.unaligned_u16, &a, context_must_match_args);
+    system_data.write(SystemErds.erd.unaligned_u16, 1);
+    try std.testing.expect(true == system_data.read(SystemErds.erd.some_bool));
+
+    system_data.write(SystemErds.erd.unaligned_u16, 2);
+    try std.testing.expect(false == system_data.read(SystemErds.erd.some_bool));
+
+    a = 2;
+    system_data.write(SystemErds.erd.unaligned_u16, 2);
+    // Stays false because no publish
+    try std.testing.expect(false == system_data.read(SystemErds.erd.some_bool));
+}
+
+fn bump_some_u16(_: ?*anyopaque, _: *const anyopaque, system_data: *SystemData) void {
     system_data.write(SystemErds.erd.unaligned_u16, system_data.read(SystemErds.erd.unaligned_u16) + 1);
 }
 
@@ -139,9 +163,7 @@ test "double sub test" {
     try std.testing.expectEqual(3, system_data.read(SystemErds.erd.unaligned_u16));
 }
 
-fn whatever(_: ?*anyopaque, system_data: *SystemData) void {
-    _ = system_data;
-}
+fn whatever(_: ?*anyopaque, _: *const anyopaque, _: *SystemData) void {}
 
 test "exact subscription enforcement" {
     var system_data = SystemData.init();
@@ -156,8 +178,9 @@ test "exact subscription enforcement" {
     try system_data.verify_all_subs_are_saturated();
 }
 
-fn scratch_allocating(_: ?*anyopaque, system_data: *SystemData) void {
-    const allocated = system_data.scratch_alloc(u32, system_data.read(SystemErds.erd.unaligned_u16));
+fn scratch_allocating(_: ?*anyopaque, args: *const anyopaque, system_data: *SystemData) void {
+    const val: *const u16 = @alignCast(@ptrCast(args));
+    const allocated = system_data.scratch_alloc(u32, val.*);
     for (allocated, 1..) |*item, i| {
         item.* = @intCast(i);
     }
