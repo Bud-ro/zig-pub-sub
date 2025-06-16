@@ -17,6 +17,8 @@ pub const ErdDefinitions = struct {
     always_42:            Erd = .{ .erd_number = 0x0006, .T = u16,              .owner = .Indirect, .subs = 0 },
     pointer_to_something: Erd = .{ .erd_number = null,   .T = ?*u16,            .owner = .Ram,      .subs = 0 },
     another_erd_plus_one: Erd = .{ .erd_number = 0x0008, .T = u16,              .owner = .Indirect, .subs = 0 },
+    cool_u16:             Erd = .{ .erd_number = null,   .T = u16,              .owner = .Ram,      .subs = 1 },
+    best_u16:             Erd = .{ .erd_number = null,   .T = u16,              .owner = .Ram,      .subs = 0 },
     // zig fmt: on
 
     pub fn jsonStringify(self: ErdDefinitions, jws: anytype) !void {

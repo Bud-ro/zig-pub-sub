@@ -172,6 +172,7 @@ test "exact subscription enforcement" {
     system_data.subscribe(SystemErds.erd.some_bool, null, bump_some_u16);
     system_data.subscribe(SystemErds.erd.some_bool, null, turn_off_some_bool_and_increment_application_version);
     system_data.subscribe(SystemErds.erd.unaligned_u16, null, whatever);
+    system_data.subscribe(SystemErds.erd.cool_u16, null, whatever);
 
     // TODO: Move this test into the Application test file
     // and replace all of the above with `application.init`
