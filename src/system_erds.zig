@@ -6,19 +6,38 @@ const Erd = @import("erd.zig");
 //       and might pessimize optimization.
 //       By switching to a tagged union we could do: `.owner = .Indirect{ .fn = func }`
 
+/// `ErdEnum` allows for use of decl literals which makes API use of ERDs *significantly* shorter
+pub const ErdEnum = enum {
+    // This must match one to one with ErdDefinitions
+    //
+    // `std.meta.FieldEnum(ErdDefinitions)` would get rid of the duplication,
+    // but probably shouldn't be used until the LSP support would allow auto-complete
+    erd_application_version,
+    erd_some_bool,
+    erd_unaligned_u16,
+    erd_well_packed,
+    erd_padded,
+    erd_actually_packed_fr,
+    erd_always_42,
+    erd_pointer_to_something,
+    erd_another_erd_plus_one,
+    erd_cool_u16,
+    erd_best_u16,
+};
+
 pub const ErdDefinitions = struct {
     // zig fmt: off
-    application_version:  Erd = .{ .erd_number = 0x0000, .T = u32,              .owner = .Ram,      .subs = 0 },
-    some_bool:            Erd = .{ .erd_number = 0x0001, .T = bool,             .owner = .Ram,      .subs = 3 },
-    unaligned_u16:        Erd = .{ .erd_number = 0x0002, .T = u16,              .owner = .Ram,      .subs = 1 },
-    well_packed:          Erd = .{ .erd_number = 0x0003, .T = WellPackedStruct, .owner = .Ram,      .subs = 0 },
-    padded:               Erd = .{ .erd_number = 0x0004, .T = PaddedStruct,     .owner = .Ram,      .subs = 0 },
-    actually_packed_fr:   Erd = .{ .erd_number = 0x0005, .T = PackedFr,         .owner = .Ram,      .subs = 0 },
-    always_42:            Erd = .{ .erd_number = 0x0006, .T = u16,              .owner = .Indirect, .subs = 0 },
-    pointer_to_something: Erd = .{ .erd_number = null,   .T = ?*u16,            .owner = .Ram,      .subs = 0 },
-    another_erd_plus_one: Erd = .{ .erd_number = 0x0008, .T = u16,              .owner = .Indirect, .subs = 0 },
-    cool_u16:             Erd = .{ .erd_number = null,   .T = u16,              .owner = .Ram,      .subs = 1 },
-    best_u16:             Erd = .{ .erd_number = null,   .T = u16,              .owner = .Ram,      .subs = 0 },
+    erd_application_version:  Erd = .{ .erd_number = 0x0000, .T = u32,              .owner = .Ram,      .subs = 0 },
+    erd_some_bool:            Erd = .{ .erd_number = 0x0001, .T = bool,             .owner = .Ram,      .subs = 3 },
+    erd_unaligned_u16:        Erd = .{ .erd_number = 0x0002, .T = u16,              .owner = .Ram,      .subs = 1 },
+    erd_well_packed:          Erd = .{ .erd_number = 0x0003, .T = WellPackedStruct, .owner = .Ram,      .subs = 0 },
+    erd_padded:               Erd = .{ .erd_number = 0x0004, .T = PaddedStruct,     .owner = .Ram,      .subs = 0 },
+    erd_actually_packed_fr:   Erd = .{ .erd_number = 0x0005, .T = PackedFr,         .owner = .Ram,      .subs = 0 },
+    erd_always_42:            Erd = .{ .erd_number = 0x0006, .T = u16,              .owner = .Indirect, .subs = 0 },
+    erd_pointer_to_something: Erd = .{ .erd_number = null,   .T = ?*u16,            .owner = .Ram,      .subs = 0 },
+    erd_another_erd_plus_one: Erd = .{ .erd_number = 0x0008, .T = u16,              .owner = .Indirect, .subs = 0 },
+    erd_cool_u16:             Erd = .{ .erd_number = null,   .T = u16,              .owner = .Ram,      .subs = 1 },
+    erd_best_u16:             Erd = .{ .erd_number = null,   .T = u16,              .owner = .Ram,      .subs = 0 },
     // zig fmt: on
 
     pub fn jsonStringify(self: ErdDefinitions, jws: anytype) !void {
@@ -43,6 +62,16 @@ pub const ErdDefinitions = struct {
         try jws.endObject();
     }
 };
+
+comptime {
+    const erd_fields = std.meta.fieldNames(ErdDefinitions);
+    const erd_enum_names = std.meta.fieldNames(ErdEnum);
+    for (erd_fields, erd_enum_names) |field_name, enum_name| {
+        if (!std.mem.eql(u8, field_name, enum_name)) {
+            @compileError(std.fmt.comptimePrint("Field {s} does not match enum {s}", .{ field_name, enum_name }));
+        }
+    }
+}
 
 /// Erd Definitions with autofilled indexes
 pub const erd = blk: {
@@ -101,6 +130,11 @@ fn component_definitions(comptime owner: Erd.ErdOwner) [num_erds(owner)]Erd {
 // Array versions of ERDs. For easier iteration.
 pub const ram_definitions = component_definitions(.Ram);
 pub const indirect_definitions = component_definitions(.Indirect);
+
+/// Enum to Erd mapper
+pub fn erd_from_enum(erd_enum: ErdEnum) Erd {
+    return @field(erd, @tagName(erd_enum));
+}
 
 const WellPackedStruct = struct {
     a: u8,

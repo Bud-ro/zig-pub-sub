@@ -17,7 +17,8 @@ pub const IndirectErdMapping = struct {
     fn_ptr: *const anyopaque,
 
     /// Compile-time guarantees a valid mapping
-    pub fn map(erd: Erd, func: *const fn (*erd.T) void) IndirectErdMapping {
+    pub fn map(comptime erd_enum: SystemErds.ErdEnum, func: *const fn (*SystemErds.erd_from_enum(erd_enum).T) void) IndirectErdMapping {
+        const erd: Erd = SystemErds.erd_from_enum(erd_enum);
         return .{ .erd = erd, .fn_ptr = func };
     }
 };
