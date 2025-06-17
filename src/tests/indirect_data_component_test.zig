@@ -16,8 +16,8 @@ fn plus_one(data: *u16) void {
 
 test "indirect data component read" {
     var indirect_data = IndirectDataComponent.init([_]IndirectErdMapping{
-        IndirectErdMapping.map(SystemErds.erd.erd_always_42, erd_always_42),
-        IndirectErdMapping.map(SystemErds.erd.erd_another_erd_plus_one, plus_one),
+        .map(.erd_always_42, erd_always_42),
+        .map(.erd_another_erd_plus_one, plus_one),
     });
 
     try std.testing.expectEqual(42, indirect_data.read(SystemErds.erd.erd_always_42));
@@ -29,8 +29,8 @@ test "indirect data component write" {
     // TODO: Re-enable this test once you can test for compile error
 
     // var indirect_data = IndirectDataComponent.init([_]IndirectErdMapping{
-    //     .{ .erd = SystemErds.erd.erd_always_42, .fn_ptr = &erd_always_42 },
-    //     .{ .erd = SystemErds.erd.erd_another_erd_plus_one, .fn_ptr = &plus_one },
+    //     .map(.erd_always_42, erd_always_42),
+    //     .map(.erd_another_erd_plus_one, plus_one),
     // });
 
     // _ = indirect_data.write(SystemErds.erd.erd_always_42, 41);
@@ -38,8 +38,8 @@ test "indirect data component write" {
 
 test "indirect data component runtime read" {
     var indirect_data = IndirectDataComponent.init([_]IndirectErdMapping{
-        IndirectErdMapping.map(SystemErds.erd.erd_always_42, erd_always_42),
-        IndirectErdMapping.map(SystemErds.erd.erd_another_erd_plus_one, plus_one),
+        .map(.erd_always_42, erd_always_42),
+        .map(.erd_another_erd_plus_one, plus_one),
     });
 
     var should_be_42: u16 = undefined;
@@ -57,8 +57,8 @@ test "indirect data component runtime write" {
     // TODO: Re-enable this test once you can test for compile error
 
     // var indirect_data = IndirectDataComponent.init([_]IndirectErdMapping{
-    //     .{ .erd = SystemErds.erd.erd_always_42, .fn_ptr = &erd_always_42 },
-    //     .{ .erd = SystemErds.erd.erd_another_erd_plus_one, .fn_ptr = &plus_one },
+    //     .map(.erd_always_42, erd_always_42),
+    //     .map(.erd_another_erd_plus_one, plus_one),
     // });
 
     // _ = indirect_data.runtime_write(SystemErds.erd.erd_always_42.data_component_idx, &41);

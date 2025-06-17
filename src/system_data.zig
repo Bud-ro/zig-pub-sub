@@ -78,8 +78,8 @@ fn plus_one(data: *u16) void {
 }
 
 const indirectErdMapping = [_]IndirectDataComponent.IndirectErdMapping{
-    .map(SystemErds.erd.erd_always_42, always_42),
-    .map(SystemErds.erd.erd_another_erd_plus_one, plus_one),
+    .map(.erd_always_42, always_42),
+    .map(.erd_another_erd_plus_one, plus_one),
 };
 
 pub fn init() SystemData {
