@@ -13,42 +13,42 @@ test "Correct ERD JSON Generation" {
         \\    "namespace": "zig-embedded-starter-kit",
         \\    "erds": [
         \\        {
-        \\            "name": "application_version",
+        \\            "name": "erd_application_version",
         \\            "id": "0x0000",
         \\            "type": "u32"
         \\        },
         \\        {
-        \\            "name": "some_bool",
+        \\            "name": "erd_some_bool",
         \\            "id": "0x0001",
         \\            "type": "bool"
         \\        },
         \\        {
-        \\            "name": "unaligned_u16",
+        \\            "name": "erd_unaligned_u16",
         \\            "id": "0x0002",
         \\            "type": "u16"
         \\        },
         \\        {
-        \\            "name": "well_packed",
+        \\            "name": "erd_well_packed",
         \\            "id": "0x0003",
         \\            "type": "system_erds.WellPackedStruct"
         \\        },
         \\        {
-        \\            "name": "padded",
+        \\            "name": "erd_padded",
         \\            "id": "0x0004",
         \\            "type": "system_erds.PaddedStruct"
         \\        },
         \\        {
-        \\            "name": "actually_packed_fr",
+        \\            "name": "erd_actually_packed_fr",
         \\            "id": "0x0005",
         \\            "type": "system_erds.PackedFr"
         \\        },
         \\        {
-        \\            "name": "always_42",
+        \\            "name": "erd_always_42",
         \\            "id": "0x0006",
         \\            "type": "u16"
         \\        },
         \\        {
-        \\            "name": "another_erd_plus_one",
+        \\            "name": "erd_another_erd_plus_one",
         \\            "id": "0x0008",
         \\            "type": "u16"
         \\        }

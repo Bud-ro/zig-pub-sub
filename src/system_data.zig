@@ -78,8 +78,8 @@ fn plus_one(data: *u16) void {
 }
 
 const indirectErdMapping = [_]IndirectDataComponent.IndirectErdMapping{
-    .map(SystemErds.erd.always_42, always_42),
-    .map(SystemErds.erd.another_erd_plus_one, plus_one),
+    .map(SystemErds.erd.erd_always_42, always_42),
+    .map(SystemErds.erd.erd_another_erd_plus_one, plus_one),
 };
 
 pub fn init() SystemData {
@@ -94,7 +94,8 @@ pub fn init() SystemData {
 
 /// Read an ERD by-value using comptime information (the `Erd` type)
 /// Due to the performance and code size benefits, this should be preferred over `runtime_read`.
-pub fn read(this: SystemData, erd: Erd) erd.T {
+pub fn read(this: SystemData, comptime erd_enum: SystemErds.ErdEnum) SystemErds.erd_from_enum(erd_enum).T {
+    const erd: Erd = SystemErds.erd_from_enum(erd_enum);
     switch (erd.owner) {
         .Ram => return this.ram.read(erd),
         .Indirect => return this.indirect.read(erd),
@@ -117,7 +118,8 @@ pub fn runtime_read(this: SystemData, system_data_idx: u16, data: *anyopaque) vo
 
 /// Write to an ERD by-value using comptime information (the `Erd` type)
 /// Due to the performance and code size benefits, this should be preferred over `runtime_write`.
-pub fn write(this: *SystemData, erd: Erd, data: erd.T) void {
+pub fn write(this: *SystemData, comptime erd_enum: SystemErds.ErdEnum, data: SystemErds.erd_from_enum(erd_enum).T) void {
+    const erd: Erd = SystemErds.erd_from_enum(erd_enum);
     const publish_required = switch (erd.owner) {
         .Ram => this.ram.write(erd, data),
         .Indirect => comptime unreachable,
@@ -166,10 +168,11 @@ fn publish(this: *SystemData, system_data_idx: u16, data: *const anyopaque) void
 
 pub fn subscribe(
     this: *SystemData,
-    erd: Erd,
+    comptime erd_enum: SystemErds.ErdEnum,
     context: ?*anyopaque,
     fn_ptr: Subscription.SubscriptionCallback,
 ) void {
+    const erd: Erd = SystemErds.erd_from_enum(erd_enum);
     comptime {
         std.debug.assert(erd.subs > 0);
         std.debug.assert(erd.owner != .Indirect);
@@ -194,7 +197,8 @@ pub fn subscribe(
     std.debug.panic("ERD {s} oversubscribed!", .{erd_names[erd.system_data_idx]});
 }
 
-pub fn unsubscribe(this: *SystemData, erd: Erd, fn_ptr: Subscription.SubscriptionCallback) void {
+pub fn unsubscribe(this: *SystemData, comptime erd_enum: SystemErds.ErdEnum, fn_ptr: Subscription.SubscriptionCallback) void {
+    const erd: Erd = SystemErds.erd_from_enum(erd_enum);
     comptime {
         std.debug.assert(erd.subs > 0);
         // We know you can't sub/unsub to these:
