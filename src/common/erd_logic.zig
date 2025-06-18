@@ -1,17 +1,7 @@
-//! This module supports multiple different operations on ERDs of the same size:
-//! - ._and:  Erd1 &&  Erd2 => Erd3
-//! - ._or:   Erd1 ||  Erd2 => Erd3
-//! - ._nor: !Erd1 && !Erd2 => Erd3
-//! - ._xor:  Erd1 && !Erd2 || !Erd1 && Erd2 => Erd3
-//!
-//! And their bitwise counterparts:
-//! - ._bitwise_and:  Erd1 &  Erd2 => Erd3
-//! - ._bitwise_or:   Erd1 |  Erd2 => Erd3
-//! - ._bitwise_nor: !Erd1 & !Erd2 => Erd3
-//! - ._bitwise_xor:  Erd1 & !Erd2 | !Erd1 & Erd2 => Erd3
+//! This module supports multiple different operations on ERDs of the same type
 //!
 //! Each instance of this creates its own `init` and `on_change` functions
-//! and also takes `2 * @sizeof(Subscription) = 16/32` bytes of RAM.
+//! and also takes `n * @sizeof(Subscription) = 8n/16n` bytes of RAM.
 //! As an upside, comptime read/writes are performed and the operator is comptime known so
 //! there is an O(0) lookup.
 //! TODO: For a version of this that is less intense on code size, use RuntimeErdLogic
@@ -27,40 +17,70 @@ const ErdLogicOperator = enum {
     _or,
     _nor,
     _xor,
+    _not,
     _bitwise_and,
     _bitwise_or,
     _bitwise_nor,
     _bitwise_xor,
+    _bitwise_not,
 };
 
-pub fn ErdLogic(operator: ErdLogicOperator, erd1: SystemErds.ErdEnum, erd2: SystemErds.ErdEnum, outputErd: SystemErds.ErdEnum) type {
+/// Constructs an ErdLogic type
+pub fn ErdLogic(comptime operator: ErdLogicOperator, comptime erds: []const SystemErds.ErdEnum, outputErd: SystemErds.ErdEnum) type {
     comptime {
-        std.debug.assert(SystemErds.erd_from_enum(erd1).T == SystemErds.erd_from_enum(erd2).T);
-        std.debug.assert(SystemErds.erd_from_enum(erd2).T == SystemErds.erd_from_enum(outputErd).T);
+        switch (operator) {
+            ._bitwise_not, ._not => std.debug.assert(erds.len == 1), // Unary operators
+            else => std.debug.assert(erds.len > 1), // Binary operators that reduce
+        }
+
+        if (erds.len > 1) {
+            var window = std.mem.window(SystemErds.ErdEnum, erds, 2, 1);
+            while (window.next()) |erd_pair| {
+                std.debug.assert(SystemErds.erd_from_enum(erd_pair[0]).T == SystemErds.erd_from_enum(erd_pair[1]).T);
+            }
+        }
+
+        std.debug.assert(SystemErds.erd_from_enum(erds[0]).T == SystemErds.erd_from_enum(outputErd).T);
     }
 
     return struct {
         fn on_change(_: ?*anyopaque, _: ?*const anyopaque, system_data: *SystemData) void {
-            const val1 = system_data.read(erd1);
-            const val2 = system_data.read(erd2);
+            if (erds.len == 1) {
+                const value = system_data.read(erds[0]);
+                const output = switch (operator) {
+                    ._bitwise_not => ~value,
+                    ._not => !value,
+                    else => comptime unreachable,
+                };
 
-            const output = switch (comptime operator) {
-                ._and => val1 and val2,
-                ._or => val1 or val2,
-                ._nor => !(val1 or val2),
-                ._xor => (!val1 and val2) or (val1 and !val2),
-                ._bitwise_and => val1 & val2,
-                ._bitwise_or => val1 | val2,
-                ._bitwise_nor => ~(val1 | val2),
-                ._bitwise_xor => (~val1 & val2) | (val1 & ~val2),
-            };
+                system_data.write(outputErd, output);
+            } else if (erds.len > 1) {
+                var value = system_data.read(erds[0]);
 
-            system_data.write(outputErd, output);
+                inline for (erds[1..]) |erd| {
+                    const next = system_data.read(erd);
+
+                    value = switch (operator) {
+                        ._and => value and next,
+                        ._or => value or next,
+                        ._nor => !(value or next),
+                        ._xor => (!value and next) or (value and !next),
+                        ._bitwise_and => value & next,
+                        ._bitwise_or => value | next,
+                        ._bitwise_nor => ~(value | next),
+                        ._bitwise_xor => (~value & next) | (value & ~next),
+                        else => comptime unreachable,
+                    };
+                }
+
+                system_data.write(outputErd, value);
+            }
         }
 
         fn init(system_data: *SystemData) void {
-            system_data.subscribe(erd1, null, on_change);
-            system_data.subscribe(erd2, null, on_change);
+            inline for (erds) |erd| {
+                system_data.subscribe(erd, null, on_change);
+            }
 
             on_change(null, null, system_data);
         }
@@ -69,7 +89,9 @@ pub fn ErdLogic(operator: ErdLogicOperator, erd1: SystemErds.ErdEnum, erd2: Syst
 
 test "can _bitwise_and" {
     var system_data: SystemData = .init();
-    ErdLogic(._bitwise_and, .erd_unaligned_u16, .erd_cool_u16, .erd_best_u16).init(&system_data);
+
+    const input_erds = &[_]SystemErds.ErdEnum{ .erd_unaligned_u16, .erd_cool_u16 };
+    ErdLogic(._bitwise_and, input_erds, .erd_best_u16).init(&system_data);
 
     try std.testing.expectEqual(0, system_data.read(.erd_best_u16));
     // Can't do anything about this without an extra subscription
@@ -89,6 +111,15 @@ test "can _bitwise_and" {
 
     system_data.write(.erd_unaligned_u16, 0xFF);
     try std.testing.expectEqual(system_data.read(.erd_cool_u16), system_data.read(.erd_best_u16));
+}
+
+test "unary operators work" {
+    var system_data: SystemData = .init();
+
+    ErdLogic(._bitwise_not, &[_]SystemErds.ErdEnum{.erd_cool_u16}, .erd_best_u16).init(&system_data);
+
+    system_data.write(.erd_cool_u16, 0x1F7F);
+    try std.testing.expectEqual(0b1110_0000_1000_0000, system_data.read(.erd_best_u16));
 }
 
 // TODO: Finish the rest of the tests when there's a way to create testing (locally scoped) ERDs
