@@ -12,6 +12,18 @@ pub const ErdEnum = enum {
     //
     // `std.meta.FieldEnum(ErdDefinitions)` would get rid of the duplication,
     // but probably shouldn't be used until the LSP support would allow auto-complete
+    //
+    // for the meantime let's just throw a compile error if it fails to match
+    comptime {
+        const erd_fields = std.meta.fieldNames(ErdDefinitions);
+        const erd_enum_names = std.meta.fieldNames(ErdEnum);
+        for (erd_fields, erd_enum_names) |field_name, enum_name| {
+            if (!std.mem.eql(u8, field_name, enum_name)) {
+                @compileError(std.fmt.comptimePrint("Field {s} does not match enum {s}", .{ field_name, enum_name }));
+            }
+        }
+    }
+
     erd_application_version,
     erd_some_bool,
     erd_unaligned_u16,
@@ -62,16 +74,6 @@ pub const ErdDefinitions = struct {
         try jws.endObject();
     }
 };
-
-comptime {
-    const erd_fields = std.meta.fieldNames(ErdDefinitions);
-    const erd_enum_names = std.meta.fieldNames(ErdEnum);
-    for (erd_fields, erd_enum_names) |field_name, enum_name| {
-        if (!std.mem.eql(u8, field_name, enum_name)) {
-            @compileError(std.fmt.comptimePrint("Field {s} does not match enum {s}", .{ field_name, enum_name }));
-        }
-    }
-}
 
 /// Erd Definitions with autofilled indexes
 pub const erd = blk: {
