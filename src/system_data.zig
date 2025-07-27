@@ -184,8 +184,8 @@ pub fn subscribe(
         std.debug.assert(_sub.callback != fn_ptr);
 
         if (_sub.callback == null) {
-            _sub.*.context = context;
-            _sub.*.callback = fn_ptr;
+            _sub.context = context;
+            _sub.callback = fn_ptr;
             return;
         }
     }
@@ -208,8 +208,8 @@ pub fn unsubscribe(this: *SystemData, comptime erd_enum: SystemErds.ErdEnum, fn_
     const sub_offset = subscription_offsets[erd.system_data_idx];
 
     for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
-        if (_sub.*.callback == fn_ptr) {
-            _sub.*.callback = null;
+        if (_sub.callback == fn_ptr) {
+            _sub.callback = null;
             return;
         }
     }

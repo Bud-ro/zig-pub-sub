@@ -75,8 +75,8 @@ pub const TimerModule = struct {
 
     /// Starts a timer that is removed after it expires
     pub fn start_one_shot(self: *TimerModule, timer: *Timer, duration: Ticks) void {
-        timer.*.expiration = self.current_time + duration;
-        timer.*.period = 0;
+        timer.expiration = self.current_time + duration;
+        timer.period = 0;
 
         self.insert_timer(timer);
     }
@@ -91,8 +91,8 @@ pub const TimerModule = struct {
         // TODO: 99.99% of the time `period` should be `comptime` known. Can this be a `comptime` check?
         // Can there instead be a `start_periodic_runtime_known_period`?
         std.debug.assert(period != 0);
-        timer.*.expiration = self.current_time + initial_delay;
-        timer.*.period = period;
+        timer.expiration = self.current_time + initial_delay;
+        timer.period = period;
 
         self.insert_timer(timer);
     }
@@ -118,7 +118,7 @@ pub const TimerModule = struct {
                 }
             }
             timer.next_timer = timer_to_insert_after.next_timer;
-            timer_to_insert_after.*.next_timer = timer;
+            timer_to_insert_after.next_timer = timer;
         } else {
             // Empty list.
             self.timers = timer;
@@ -137,7 +137,7 @@ pub const TimerModule = struct {
             while (node.next_timer) |next| {
                 if (next == timer) {
                     node.next_timer = next.next_timer;
-                    timer.*.next_timer = null;
+                    timer.next_timer = null;
                     break;
                 }
             }
