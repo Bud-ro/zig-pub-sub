@@ -37,15 +37,11 @@ pub const ErdOwner = enum {
 };
 
 /// Allows ERDs to be printed as `0xXXXX`
-pub fn format(self: *const Erd, comptime fmt: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-    if (fmt.len != 0) {
-        std.fmt.invalidFmtError(fmt, self);
-    }
-
+pub fn format(self: *const Erd, writer: *std.io.Writer) std.io.Writer.Error!void {
     if (self.erd_number) |number| {
         return writer.print("0x{x:0>4}", .{number});
     } else {
-        std.fmt.invalidFmtError(fmt, self);
+        @panic("Can't format erds with null number");
     }
 }
 
@@ -58,7 +54,7 @@ pub fn jsonStringify(comptime self: Erd, jws: anytype) !void {
         try jws.objectField("name");
         try jws.write(erd_names[self.system_data_idx]);
         try jws.objectField("id");
-        try jws.print("\"{}\"", .{self});
+        try jws.print("\"{f}\"", .{self});
         try jws.objectField("type");
         // TODO: Convert the type into type info consumable by external tools, rather than just a type name,
         // Consider: https://jsontypedef.com/ ?

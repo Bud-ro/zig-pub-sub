@@ -2,8 +2,9 @@ const std = @import("std");
 const ErdJson = @import("../erd_json.zig");
 
 test "Correct ERD JSON Generation" {
-    const generated_json = try ErdJson.generate_erd_json(std.testing.allocator);
-    defer std.testing.allocator.free(generated_json);
+    var out: std.io.Writer.Allocating = .init(std.testing.allocator);
+    defer out.deinit();
+    try ErdJson.generate_erd_json(&out.writer);
 
     // TODO: Add the ability to pass an arbitrary table so that this test can remain static
     // and not require an update anytime system_erds.zig changes
@@ -56,5 +57,5 @@ test "Correct ERD JSON Generation" {
         \\}
     ;
 
-    try std.testing.expectEqualStrings(expected_json, generated_json);
+    try std.testing.expectEqualStrings(expected_json, out.writer.buffered());
 }

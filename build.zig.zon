@@ -2,7 +2,7 @@
     .name = .zig_pub_sub,
     .version = "0.0.0",
     .fingerprint = 0x8ea4b5683ac6b938,
-    .minimum_zig_version = "0.14.0",
+    .minimum_zig_version = "0.15.1",
     .dependencies = .{},
 
     .paths = .{
