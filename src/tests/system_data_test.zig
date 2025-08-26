@@ -119,8 +119,8 @@ test "subscription with context" {
 }
 
 fn context_must_match_args(context: ?*anyopaque, args: *const anyopaque, system_data: *SystemData) void {
-    const a: *u16 = @alignCast(@ptrCast(context.?));
-    const b: *const u16 = @alignCast(@ptrCast(args));
+    const a: *u16 = @ptrCast(@alignCast(context.?));
+    const b: *const u16 = @ptrCast(@alignCast(args));
 
     system_data.write(.erd_some_bool, a.* == b.*);
 }
@@ -170,17 +170,19 @@ test "exact subscription enforcement" {
 
     system_data.subscribe(.erd_some_bool, null, whatever);
     system_data.subscribe(.erd_some_bool, null, bump_some_u16);
-    system_data.subscribe(.erd_some_bool, null, turn_off_some_bool_and_increment_application_version);
     system_data.subscribe(.erd_unaligned_u16, null, whatever);
     system_data.subscribe(.erd_cool_u16, null, whatever);
 
     // TODO: Move this test into the Application test file
     // and replace all of the above with `application.init`
-    try system_data.verify_all_subs_are_saturated();
+    const exceptions = [_]SystemData.SubException{
+        .{ .erd_enum = .erd_some_bool, .count = 2 },
+    };
+    try system_data.verify_all_subs_are_saturated(&exceptions);
 }
 
 fn scratch_allocating(_: ?*anyopaque, args: *const anyopaque, system_data: *SystemData) void {
-    const val: *const u16 = @alignCast(@ptrCast(args));
+    const val: *const u16 = @ptrCast(@alignCast(args));
     const allocated = system_data.scratch_alloc(u32, val.*);
     for (allocated, 1..) |*item, i| {
         item.* = @intCast(i);

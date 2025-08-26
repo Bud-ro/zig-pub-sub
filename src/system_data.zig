@@ -14,12 +14,6 @@ const Subscription = @import("subscription.zig");
 
 const SystemData = @This();
 
-// TODO: Add args to subscriptions once comptime/runtime ERDs sorted out
-// pub const SystemDataOnChangeArgs = struct {
-//     system_data_idx: u16,
-//     data: *const anyopaque,
-// };
-
 ram: RamDataComponent = undefined,
 indirect: IndirectDataComponent = undefined,
 subscriptions: [total_subscriptions()]Subscription = undefined,
@@ -30,8 +24,8 @@ scratch_buf: [2048]u8 align(@alignOf(usize)) = undefined, // TODO: Does this act
 fn total_subscriptions() usize {
     comptime {
         var size: usize = 0;
-        for (std.meta.fieldNames(SystemErds.ErdDefinitions)) |erd_field_name| {
-            size += @field(SystemErds.erd, erd_field_name).subs;
+        for (std.meta.fieldNames(SystemErds.ErdDefinitions)) |erd_name| {
+            size += @field(SystemErds.erd, erd_name).subs;
         }
         return size;
     }
@@ -43,26 +37,27 @@ const subscription_offsets = blk: {
     var _offsets: [SystemErdsLength]usize = undefined;
     var cur_offset = 0;
 
-    for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_field_name, i| {
-        if (@field(SystemErds.erd, erd_field_name).subs != 0) {
+    for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_name, i| {
+        if (@field(SystemErds.erd, erd_name).subs != 0) {
             _offsets[i] = cur_offset;
         }
-        cur_offset += @field(SystemErds.erd, erd_field_name).subs;
+        cur_offset += @field(SystemErds.erd, erd_name).subs;
     }
     break :blk _offsets;
 };
 
-/// Returns a column from system_erds as an array
-fn system_erds_collect(T: type, name: []const u8) [SystemErdsLength]T {
+/// Returns a column from system_erds as an array of type []T
+fn system_erds_collect(T: type, column_name: []const u8) [SystemErdsLength]T {
     var field_values: [SystemErdsLength]T = undefined;
-    for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_field_name, i| {
-        field_values[i] = @field(@field(SystemErds.erd, erd_field_name), name);
+    for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_name, i| {
+        field_values[i] = @field(@field(SystemErds.erd, erd_name), column_name);
     }
 
     return field_values;
 }
 
-const subscription_count = system_erds_collect(u8, "subs");
+// Create .rodata that is indexed by `system_data_idx`
+const subs_from_idx = system_erds_collect(u8, "subs");
 const owner_from_idx = system_erds_collect(Erd.ErdOwner, "owner");
 const data_component_idx_from_idx = system_erds_collect(u16, "data_component_idx");
 
@@ -142,28 +137,24 @@ pub fn runtime_write(this: *SystemData, system_data_idx: u16, data: *const anyop
         .Indirect => comptime unreachable,
     };
 
-    if (publish_required and subscription_count[system_data_idx] != 0) {
+    if (publish_required and subs_from_idx[system_data_idx] != 0) {
         this.publish(system_data_idx, data);
     }
 }
 
 fn publish(this: *SystemData, system_data_idx: u16, data: *const anyopaque) void {
-    // TODO: Add a "publish depth" counter, which can be used to implement a global subscription
-    //       that is only published to when a normal publish finishes and it wasn't triggered by another publish
-    // this.publish_depth += 1;
-
     const sub_offset = subscription_offsets[system_data_idx];
 
-    for (this.subscriptions[sub_offset .. sub_offset + subscription_count[system_data_idx]]) |_sub| {
+    for (this.subscriptions[sub_offset .. sub_offset + subs_from_idx[system_data_idx]]) |_sub| {
         if (_sub.callback) |_callback| {
+            // TODO: Wrap the data with a struct like this
+            // pub const SystemDataOnChangeArgs = struct {
+            //     system_data_idx: u16,
+            //     data: *const anyopaque,
+            // };
             _callback(_sub.context, data, this);
         }
     }
-
-    // this.publish_depth -= 1;
-    // if (this.publish_depth == 0) {
-    //     this.publish_patient_subscriptions();
-    // }
 }
 
 pub fn subscribe(
@@ -179,6 +170,8 @@ pub fn subscribe(
     }
     const sub_offset = subscription_offsets[erd.system_data_idx];
 
+    // TODO: BUG, need to scan the entire subscription list for membership
+    // Also need to modify the behavior to not assert on re-subscribe
     for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
         // Subscriptions cannot be added to the same list twice
         std.debug.assert(_sub.callback != fn_ptr);
@@ -227,19 +220,49 @@ pub fn scratch_reset(this: *SystemData) void {
     this.scratch.reset();
 }
 
+/// A test only type used with verify_all_subs_are_saturated
+pub const SubException = struct { erd_enum: SystemErds.ErdEnum, count: comptime_int };
+
 /// A test only function used to verify that after initialization, all of your subscriptions arrays are fully saturated
-pub fn verify_all_subs_are_saturated(this: *SystemData) !void {
+pub fn verify_all_subs_are_saturated(this: *SystemData, comptime exceptions: []const SubException) !void {
     inline for (std.meta.fields(SystemErds.ErdDefinitions), 0..) |field_info, i| {
-        const erd_field_name = field_info.name;
+        const erd_name = field_info.name;
         const sub_offset = subscription_offsets[i];
-        const num_subs = @field(SystemErds.erd, erd_field_name).subs;
+        const num_subs = @field(SystemErds.erd, erd_name).subs;
         if (num_subs == 0) {
+            inline for (exceptions) |e| {
+                if (std.mem.eql(u8, @tagName(e.erd_enum), erd_name)) {
+                    std.debug.panic("Remove {s} from exceptions list since subscriptions are disabled for it", .{erd_name});
+                }
+            }
             continue;
         }
 
-        for (this.subscriptions[sub_offset .. sub_offset + num_subs]) |_sub| {
-            if (_sub.callback == null) {
-                std.debug.panic("ERD: {s} has not fully filled its subscription buffer after init!", .{erd_field_name});
+        const expected_count = blk: {
+            comptime var _expected = num_subs;
+            inline for (exceptions) |e| {
+                if (comptime std.mem.eql(u8, @tagName(e.erd_enum), erd_name)) {
+                    _expected = e.count;
+                    break :blk _expected;
+                }
+            }
+            break :blk _expected;
+        };
+
+        if (expected_count == num_subs) {
+            for (this.subscriptions[sub_offset .. sub_offset + num_subs]) |_sub| {
+                if (_sub.callback == null) {
+                    std.debug.panic("ERD: {s} has not fully filled its subscription buffer after init!", .{erd_name});
+                }
+            }
+        } else {
+            for (this.subscriptions[sub_offset .. sub_offset + num_subs], 0..) |_sub, j| {
+                const sub_stop_index = expected_count - 1;
+                if (_sub.callback == null and j < sub_stop_index) {
+                    std.debug.panic("ERD: {s} is under-subscribing after init. Decrease num, or increase missed.", .{erd_name});
+                } else if (_sub.callback != null and j > sub_stop_index) {
+                    std.debug.panic("ERD: {s} is over-subscribed after init. Increase num or decrease missed.", .{erd_name});
+                }
             }
         }
     }

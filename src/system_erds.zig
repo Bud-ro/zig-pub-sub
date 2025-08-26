@@ -1,11 +1,6 @@
 const std = @import("std");
 const Erd = @import("erd.zig");
 
-// TODO: Depending on the .owner, extra data may be required. For .Indirect this is externalized
-//       as IndirectDataComponent.IndirectErdMapping which requires extra validation
-//       and might pessimize optimization.
-//       By switching to a tagged union we could do: `.owner = .Indirect{ .fn = func }`
-
 /// `ErdEnum` allows for use of decl literals which makes API use of ERDs *significantly* shorter
 pub const ErdEnum = enum {
     // This must match one to one with ErdDefinitions
@@ -134,7 +129,7 @@ pub const ram_definitions = component_definitions(.Ram);
 pub const indirect_definitions = component_definitions(.Indirect);
 
 /// Enum to Erd mapper
-pub fn erd_from_enum(erd_enum: ErdEnum) Erd {
+pub fn erd_from_enum(comptime erd_enum: ErdEnum) Erd {
     return @field(erd, @tagName(erd_enum));
 }
 
