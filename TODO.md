@@ -7,17 +7,15 @@
     - Can be used instead of stack allocator, which is only capable of a fixed number of allocation sizes
     - Improves memory report since it removes implicit assumption that we have enough stack space to support them
       - It does assume that we don't exceed 2 kiB (or however much configured) of scratch space used per RTC
-  - [ ] External data component
-    - [ ] Swapping
-    - [ ] Reads/writes are done using public ERD handles, so you don't really get any type safety (TODO: is this true?)
   - [ ] Converted data component once subscriptions are in implemented
     - [ ] Subscribe to ERDs in it
     - [ ] Denote *multiple* ERDs as a dependency
 - [x] Implement System Data
   - [ ] Define ERDs top down (pass down from system data into other components)
+    - Can probably do this by calling `SystemData(ErdDefinitions)`, that's just a ton of work
     - This buys:
       - Fully committing to storing subscriptions in data components
-      - Differing `.subscribe`, `.unsubscribe`, etc. functions for instance, which more flexibily allow for certain data components to not be subscribable
+      - Differing `.subscribe`, `.unsubscribe`, etc. functions for instance, which more flexibly allow for certain data components to not be subscribable
       - Allows for init of data components with different ERD tables
   - [x] Allow for definition of public ERD handles
 - [x] Pub sub
@@ -26,20 +24,22 @@
     - [x] ~~Entire data components can have their subscribe function be a `@compileError`~~ N/A since sub is done at the system data level
   - [x] ~~Linked List unsubscribe~~
   - [ ] `.subscribe_all` and `.unsubscribe_all`
-  - [x] `comptime` known upperbound of subscriptions which can be used to hold callbacks in an array instead of wasting a shit ton of memory (and time) on linked list pointers.
+  - [x] `comptime` known upper bound of subscriptions which can be used to hold callbacks in an array instead of wasting a shit ton of memory (and time) on linked list pointers.
     - Benefit of this is that you don't need to explicitly mark ERDs as Sub_Y, it will just be inferred from whether it's ever subbed to
     - Unsubscribe removes the corresponding function pointer and moves the last function pointer in the array to the empty position to maintain memory continuity
       - This is only possible if order of the callbacks doesn't matter. FYI it SHOULDN'T matter.
     - Could be done by storing a comptime counter in the ERD table.
+  - [ ] External data capabilities in `SystemData`
+    - [ ] Swapping done automatically using `@typeInfo`
+    - [ ] Reads/writes are done using public ERD handles, so you don't really get any type safety (TODO: is this true?)
+    - [ ] Pub sub at this layer as well, only for ERDs that have `ErdHandle`s
 - [ ] JSON Serializer for SystemErds
 - [ ] Zig alternative to Lua for generating parametric data
 - [ ] Rename this project to embedded starter kit
 - [x] Timer Module with linked lists
-- [ ] Timer Module using struct of arrays, and psuedo-linked list
-  - [ ] `comptime` configured upper bound of timers 
-    - [ ] Application test will tell you when to increase this number (`application.init(); assert(timer_module.active_timers >= 0.90*max_timers)`)
-  - [ ] Use handles with generation for modifications to a timer
-    - [ ] Callbacks will return the timer handle
+  - [ ] Timer Module memory/speed optimization using pointer alignment abuse
+  - [ ] Add support for paused timers
+- [x] ~~Timer Module using struct of arrays, and pseudo-linked list~~
 - [ ] Build ELF for Cortex-M
   - [ ] Linker script
   - [ ] Flash just the application
