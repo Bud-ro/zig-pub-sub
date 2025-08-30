@@ -14,6 +14,12 @@ const Subscription = @import("subscription.zig");
 
 const SystemData = @This();
 
+/// Published for every on-change event
+pub const OnChangeArgs = struct {
+    system_data_idx: u16,
+    data: *const anyopaque,
+};
+
 ram: RamDataComponent = undefined,
 indirect: IndirectDataComponent = undefined,
 subscriptions: [total_subscriptions()]Subscription = undefined,
@@ -147,12 +153,8 @@ fn publish(this: *SystemData, system_data_idx: u16, data: *const anyopaque) void
 
     for (this.subscriptions[sub_offset .. sub_offset + subs_from_idx[system_data_idx]]) |_sub| {
         if (_sub.callback) |_callback| {
-            // TODO: Wrap the data with a struct like this
-            // pub const SystemDataOnChangeArgs = struct {
-            //     system_data_idx: u16,
-            //     data: *const anyopaque,
-            // };
-            _callback(_sub.context, data, this);
+            const args: OnChangeArgs = .{ .system_data_idx = system_data_idx, .data = data };
+            _callback(_sub.context, &args, this);
         }
     }
 }

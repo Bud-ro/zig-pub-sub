@@ -25,6 +25,8 @@ const ErdLogicOperator = enum {
     _bitwise_not,
 };
 
+// TODO: Should this really be this generic? It probably leads to a lot of code bloat. I'd much prefer
+// this to use the same machine code for all instances (or at least one set for the unary operators, and one set for binary operators).
 /// Constructs an ErdLogic type
 pub fn ErdLogic(comptime operator: ErdLogicOperator, comptime erds: []const SystemErds.ErdEnum, outputErd: SystemErds.ErdEnum) type {
     comptime {
@@ -44,7 +46,8 @@ pub fn ErdLogic(comptime operator: ErdLogicOperator, comptime erds: []const Syst
     }
 
     return struct {
-        fn on_change(_: ?*anyopaque, _: ?*const anyopaque, system_data: *SystemData) void {
+        // TODO: Utilize args here to improve the code
+        fn on_change(_: ?*anyopaque, _: ?*const SystemData.OnChangeArgs, system_data: *SystemData) void {
             if (erds.len == 1) {
                 const value = system_data.read(erds[0]);
                 const output = switch (operator) {
@@ -64,7 +67,7 @@ pub fn ErdLogic(comptime operator: ErdLogicOperator, comptime erds: []const Syst
                         ._and => value and next,
                         ._or => value or next,
                         ._nor => !(value or next),
-                        ._xor => (!value and next) or (value and !next),
+                        ._xor => (!value and next) or (value and !next), // TODO: `value != next` ?
                         ._bitwise_and => value & next,
                         ._bitwise_or => value | next,
                         ._bitwise_nor => ~(value | next),
