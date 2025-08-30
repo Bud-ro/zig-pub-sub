@@ -176,7 +176,7 @@ test "exact subscription enforcement" {
     // TODO: Move this test into the Application test file
     // and replace all of the above with `application.init`
     const exceptions = [_]SystemData.SubException{
-        .{ .erd_enum = .erd_some_bool, .count = 2 },
+        .{ .erd_enum = .erd_some_bool, .missing = 1 },
     };
     try system_data.verify_all_subs_are_saturated(&exceptions);
 }

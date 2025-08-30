@@ -221,20 +221,31 @@ pub fn scratch_reset(this: *SystemData) void {
 }
 
 /// A test only type used with verify_all_subs_are_saturated
-pub const SubException = struct { erd_enum: SystemErds.ErdEnum, count: comptime_int };
+pub const SubException = struct { erd_enum: SystemErds.ErdEnum, missing: comptime_int };
 
 /// A test only function used to verify that after initialization, all of your subscriptions arrays are fully saturated
 pub fn verify_all_subs_are_saturated(this: *SystemData, comptime exceptions: []const SubException) !void {
+    var failed = false;
+
+    inline for (exceptions) |e| {
+        const erd_name = @tagName(e.erd_enum);
+        const num_subs = @field(SystemErds.erd, erd_name).subs;
+        if (num_subs == 0) {
+            std.log.warn("Remove {s} from exceptions list since subscriptions are disabled for it", .{erd_name});
+            failed = true;
+        }
+    }
+
+    if (failed) {
+        return error.ErdWithNoSubsInExceptions;
+    }
+
     inline for (std.meta.fields(SystemErds.ErdDefinitions), 0..) |field_info, i| {
         const erd_name = field_info.name;
         const sub_offset = subscription_offsets[i];
         const num_subs = @field(SystemErds.erd, erd_name).subs;
+
         if (num_subs == 0) {
-            inline for (exceptions) |e| {
-                if (std.mem.eql(u8, @tagName(e.erd_enum), erd_name)) {
-                    std.debug.panic("Remove {s} from exceptions list since subscriptions are disabled for it", .{erd_name});
-                }
-            }
             continue;
         }
 
@@ -242,28 +253,30 @@ pub fn verify_all_subs_are_saturated(this: *SystemData, comptime exceptions: []c
             comptime var _expected = num_subs;
             inline for (exceptions) |e| {
                 if (comptime std.mem.eql(u8, @tagName(e.erd_enum), erd_name)) {
-                    _expected = e.count;
+                    _expected = num_subs - e.missing;
                     break :blk _expected;
                 }
             }
             break :blk _expected;
         };
 
-        if (expected_count == num_subs) {
-            for (this.subscriptions[sub_offset .. sub_offset + num_subs]) |_sub| {
-                if (_sub.callback == null) {
-                    std.debug.panic("ERD: {s} has not fully filled its subscription buffer after init!", .{erd_name});
-                }
-            }
-        } else {
-            for (this.subscriptions[sub_offset .. sub_offset + num_subs], 0..) |_sub, j| {
-                const sub_stop_index = expected_count - 1;
-                if (_sub.callback == null and j < sub_stop_index) {
-                    std.debug.panic("ERD: {s} is under-subscribing after init. Decrease num, or increase missed.", .{erd_name});
-                } else if (_sub.callback != null and j > sub_stop_index) {
-                    std.debug.panic("ERD: {s} is over-subscribed after init. Increase num or decrease missed.", .{erd_name});
-                }
+        var actual_count: u16 = 0;
+        for (this.subscriptions[sub_offset .. sub_offset + num_subs]) |_sub| {
+            if (_sub.callback != null) {
+                actual_count += 1;
             }
         }
+
+        if (actual_count < expected_count) {
+            std.log.warn("ERD: {s} is under-subscribing after init. Decrease subs, or increase missing.", .{erd_name});
+            failed = true;
+        } else if (actual_count > expected_count) {
+            std.log.warn("ERD: {s} is over-subscribed after init. Increase subs or decrease missing.", .{erd_name});
+            failed = true;
+        }
+    }
+
+    if (failed) {
+        return error.ErdWithUnexpectedSubCount;
     }
 }
