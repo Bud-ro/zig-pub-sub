@@ -4,7 +4,6 @@
 //! and also takes `n * @sizeof(Subscription) = 8n/16n` bytes of RAM.
 //! As an upside, comptime read/writes are performed and the operator is comptime known so
 //! there is an O(0) lookup.
-//! TODO: For a version of this that is less intense on code size, use RuntimeErdLogic
 
 const std = @import("std");
 const SystemData = @import("../system_data.zig");
@@ -67,7 +66,7 @@ pub fn ErdLogic(comptime operator: ErdLogicOperator, comptime erds: []const Syst
                         ._and => value and next,
                         ._or => value or next,
                         ._nor => !(value or next),
-                        ._xor => (!value and next) or (value and !next), // TODO: `value != next` ?
+                        ._xor => value != next,
                         ._bitwise_and => value & next,
                         ._bitwise_or => value | next,
                         ._bitwise_nor => ~(value | next),

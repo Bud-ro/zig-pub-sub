@@ -212,8 +212,6 @@ pub fn unsubscribe(this: *SystemData, comptime erd_enum: SystemErds.ErdEnum, fn_
 
 /// Returns a slice allocated to the scratch buffer.
 pub fn scratch_alloc(this: *SystemData, comptime T: type, n: usize) []T {
-    // TODO: Consider if this can somehow be used for RX/TX buffers???
-    // Or do those need to last more than one RTC? If so, is there an alternate strategy that can be employed?
     return this.scratch.allocator().alloc(T, n) catch @panic("We ran out of scratch memory!!!");
 }
 

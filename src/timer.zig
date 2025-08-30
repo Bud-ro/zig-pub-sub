@@ -31,12 +31,11 @@ pub const Timer = struct {
 
 pub const TimerModule = struct {
     current_time: Ticks,
+    // TODO: Switch to `std.SinglyLinkedList` now that it's an intrusive implementation
     /// `timers` is a singly linked list
     timers: ?*Timer,
 
     pub fn init() TimerModule {
-        // TODO: Pass in a comptime known parameter for max number of timers
-        // after struct of array timers are implemented
         const timer_module = TimerModule{ .current_time = 0, .timers = null };
         return timer_module;
     }
@@ -49,12 +48,12 @@ pub const TimerModule = struct {
             // TODO: Will we ever have issues if an interrupt increments self.current_time
             // but we're in the middle of reading it?
             //
-            // TODO: Try an `@atomicLoad`?
+            // TODO: Do the consecutive read trick
             if (timer.expiration <= self.current_time) {
                 const was_periodic = (timer.period != 0);
                 timer.callback(timer.ctx, self, timer);
                 if (timer.period != 0) {
-                    const new_time = self.current_time; // TODO: Do we need volatile or something like that here?
+                    const new_time = self.current_time;
                     timer.expiration = new_time + timer.period; // Start the new timer
                     // Shift the timer to where it will expire after everything
                     self.remove_timer(timer);
@@ -88,8 +87,6 @@ pub const TimerModule = struct {
 
     /// Starts a periodic timer with a custom delay for the first expiration
     pub fn start_periodic_delayed(self: *TimerModule, timer: *Timer, period: Ticks, initial_delay: Ticks) void {
-        // TODO: 99.99% of the time `period` should be `comptime` known. Can this be a `comptime` check?
-        // Can there instead be a `start_periodic_runtime_known_period`?
         std.debug.assert(period != 0);
         timer.expiration = self.current_time + initial_delay;
         timer.period = period;
