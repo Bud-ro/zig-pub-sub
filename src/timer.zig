@@ -11,52 +11,42 @@ const std = @import("std");
 pub const Ticks = u64;
 
 pub const Timer = struct {
-    /// An expiration time of `std.math.maxInt(Ticks)` is used to denote that the timer never expires.
-    /// This is compatible with both an array/SoA of timers approach as well as linked lists.
-    /// Linked lists have the benefit of being able to remove the timer from the linked list though
+    /// The tick at which this timer expires. This has the benefit of not requiring us to
+    /// Current code ignores wrap around by using u64, TODO: Fix that.
     expiration: Ticks = undefined,
     /// 0 means one-shot
     period: Ticks = undefined,
-    ctx: ?*anyopaque,
-    callback: TimerCallback,
-    next_timer: ?*Timer = null,
-
-    pub fn init(context: ?*anyopaque, callback: TimerCallback) Timer {
-        const this = Timer{ .ctx = context, .callback = callback };
-        return this;
-    }
+    ctx: ?*anyopaque = null,
+    callback: ?TimerCallback = null, // TODO: Optimization: Use the `null` for an extra bit of info (list membership)
+    node: std.SinglyLinkedList.Node = .{},
 
     const TimerCallback = *const fn (ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void;
 };
 
 pub const TimerModule = struct {
-    current_time: Ticks,
-    // TODO: Switch to `std.SinglyLinkedList` now that it's an intrusive implementation
-    /// `timers` is a singly linked list
-    timers: ?*Timer,
-
-    pub fn init() TimerModule {
-        const timer_module = TimerModule{ .current_time = 0, .timers = null };
-        return timer_module;
-    }
+    current_time: Ticks = 0,
+    timers: std.SinglyLinkedList = .{},
 
     /// Services the callbacks for a single expired timer
     /// Returns `true` if a `Timer` expired, otherwise returns `false`
     pub fn run(self: *TimerModule) bool {
-        var current_timer = self.timers;
-        while (current_timer) |timer| {
+        var current_timer_node = self.timers.first;
+        while (current_timer_node) |node| {
+            var timer: *Timer = @fieldParentPtr("node", node);
             // TODO: Will we ever have issues if an interrupt increments self.current_time
             // but we're in the middle of reading it?
             //
             // TODO: Do the consecutive read trick
             if (timer.expiration <= self.current_time) {
                 const was_periodic = (timer.period != 0);
-                timer.callback(timer.ctx, self, timer);
+                timer.callback.?(timer.ctx, self, timer);
                 if (timer.period != 0) {
-                    const new_time = self.current_time;
-                    timer.expiration = new_time + timer.period; // Start the new timer
+                    timer.expiration = self.current_time + timer.period; // Start the new timer
                     // Shift the timer to where it will expire after everything
-                    self.remove_timer(timer);
+                    // TODO: It should always be the front-node expiring
+                    // const front_node = self.timers.popFirst().?;
+                    // std.debug.assert(front_node == node);
+                    self.timers.remove(node);
                     self.insert_timer(timer);
                 } else {
                     const was_stopped = was_periodic;
@@ -67,13 +57,16 @@ pub const TimerModule = struct {
                 }
                 return true; // Only perform one timer callback per RTC
             }
-            current_timer = timer.next_timer;
+            current_timer_node = node.next;
         }
-        return false;
+
+        return false; // List was empty
     }
 
     /// Starts a timer that is removed after it expires
-    pub fn start_one_shot(self: *TimerModule, timer: *Timer, duration: Ticks) void {
+    pub fn start_one_shot(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*anyopaque, callback: Timer.TimerCallback) void {
+        timer.ctx = ctx;
+        timer.callback = callback;
         timer.expiration = self.current_time + duration;
         timer.period = 0;
 
@@ -81,68 +74,64 @@ pub const TimerModule = struct {
     }
 
     /// Starts a periodic timer, with first expiration set to current time + period
-    pub fn start_periodic(self: *TimerModule, timer: *Timer, period: Ticks) void {
-        @call(.always_inline, start_periodic_delayed, .{ self, timer, period, period });
+    pub fn start_periodic(self: *TimerModule, timer: *Timer, period: Ticks, ctx: ?*anyopaque, callback: Timer.TimerCallback) void {
+        @call(.always_inline, start_periodic_delayed, .{ self, timer, period, period, ctx, callback });
     }
 
     /// Starts a periodic timer with a custom delay for the first expiration
-    pub fn start_periodic_delayed(self: *TimerModule, timer: *Timer, period: Ticks, initial_delay: Ticks) void {
+    /// NOTE: an `initial_delay` of 0 does not immediately run the callback TODO: maybe it should/could?
+    pub fn start_periodic_delayed(
+        self: *TimerModule,
+        timer: *Timer,
+        period: Ticks,
+        initial_delay: Ticks,
+        ctx: ?*anyopaque,
+        callback: Timer.TimerCallback,
+    ) void {
         std.debug.assert(period != 0);
+        timer.ctx = ctx;
+        timer.callback = callback;
         timer.expiration = self.current_time + initial_delay;
         timer.period = period;
 
         self.insert_timer(timer);
     }
 
-    /// Stops a timer and returns the remaining time on it
-    /// Stopping a timer that is not running is a logic bug and will cause a panic
-    pub fn stop(self: *TimerModule, timer: *Timer) Ticks {
+    /// Stops a timer
+    pub fn stop(self: *TimerModule, timer: *Timer) void {
         std.debug.assert(timer.expiration >= self.current_time);
         timer.period = 0; // Needed for removal of periodic timers during a timer_module callback
         self.remove_timer(timer);
-        return timer.expiration - self.current_time;
     }
 
+    /// Inserts a timer after all other timers with equal or less remaining ticks
+    /// Inserting after timers with equal remaining ticks improves fairness
     fn insert_timer(self: *TimerModule, timer: *Timer) void {
-        if (self.timers) |list_head| {
-            // Insert after timers with equal or less expiration time.
-            var timer_to_insert_after: *Timer = list_head;
-            while (timer_to_insert_after.next_timer) |next| {
-                if (next.expiration <= timer.expiration) {
-                    timer_to_insert_after = next;
+        // TODO: BUG: Fix the fact that we don't check for membership before modifying the list
+        // This fix can also be achieved by changing the API so that `insert_timer` is never called
+        // for timers that are already in the list (by assuming `TimerModule` is a singleton and
+        // using `null` as a signal value in the Timer struct itself)
+        if (self.timers.first) |head| {
+            var node_to_insert_after = head;
+            while (node_to_insert_after.next) |next| {
+                const _timer: *Timer = @fieldParentPtr("node", next);
+                if (_timer.expiration <= timer.expiration) {
+                    node_to_insert_after = next;
                 } else {
                     break;
                 }
             }
-            timer.next_timer = timer_to_insert_after.next_timer;
-            timer_to_insert_after.next_timer = timer;
+            node_to_insert_after.insertAfter(&timer.node);
         } else {
             // Empty list.
-            self.timers = timer;
+            self.timers.prepend(&timer.node);
         }
     }
 
     fn remove_timer(self: *TimerModule, timer: *Timer) void {
-        if (self.timers) |list_head| {
-            if (list_head == timer) {
-                self.timers = list_head.next_timer;
-                timer.next_timer = null;
-                return;
-            }
-
-            var node: *Timer = list_head;
-            while (node.next_timer) |next| {
-                if (next == timer) {
-                    node.next_timer = next.next_timer;
-                    timer.next_timer = null;
-                    break;
-                }
-            }
-        } else {
-            // Empty list
-            // This is a bug
-            unreachable;
-        }
+        // TODO: It should be safe to remove a timer even if it's not in the list
+        self.timers.remove(&timer.node);
+        timer.callback = null;
     }
 
     /// Called in the interrupt context, this can happen while a call to `run` is happening.

@@ -24,7 +24,7 @@ data_component_idx: comptime_int = undefined,
 system_data_idx: u16 = undefined,
 
 /// ERD identifier, allows for ERDs to be referenced externally
-pub const ErdHandle = u16; // TODO: Evaluate if this should be an inexhaustive enum `ErdHandle = enum { _ };`
+pub const ErdHandle = u16; // TODO: Evaluate if this should be an non-exhaustive enum `ErdHandle = enum { _ };`
 
 // TODO: Consider moving this into system_data.zig
 pub const ErdOwner = enum {
@@ -33,9 +33,9 @@ pub const ErdOwner = enum {
 };
 
 /// Allows ERDs to be printed as `0xXXXX`
-pub fn format(self: *const Erd, writer: *std.io.Writer) std.io.Writer.Error!void {
+pub fn format(self: *const Erd, writer: *std.io.Writer) !void {
     if (self.erd_number) |number| {
-        return writer.print("0x{x:0>4}", .{number});
+        return try writer.print("0x{x:0>4}", .{number});
     } else {
         @panic("Can't format erds with null number");
     }
