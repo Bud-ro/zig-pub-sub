@@ -48,7 +48,7 @@ pub const TimerModule = struct {
                     } else if (timer.expiration > self.current_time) {
                         // One-shot started, do nothing
                         // TODO: This does NOT work if the one-shot restarted is a 0 tick, but that also seems problematic
-                        // so do we need to handle that case
+                        // so do we need to handle that case?
                     } else {
                         self.remove_timer(timer);
                     }
@@ -105,18 +105,14 @@ pub const TimerModule = struct {
 
     /// Stops a timer
     pub fn stop(self: *TimerModule, timer: *Timer) void {
-        std.debug.assert(timer.expiration >= self.current_time);
-        timer.period = 0; // Needed for removal of periodic timers during a timer_module callback
-        self.remove_timer(timer);
+        if (timer.callback != null) {
+            self.remove_timer(timer);
+        }
     }
 
     /// Inserts a timer after all other timers with equal or less remaining ticks
     /// Inserting after timers with equal remaining ticks improves fairness
     fn insert_timer(self: *TimerModule, timer: *Timer) void {
-        // TODO: BUG: Fix the fact that we don't check for membership before modifying the list
-        // This fix can also be achieved by changing the API so that `insert_timer` is never called
-        // for timers that are already in the list (by assuming `TimerModule` is a singleton and
-        // using `null` as a signal value in the Timer struct itself)
         if (self.timers.first) |head| {
             const head_timer: *Timer = @fieldParentPtr("node", head);
             if (timer.expiration < head_timer.expiration) {
@@ -139,8 +135,8 @@ pub const TimerModule = struct {
         }
     }
 
+    /// If this is called, a timer MUST be in the list
     fn remove_timer(self: *TimerModule, timer: *Timer) void {
-        // TODO: It should be safe to remove a timer even if it's not in the list
         self.timers.remove(&timer.node);
         timer.callback = null;
     }
