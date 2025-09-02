@@ -30,22 +30,20 @@ pub const TimerModule = struct {
     /// Services the callbacks for a single expired timer
     /// Returns `true` if a `Timer` expired, otherwise returns `false`
     pub fn run(self: *TimerModule) bool {
+        const current_time = self.safely_get_current_time();
+
         var current_timer_node = self.timers.first;
         while (current_timer_node) |node| {
             var timer: *Timer = @fieldParentPtr("node", node);
-            // TODO: Will we ever have issues if an interrupt increments self.current_time
-            // but we're in the middle of reading it?
-            //
-            // TODO: Do the consecutive read trick
-            if (timer.expiration <= self.current_time) {
+            if (timer.expiration <= current_time) {
                 timer.callback.?(timer.ctx, self, timer);
                 if (timer.callback != null) { // Timer was not stopped during the callback
                     if (timer.period != 0) { // Periodic timer
-                        timer.expiration = self.current_time + timer.period;
+                        timer.expiration = current_time + timer.period;
                         const front_node = self.timers.popFirst().?;
                         std.debug.assert(front_node == node);
                         self.insert_timer(timer);
-                    } else if (timer.expiration > self.current_time) {
+                    } else if (timer.expiration > current_time) {
                         // One-shot started, do nothing
                         // TODO: This does NOT work if the one-shot restarted is a 0 tick, but that also seems problematic
                         // so do we need to handle that case?
@@ -69,7 +67,7 @@ pub const TimerModule = struct {
 
         timer.ctx = ctx;
         timer.callback = callback;
-        timer.expiration = self.current_time + duration;
+        timer.expiration = self.safely_get_current_time() + duration;
         timer.period = 0;
 
         self.insert_timer(timer);
@@ -97,7 +95,7 @@ pub const TimerModule = struct {
         std.debug.assert(period != 0);
         timer.ctx = ctx;
         timer.callback = callback;
-        timer.expiration = self.current_time + initial_delay;
+        timer.expiration = self.safely_get_current_time() + initial_delay;
         timer.period = period;
 
         self.insert_timer(timer);
@@ -146,5 +144,15 @@ pub const TimerModule = struct {
         // TODO: See if this works. Or try @atomicStore
         // @atomicRmw(Ticks, &self.current_time, .Add, ticks_to_increment_by, .monotonic);
         self.current_time += ticks_to_increment_by;
+    }
+
+    /// Repeatedly reads the current_time until two consecutive reads are identical
+    fn safely_get_current_time(self: *TimerModule) Ticks {
+        var current_time = self.current_time;
+        while (current_time != self.current_time) {
+            // TODO: Make sure this doesn't get optimized out
+            current_time = self.current_time;
+        }
+        return current_time;
     }
 };
