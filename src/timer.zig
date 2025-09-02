@@ -30,32 +30,39 @@ pub const TimerModule = struct {
     /// Services the callbacks for a single expired timer
     /// Returns `true` if a `Timer` expired, otherwise returns `false`
     pub fn run(self: *TimerModule) bool {
-        const current_time = self.safely_get_current_time();
+        const time_at_start_of_rtc = self.safely_get_current_time();
 
-        var current_timer_node = self.timers.first;
-        while (current_timer_node) |node| {
-            var timer: *Timer = @fieldParentPtr("node", node);
-            if (timer.expiration <= current_time) {
+        if (self.timers.first) |next_expiring| {
+            var timer: *Timer = @fieldParentPtr("node", next_expiring);
+            if (timer.expiration <= time_at_start_of_rtc) {
                 timer.callback.?(timer.ctx, self, timer);
                 if (timer.callback != null) { // Timer was not stopped during the callback
-                    if (timer.period != 0) { // Periodic timer
-                        timer.expiration = current_time + timer.period;
+                    const time_after_callback = self.safely_get_current_time();
+                    if (timer.period != 0) {
+                        // Use of `time_after_callback` allows for periodic timers to drift
+                        // This is a requirement since `callback`s may take arbitrarily long
+                        // and we can't go back in time to service them. This does mean that shorter timers
+                        // will also drift due to random chance (eg: `callback` = 10us => 1% chance to drift by 1 tick).
+                        //
+                        // If this property is not acceptable for short timers, then tying directly to the interrupt event
+                        // is recommended.
+                        timer.expiration = time_after_callback + timer.period;
                         const front_node = self.timers.popFirst().?;
-                        std.debug.assert(front_node == node);
+                        std.debug.assert(front_node == next_expiring);
                         self.insert_timer(timer);
-                    } else if (timer.expiration > current_time) {
-                        // One-shot started, do nothing
-                        // TODO: This does NOT work if the one-shot restarted is a 0 tick, but that also seems problematic
-                        // so do we need to handle that case?
+                    } else if (timer.expiration > time_at_start_of_rtc) {
+                        // One-shot started, do nothing.
+                        // TODO: This does NOT work if the one-shot restarted is a 0 tick, but
+                        // do we need to handle that case? Rapidly starting 0-ticks from 0-ticks
+                        // is kind of bad for obvious reasons.
                     } else {
                         self.remove_timer(timer);
                     }
                 }
                 return true; // Only perform one timer callback per RTC
             }
-            current_timer_node = node.next;
+            return false; // Timer at head of list is not expired
         }
-
         return false; // List was empty
     }
 
