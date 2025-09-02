@@ -17,7 +17,7 @@ pub const Timer = struct {
     /// 0 means one-shot
     period: Ticks = undefined,
     ctx: ?*anyopaque = null,
-    callback: ?TimerCallback = null, // TODO: Optimization: Use the `null` for an extra bit of info (list membership)
+    callback: ?TimerCallback = null,
     node: std.SinglyLinkedList.Node = .{},
 
     const TimerCallback = *const fn (ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void;
@@ -38,20 +38,18 @@ pub const TimerModule = struct {
             //
             // TODO: Do the consecutive read trick
             if (timer.expiration <= self.current_time) {
-                const was_periodic = (timer.period != 0);
                 timer.callback.?(timer.ctx, self, timer);
-                if (timer.period != 0) {
-                    timer.expiration = self.current_time + timer.period; // Start the new timer
-                    // Shift the timer to where it will expire after everything
-                    // TODO: It should always be the front-node expiring
-                    // const front_node = self.timers.popFirst().?;
-                    // std.debug.assert(front_node == node);
-                    self.timers.remove(node);
-                    self.insert_timer(timer);
-                } else {
-                    const was_stopped = was_periodic;
-                    if (!was_stopped) {
-                        // Removes one-shots, but not stopped periodic timers
+                if (timer.callback != null) { // Timer was not stopped during the callback
+                    if (timer.period != 0) { // Periodic timer
+                        timer.expiration = self.current_time + timer.period;
+                        const front_node = self.timers.popFirst().?;
+                        std.debug.assert(front_node == node);
+                        self.insert_timer(timer);
+                    } else if (timer.expiration > self.current_time) {
+                        // One-shot started, do nothing
+                        // TODO: This does NOT work if the one-shot restarted is a 0 tick, but that also seems problematic
+                        // so do we need to handle that case
+                    } else {
                         self.remove_timer(timer);
                     }
                 }
@@ -65,6 +63,10 @@ pub const TimerModule = struct {
 
     /// Starts a timer that is removed after it expires
     pub fn start_one_shot(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*anyopaque, callback: Timer.TimerCallback) void {
+        if (timer.callback != null) {
+            self.remove_timer(timer);
+        }
+
         timer.ctx = ctx;
         timer.callback = callback;
         timer.expiration = self.current_time + duration;
@@ -88,6 +90,10 @@ pub const TimerModule = struct {
         ctx: ?*anyopaque,
         callback: Timer.TimerCallback,
     ) void {
+        if (timer.callback != null) {
+            self.remove_timer(timer);
+        }
+
         std.debug.assert(period != 0);
         timer.ctx = ctx;
         timer.callback = callback;
@@ -112,16 +118,21 @@ pub const TimerModule = struct {
         // for timers that are already in the list (by assuming `TimerModule` is a singleton and
         // using `null` as a signal value in the Timer struct itself)
         if (self.timers.first) |head| {
-            var node_to_insert_after = head;
-            while (node_to_insert_after.next) |next| {
-                const _timer: *Timer = @fieldParentPtr("node", next);
-                if (_timer.expiration <= timer.expiration) {
-                    node_to_insert_after = next;
-                } else {
-                    break;
+            const head_timer: *Timer = @fieldParentPtr("node", head);
+            if (timer.expiration < head_timer.expiration) {
+                self.timers.prepend(&timer.node);
+            } else {
+                var node_to_insert_after = head;
+                while (node_to_insert_after.next) |next| {
+                    const _timer: *Timer = @fieldParentPtr("node", next);
+                    if (_timer.expiration <= timer.expiration) {
+                        node_to_insert_after = next;
+                    } else {
+                        break;
+                    }
                 }
+                node_to_insert_after.insertAfter(&timer.node);
             }
-            node_to_insert_after.insertAfter(&timer.node);
         } else {
             // Empty list.
             self.timers.prepend(&timer.node);
