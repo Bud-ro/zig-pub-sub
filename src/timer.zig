@@ -35,10 +35,15 @@ pub const TimerModule = struct {
         if (self.timers.first) |next_expiring| {
             var timer: *Timer = @fieldParentPtr("node", next_expiring);
             if (timer.expiration <= time_at_start_of_rtc) {
-                timer.callback.?(timer.ctx, self, timer);
-                if (timer.callback != null) { // Timer was not stopped during the callback
-                    const time_after_callback = self.safely_get_current_time();
+                const _callback = timer.callback;
+                timer.callback = null;
+                _callback.?(timer.ctx, self, timer);
+                if (timer.callback == null) {
+                    // Timer was not manually restarted during the callback, thus
+                    // it should be at the front of the list and we just need to remove/restart it
+                    const front_node = self.timers.popFirst().?;
                     if (timer.period != 0) {
+                        const time_after_callback = self.safely_get_current_time();
                         // Use of `time_after_callback` allows for periodic timers to drift
                         // This is a requirement since `callback`s may take arbitrarily long
                         // and we can't go back in time to service them. This does mean that shorter timers
@@ -47,16 +52,9 @@ pub const TimerModule = struct {
                         // If this property is not acceptable for short timers, then tying directly to the interrupt event
                         // is recommended.
                         timer.expiration = time_after_callback + timer.period;
-                        const front_node = self.timers.popFirst().?;
                         std.debug.assert(front_node == next_expiring);
                         self.insert_timer(timer);
-                    } else if (timer.expiration > time_at_start_of_rtc) {
-                        // One-shot started, do nothing.
-                        // TODO: This does NOT work if the one-shot restarted is a 0 tick, but
-                        // do we need to handle that case? Rapidly starting 0-ticks from 0-ticks
-                        // is kind of bad for obvious reasons.
-                    } else {
-                        self.remove_timer(timer);
+                        timer.callback = _callback; // Don't forget to restore the callback!
                     }
                 }
                 return true; // Only perform one timer callback per RTC
@@ -110,6 +108,7 @@ pub const TimerModule = struct {
 
     /// Stops a timer
     pub fn stop(self: *TimerModule, timer: *Timer) void {
+        timer.period = 0;
         if (timer.callback != null) {
             self.remove_timer(timer);
         }
