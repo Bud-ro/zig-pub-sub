@@ -347,6 +347,71 @@ test "Deadlock example test" {
     try std.testing.expectEqual(3, local_ctx1);
 }
 
+test "Can insert timer after a timer with special delay value" {
+    var timer_module = TimerModule{};
+
+    var local_ctx1: u32 = 0;
+    var local_ctx2: u32 = 0;
+    var timer1 = Timer{};
+    var timer2 = Timer{};
+
+    timer_module.start_one_shot(&timer1, Timer.longest_delay_before_servicing_timer, &local_ctx1, timer_callback);
+    timer_module.start_one_shot(&timer2, Timer.longest_delay_before_servicing_timer, &local_ctx2, timer_callback);
+
+    try std.testing.expectEqual(false, timer_module.run());
+
+    timer_module.increment_current_time(Timer.longest_delay_before_servicing_timer);
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(1, local_ctx1);
+    try std.testing.expectEqual(0, local_ctx2);
+
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(1, local_ctx1);
+    try std.testing.expectEqual(1, local_ctx2);
+
+    timer_module.start_one_shot(&timer1, Timer.longest_delay_before_servicing_timer, &local_ctx1, timer_callback);
+    timer_module.start_one_shot(&timer2, Timer.longest_delay_before_servicing_timer + 1, &local_ctx2, timer_callback);
+
+    timer_module.increment_current_time(Timer.longest_delay_before_servicing_timer);
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(2, local_ctx1);
+    try std.testing.expectEqual(1, local_ctx2);
+
+    try std.testing.expectEqual(false, timer_module.run());
+    try std.testing.expectEqual(2, local_ctx1);
+    try std.testing.expectEqual(1, local_ctx2);
+
+    timer_module.increment_current_time(1);
+
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(2, local_ctx1);
+    try std.testing.expectEqual(2, local_ctx2);
+}
+
+test "Can insert a timer before a timer with special delay value" {
+    var timer_module = TimerModule{};
+
+    var local_ctx1: u32 = 0;
+    var local_ctx2: u32 = 0;
+    var timer1 = Timer{};
+    var timer2 = Timer{};
+
+    timer_module.start_one_shot(&timer1, Timer.longest_delay_before_servicing_timer, &local_ctx1, timer_callback);
+    timer_module.start_one_shot(&timer2, Timer.longest_delay_before_servicing_timer - 1, &local_ctx2, timer_callback);
+
+    try std.testing.expectEqual(false, timer_module.run());
+
+    timer_module.increment_current_time(Timer.longest_delay_before_servicing_timer - 1);
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(0, local_ctx1);
+    try std.testing.expectEqual(1, local_ctx2);
+
+    timer_module.increment_current_time(1);
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(1, local_ctx1);
+    try std.testing.expectEqual(1, local_ctx2);
+}
+
 test "timer pause/resume" {
     // TODO: Implement something similar to this,
     // but with a dedicated `pause` and `resume` function

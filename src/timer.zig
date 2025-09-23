@@ -129,7 +129,7 @@ pub const TimerModule = struct {
     }
 
     fn remaining_ticks(timer: *Timer, current_time: Ticks) Ticks {
-        if ((timer.expiration -% current_time) < Timer.longest_delay_before_servicing_timer) {
+        if ((timer.expiration -% current_time) < Timer.max_ticks) {
             const duration = timer.expiration -% current_time;
             return duration;
         } else {
