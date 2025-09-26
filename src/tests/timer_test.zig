@@ -3,17 +3,15 @@ const timer = @import("../timer.zig");
 const TimerModule = timer.TimerModule;
 const Timer = timer.Timer;
 
-// TODO: Make the tests more concise
-// fn local_changes_after_exactly(timer_module: *TimerModule, ticks: timer.Ticks, local: *u32, expected: u32) !void {
-//     try std.testing.expectEqual(false, timer_module.run());
+fn expect_timer_expires_after_exactly(timer_module: *TimerModule, ticks: timer.Ticks) !void {
+    try std.testing.expectEqual(false, timer_module.run()); // If this fails then there's already an expired timer
 
-//     timer_module.increment_current_time(ticks - 1);
-//     try std.testing.expectEqual(false, timer_module.run());
+    timer_module.increment_current_time(ticks - 1);
+    try std.testing.expectEqual(false, timer_module.run());
 
-//     timer_module.increment_current_time(1);
-//     try std.testing.expectEqual(true, timer_module.run());
-//     try std.testing.expectEqual(expected, local.*);
-// }
+    timer_module.increment_current_time(1);
+    try std.testing.expectEqual(true, timer_module.run());
+}
 
 fn timer_callback(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
     _ = _timer_module;
@@ -36,11 +34,7 @@ test "timer periodic run" {
     timer_module.start_periodic(&timer1, 50, &local_ctx, timer_callback);
     try std.testing.expectEqual(false, timer_module.run());
 
-    timer_module.increment_current_time(49);
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(1);
-    try std.testing.expectEqual(true, timer_module.run());
+    try expect_timer_expires_after_exactly(&timer_module, 50);
     try std.testing.expectEqual(1, local_ctx);
 }
 
@@ -194,12 +188,7 @@ test "overflow with one-shots" {
 
     try std.testing.expectEqual(false, timer_module.run());
 
-    timer_module.increment_current_time(49);
-
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(1);
-    try std.testing.expectEqual(true, timer_module.run());
+    try expect_timer_expires_after_exactly(&timer_module, 50);
     try std.testing.expectEqual(1, local_ctx1);
     try std.testing.expectEqual(0, local_ctx2);
 
@@ -222,23 +211,11 @@ test "overflow with periodics" {
 
     try std.testing.expectEqual(false, timer_module.run());
 
-    timer_module.increment_current_time(26);
-
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(1);
-    try std.testing.expectEqual(true, timer_module.run());
+    try expect_timer_expires_after_exactly(&timer_module, 27);
     try std.testing.expectEqual(1, local_ctx1);
     try std.testing.expectEqual(0, local_ctx2);
 
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(22);
-
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(1);
-    try std.testing.expectEqual(true, timer_module.run());
+    try expect_timer_expires_after_exactly(&timer_module, 23);
     try std.testing.expectEqual(1, local_ctx1);
     try std.testing.expectEqual(1, local_ctx2);
 }
@@ -250,12 +227,7 @@ test "max tick one-shot" {
     var timer1 = Timer{};
 
     timer_module.start_one_shot(&timer1, Timer.max_ticks, &local_ctx1, timer_callback);
-    timer_module.increment_current_time(Timer.max_ticks - 1);
-
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(1);
-    try std.testing.expectEqual(true, timer_module.run());
+    try expect_timer_expires_after_exactly(&timer_module, Timer.max_ticks);
     try std.testing.expectEqual(1, local_ctx1);
 }
 
@@ -266,21 +238,10 @@ test "max tick periodic" {
     var timer1 = Timer{};
 
     timer_module.start_periodic(&timer1, Timer.max_ticks, &local_ctx1, timer_callback);
-    timer_module.increment_current_time(Timer.max_ticks - 1);
-
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(1);
-    try std.testing.expectEqual(true, timer_module.run());
+    try expect_timer_expires_after_exactly(&timer_module, Timer.max_ticks);
     try std.testing.expectEqual(1, local_ctx1);
 
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(Timer.max_ticks - 1);
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(1);
-    try std.testing.expectEqual(true, timer_module.run());
+    try expect_timer_expires_after_exactly(&timer_module, Timer.max_ticks);
     try std.testing.expectEqual(2, local_ctx1);
 }
 
@@ -301,11 +262,7 @@ test "max tick at wrap-around" {
     timer_module.increment_current_time(1);
     try std.testing.expectEqual(false, timer_module.run());
 
-    timer_module.increment_current_time(Timer.max_ticks - 2);
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(1);
-    try std.testing.expectEqual(true, timer_module.run());
+    try expect_timer_expires_after_exactly(&timer_module, Timer.max_ticks - 1);
     try std.testing.expectEqual(1, local_ctx1);
     try std.testing.expectEqual(0, local_ctx2);
 
@@ -328,22 +285,14 @@ test "Deadlock example test" {
     try std.testing.expectEqual(true, timer_module.run());
     try std.testing.expectEqual(1, local_ctx1);
 
-    timer_module.increment_current_time(49);
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(1);
-    try std.testing.expectEqual(true, timer_module.run());
+    try expect_timer_expires_after_exactly(&timer_module, 50);
     try std.testing.expectEqual(2, local_ctx1);
 
     timer_module.increment_current_time(Timer.longest_delay_before_servicing_timer + 51);
     try std.testing.expectEqual(false, timer_module.run());
 
     // NOTE: At this point this is now a `max_ticks` timer:
-    timer_module.increment_current_time(Timer.max_ticks - 1);
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(1);
-    try std.testing.expectEqual(true, timer_module.run());
+    try expect_timer_expires_after_exactly(&timer_module, Timer.max_ticks);
     try std.testing.expectEqual(3, local_ctx1);
 }
 
@@ -381,9 +330,7 @@ test "Can insert timer after a timer with special delay value" {
     try std.testing.expectEqual(2, local_ctx1);
     try std.testing.expectEqual(1, local_ctx2);
 
-    timer_module.increment_current_time(1);
-
-    try std.testing.expectEqual(true, timer_module.run());
+    try expect_timer_expires_after_exactly(&timer_module, 1);
     try std.testing.expectEqual(2, local_ctx1);
     try std.testing.expectEqual(2, local_ctx2);
 }
@@ -398,8 +345,6 @@ test "Can insert a timer before a timer with special delay value" {
 
     timer_module.start_one_shot(&timer1, Timer.longest_delay_before_servicing_timer, &local_ctx1, timer_callback);
     timer_module.start_one_shot(&timer2, Timer.longest_delay_before_servicing_timer - 1, &local_ctx2, timer_callback);
-
-    try std.testing.expectEqual(false, timer_module.run());
 
     timer_module.increment_current_time(Timer.longest_delay_before_servicing_timer - 1);
     try std.testing.expectEqual(true, timer_module.run());
