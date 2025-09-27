@@ -18,22 +18,63 @@ test "Ored Constraint" {
 test "Array Length Constraint" {
     const constraint = Constraint.array_len(4);
     try std.testing.expectEqual(constraint._array_len, 4);
+
+    const my_int: i32 = 2;
+    const my_array = [_]i64{ 0, 2, 3, 4 };
+
+    try std.testing.expectEqual(true, constraint.evaluate(my_array));
+    try std.testing.expectEqual(true, constraint.evaluate([_]i32{ 0, 1, 2, 3 }));
+    try std.testing.expectEqual(false, constraint.evaluate([_]f32{ 0.2, 1.1, 2.3 }));
+
+    // TODO: Should we support slices separately, or are they "close enough" to arrays?
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(&my_array));
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(.{ 1, 2, 3, 4 })); // TODO: Should we support tuples separately?
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(.{ 1, 2, 3 }));
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(2));
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(&my_int));
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(3.1));
 }
 
 test "Array Elements Constraint" {
-    const constraint = Constraint.array_elements(&[_]Constraint{Constraint.null_ptr()});
-    switch (constraint._array_elements[0]) {
-        ._null_ptr => return,
-        else => return error.testFailure,
-    }
+    // TODO: Figure out a method for building `Constraint`s, since this has issues
+    // with dangling pointers
+    const constraint = Constraint.array_elements(&Constraint.in_range(0.1, 3));
+
+    try std.testing.expectEqual(true, constraint.evaluate([_]i32{ 1, 2, 3, 3, 3, 1, 1, 2 }));
+    try std.testing.expectEqual(true, constraint.evaluate([_]u32{ 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3 }));
+    try std.testing.expectEqual(true, constraint.evaluate([_]f32{ 0.1, 0.2, 0.1, 0.1000001 }));
+    try std.testing.expectEqual(true, constraint.evaluate([_]comptime_float{ 0.1, 0.2, 0.1, 0.1000001 }));
+    try std.testing.expectEqual(true, constraint.evaluate([_]comptime_int{ 1, 2, 3, 3 }));
+
+    try std.testing.expectEqual(false, constraint.evaluate([_]i32{ -1, 1, -1, 2 }));
+    try std.testing.expectEqual(false, constraint.evaluate([_]i32{ 0, 1, 2, 2 }));
+    try std.testing.expectEqual(false, constraint.evaluate([_]i32{ 1, 4, 2, 2 }));
+    try std.testing.expectEqual(false, constraint.evaluate([_]f32{ 1.4, 1.2, 1.3, 0.09 }));
+
+    const my_int: i32 = 2;
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(1));
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(.{ 1, 2, 3, 4 })); // TODO: Should we support tuples separately?
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(&my_int));
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(3.1));
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate([_]bool{ false, false, true }));
 }
 
 test "Null ptr constraint" {
     const constraint = Constraint.null_ptr();
-    switch (constraint) {
-        ._null_ptr => return,
-        else => return error.testFailure,
-    }
+
+    const my_int: i32 = 2;
+    const my_null_ptr: ?*i32 = null;
+
+    const my_zero_ptr: *allowzero i32 = @ptrFromInt(0);
+    const my_allow_zero_ptr_that_isnt_zero: *allowzero const i32 = &my_int;
+
+    try std.testing.expectEqual(false, constraint.evaluate(&my_int));
+    try std.testing.expectEqual(true, constraint.evaluate(null));
+    try std.testing.expectEqual(true, constraint.evaluate(my_null_ptr));
+    try std.testing.expectEqual(true, constraint.evaluate(my_zero_ptr));
+    try std.testing.expectEqual(false, constraint.evaluate(my_allow_zero_ptr_that_isnt_zero));
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(2));
+    try std.testing.expectError(error.IncompatibleType, constraint.evaluate(3.1));
 }
 
 test "Range constraint" {

@@ -18,21 +18,32 @@ pub const ConstraintType = enum {
     _ored,
     _array_len,
     _array_elements,
+    // _slice_len,
+    // _slice_elements,
+    // _struct_fields,
     _null_ptr,
     // equal_to,
     _in_range,
 };
 
 pub const Range = struct {
-    min: comptime_int,
-    max: comptime_int,
+    min: comptime_float,
+    max: comptime_float,
 };
+
+// pub const StructConstraint = struct {
+//     fieldName: []const u8,
+//     constraint: *const Constraint,
+// };
 
 pub const Constraint = union(ConstraintType) {
     _anded: []const Constraint,
     _ored: []const Constraint,
     _array_len: usize,
-    _array_elements: []const Constraint,
+    _array_elements: *const Constraint,
+    // slice_len: usize,
+    // slice_elements: *const Constraint,
+    // struct_fields: []const StructConstraint,
     _null_ptr: void,
     // equal_to: Value,
     _in_range: Range,
@@ -49,15 +60,15 @@ pub const Constraint = union(ConstraintType) {
         return Constraint{ ._array_len = len };
     }
 
-    pub fn array_elements(constraints: []const Constraint) Constraint {
-        return Constraint{ ._array_elements = constraints };
+    pub fn array_elements(constraint: *const Constraint) Constraint {
+        return Constraint{ ._array_elements = constraint };
     }
 
     pub fn null_ptr() Constraint {
         return Constraint{ ._null_ptr = void{} };
     }
 
-    pub fn in_range(min: comptime_int, max: comptime_int) Constraint {
+    pub fn in_range(min: comptime_float, max: comptime_float) Constraint {
         return Constraint{ ._in_range = .{ .min = min, .max = max } };
     }
 
@@ -66,6 +77,45 @@ pub const Constraint = union(ConstraintType) {
         switch (constraint) {
             ._anded => @panic("Unimplemented"),
             ._ored => @panic("Unimplemented"),
+            ._array_len => {
+                switch (@typeInfo(@TypeOf(data))) {
+                    .array => return data.len == constraint._array_len,
+                    else => return error.IncompatibleType,
+                }
+            },
+            ._array_elements => {
+                switch (@typeInfo(@TypeOf(data))) {
+                    .array => {
+                        inline for (data) |elem| {
+                            const result = try constraint._array_elements.evaluate(elem);
+                            if (!result) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    },
+                    else => return error.IncompatibleType,
+                }
+            },
+            ._null_ptr => {
+                switch (@typeInfo(@TypeOf(data))) {
+                    .null => return true,
+                    .pointer => |info| {
+                        if (info.is_allowzero) {
+                            return @intFromPtr(data) == 0; // In Zig, null always means zero
+                        } else {
+                            return false;
+                        }
+                    }, // Non-optional
+                    .optional => |typeInfo| {
+                        switch (@typeInfo(typeInfo.child)) {
+                            .pointer => return data == null,
+                            else => return error.IncompatibleType,
+                        }
+                    },
+                    else => return error.IncompatibleType,
+                }
+            },
             ._in_range => |range| {
                 switch (@typeInfo(@TypeOf(data))) {
                     .int, .comptime_int, .float, .comptime_float => {
@@ -73,9 +123,7 @@ pub const Constraint = union(ConstraintType) {
                     },
                     else => return error.IncompatibleType,
                 }
-                std.debug.assert();
             },
-            else => @panic("Unimplemented"),
         }
     }
 };
