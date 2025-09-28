@@ -4,12 +4,15 @@
 // 1. Define the interface for the following (they can be mixins, functions on structs, etc.)
 //   - Core types:
 //     - slice (no arrays,) pointer, `nullptr`, `extern struct`, integers
-// 2. Define how memoization will fit into this (all pointers get memoized by default, what else?)
+// 2. Define how memoization will fit into this (all pointers get memoized by default?, what else?)
 // 3. Use Zig code for all definitions
 // 4. Constraints that work alongside the base Zig type checking (so users don't have to specify type-checking in the constraint system)
 //   - Constraints as a list of functions: &[constraint.ored(constraint.array_len(3), constraint.array_len(0)), constraint.array_elements(&[constraint.in_set(my_enum)])]
 // 5. Try to avoid `anytype` and `comptime` as much as possible
 //   - This should be easy to debug, and easy to understand
+// 6. Try to keep a single source of truth. It's going to be inconvenient if constraints are defined sometimes on
+//    types themselves, and other times in a totally different file.
+// 7. (Bonus) Add a visualizer for constraints
 
 const std = @import("std");
 
@@ -31,11 +34,16 @@ pub const Range = struct {
     max: comptime_float,
 };
 
-// pub const StructConstraint = struct {
-//     fieldName: []const u8,
-//     constraint: *const Constraint,
-// };
+pub const StructConstraint = struct {
+    fieldName: []const u8,
+    constraint: *const Constraint,
+};
 
+// TODO: This seems *okay* for checking the data in non-structs, but tbh
+// since *all* the data will live under at least one struct, probably multiple, it might be
+// better to axe this and just define constraints as functions rather than data (see example.zig).
+// This approach is only good if you want to leave types untouched and define all the constraints
+// externally (which loses out on some key benefits).
 pub const Constraint = union(ConstraintType) {
     _anded: []const Constraint,
     _ored: []const Constraint,
@@ -43,7 +51,7 @@ pub const Constraint = union(ConstraintType) {
     _array_elements: *const Constraint,
     // slice_len: usize,
     // slice_elements: *const Constraint,
-    // struct_fields: []const StructConstraint,
+    struct_fields: []const StructConstraint,
     _null_ptr: void,
     // equal_to: Value,
     _in_range: Range,
