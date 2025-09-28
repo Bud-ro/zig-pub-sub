@@ -381,3 +381,63 @@ test "timer pause/resume immediately" {
     try expect_timer_expires_after_exactly(&timer_module, 50);
     try std.testing.expectEqual(2, local_ctx1);
 }
+
+test "timer pause/resume with different remaining ticks" {
+    var timer_module = TimerModule{};
+
+    var local_ctx1: u32 = 0;
+    var timer1 = Timer{};
+
+    timer_module.start_periodic(&timer1, 50, &local_ctx1, timer_callback);
+
+    timer_module.increment_current_time(20);
+    timer_module.pause(&timer1);
+    try std.testing.expectEqual(false, timer_module.run());
+
+    timer_module.increment_current_time(30);
+    try std.testing.expectEqual(false, timer_module.run());
+
+    timer_module.unpause(&timer1);
+    try expect_timer_expires_after_exactly(&timer_module, 30);
+    try std.testing.expectEqual(1, local_ctx1);
+}
+
+test "timer pause/resume at last moment" {
+    var timer_module = TimerModule{};
+
+    var local_ctx1: u32 = 0;
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 50, &local_ctx1, timer_callback);
+    timer_module.increment_current_time(50 + Timer.longest_delay_before_servicing_timer);
+    timer_module.pause(&timer1);
+
+    try std.testing.expectEqual(false, timer_module.run());
+
+    timer_module.unpause(&timer1);
+    timer_module.increment_current_time(Timer.longest_delay_before_servicing_timer);
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(1, local_ctx1);
+}
+
+test "timer pause one tick too late results in max_tick timer" {
+    // NOTE: This test more-so documents a failure mode rather than required behavior.
+    // It's not expected that user code would ever run into this condition.
+    // Reminder: only extremely slow software encounters `Timer.longest_delay_before_servicing_timer`
+    // as a limit. I will hunt you down if you hack around this limit by pausing and unpausing expired timers
+    // at the front of your list.
+    var timer_module = TimerModule{};
+
+    var local_ctx1: u32 = 0;
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 50, &local_ctx1, timer_callback);
+    timer_module.increment_current_time(50 + Timer.longest_delay_before_servicing_timer + 1);
+    timer_module.pause(&timer1);
+
+    try std.testing.expectEqual(false, timer_module.run());
+
+    timer_module.unpause(&timer1);
+    try expect_timer_expires_after_exactly(&timer_module, Timer.max_ticks);
+    try std.testing.expectEqual(1, local_ctx1);
+}

@@ -19,7 +19,9 @@ pub const Timer = struct {
     node: std.SinglyLinkedList.Node = .{},
 
     pub const TimerData = union {
+        /// The tick at which the timer expires
         expiration: Ticks,
+        /// If the timer is in paused_timers, the number of remaining ticks
         remaining_ticks_if_paused: Ticks,
     };
 
@@ -143,6 +145,7 @@ pub const TimerModule = struct {
         }
     }
 
+    // TODO: Rename this to `resume` once the keyword is removed
     /// Unpauses a timer
     /// If the timer is already active or is not present then this does nothing
     pub fn unpause(self: *TimerModule, timer: *Timer) void {
@@ -159,7 +162,7 @@ pub const TimerModule = struct {
     }
 
     fn remaining_ticks(timer: *Timer, current_time: Ticks) Ticks {
-        if ((timer.timer_data.expiration -% current_time) < Timer.max_ticks) {
+        if ((timer.timer_data.expiration -% current_time) <= Timer.max_ticks) {
             const duration = timer.timer_data.expiration -% current_time;
             return duration;
         } else {
