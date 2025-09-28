@@ -13,16 +13,13 @@ fn expect_timer_expires_after_exactly(timer_module: *TimerModule, ticks: timer.T
     try std.testing.expectEqual(true, timer_module.run());
 }
 
-fn timer_callback(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
-    _ = _timer_module;
-    _ = _timer;
+fn timer_callback(ctx: ?*anyopaque, _: *TimerModule, _: *Timer) void {
     const local_ctx: *u32 = @ptrCast(@alignCast(ctx.?));
     local_ctx.* += 1;
 }
 
-fn stop_timer_callback(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
-    _ = ctx;
-    _ = _timer_module.stop(_timer);
+fn stop_timer_callback(_: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
+    _timer_module.stop(_timer);
 }
 
 test "timer periodic run" {
@@ -440,4 +437,68 @@ test "timer pause one tick too late results in max_tick timer" {
     timer_module.unpause(&timer1);
     try expect_timer_expires_after_exactly(&timer_module, Timer.max_ticks);
     try std.testing.expectEqual(1, local_ctx1);
+}
+
+test "can pause timer during one-shot callback" {
+    var timer_module = TimerModule{};
+
+    var local_ctx: u32 = 0;
+    var timer1 = Timer{};
+    var timer2 = Timer{};
+
+    const A = struct {
+        fn pause_the_timer(ctx: ?*anyopaque, _timer_module: *TimerModule, _: *Timer) void {
+            const to_pause: *Timer = @ptrCast(@alignCast(ctx));
+            _timer_module.pause(to_pause);
+        }
+    };
+
+    timer_module.start_one_shot(&timer1, 50, &timer2, A.pause_the_timer);
+    timer_module.start_one_shot(&timer2, 50, &local_ctx, timer_callback);
+
+    try expect_timer_expires_after_exactly(&timer_module, 50);
+    try std.testing.expectEqual(false, timer_module.run());
+    try std.testing.expectEqual(0, local_ctx);
+
+    timer_module.unpause(&timer2);
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(1, local_ctx);
+}
+
+test "can pause timer during periodic callback" {
+    var timer_module = TimerModule{};
+
+    var local_ctx: u32 = 0;
+    var timer1 = Timer{};
+    var timer2 = Timer{};
+
+    const A = struct {
+        fn pause_the_timer(ctx: ?*anyopaque, _timer_module: *TimerModule, _: *Timer) void {
+            const to_pause: *Timer = @ptrCast(@alignCast(ctx));
+            _timer_module.pause(to_pause);
+        }
+    };
+
+    timer_module.start_periodic(&timer1, 50, &timer2, A.pause_the_timer);
+    timer_module.start_periodic(&timer2, 50, &local_ctx, timer_callback);
+
+    try expect_timer_expires_after_exactly(&timer_module, 50);
+    try std.testing.expectEqual(false, timer_module.run());
+    try std.testing.expectEqual(0, local_ctx);
+
+    timer_module.unpause(&timer2);
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(1, local_ctx);
+
+    try expect_timer_expires_after_exactly(&timer_module, 50);
+    try std.testing.expectEqual(false, timer_module.run());
+    try std.testing.expectEqual(1, local_ctx);
+
+    try expect_timer_expires_after_exactly(&timer_module, 50);
+    try std.testing.expectEqual(false, timer_module.run());
+    try std.testing.expectEqual(1, local_ctx);
+
+    timer_module.unpause(&timer2);
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(2, local_ctx);
 }
