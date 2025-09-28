@@ -357,19 +357,27 @@ test "Can insert a timer before a timer with special delay value" {
     try std.testing.expectEqual(1, local_ctx2);
 }
 
-test "timer pause/resume" {
-    // TODO: Implement something similar to this,
-    // but with a dedicated `pause` and `resume` function
+test "timer pause/resume immediately" {
+    var timer_module = TimerModule{};
 
-    // timer_module.increment_current_time(49);
-    // const remaining = timer_module.stop(&timer1);
-    // try std.testing.expectEqual(false, timer_module.run());
+    var local_ctx1: u32 = 0;
+    var timer1 = Timer{};
 
-    // timer_module.increment_current_time(1);
-    // try std.testing.expectEqual(false, timer_module.run());
+    timer_module.pause(&timer1);
 
-    // timer_module.start_one_shot(&timer1, remaining);
-    // timer_module.increment_current_time(1);
-    // try std.testing.expectEqual(true, timer_module.run());
-    // try std.testing.expectEqual(2, local_ctx1);
+    timer_module.start_periodic(&timer1, 50, &local_ctx1, timer_callback);
+
+    try expect_timer_expires_after_exactly(&timer_module, 50);
+    try std.testing.expectEqual(1, local_ctx1);
+
+    timer_module.pause(&timer1);
+    timer_module.increment_current_time(50);
+    try std.testing.expectEqual(false, timer_module.run());
+
+    timer_module.increment_current_time(Timer.longest_delay_before_servicing_timer);
+    try std.testing.expectEqual(false, timer_module.run());
+
+    timer_module.unpause(&timer1);
+    try expect_timer_expires_after_exactly(&timer_module, 50);
+    try std.testing.expectEqual(2, local_ctx1);
 }

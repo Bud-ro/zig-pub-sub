@@ -11,19 +11,17 @@ const std = @import("std");
 pub const Ticks = u32;
 
 pub const Timer = struct {
-    // TODO: Swap out `expiration` and `period` with these:
-    // data: TimerData,
-    // info: packed struct {
-    //     /// 0 means one-shot
-    //     period: std.meta.Int(.unsigned, @bitSizeOf(Ticks) - 1) = undefined,
-    //     is_paused: 1,
-    // },
-    expiration: Ticks = undefined,
+    timer_data: TimerData = undefined,
     /// 0 means one-shot
     period: Ticks = undefined,
     ctx: ?*anyopaque = null,
     callback: ?TimerCallback = null,
     node: std.SinglyLinkedList.Node = .{},
+
+    pub const TimerData = union {
+        expiration: Ticks,
+        remaining_ticks_if_paused: Ticks,
+    };
 
     /// This allows for differentiating between expired timers and max duration timers
     /// while not compromising heavily on longest timer length by cutting range in half.
@@ -41,19 +39,20 @@ pub const Timer = struct {
 
 pub const TimerModule = struct {
     current_time: Ticks = 0,
-    timers: std.SinglyLinkedList = .{},
+    active_timers: std.SinglyLinkedList = .{},
+    paused_timers: std.SinglyLinkedList = .{},
 
     /// Services the callbacks for a single expired timer
     /// Returns `true` if a `Timer` expired, otherwise returns `false`
     pub fn run(self: *TimerModule) bool {
         const time_at_start_of_rtc = self.safely_get_current_time();
 
-        if (self.timers.first) |next_expiring| {
+        if (self.active_timers.first) |next_expiring| {
             var timer: *Timer = @fieldParentPtr("node", next_expiring);
 
             // Expired timers will have a `distance` in the range of [0, longest_delay_before_servicing_timer]
             // This calculation loops over from `std.math.maxInt(Ticks)` to 0.
-            const distance = time_at_start_of_rtc -% timer.expiration;
+            const distance = time_at_start_of_rtc -% timer.timer_data.expiration;
             const timer_is_expired = distance <= Timer.longest_delay_before_servicing_timer;
 
             if (timer_is_expired) {
@@ -63,7 +62,7 @@ pub const TimerModule = struct {
                 if (timer.callback == null) {
                     // Timer was not manually restarted during the callback, thus
                     // it should be at the front of the list and we just need to remove/restart it
-                    const front_node = self.timers.popFirst().?;
+                    const front_node = self.active_timers.popFirst().?;
                     if (timer.period != 0) {
                         std.debug.assert(front_node == next_expiring);
                         self.insert_timer(timer, timer.period);
@@ -120,7 +119,7 @@ pub const TimerModule = struct {
         self.insert_timer(timer, initial_delay);
     }
 
-    /// Stops a timer
+    /// Stops an active or paused timer
     pub fn stop(self: *TimerModule, timer: *Timer) void {
         timer.period = 0;
         if (timer.callback != null) {
@@ -128,9 +127,40 @@ pub const TimerModule = struct {
         }
     }
 
+    /// Pauses a timer
+    /// If the timer is already paused or is not started then this does nothing
+    pub fn pause(self: *TimerModule, timer: *Timer) void {
+        if (timer.callback == null) {
+            return;
+        }
+
+        const was_active = try_remove(&self.active_timers, &timer.node);
+        if (was_active) {
+            timer.timer_data = Timer.TimerData{ .remaining_ticks_if_paused = remaining_ticks(timer, self.safely_get_current_time()) };
+            self.paused_timers.prepend(&timer.node); // Order doesn't matter, pause list should be small
+        } else {
+            // Do nothing, it was already paused
+        }
+    }
+
+    /// Unpauses a timer
+    /// If the timer is already active or is not present then this does nothing
+    pub fn unpause(self: *TimerModule, timer: *Timer) void {
+        if (timer.callback == null) {
+            return;
+        }
+
+        const was_paused = try_remove(&self.paused_timers, &timer.node);
+        if (was_paused) {
+            self.insert_timer(timer, timer.timer_data.remaining_ticks_if_paused);
+        } else {
+            // Do nothing, it was already active
+        }
+    }
+
     fn remaining_ticks(timer: *Timer, current_time: Ticks) Ticks {
-        if ((timer.expiration -% current_time) < Timer.max_ticks) {
-            const duration = timer.expiration -% current_time;
+        if ((timer.timer_data.expiration -% current_time) < Timer.max_ticks) {
+            const duration = timer.timer_data.expiration -% current_time;
             return duration;
         } else {
             return 0;
@@ -143,14 +173,14 @@ pub const TimerModule = struct {
         std.debug.assert(ticks <= Timer.max_ticks);
 
         const current_time = self.safely_get_current_time();
-        timer.expiration = current_time +% ticks;
+        timer.timer_data = Timer.TimerData{ .expiration = current_time +% ticks };
 
-        if (self.timers.first) |head| {
+        if (self.active_timers.first) |head| {
             const head_timer: *Timer = @fieldParentPtr("node", head);
             const head_remaining_ticks = remaining_ticks(head_timer, current_time);
 
             if (ticks < head_remaining_ticks) {
-                self.timers.prepend(&timer.node);
+                self.active_timers.prepend(&timer.node);
             } else {
                 var node_to_insert_after = head;
                 while (node_to_insert_after.next) |next| {
@@ -166,13 +196,39 @@ pub const TimerModule = struct {
             }
         } else {
             // Empty list.
-            self.timers.prepend(&timer.node);
+            self.active_timers.prepend(&timer.node);
         }
     }
 
-    /// If this is called, a timer MUST be in the list
+    /// std.SinglyLinkedList remove, but returns a bool and is valid to call when the node isn't in the list
+    fn try_remove(list: *std.SinglyLinkedList, node: *std.SinglyLinkedList.Node) bool {
+        if (list.first == null) {
+            return false;
+        } else if (list.first == node) {
+            list.first = node.next;
+            return true;
+        } else {
+            var current_elm = list.first.?;
+            while (current_elm.next) |next| {
+                if (next == node) {
+                    current_elm.next = node.next;
+                    return true;
+                }
+                current_elm = next;
+            }
+            return false;
+        }
+    }
+
+    /// If this is called, a timer MUST be in either the active list or paused list
     fn remove_timer(self: *TimerModule, timer: *Timer) void {
-        self.timers.remove(&timer.node);
+        std.debug.assert(timer.callback != null);
+        const removed_from_active = try_remove(&self.active_timers, &timer.node);
+        if (!removed_from_active) {
+            const removed_from_paused = try_remove(&self.paused_timers, &timer.node);
+            std.debug.assert(removed_from_paused);
+        }
+
         timer.callback = null;
     }
 

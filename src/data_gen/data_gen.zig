@@ -23,7 +23,7 @@ pub const ConstraintType = enum {
     _array_elements,
     // _slice_len,
     // _slice_elements,
-    // _struct_fields,
+    _struct_fields,
     _null_ptr,
     // equal_to,
     _in_range,
@@ -51,7 +51,7 @@ pub const Constraint = union(ConstraintType) {
     _array_elements: *const Constraint,
     // slice_len: usize,
     // slice_elements: *const Constraint,
-    struct_fields: []const StructConstraint,
+    _struct_fields: []const StructConstraint,
     _null_ptr: void,
     // equal_to: Value,
     _in_range: Range,
@@ -105,6 +105,7 @@ pub const Constraint = union(ConstraintType) {
                     else => return error.IncompatibleType,
                 }
             },
+            ._struct_fields => @panic("Unimplemented"),
             ._null_ptr => {
                 switch (@typeInfo(@TypeOf(data))) {
                     .null => return true,
