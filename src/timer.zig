@@ -1,9 +1,9 @@
 //! Timer Module and associated typedefs
 //! A Timer Module supports:
 //! - Starting/Stopping
+//! - Pausing/Unpausing
 //! - Periodic Execution
 //! - One-shot Execution
-//! NOTE: Pausing/Resuming must be implemented by the caller
 
 const std = @import("std");
 
@@ -139,7 +139,7 @@ pub const TimerModule = struct {
         const was_active = try_remove(&self.active_timers, &timer.node);
         if (was_active) {
             timer.timer_data = Timer.TimerData{ .remaining_ticks_if_paused = remaining_ticks(timer, self.safely_get_current_time()) };
-            self.paused_timers.prepend(&timer.node); // Order doesn't matter, pause list should be small
+            self.paused_timers.prepend(&timer.node); // Order doesn't matter, pause list should be relatively small
         } else {
             // Do nothing, it was already paused
         }
@@ -159,6 +159,35 @@ pub const TimerModule = struct {
         } else {
             // Do nothing, it was already active
         }
+    }
+
+    /// Returns true if a timer is active or paused
+    pub fn is_running(self: *TimerModule, timer: *Timer) bool {
+        return is_active(self, timer) or is_paused(self, timer);
+    }
+
+    /// Returns true if a timer is active
+    pub fn is_active(self: *TimerModule, timer: *Timer) bool {
+        var current_elem = self.active_timers.first;
+        while (current_elem != null) {
+            if (current_elem == &timer.node) {
+                return true;
+            }
+            current_elem = current_elem.?.next;
+        }
+        return false;
+    }
+
+    /// Returns true if a timer is paused
+    pub fn is_paused(self: *TimerModule, timer: *Timer) bool {
+        var current_elem = self.paused_timers.first;
+        while (current_elem != null) {
+            if (current_elem == &timer.node) {
+                return true;
+            }
+            current_elem = current_elem.?.next;
+        }
+        return false;
     }
 
     fn remaining_ticks(timer: *Timer, current_time: Ticks) Ticks {

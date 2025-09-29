@@ -460,9 +460,17 @@ test "can pause timer during one-shot callback" {
     try std.testing.expectEqual(false, timer_module.run());
     try std.testing.expectEqual(0, local_ctx);
 
+    try std.testing.expectEqual(false, timer_module.is_active(&timer2));
+    try std.testing.expectEqual(true, timer_module.is_paused(&timer2));
+    try std.testing.expectEqual(true, timer_module.is_running(&timer2));
+
     timer_module.unpause(&timer2);
     try std.testing.expectEqual(true, timer_module.run());
     try std.testing.expectEqual(1, local_ctx);
+
+    try std.testing.expectEqual(false, timer_module.is_active(&timer2));
+    try std.testing.expectEqual(false, timer_module.is_paused(&timer2));
+    try std.testing.expectEqual(false, timer_module.is_running(&timer2));
 }
 
 test "can pause timer during periodic callback" {
@@ -501,4 +509,66 @@ test "can pause timer during periodic callback" {
     timer_module.unpause(&timer2);
     try std.testing.expectEqual(true, timer_module.run());
     try std.testing.expectEqual(2, local_ctx);
+}
+
+test "is running tests" {
+    var timer_module = TimerModule{};
+
+    var test_failed = false;
+    var timer1 = Timer{};
+    var timer2 = Timer{};
+
+    const A = struct {
+        fn self_is_running_during_callback(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
+            const failed: *bool = @ptrCast(ctx);
+            if (!_timer_module.is_running(_timer)) {
+                failed.* = true;
+            }
+        }
+    };
+
+    try std.testing.expectEqual(false, timer_module.is_running(&timer1));
+    try std.testing.expectEqual(false, timer_module.is_running(&timer2));
+
+    timer_module.start_periodic(&timer2, 50, &test_failed, A.self_is_running_during_callback);
+    timer_module.start_one_shot(&timer1, 50, &test_failed, A.self_is_running_during_callback);
+
+    timer_module.increment_current_time(50);
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(false, timer_module.run());
+
+    // You can sprinkle this throughout the test to find out exactly where it fails (if it does)
+    try std.testing.expectEqual(false, test_failed);
+}
+
+test "is active" {
+    var timer_module = TimerModule{};
+
+    var test_failed = false;
+    var timer1 = Timer{};
+    var timer2 = Timer{};
+
+    const A = struct {
+        fn self_is_running_during_callback(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
+            const failed: *bool = @ptrCast(ctx);
+            if (!_timer_module.is_active(_timer)) {
+                failed.* = true;
+            }
+        }
+    };
+
+    try std.testing.expectEqual(false, timer_module.is_active(&timer1));
+    try std.testing.expectEqual(false, timer_module.is_active(&timer2));
+
+    timer_module.start_one_shot(&timer1, 50, &test_failed, A.self_is_running_during_callback);
+    timer_module.start_periodic(&timer2, 50, &test_failed, A.self_is_running_during_callback);
+
+    timer_module.increment_current_time(50);
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(false, timer_module.run());
+
+    // You can sprinkle this throughout the test to find out exactly where it fails (if it does)
+    try std.testing.expectEqual(false, test_failed);
 }
