@@ -13,6 +13,21 @@ fn expect_timer_expires_after_exactly(timer_module: *TimerModule, ticks: timer.T
     try std.testing.expectEqual(true, timer_module.run());
 }
 
+fn timer1_callback(ctx: ?*anyopaque, _: *TimerModule, _: *Timer) void {
+    var calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx.?));
+    calls.appendAssumeCapacity(1);
+}
+
+fn timer2_callback(ctx: ?*anyopaque, _: *TimerModule, _: *Timer) void {
+    var calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx.?));
+    calls.appendAssumeCapacity(2);
+}
+
+fn timer3_callback(ctx: ?*anyopaque, _: *TimerModule, _: *Timer) void {
+    var calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx.?));
+    calls.appendAssumeCapacity(3);
+}
+
 fn timer_callback(ctx: ?*anyopaque, _: *TimerModule, _: *Timer) void {
     const local_ctx: *u32 = @ptrCast(@alignCast(ctx.?));
     local_ctx.* += 1;
@@ -572,3 +587,176 @@ test "is active" {
     // You can sprinkle this throughout the test to find out exactly where it fails (if it does)
     try std.testing.expectEqual(false, test_failed);
 }
+
+// EXTRA tests
+test "One shot with null callback" {
+    // var timer_module = TimerModule{};
+    // var timer1 = Timer{};
+    // var context: u32 = 0;
+
+    // TODO: This is a compile error, make sure to test for that if Zig ever allows for it
+    return error.SkipZigTest;
+    // timer_module.start_one_shot(&timer1, 0, &context, null);
+}
+
+test "Periodic with null callback" {
+    // var timer_module = TimerModule{};
+    // var timer1 = Timer{};
+    // var context: u32 = 0;
+
+    // TODO: This is a compile error, make sure to test for that if Zig ever allows for it
+    return error.SkipZigTest;
+    // timer_module.start_periodic(&timer1, 0, &context, null);
+}
+
+test "IsRunning" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+    var timer2 = Timer{};
+
+    try std.testing.expect(!timer_module.is_running(&timer1));
+    try std.testing.expect(!timer_module.is_running(&timer2));
+
+    timer_module.start_one_shot(&timer1, 1, &calls, timer1_callback);
+
+    try std.testing.expect(timer_module.is_running(&timer1));
+    try std.testing.expect(!timer_module.is_running(&timer2));
+
+    timer_module.start_one_shot(&timer2, 1, &calls, timer2_callback);
+
+    try std.testing.expect(timer_module.is_running(&timer1));
+    try std.testing.expect(timer_module.is_running(&timer2));
+
+    timer_module.stop(&timer1);
+
+    try std.testing.expect(!timer_module.is_running(&timer1));
+    try std.testing.expect(timer_module.is_running(&timer2));
+
+    timer_module.stop(&timer2);
+    try std.testing.expect(!timer_module.is_running(&timer1));
+    try std.testing.expect(!timer_module.is_running(&timer2));
+
+    try std.testing.expectEqualSlices(u8, &[_]u8{}, calls.items);
+}
+
+test "Ticks until next ready is max int when no timers are in list" {
+    var timer_module = TimerModule{};
+    try std.testing.expectEqual(std.math.maxInt(timer.Ticks), timer_module.ticks_until_next_ready());
+}
+
+test "Ticks until next ready timer" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+    var timer2 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 7, &calls, timer1_callback);
+    try std.testing.expectEqual(7, timer_module.ticks_until_next_ready());
+
+    timer_module.start_one_shot(&timer2, 4, &calls, timer2_callback);
+    try std.testing.expectEqual(4, timer_module.ticks_until_next_ready());
+
+    timer_module.increment_current_time(1);
+    try std.testing.expectEqual(3, timer_module.ticks_until_next_ready());
+
+    timer_module.increment_current_time(1);
+    try std.testing.expectEqual(2, timer_module.ticks_until_next_ready());
+
+    try std.testing.expectEqualSlices(u8, &[_]u8{}, calls.items);
+}
+
+test "Timer module run expire" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 1, &calls, timer1_callback);
+
+    try expect_timer_expires_after_exactly(&timer_module, 1);
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, calls.items);
+}
+
+test "oneshot multiple simultaneous" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+    var timer2 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 1, &calls, timer1_callback);
+    timer_module.start_one_shot(&timer2, 1, &calls, timer2_callback);
+
+    timer_module.increment_current_time(1);
+
+    while (timer_module.run()) {}
+
+    try std.testing.expect(!timer_module.is_running(&timer1));
+    try std.testing.expect(!timer_module.is_running(&timer2));
+
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 1, 2 }, calls.items);
+}
+
+test "remaining ticks" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_periodic(&timer1, 10, &calls, timer1_callback);
+    try std.testing.expectEqual(10, timer_module.remaining_ticks(&timer1));
+
+    timer_module.increment_current_time(5);
+    _ = timer_module.run();
+
+    try std.testing.expectEqual(5, timer_module.remaining_ticks(&timer1));
+
+    timer_module.increment_current_time(5);
+    _ = timer_module.run();
+
+    try std.testing.expectEqual(10, timer_module.remaining_ticks(&timer1));
+
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, calls.items);
+}
+
+test "remaining ticks should not underflow" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_periodic(&timer1, 10, &calls, timer1_callback);
+    timer_module.increment_current_time(5);
+
+    _ = timer_module.run();
+    timer_module.increment_current_time(10);
+
+    try std.testing.expectEqual(0, timer_module.remaining_ticks(&timer1));
+    try std.testing.expectEqualSlices(u8, &[_]u8{}, calls.items);
+}
+
+test "remaining_ticks zero if not running" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_periodic(&timer1, 10, &calls, timer1_callback);
+    timer_module.stop(&timer1);
+
+    try std.testing.expectEqual(0, timer_module.remaining_ticks(&timer1));
+    try std.testing.expectEqualSlices(u8, &[_]u8{}, calls.items);
+}
+
+// test "template" {
+//     var call_buffer: [20]u8 = .{0} ** 20;
+//     var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+//     var timer_module = TimerModule{};
+//     var timer1 = Timer{};
+//     var timer2 = Timer{};
+
+//     try std.testing.expectEqualSlices(u8, &[_]u8{}, calls.items);
+// }

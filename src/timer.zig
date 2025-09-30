@@ -10,6 +10,24 @@ const std = @import("std");
 /// A tick is typically 1 millisecond. Can be longer. Smaller values aren't practical.
 pub const Ticks = u32;
 
+// TODO: Looks like we need to gain 1 bit of information (and delete `start_periodic_delayed`) if we want
+// to support `timer_module.elapsed_ticks()`. This is because we can use `period` to calculate elapsed ticks
+// with `timer.period - remaining_ticks(&timer)`, but for one-shots or for a one-shot we can use those `period`
+// bits to store the one-shot "period", allowing us to again do `timer.duration - remaining_ticks(&timer)`
+// (duration is an alias for period)
+//
+// Deleting `start_periodic_delayed` also isn't strictly necessary if we switch to storing a `start_ticks`
+// and simply derive `period` from `expiration - start_ticks`.
+
+// We can do that by storing `is_periodic: bool` on a pointer that MUST be at least align(2).
+// I'd rather not do that on `node` since then I'd have to write a whole linked list (and suffer from slower code).
+// So the remaining options are:
+// - Rely on the linker and somehow enforce `TimerCallback` to be align(2). Would be pretty clever if that was possible.
+// - Force align(2) onto `ctx`.
+// - Suck it up and write a linked list
+// The first one is awful and impossible, the 2nd is doable but will occasionally confuse users,
+// The 3rd doesn't impose anything on the outside world, but it's decently slower
+
 pub const Timer = struct {
     timer_data: TimerData = undefined,
     /// 0 means one-shot
@@ -32,10 +50,6 @@ pub const Timer = struct {
     pub const longest_delay_before_servicing_timer = std.math.maxInt(u16);
     /// Max `Timer` length when taking into account disambiguation restriction
     pub const max_ticks: Ticks = std.math.maxInt(Ticks) - longest_delay_before_servicing_timer;
-    // const TimerData = union {
-    //     expiration: Ticks,
-    //     remaining_ticks_for_paused_timer: Ticks,
-    // };
     const TimerCallback = *const fn (ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void;
 };
 
@@ -138,7 +152,7 @@ pub const TimerModule = struct {
 
         const was_active = try_remove(&self.active_timers, &timer.node);
         if (was_active) {
-            timer.timer_data = Timer.TimerData{ .remaining_ticks_if_paused = remaining_ticks(timer, self.safely_get_current_time()) };
+            timer.timer_data = Timer.TimerData{ .remaining_ticks_if_paused = remaining_ticks_internal(timer, self.safely_get_current_time()) };
             self.paused_timers.prepend(&timer.node); // Order doesn't matter, pause list should be relatively small
         } else {
             // Do nothing, it was already paused
@@ -190,12 +204,32 @@ pub const TimerModule = struct {
         return false;
     }
 
-    fn remaining_ticks(timer: *Timer, current_time: Ticks) Ticks {
+    fn remaining_ticks_internal(timer: *Timer, current_time: Ticks) Ticks {
         if ((timer.timer_data.expiration -% current_time) <= Timer.max_ticks) {
             const duration = timer.timer_data.expiration -% current_time;
             return duration;
         } else {
             return 0;
+        }
+    }
+
+    /// Returns the remaining ticks on a timer, returns 0 if the timer is not running
+    pub fn remaining_ticks(timer_module: *TimerModule, timer: *Timer) Ticks {
+        if (timer.callback == null) {
+            return 0;
+        } else {
+            return remaining_ticks_internal(timer, timer_module.safely_get_current_time());
+        }
+    }
+
+    /// Returns `remaining_ticks` for the head of the linked list
+    pub fn ticks_until_next_ready(timer_module: *TimerModule) Ticks {
+        if (timer_module.active_timers.first) |firstNode| {
+            const timer: *Timer = @fieldParentPtr("node", firstNode);
+            return remaining_ticks_internal(timer, timer_module.safely_get_current_time());
+        } else {
+            @branchHint(.cold);
+            return std.math.maxInt(Ticks); // > max_ticks, signals that no timers exist
         }
     }
 
@@ -209,7 +243,7 @@ pub const TimerModule = struct {
 
         if (self.active_timers.first) |head| {
             const head_timer: *Timer = @fieldParentPtr("node", head);
-            const head_remaining_ticks = remaining_ticks(head_timer, current_time);
+            const head_remaining_ticks = remaining_ticks_internal(head_timer, current_time);
 
             if (ticks < head_remaining_ticks) {
                 self.active_timers.prepend(&timer.node);
@@ -217,7 +251,7 @@ pub const TimerModule = struct {
                 var node_to_insert_after = head;
                 while (node_to_insert_after.next) |next| {
                     const _timer: *Timer = @fieldParentPtr("node", next);
-                    const next_remaining_ticks = remaining_ticks(_timer, current_time);
+                    const next_remaining_ticks = remaining_ticks_internal(_timer, current_time);
                     if (next_remaining_ticks <= ticks) {
                         node_to_insert_after = next;
                     } else {
