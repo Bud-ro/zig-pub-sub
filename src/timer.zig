@@ -97,7 +97,7 @@ pub const TimerModule = struct {
     /// If you get an error, declare your variable as `align(2)` or use a container
     /// struct with larger alignment
     pub fn start_one_shot(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
-        if (timer.callback != null) {
+        if (timer.callback != null or self.active_timers.first == &timer.node) {
             self.remove_timer(timer);
         }
 
@@ -127,7 +127,7 @@ pub const TimerModule = struct {
         ctx: ?*align(2) anyopaque,
         callback: Timer.TimerCallback,
     ) void {
-        if (timer.callback != null) {
+        if (timer.callback != null or self.active_timers.first == &timer.node) {
             self.remove_timer(timer);
         }
 
@@ -158,7 +158,7 @@ pub const TimerModule = struct {
 
         const was_active = try_remove(&self.active_timers, &timer.node);
         if (was_active) {
-            timer.timer_data = Timer.TimerData{ .remaining_ticks_if_paused = remaining_ticks_internal(timer, self.safely_get_current_time()) };
+            timer.timer_data = Timer.TimerData{ .remaining_ticks_if_paused = remaining_ticks_active_timer(timer, self.safely_get_current_time()) };
             self.paused_timers.prepend(&timer.node); // Order doesn't matter, pause list should be relatively small
         } else {
             // Do nothing, it was already paused
@@ -210,7 +210,7 @@ pub const TimerModule = struct {
         return false;
     }
 
-    fn remaining_ticks_internal(timer: *Timer, current_time: Ticks) Ticks {
+    fn remaining_ticks_active_timer(timer: *Timer, current_time: Ticks) Ticks {
         if ((timer.timer_data.expiration -% current_time) <= Timer.max_ticks) {
             const duration = timer.timer_data.expiration -% current_time;
             return duration;
@@ -224,7 +224,11 @@ pub const TimerModule = struct {
         if (timer.callback == null) {
             return 0;
         } else {
-            return remaining_ticks_internal(timer, timer_module.safely_get_current_time());
+            if (is_paused(timer_module, timer)) {
+                return timer.timer_data.remaining_ticks_if_paused;
+            } else {
+                return remaining_ticks_active_timer(timer, timer_module.safely_get_current_time());
+            }
         }
     }
 
@@ -232,7 +236,7 @@ pub const TimerModule = struct {
     pub fn ticks_until_next_ready(timer_module: *TimerModule) Ticks {
         if (timer_module.active_timers.first) |firstNode| {
             const timer: *Timer = @fieldParentPtr("node", firstNode);
-            return remaining_ticks_internal(timer, timer_module.safely_get_current_time());
+            return remaining_ticks_active_timer(timer, timer_module.safely_get_current_time());
         } else {
             @branchHint(.cold);
             return std.math.maxInt(Ticks); // > max_ticks, signals that no timers exist
@@ -249,7 +253,7 @@ pub const TimerModule = struct {
 
         if (self.active_timers.first) |head| {
             const head_timer: *Timer = @fieldParentPtr("node", head);
-            const head_remaining_ticks = remaining_ticks_internal(head_timer, current_time);
+            const head_remaining_ticks = remaining_ticks_active_timer(head_timer, current_time);
 
             if (ticks < head_remaining_ticks) {
                 self.active_timers.prepend(&timer.node);
@@ -257,7 +261,7 @@ pub const TimerModule = struct {
                 var node_to_insert_after = head;
                 while (node_to_insert_after.next) |next| {
                     const _timer: *Timer = @fieldParentPtr("node", next);
-                    const next_remaining_ticks = remaining_ticks_internal(_timer, current_time);
+                    const next_remaining_ticks = remaining_ticks_active_timer(_timer, current_time);
                     if (next_remaining_ticks <= ticks) {
                         node_to_insert_after = next;
                     } else {
@@ -294,7 +298,7 @@ pub const TimerModule = struct {
 
     /// If this is called, a timer MUST be in either the active list or paused list
     fn remove_timer(self: *TimerModule, timer: *Timer) void {
-        std.debug.assert(timer.callback != null);
+        std.debug.assert(timer.callback != null or self.active_timers.first == &timer.node);
         const removed_from_active = try_remove(&self.active_timers, &timer.node);
         if (!removed_from_active) {
             const removed_from_paused = try_remove(&self.paused_timers, &timer.node);

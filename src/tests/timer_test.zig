@@ -751,6 +751,353 @@ test "remaining_ticks zero if not running" {
     try std.testing.expectEqualSlices(u8, &[_]u8{}, calls.items);
 }
 
+test "restart one shot from callback" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    const A = struct {
+        fn restart_with_context(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
+            var _calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx));
+            _calls.appendAssumeCapacity(11);
+            _timer_module.start_one_shot(_timer, 0, _calls, timer1_callback);
+        }
+    };
+
+    timer_module.start_one_shot(&timer1, 0, &calls, A.restart_with_context);
+
+    try std.testing.expect(timer_module.run());
+    try std.testing.expectEqualSlices(u8, &[_]u8{11}, calls.items);
+
+    try std.testing.expect(timer_module.run());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 11, 1 }, calls.items);
+
+    try std.testing.expect(!timer_module.run());
+}
+
+test "restart periodic from callback" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    const A = struct {
+        fn restart_with_context(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
+            var _calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx));
+            _calls.appendAssumeCapacity(13);
+            _timer_module.start_periodic(_timer, 1, _calls, timer1_callback);
+        }
+    };
+
+    timer_module.start_periodic(&timer1, 1, &calls, A.restart_with_context);
+
+    timer_module.increment_current_time(1);
+    try std.testing.expect(timer_module.run());
+    try std.testing.expectEqualSlices(u8, &[_]u8{13}, calls.items);
+
+    timer_module.increment_current_time(1);
+    try std.testing.expect(timer_module.run());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 13, 1 }, calls.items);
+}
+
+test "Overflow handling" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.increment_current_time(std.math.maxInt(timer.Ticks) - 5);
+    timer_module.start_one_shot(&timer1, 10, &calls, timer1_callback);
+
+    for (0..9) |_| {
+        timer_module.increment_current_time(1);
+        try std.testing.expect(!timer_module.run());
+    }
+
+    try expect_timer_expires_after_exactly(&timer_module, 1);
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, calls.items);
+}
+
+test "Stop timer from callback" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 0, null, stop_timer_callback);
+    try std.testing.expect(timer_module.run());
+
+    try std.testing.expect(!timer_module.is_running(&timer1));
+}
+
+test "Start periodic timer from callback" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    const A = struct {
+        fn start_periodic_callback(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
+            _timer_module.start_periodic(_timer, 1, @alignCast(ctx), start_periodic_callback);
+        }
+    };
+
+    for (0..100) |_| {
+        timer_module.start_periodic(&timer1, 1, null, A.start_periodic_callback);
+
+        timer_module.increment_current_time(1);
+        try std.testing.expect(timer_module.run());
+
+        timer_module.increment_current_time(1);
+        try std.testing.expect(timer_module.run());
+
+        timer_module.increment_current_time(1);
+        try std.testing.expect(timer_module.run());
+
+        timer_module.increment_current_time(1);
+        try std.testing.expect(timer_module.run());
+
+        timer_module.increment_current_time(1);
+        try std.testing.expect(timer_module.run());
+    }
+}
+
+test "is_paused start" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 1, null, timer1_callback);
+    try std.testing.expect(!timer_module.is_paused(&timer1));
+    try std.testing.expect(timer_module.is_running(&timer1));
+}
+
+test "is_paused pause" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 1, null, timer1_callback);
+
+    timer_module.pause(&timer1);
+    try std.testing.expect(timer_module.is_paused(&timer1));
+    try std.testing.expect(timer_module.is_running(&timer1));
+    try std.testing.expect(!timer_module.is_active(&timer1));
+}
+
+test "is_paused pause multiple times" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 1, null, timer1_callback);
+
+    timer_module.pause(&timer1);
+    timer_module.pause(&timer1);
+    try std.testing.expect(timer_module.is_paused(&timer1));
+    try std.testing.expect(timer_module.is_running(&timer1));
+    try std.testing.expect(!timer_module.is_active(&timer1));
+}
+
+test "is_paused stop when paused" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 1, null, timer1_callback);
+
+    timer_module.pause(&timer1);
+    timer_module.stop(&timer1);
+
+    try std.testing.expect(!timer_module.is_paused(&timer1));
+    try std.testing.expect(!timer_module.is_running(&timer1));
+    try std.testing.expect(!timer_module.is_active(&timer1));
+}
+
+test "is_paused resume" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 1, null, timer1_callback);
+
+    timer_module.pause(&timer1);
+    timer_module.unpause(&timer1);
+
+    try std.testing.expect(!timer_module.is_paused(&timer1));
+    try std.testing.expect(timer_module.is_running(&timer1));
+    try std.testing.expect(timer_module.is_active(&timer1));
+}
+
+test "is_paused stop after resume" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 1, null, timer1_callback);
+
+    timer_module.pause(&timer1);
+    timer_module.unpause(&timer1);
+    timer_module.stop(&timer1);
+
+    try std.testing.expect(!timer_module.is_paused(&timer1));
+    try std.testing.expect(!timer_module.is_running(&timer1));
+    try std.testing.expect(!timer_module.is_active(&timer1));
+}
+
+test "pause one shot timer" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 2, null, timer1_callback);
+    timer_module.pause(&timer1);
+
+    timer_module.increment_current_time(3);
+    try std.testing.expect(!timer_module.run());
+}
+
+test "pause stop when pause one shot timer" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 2, null, timer1_callback);
+    timer_module.pause(&timer1);
+    timer_module.stop(&timer1);
+
+    timer_module.increment_current_time(3);
+    try std.testing.expect(!timer_module.run());
+}
+
+test "pause start when pause one shot timer is paused" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 2, &calls, timer1_callback);
+    timer_module.increment_current_time(1);
+    timer_module.pause(&timer1);
+
+    timer_module.start_one_shot(&timer1, 2, &calls, timer1_callback);
+    timer_module.increment_current_time(1);
+    try std.testing.expect(!timer_module.run());
+
+    timer_module.increment_current_time(1);
+    try std.testing.expect(timer_module.run());
+
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, calls.items);
+}
+
+test "resume one shot timer" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 5, &calls, timer1_callback);
+    timer_module.increment_current_time(1);
+    try std.testing.expect(!timer_module.run());
+
+    timer_module.pause(&timer1);
+    timer_module.increment_current_time(3);
+    try std.testing.expect(!timer_module.run());
+
+    timer_module.unpause(&timer1);
+    timer_module.increment_current_time(3);
+    try std.testing.expect(!timer_module.run());
+
+    timer_module.increment_current_time(1);
+    try std.testing.expect(timer_module.run());
+
+    try std.testing.expect(!timer_module.is_paused(&timer1));
+    try std.testing.expect(!timer_module.is_active(&timer1));
+    try std.testing.expect(!timer_module.is_running(&timer1));
+
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, calls.items);
+}
+
+test "resume stop when one shot timer is resumed" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 2, null, timer1_callback);
+    timer_module.pause(&timer1);
+    timer_module.unpause(&timer1);
+
+    timer_module.stop(&timer1);
+    timer_module.increment_current_time(3);
+    try std.testing.expect(!timer_module.run());
+}
+
+test "pause periodic timer" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_periodic(&timer1, 1, &calls, timer1_callback);
+
+    try expect_timer_expires_after_exactly(&timer_module, 1);
+
+    timer_module.pause(&timer1);
+
+    timer_module.increment_current_time(1);
+    try std.testing.expect(!timer_module.run());
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, calls.items);
+}
+
+test "pause stop when periodic timer is paused" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_periodic(&timer1, 1, &calls, timer1_callback);
+    try expect_timer_expires_after_exactly(&timer_module, 1);
+
+    timer_module.pause(&timer1);
+
+    timer_module.increment_current_time(1);
+    try std.testing.expect(!timer_module.run());
+
+    timer_module.stop(&timer1);
+    try std.testing.expect(!timer_module.run());
+
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, calls.items);
+}
+
+test "resume periodic timer" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_periodic(&timer1, 2, &calls, timer1_callback);
+    timer_module.increment_current_time(1);
+    try std.testing.expect(!timer_module.run());
+
+    timer_module.pause(&timer1);
+    timer_module.unpause(&timer1);
+
+    try expect_timer_expires_after_exactly(&timer_module, 1);
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, calls.items);
+}
+
+test "resume ticks are accurate" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 5, &calls, timer1_callback);
+    timer_module.increment_current_time(2);
+    timer_module.pause(&timer1);
+
+    timer_module.increment_current_time(1);
+    try std.testing.expectEqual(3, timer_module.remaining_ticks(&timer1));
+    timer_module.unpause(&timer1);
+    try std.testing.expectEqual(3, timer_module.remaining_ticks(&timer1));
+
+    timer_module.increment_current_time(2);
+    try std.testing.expect(!timer_module.run());
+    try std.testing.expectEqual(1, timer_module.remaining_ticks(&timer1));
+
+    try expect_timer_expires_after_exactly(&timer_module, 1);
+    try std.testing.expectEqual(0, timer_module.remaining_ticks(&timer1));
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, calls.items);
+}
+
 // test "template" {
 //     var call_buffer: [20]u8 = .{0} ** 20;
 //     var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
