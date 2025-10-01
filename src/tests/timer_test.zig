@@ -529,7 +529,7 @@ test "can pause timer during periodic callback" {
 test "is running tests" {
     var timer_module = TimerModule{};
 
-    var test_failed = false;
+    var test_failed align(2) = false;
     var timer1 = Timer{};
     var timer2 = Timer{};
 
@@ -560,7 +560,7 @@ test "is running tests" {
 test "is active" {
     var timer_module = TimerModule{};
 
-    var test_failed = false;
+    var test_failed align(2) = false;
     var timer1 = Timer{};
     var timer2 = Timer{};
 

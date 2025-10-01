@@ -32,7 +32,7 @@ pub const Timer = struct {
     timer_data: TimerData = undefined,
     /// 0 means one-shot
     period: Ticks = undefined,
-    ctx: ?*anyopaque = null,
+    ctx: ?*align(2) anyopaque = null,
     callback: ?TimerCallback = null,
     node: std.SinglyLinkedList.Node = .{},
 
@@ -93,7 +93,10 @@ pub const TimerModule = struct {
     }
 
     /// Starts a timer that is removed after it expires
-    pub fn start_one_shot(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*anyopaque, callback: Timer.TimerCallback) void {
+    /// NOTE: `ctx` must be align(2) to allow an `bool` due to optimization reasons
+    /// If you get an error, declare your variable as `align(2)` or use a container
+    /// struct with larger alignment
+    pub fn start_one_shot(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
         if (timer.callback != null) {
             self.remove_timer(timer);
         }
@@ -107,7 +110,10 @@ pub const TimerModule = struct {
     }
 
     /// Starts a periodic timer, with first expiration set to current time + period
-    pub fn start_periodic(self: *TimerModule, timer: *Timer, period: Ticks, ctx: ?*anyopaque, callback: Timer.TimerCallback) void {
+    /// NOTE: `ctx` must be align(2) to allow an `bool` due to optimization reasons
+    /// If you get an error, declare your variable as `align(2)` or use a container
+    /// struct with larger alignment
+    pub fn start_periodic(self: *TimerModule, timer: *Timer, period: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
         @call(.always_inline, start_periodic_delayed, .{ self, timer, period, period, ctx, callback });
     }
 
@@ -118,7 +124,7 @@ pub const TimerModule = struct {
         timer: *Timer,
         period: Ticks,
         initial_delay: Ticks,
-        ctx: ?*anyopaque,
+        ctx: ?*align(2) anyopaque,
         callback: Timer.TimerCallback,
     ) void {
         if (timer.callback != null) {
