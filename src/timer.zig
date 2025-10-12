@@ -33,7 +33,7 @@ pub const Timer = struct {
     pub const longest_delay_before_servicing_timer = std.math.maxInt(u16);
     /// Max `Timer` length when taking into account disambiguation restriction
     pub const max_ticks: Ticks = std.math.maxInt(Ticks) - longest_delay_before_servicing_timer;
-    const TimerCallback = *const fn (ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void;
+    pub const TimerCallback = *const fn (ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void;
 
     fn is_periodic(self: *Timer) bool {
         return (self.ctx & 1) == 1;
@@ -319,7 +319,12 @@ pub const TimerModule = struct {
         const removed_from_active = try_remove(&self.active_timers, &timer.node);
         if (!removed_from_active) {
             const removed_from_paused = try_remove(&self.paused_timers, &timer.node);
-            std.debug.assert(removed_from_paused);
+            // If we fail to remove something, check that we didn't screw up and that it's the the user's fault
+            // for failing to initialize their memory. All they lose out on is a bit of performance on init so no need
+            // to hard-fault.
+            if (!removed_from_paused) {
+                std.debug.assert(timer.callback != null);
+            }
         }
 
         timer.callback = null;
