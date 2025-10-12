@@ -80,21 +80,11 @@ fn timer_module_fuzz(rng: *std.Random) !void {
 
     for (&actions) |_action| {
         switch (_action) {
-            .start_oneshot_timer => |data| {
-                timer_module.start_one_shot(&timers[data.idx], data.duration, data.ctx, data.callback);
-            },
-            .start_periodic_timer => |data| {
-                timer_module.start_periodic(&timers[data.idx], data.duration, data.ctx, data.callback);
-            },
-            .stop_timer => |data| {
-                timer_module.stop(&timers[data.idx]);
-            },
-            .pause_timer => |data| {
-                timer_module.pause(&timers[data.idx]);
-            },
-            .unpause_timer => |data| {
-                timer_module.unpause(&timers[data.idx]);
-            },
+            .start_oneshot_timer => |data| timer_module.start_one_shot(&timers[data.idx], data.duration, data.ctx, data.callback),
+            .start_periodic_timer => |data| timer_module.start_periodic(&timers[data.idx], data.duration, data.ctx, data.callback),
+            .stop_timer => |data| timer_module.stop(&timers[data.idx]),
+            .pause_timer => |data| timer_module.pause(&timers[data.idx]),
+            .unpause_timer => |data| timer_module.unpause(&timers[data.idx]),
             .run_timer_module => |data| {
                 for (0..data.count) |_| {
                     _ = timer_module.run();
