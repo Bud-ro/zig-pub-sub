@@ -73,14 +73,14 @@ pub const TimerModule = struct {
 
             if (timer_is_expired) {
                 const _callback = timer.callback;
+                const front_node = self.active_timers.popFirst().?;
+                std.debug.assert(front_node == next_expiring);
+
                 timer.callback = null;
                 _callback.?(timer.ctx, self, timer);
                 if (timer.callback == null) {
-                    // Timer was not manually restarted during the callback, thus
-                    // it should be at the front of the list and we just need to remove/restart it
-                    const front_node = self.active_timers.popFirst().?;
+                    // Timer was not manually restarted during the callback
                     if (timer.period != 0) {
-                        std.debug.assert(front_node == next_expiring);
                         self.insert_timer(timer, timer.period);
                         timer.callback = _callback; // Don't forget to restore the callback!
                     }
