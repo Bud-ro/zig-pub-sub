@@ -31,7 +31,7 @@ pub const Ticks = u32;
 pub const Timer = struct {
     timer_data: TimerData = undefined,
     /// 0 means one-shot
-    period: Ticks = undefined,
+    period: Ticks = 0,
     ctx: ?*align(2) anyopaque = null,
     callback: ?TimerCallback = null,
     node: std.SinglyLinkedList.Node = .{},
@@ -71,15 +71,23 @@ pub const TimerModule = struct {
             const distance = time_at_start_of_rtc -% timer.timer_data.expiration;
             const timer_is_expired = distance <= Timer.longest_delay_before_servicing_timer;
 
+            var front_node: ?*std.SinglyLinkedList.Node = null;
             if (timer_is_expired) {
-                const _callback = timer.callback;
-                const front_node = self.active_timers.popFirst().?;
-                std.debug.assert(front_node == next_expiring);
+                if (timer.period == 0) {
+                    // One-shot timers should not be considered running during their callback
+                    front_node = self.active_timers.popFirst().?;
+                }
 
+                const _callback = timer.callback;
                 timer.callback = null;
                 _callback.?(timer.ctx, self, timer);
+
+                // Timer was not manually restarted during the callback
                 if (timer.callback == null) {
-                    // Timer was not manually restarted during the callback
+                    if (front_node == null) {
+                        front_node = self.active_timers.popFirst().?;
+                        std.debug.assert(front_node == next_expiring);
+                    }
                     if (timer.period != 0) {
                         self.insert_timer(timer, timer.period);
                         timer.callback = _callback; // Don't forget to restore the callback!
