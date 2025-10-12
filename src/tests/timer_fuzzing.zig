@@ -46,18 +46,17 @@ const max_timers = 10;
 
 var actions: [max_actions]TimerActionData = undefined;
 var timers: [max_timers]Timer = [_]Timer{.{}} ** max_timers;
+const callbacks = [_]Timer.TimerCallback{
+    do_nothing_callback,
+    stop_some_timer,
+    pause_some_timer,
+    resume_some_timer,
+    start_some_timer_as_oneshot,
+    start_some_timer_as_periodic,
+};
 
-fn timer_module_fuzz(rng: std.Random) !void {
+fn timer_module_fuzz(rng: *std.Random) !void {
     var timer_module = TimerModule{};
-
-    const callbacks = [_]Timer.TimerCallback{
-        do_nothing_callback,
-        stop_some_timer,
-        pause_some_timer,
-        resume_some_timer,
-        start_some_timer_as_oneshot,
-        start_some_timer_as_periodic,
-    };
 
     for (&actions) |*_action| {
         const idx = rng.intRangeAtMost(u8, 0, timers.len - 1);
@@ -65,13 +64,12 @@ fn timer_module_fuzz(rng: std.Random) !void {
         // TODO: Keep track of the expected durations, and elapse [0, ticks_until_next_ready + longest_delay_before_servicing_timer]
         const timer_elapse_duration = rng.intRangeAtMost(u16, 0, Timer.longest_delay_before_servicing_timer);
         const run_count = rng.intRangeAtMost(u8, timers.len, std.math.maxInt(u8));
-        const some_timer: *Timer = &timers[rng.intRangeAtMost(u8, 0, timers.len - 1)];
         const callback = callbacks[rng.intRangeAtMost(u8, 0, callbacks.len - 1)];
 
         const new_action = rng.enumValue(TimerAction);
         _action.* = switch (new_action) {
-            .start_oneshot_timer => TimerActionData{ .start_oneshot_timer = .{ .idx = idx, .duration = duration, .ctx = some_timer, .callback = callback } },
-            .start_periodic_timer => TimerActionData{ .start_periodic_timer = .{ .idx = idx, .duration = duration, .ctx = some_timer, .callback = callback } },
+            .start_oneshot_timer => TimerActionData{ .start_oneshot_timer = .{ .idx = idx, .duration = duration, .ctx = rng, .callback = callback } },
+            .start_periodic_timer => TimerActionData{ .start_periodic_timer = .{ .idx = idx, .duration = duration, .ctx = rng, .callback = callback } },
             .stop_timer => TimerActionData{ .stop_timer = .{ .idx = idx } },
             .pause_timer => TimerActionData{ .pause_timer = .{ .idx = idx } },
             .unpause_timer => TimerActionData{ .unpause_timer = .{ .idx = idx } },
@@ -114,38 +112,47 @@ fn timer_module_fuzz(rng: std.Random) !void {
 
 test "fuzz testing timer module" {
     var prng = std.Random.DefaultPrng.init(std.testing.random_seed);
-    const random = prng.random();
+    var random = prng.random();
 
     const test_case_count = 100;
     for (0..test_case_count) |_| {
-        try timer_module_fuzz(random);
+        try timer_module_fuzz(&random);
     }
 }
 
 fn do_nothing_callback(_: ?*anyopaque, _: *TimerModule, _: *Timer) void {}
 
 fn stop_some_timer(ctx: ?*anyopaque, _timer_module: *TimerModule, _: *Timer) void {
-    const _timer: *Timer = @ptrCast(@alignCast(ctx));
-    _timer_module.stop(_timer);
+    const rng: *std.Random = @ptrCast(@alignCast(ctx));
+    const some_timer: *Timer = &timers[rng.intRangeAtMost(u8, 0, timers.len - 1)];
+    _timer_module.stop(some_timer);
 }
 fn pause_some_timer(ctx: ?*anyopaque, _timer_module: *TimerModule, _: *Timer) void {
-    const _timer: *Timer = @ptrCast(@alignCast(ctx));
-    _timer_module.pause(_timer);
+    const rng: *std.Random = @ptrCast(@alignCast(ctx));
+    const some_timer: *Timer = &timers[rng.intRangeAtMost(u8, 0, timers.len - 1)];
+    _timer_module.pause(some_timer);
 }
 fn resume_some_timer(ctx: ?*anyopaque, _timer_module: *TimerModule, _: *Timer) void {
-    const _timer: *Timer = @ptrCast(@alignCast(ctx));
-    _timer_module.unpause(_timer);
+    const rng: *std.Random = @ptrCast(@alignCast(ctx));
+    const some_timer: *Timer = &timers[rng.intRangeAtMost(u8, 0, timers.len - 1)];
+    _timer_module.unpause(some_timer);
 }
 
 fn start_some_timer_as_oneshot(ctx: ?*anyopaque, _timer_module: *TimerModule, _: *Timer) void {
-    const _timer: *Timer = @ptrCast(@alignCast(ctx));
+    const rng: *std.Random = @ptrCast(@alignCast(ctx));
 
-    const duration = 50; // TODO: Pass in the RNG as context so we can randomize the ctx, callback, etc.
-    _timer_module.start_one_shot(_timer, duration, @alignCast(ctx), do_nothing_callback);
+    const some_timer: *Timer = &timers[rng.intRangeAtMost(u8, 0, timers.len - 1)];
+    const duration = rng.intRangeAtMost(timer.Ticks, 0, Timer.longest_delay_before_servicing_timer);
+    const callback = callbacks[rng.intRangeAtMost(u8, 0, callbacks.len - 1)];
+
+    _timer_module.start_one_shot(some_timer, duration, rng, callback);
 }
 fn start_some_timer_as_periodic(ctx: ?*anyopaque, _timer_module: *TimerModule, _: *Timer) void {
-    const _timer: *Timer = @ptrCast(@alignCast(ctx));
+    const rng: *std.Random = @ptrCast(@alignCast(ctx));
 
-    const duration = 50; // TODO: Pass in the RNG as context so we can randomize the ctx, callback, etc.
-    _timer_module.start_one_shot(_timer, duration, @alignCast(ctx), do_nothing_callback);
+    const some_timer: *Timer = &timers[rng.intRangeAtMost(u8, 0, timers.len - 1)];
+    const duration = rng.intRangeAtMost(timer.Ticks, 0, Timer.longest_delay_before_servicing_timer);
+    const callback = callbacks[rng.intRangeAtMost(u8, 0, callbacks.len - 1)];
+
+    _timer_module.start_one_shot(some_timer, duration, rng, callback);
 }
