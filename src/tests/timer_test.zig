@@ -130,50 +130,6 @@ test "multiple repeated periodics" {
     try std.testing.expectEqual(false, timer_module.run());
 }
 
-test "delayed periodic" {
-    var timer_module = TimerModule{};
-
-    var local_ctx1: u32 = 0;
-    var local_ctx2: u32 = 0;
-    var timer1 = Timer{};
-    var timer2 = Timer{};
-
-    timer_module.start_periodic_delayed(&timer1, 50, 100, &local_ctx1, timer_callback);
-    timer_module.start_periodic(&timer2, 50, &local_ctx2, timer_callback);
-    try std.testing.expectEqual(false, timer_module.run());
-
-    timer_module.increment_current_time(50);
-    try std.testing.expectEqual(true, timer_module.run());
-    try std.testing.expectEqual(0, local_ctx1);
-    try std.testing.expectEqual(1, local_ctx2);
-
-    try std.testing.expectEqual(false, timer_module.run());
-    try std.testing.expectEqual(0, local_ctx1);
-    try std.testing.expectEqual(1, local_ctx2);
-
-    timer_module.increment_current_time(50);
-
-    try std.testing.expectEqual(true, timer_module.run());
-    try std.testing.expectEqual(1, local_ctx1);
-    try std.testing.expectEqual(1, local_ctx2);
-
-    try std.testing.expectEqual(true, timer_module.run());
-    try std.testing.expectEqual(1, local_ctx1);
-    try std.testing.expectEqual(2, local_ctx2);
-
-    timer_module.increment_current_time(50);
-
-    try std.testing.expectEqual(true, timer_module.run());
-    try std.testing.expectEqual(2, local_ctx1);
-    try std.testing.expectEqual(2, local_ctx2);
-
-    try std.testing.expectEqual(true, timer_module.run());
-    try std.testing.expectEqual(2, local_ctx1);
-    try std.testing.expectEqual(3, local_ctx2);
-
-    try std.testing.expectEqual(false, timer_module.run());
-}
-
 test "timer stopping" {
     var timer_module = TimerModule{};
 
@@ -1415,4 +1371,126 @@ test "periodic timer with max ticks and long runtime restarts correctly" {
         try expect_timer_expires_after_exactly(&timer_module, Timer.max_ticks);
         try std.testing.expectEqual(Timer.max_ticks, timer_module.remaining_ticks(&timer1));
     }
+}
+
+test "elapsed ticks" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    try std.testing.expectEqual(0, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.start_periodic(&timer1, 10, &calls, timer1_callback);
+    try std.testing.expectEqual(0, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.increment_current_time(3);
+    try std.testing.expectEqual(3, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.increment_current_time(3);
+    try std.testing.expectEqual(6, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.increment_current_time(3);
+    try std.testing.expectEqual(9, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.increment_current_time(3);
+    try std.testing.expectEqual(10, timer_module.elapsed_ticks(&timer1));
+
+    try std.testing.expect(timer_module.run());
+
+    try std.testing.expectEqual(0, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.increment_current_time(9);
+    try std.testing.expectEqual(9, timer_module.elapsed_ticks(&timer1));
+}
+
+test "elapsed ticks for paused timer" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_periodic(&timer1, 10, null, timer1_callback);
+
+    timer_module.pause(&timer1);
+    try std.testing.expectEqual(0, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.increment_current_time(10);
+    try std.testing.expectEqual(0, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.unpause(&timer1);
+    timer_module.increment_current_time(3);
+    timer_module.pause(&timer1);
+    try std.testing.expectEqual(3, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.increment_current_time(11);
+    try std.testing.expectEqual(3, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.unpause(&timer1);
+    timer_module.increment_current_time(11);
+    try std.testing.expectEqual(10, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.pause(&timer1);
+    try std.testing.expectEqual(10, timer_module.elapsed_ticks(&timer1));
+}
+
+test "elapsed ticks for max ticks timer that is overdue by longest_delay_before_servicing_timer" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, Timer.max_ticks, null, timer1_callback);
+    timer_module.increment_current_time(Timer.max_ticks);
+    try std.testing.expectEqual(Timer.max_ticks, timer_module.elapsed_ticks(&timer1));
+
+    timer_module.increment_current_time(Timer.longest_delay_before_servicing_timer);
+    try std.testing.expectEqual(std.math.maxInt(timer.Ticks), Timer.max_ticks + Timer.longest_delay_before_servicing_timer);
+
+    try std.testing.expectEqual(Timer.max_ticks, timer_module.elapsed_ticks(&timer1));
+}
+
+test "elapsed ticks does not account for overdue ticks of a timer that is run" {
+    var call_buffer: [20]u8 = .{0} ** 20;
+    var calls: std.ArrayList(u8) = .initBuffer(&call_buffer);
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+    var timer2 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 5, &calls, timer1_callback);
+    timer_module.start_one_shot(&timer2, 5, &calls, timer2_callback);
+
+    timer_module.increment_current_time(6);
+    try std.testing.expect(timer_module.run());
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, calls.items);
+
+    try std.testing.expectEqual(0, timer_module.elapsed_ticks(&timer1));
+    try std.testing.expectEqual(5, timer_module.elapsed_ticks(&timer2));
+}
+
+// NOTE:
+//   The below tests are for documenting behavior. The behaviors are not that important.
+//   Feel free to change any of them to a *reasonable alternative* for optimization reasons.
+//   Tests will explicitly note if a behavior is completely invalid, and thus any result is allowed.
+
+test "elapsed ticks from a callback" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+    var timer2 = Timer{};
+
+    var observed_elapsed_ticks: timer.Ticks = undefined;
+
+    const A = struct {
+        fn callback(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
+            const observed: *timer.Ticks = @ptrCast(@alignCast(ctx));
+            observed.* = _timer_module.elapsed_ticks(_timer);
+        }
+    };
+
+    timer_module.start_one_shot(&timer1, 5, &observed_elapsed_ticks, A.callback);
+    timer_module.start_one_shot(&timer2, 13, &observed_elapsed_ticks, A.callback);
+
+    // 0 or 5 is reasonable
+    try expect_timer_expires_after_exactly(&timer_module, 5);
+    try std.testing.expectEqual(observed_elapsed_ticks, 0);
+
+    // 0 or 13 is reasonable
+    try expect_timer_expires_after_exactly(&timer_module, 8);
+    try std.testing.expectEqual(observed_elapsed_ticks, 0);
 }

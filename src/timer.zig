@@ -10,29 +10,12 @@ const std = @import("std");
 /// A tick is typically 1 millisecond. Can be longer. Smaller values aren't practical.
 pub const Ticks = u32;
 
-// TODO: Looks like we need to gain 1 bit of information (and delete `start_periodic_delayed`) if we want
-// to support `timer_module.elapsed_ticks()`. This is because we can use `period` to calculate elapsed ticks
-// with `timer.period - remaining_ticks(&timer)`, but for one-shots or for a one-shot we can use those `period`
-// bits to store the one-shot "period", allowing us to again do `timer.duration - remaining_ticks(&timer)`
-// (duration is an alias for period)
-//
-// Deleting `start_periodic_delayed` also isn't strictly necessary if we switch to storing a `start_ticks`
-// and simply derive `period` from `expiration - start_ticks`.
-
-// We can do that by storing `is_periodic: bool` on a pointer that MUST be at least align(2).
-// I'd rather not do that on `node` since then I'd have to write a whole linked list (and suffer from slower code).
-// So the remaining options are:
-// - Rely on the linker and somehow enforce `TimerCallback` to be align(2). Would be pretty clever if that was possible.
-// - Force align(2) onto `ctx`.
-// - Suck it up and write a linked list
-// The first one is awful and impossible, the 2nd is doable but will occasionally confuse users,
-// The 3rd doesn't impose anything on the outside world, but it's decently slower
-
 pub const Timer = struct {
     timer_data: TimerData = undefined,
-    /// 0 means one-shot
-    period: Ticks = 0,
-    ctx: ?*align(2) anyopaque = null,
+    duration: Ticks = 0,
+    /// ctx is an `?*align(2) anyopaque` pointer where the lowest bit
+    /// is used to store `is_periodic`. Supports full u32 timer range and `fn elapsed_ticks`
+    ctx: usize = 0,
     callback: ?TimerCallback = null,
     node: std.SinglyLinkedList.Node = .{},
 
@@ -51,6 +34,22 @@ pub const Timer = struct {
     /// Max `Timer` length when taking into account disambiguation restriction
     pub const max_ticks: Ticks = std.math.maxInt(Ticks) - longest_delay_before_servicing_timer;
     const TimerCallback = *const fn (ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void;
+
+    fn is_periodic(self: *Timer) bool {
+        return (self.ctx & 1) == 1;
+    }
+
+    fn set_is_periodic(self: *Timer, state: bool) void {
+        if (state) {
+            self.ctx |= @as(usize, 1);
+        } else {
+            self.ctx &= ~@as(usize, 1);
+        }
+    }
+
+    fn get_ctx_ptr(self: *Timer) ?*anyopaque {
+        return @ptrFromInt(self.ctx & ~@as(usize, 1));
+    }
 };
 
 pub const TimerModule = struct {
@@ -73,14 +72,14 @@ pub const TimerModule = struct {
 
             var front_node: ?*std.SinglyLinkedList.Node = null;
             if (timer_is_expired) {
-                if (timer.period == 0) {
+                if (!timer.is_periodic()) {
                     // One-shot timers should not be considered running during their callback
                     front_node = self.active_timers.popFirst().?;
                 }
 
                 const _callback = timer.callback;
                 timer.callback = null;
-                _callback.?(timer.ctx, self, timer);
+                _callback.?(timer.get_ctx_ptr(), self, timer);
 
                 // Timer was not manually restarted during the callback
                 if (timer.callback == null) {
@@ -88,8 +87,8 @@ pub const TimerModule = struct {
                         front_node = self.active_timers.popFirst().?;
                         std.debug.assert(front_node == next_expiring);
                     }
-                    if (timer.period != 0) {
-                        self.insert_timer(timer, timer.period);
+                    if (timer.is_periodic()) {
+                        self.insert_timer(timer, timer.duration);
                         timer.callback = _callback; // Don't forget to restore the callback!
                     }
                 }
@@ -108,11 +107,12 @@ pub const TimerModule = struct {
         if (timer.callback != null or self.active_timers.first == &timer.node) {
             self.remove_timer(timer);
         }
-
         std.debug.assert(duration <= Timer.max_ticks);
-        timer.ctx = ctx;
+
+        timer.ctx = @intFromPtr(ctx);
         timer.callback = callback;
-        timer.period = 0;
+        timer.duration = duration;
+        timer.set_is_periodic(false);
 
         self.insert_timer(timer, duration);
     }
@@ -122,36 +122,26 @@ pub const TimerModule = struct {
     /// If you get an error, declare your variable as `align(2)` or use a container
     /// struct with larger alignment
     pub fn start_periodic(self: *TimerModule, timer: *Timer, period: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
-        @call(.always_inline, start_periodic_delayed, .{ self, timer, period, period, ctx, callback });
-    }
-
-    /// Starts a periodic timer with a custom delay for the first expiration
-    /// NOTE: an `initial_delay` of 0 does not immediately run the callback TODO: maybe it should/could?
-    pub fn start_periodic_delayed(
-        self: *TimerModule,
-        timer: *Timer,
-        period: Ticks,
-        initial_delay: Ticks,
-        ctx: ?*align(2) anyopaque,
-        callback: Timer.TimerCallback,
-    ) void {
         if (timer.callback != null or self.active_timers.first == &timer.node) {
             self.remove_timer(timer);
         }
 
-        std.debug.assert(initial_delay <= Timer.max_ticks);
         std.debug.assert(period <= Timer.max_ticks);
-        std.debug.assert(period != 0);
-        timer.ctx = ctx;
-        timer.callback = callback;
-        timer.period = period;
+        if (period == 0) {
+            @panic("Period cannot be 0, since a 0-tick periodic will very likely starve your system");
+        }
 
-        self.insert_timer(timer, initial_delay);
+        timer.ctx = @intFromPtr(ctx);
+        timer.callback = callback;
+        timer.duration = period;
+        timer.set_is_periodic(true);
+
+        self.insert_timer(timer, period);
     }
 
     /// Stops an active or paused timer
     pub fn stop(self: *TimerModule, timer: *Timer) void {
-        timer.period = 0;
+        timer.set_is_periodic(false);
         if (timer.callback != null) {
             self.remove_timer(timer);
         }
@@ -217,6 +207,24 @@ pub const TimerModule = struct {
         }
         return false;
     }
+
+    /// Returns the elapsed ticks for a timer. Does not report overdue ticks.
+    /// Use `ticks_since_last_started` instead if overdue ticks need to be counted.
+    pub fn elapsed_ticks(timer_module: *TimerModule, timer: *Timer) Ticks {
+        if (timer.callback == null) {
+            return 0;
+        } else {
+            return timer.duration - timer_module.remaining_ticks(timer);
+        }
+    }
+
+    /// For a timer that has been started at least once, returns the
+    // pub fn ticks_since_last_started(timer_module: *TimerModule, timer: *Timer) Ticks {
+    //     std.debug.assert(!is_paused(timer_module, timer)); // TODO: Is it possible to make this work?
+
+    //     const signed_remaining_ticks = @as(i32, timer.timer_data.expiration -% timer_module.safely_get_current_time());
+    //     return timer.duration - signed_remaining_ticks;
+    // }
 
     fn remaining_ticks_active_timer(timer: *Timer, current_time: Ticks) Ticks {
         if ((timer.timer_data.expiration -% current_time) <= Timer.max_ticks) {
