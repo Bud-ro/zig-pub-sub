@@ -1464,6 +1464,75 @@ test "elapsed ticks does not account for overdue ticks of a timer that is run" {
     try std.testing.expectEqual(5, timer_module.elapsed_ticks(&timer2));
 }
 
+test "ticks since last started running timer" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 10, null, timer1_callback);
+    try std.testing.expectEqual(0, timer_module.ticks_since_last_started(&timer1));
+
+    timer_module.increment_current_time(7);
+    try std.testing.expectEqual(7, timer_module.ticks_since_last_started(&timer1));
+}
+
+test "ticks since last started overdue timer" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    timer_module.start_one_shot(&timer1, 10, null, timer1_callback);
+    timer_module.increment_current_time(15);
+    try std.testing.expectEqual(15, timer_module.ticks_since_last_started(&timer1));
+}
+
+fn ticks_since_last_started_reporter(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
+    const ticks_since_last_started: *timer.Ticks = @ptrCast(@alignCast(ctx));
+    ticks_since_last_started.* = _timer_module.ticks_since_last_started(_timer);
+}
+
+test "ticks since last started overdue one-shot timer during a callback" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    var observed_ticks_since_started: timer.Ticks = undefined;
+
+    timer_module.start_one_shot(&timer1, 10, &observed_ticks_since_started, ticks_since_last_started_reporter);
+    timer_module.increment_current_time(15);
+
+    try std.testing.expect(timer_module.run());
+    try std.testing.expectEqual(15, observed_ticks_since_started);
+}
+
+test "ticks since last started overdue periodic timer during a callback" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    var observed_ticks_since_started: timer.Ticks = undefined;
+
+    timer_module.start_periodic(&timer1, 10, &observed_ticks_since_started, ticks_since_last_started_reporter);
+    timer_module.increment_current_time(17);
+
+    try std.testing.expect(timer_module.run());
+    try std.testing.expectEqual(17, observed_ticks_since_started);
+}
+
+test "ticks since last started overflow condition" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    var observed_ticks_since_started: timer.Ticks = undefined;
+
+    timer_module.increment_current_time(std.math.maxInt(timer.Ticks) - 10);
+
+    timer_module.start_periodic(&timer1, 20, &observed_ticks_since_started, ticks_since_last_started_reporter);
+    timer_module.increment_current_time(27);
+
+    try std.testing.expectEqual(27, timer_module.ticks_since_last_started(&timer1));
+
+    timer_module.increment_current_time(1);
+    try std.testing.expect(timer_module.run());
+    try std.testing.expectEqual(28, observed_ticks_since_started);
+}
+
 // NOTE:
 //   The below tests are for documenting behavior. The behaviors are not that important.
 //   Feel free to change any of them to a *reasonable alternative* for optimization reasons.
@@ -1493,4 +1562,15 @@ test "elapsed ticks from a callback" {
     // 0 or 13 is reasonable
     try expect_timer_expires_after_exactly(&timer_module, 8);
     try std.testing.expectEqual(observed_elapsed_ticks, 0);
+}
+
+test "ticks since last started called without starting the timer" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    // This is 100% dependent on the default value of timer.duration and timer.timer_data.
+    try std.testing.expectEqual(0, timer_module.ticks_since_last_started(&timer1));
+
+    timer_module.increment_current_time(123);
+    try std.testing.expectEqual(123, timer_module.ticks_since_last_started(&timer1));
 }

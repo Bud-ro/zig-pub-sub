@@ -12,10 +12,10 @@ pub const Ticks = u32;
 
 pub const Timer = struct {
     timer_data: TimerData = undefined,
-    duration: Ticks = 0,
+    duration: Ticks = undefined,
     /// ctx is an `?*align(2) anyopaque` pointer where the lowest bit
     /// is used to store `is_periodic`. Supports full u32 timer range and `fn elapsed_ticks`
-    ctx: usize = 0,
+    ctx: usize = undefined,
     callback: ?TimerCallback = null,
     node: std.SinglyLinkedList.Node = .{},
 
@@ -218,13 +218,17 @@ pub const TimerModule = struct {
         }
     }
 
-    /// For a timer that has been started at least once, returns the
-    // pub fn ticks_since_last_started(timer_module: *TimerModule, timer: *Timer) Ticks {
-    //     std.debug.assert(!is_paused(timer_module, timer)); // TODO: Is it possible to make this work?
+    /// For a timer that has been started at least once, returns the ticks since it was last started.
+    /// Result is undefined for timers that have never been started or were started `Timer.max_ticks` ticks ago.
+    /// NOTE: Periodic timers automatically restart themselves.
+    pub fn ticks_since_last_started(timer_module: *TimerModule, timer: *Timer) Ticks {
+        if (is_paused(timer_module, timer)) {
+            @panic("It is invalid to get ticks_since_last_started for a paused timer");
+        }
 
-    //     const signed_remaining_ticks = @as(i32, timer.timer_data.expiration -% timer_module.safely_get_current_time());
-    //     return timer.duration - signed_remaining_ticks;
-    // }
+        const timer_start = timer.timer_data.expiration -% timer.duration;
+        return timer_module.safely_get_current_time() -% timer_start;
+    }
 
     fn remaining_ticks_active_timer(timer: *Timer, current_time: Ticks) Ticks {
         if ((timer.timer_data.expiration -% current_time) <= Timer.max_ticks) {

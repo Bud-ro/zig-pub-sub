@@ -37,8 +37,8 @@
 - [ ] Zig alternative to Lua for generating parametric data
 - [ ] Rename this project to embedded starter kit
 - [x] Timer Module with linked lists
-  - [ ] Timer Module memory/speed optimization using pointer alignment abuse
-  - [ ] Add support for paused timers
+  - [x] Timer Module memory/speed optimization using pointer alignment abuse
+  - [x] Add support for paused timers
 - [x] ~~Timer Module using struct of arrays, and pseudo-linked list~~
 - [ ] Build ELF for Cortex-M
   - [ ] Linker script
