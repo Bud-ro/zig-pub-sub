@@ -127,9 +127,6 @@ pub const TimerModule = struct {
         }
 
         std.debug.assert(period <= Timer.max_ticks);
-        if (period == 0) {
-            @panic("Period cannot be 0, since a 0-tick periodic will very likely starve your system");
-        }
 
         timer.ctx = @intFromPtr(ctx);
         timer.callback = callback;

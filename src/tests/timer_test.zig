@@ -55,6 +55,22 @@ test "timer periodic run" {
     try std.testing.expectEqual(1, local_ctx);
 }
 
+test "0 tick periodic" {
+    var timer_module = TimerModule{};
+
+    var local_ctx: u32 = 0;
+    var timer1 = Timer{};
+
+    timer_module.start_periodic(&timer1, 0, &local_ctx, timer_callback);
+    try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expectEqual(1, local_ctx);
+
+    for (2..100) |i| {
+        try std.testing.expectEqual(true, timer_module.run());
+        try std.testing.expectEqual(i, local_ctx);
+    }
+}
+
 test "stopping periodic timer during callback" {
     var timer_module = TimerModule{};
 
