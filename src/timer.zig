@@ -1,13 +1,43 @@
-//! Timer Module and associated typedefs
-//! A Timer Module supports:
-//! - Starting/Stopping
-//! - Pausing/Unpausing
-//! - Periodic Execution
-//! - One-shot Execution
+//! Timer Module
+//! This is a performant, light-weight, and somewhat general-purpose software scheduler intended for groups of tasks which can all run on one thread.
+//! Each task (`Timer`) weighs in at 20 bytes of RAM on a 32-bit system for ReleaseFast/Small builds. `Timer`s inside the `TimerModule` form
+//! a sorted linked list where the front `Timer` is the next to expire. The intended usage is for clients to statically allocate `Timer`s.
+//! All of this make it ideal for single-threaded embedded systems.
+//!
+//! After initialization, user code should enter a main-loop that runs the `TimerModule` until exhaustion, and then sleeps:
+//! ```
+//! while(true)
+//! {
+//!     const timer_module_did_work = timer_module.run();
+//!     if(!timer_module_did_work)
+//!     {
+//!         _WFI();
+//!     }
+//! }
+//! ```
+//!
+//! Additionally, user-code must advance the time via `timer_module.increment_current_time(ticks);`.
+//! Ideally this should be done via an interrupt.
+//!
+//! Guarantees:
+//! This is not intended for high accuracy applications. Timer drift will happen since tasks take real time to occur, and `Timer`s are designed to
+//! re-start from the latest time. You use a different scheduler to guarantee those high accuracy tasks do not drift, and then use `TimerModule`
+//! in a task of that high accuracy scheduler to strike a balance between throughput and accuracy.
+//!
+//! To formally list the guarantees:
+//! - Throughput: `TimerModule` is primarily designed for high-throughput so that embedded systems may return to sleep as soon as possible.
+//! - Wait time: There are no guarantees here. A long running task (> 1ms) can delay every other `Timer` for as long as it runs.
+//!   It is up to users to design their system with short tasks, or to break up tasks.
+//! - Latency: In an idle system, as soon as a `Timer` expires it will almost immediately be executed.
+//! - Fairness: `Timer`s are always put after existing `Timer`s that would expire before or at the same time.
+//!   This ensures no single task can starve the system (including 0 tick periodic `Timer`s)
+//!
 
 const std = @import("std");
 
-/// A tick is typically 1 millisecond. Can be longer. Smaller values aren't practical.
+/// A tick is typically 1 millisecond. Can be longer. Smaller time-scales aren't practical
+/// due to implied timing constraints that cannot be guaranteed in such a system.
+/// u32 allows for ~50 day timers which is plenty.
 pub const Ticks = u32;
 
 pub const Timer = struct {
@@ -160,7 +190,6 @@ pub const TimerModule = struct {
         }
     }
 
-    // TODO: Rename this to `resume` once the keyword is removed
     /// Unpauses a timer
     /// If the timer is already active or is not present then this does nothing
     pub fn unpause(self: *TimerModule, timer: *Timer) void {
@@ -330,20 +359,18 @@ pub const TimerModule = struct {
         timer.callback = null;
     }
 
-    /// Called in the interrupt context, this can happen while a call to `run` is happening.
+    /// Can be called in the interrupt context. NOTE: this can happen while a call to `run` is happening.
     pub fn increment_current_time(self: *TimerModule, ticks_to_increment_by: Ticks) void {
-        // TODO: See if this works. Or try @atomicStore
-        // @atomicRmw(Ticks, &self.current_time, .Add, ticks_to_increment_by, .monotonic);
-        self.current_time +%= ticks_to_increment_by;
+        var current_time = self.current_time;
+        current_time +%= ticks_to_increment_by;
+        @atomicStore(Ticks, &self.current_time, current_time, .monotonic);
     }
 
     /// Repeatedly reads the current_time until two consecutive reads are identical
     fn safely_get_current_time(self: *TimerModule) Ticks {
-        var current_time = self.current_time;
-        while (current_time != self.current_time) {
-            // TODO: Make sure this doesn't get optimized out
-            current_time = self.current_time;
-        }
-        return current_time;
+        // TODO: A lot of embedded platforms won't support atomic access to a u32.
+        // The natural way to do so would be via a spin-loop, I just need to figure out
+        // how to specify that to where it isn't optimized away.
+        return @atomicLoad(Ticks, &self.current_time, .monotonic);
     }
 };
