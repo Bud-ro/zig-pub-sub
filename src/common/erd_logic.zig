@@ -8,7 +8,6 @@
 const std = @import("std");
 const SystemData = @import("../system_data.zig");
 const SystemErds = @import("../system_erds.zig");
-const Subscription = @import("../subscription.zig");
 const Erd = @import("../erd.zig");
 
 const ErdLogicOperator = enum {

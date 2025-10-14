@@ -140,7 +140,7 @@ pub fn write(this: *SystemData, comptime erd_enum: SystemErds.ErdEnum, data: Sys
 pub fn runtime_write(this: *SystemData, system_data_idx: u16, data: *const anyopaque) void {
     const publish_required = switch (owner_from_idx[system_data_idx]) {
         .Ram => this.ram.runtime_write(data_component_idx_from_idx[system_data_idx], data),
-        .Indirect => comptime unreachable,
+        .Indirect => unreachable,
     };
 
     if (publish_required and subs_from_idx[system_data_idx] != 0) {
