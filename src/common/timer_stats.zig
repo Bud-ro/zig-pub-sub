@@ -81,6 +81,8 @@ fn on_enable_change(ctx: ?*anyopaque, args: *const SystemData.OnChangeArgs, syst
 }
 
 // TODO: runtime_subscribe
+// Inner init is here to make an attempt at forcing call-sites to not inline all of this code.
+// It feels more likely because of the `comptime` arguments.
 fn inner_init(
     self: *TimerModuleStats,
     system_data: *SystemData,
@@ -100,7 +102,6 @@ fn inner_init(
     on_enable_change(self, &init_data, system_data);
 }
 
-/// Initializes the module
 pub fn init(
     self: *TimerModuleStats,
     system_data: *SystemData,
