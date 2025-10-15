@@ -361,9 +361,7 @@ pub const TimerModule = struct {
 
     /// Can be called in the interrupt context. NOTE: this can happen while a call to `run` is happening.
     pub fn increment_current_time(self: *TimerModule, ticks_to_increment_by: Ticks) void {
-        var current_time = self.current_time;
-        current_time +%= ticks_to_increment_by;
-        @atomicStore(Ticks, &self.current_time, current_time, .monotonic);
+        self.current_time +%= ticks_to_increment_by;
     }
 
     /// Repeatedly reads the current_time until two consecutive reads are identical
