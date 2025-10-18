@@ -100,7 +100,13 @@ fn timer_module_fuzz(rng: *std.Random) !void {
     }
 }
 
+const sometimes_enabled = @import("sometimes").config.enable_sometimes;
+
 test "fuzz testing timer module" {
+    if (sometimes_enabled) {
+        // Don't want fuzzing to affect coverage results, also a significant slowdown is incurred
+        return error.SkipZigTest;
+    }
     var prng = std.Random.DefaultPrng.init(std.testing.random_seed);
     var random = prng.random();
 

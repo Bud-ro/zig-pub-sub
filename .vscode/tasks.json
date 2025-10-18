@@ -8,7 +8,7 @@
         },
         {
             "label": "zig-build-test",
-            "command": "zig test -femit-bin=zig-out/bin/test --test-no-exec src/unit_tests.zig",
+            "command": "zig build test_no_run",
             "type": "shell",
         }
     ]

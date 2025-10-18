@@ -34,6 +34,7 @@
 //!
 
 const std = @import("std");
+const sometimes = @import("sometimes");
 
 /// A tick is typically 1 millisecond. Can be longer. Smaller time-scales aren't practical
 /// due to implied timing constraints that cannot be guaranteed in such a system.
@@ -99,6 +100,8 @@ pub const TimerModule = struct {
             // This calculation loops over from `std.math.maxInt(Ticks)` to 0.
             const distance = time_at_start_of_rtc -% timer.timer_data.expiration;
             const timer_is_expired = distance <= Timer.longest_delay_before_servicing_timer;
+            sometimes.assert(&@src(), distance == Timer.longest_delay_before_servicing_timer);
+            sometimes.assert(&@src(), distance == Timer.longest_delay_before_servicing_timer + 1); // max ticks timer
 
             var front_node: ?*std.SinglyLinkedList.Node = null;
             if (timer_is_expired) {
@@ -134,6 +137,7 @@ pub const TimerModule = struct {
     /// If you get an error, declare your variable as `align(2)` or use a container
     /// struct with larger alignment
     pub fn start_one_shot(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
+        sometimes.assert(&@src(), self.active_timers.first == &timer.node); // Re-starting a periodic as a one-shot
         if (timer.callback != null or self.active_timers.first == &timer.node) {
             self.remove_timer(timer);
         }
@@ -152,6 +156,7 @@ pub const TimerModule = struct {
     /// If you get an error, declare your variable as `align(2)` or use a container
     /// struct with larger alignment
     pub fn start_periodic(self: *TimerModule, timer: *Timer, period: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
+        sometimes.assert(&@src(), self.active_timers.first == &timer.node); // Re-starting a periodic as a periodic
         if (timer.callback != null or self.active_timers.first == &timer.node) {
             self.remove_timer(timer);
         }
@@ -176,6 +181,7 @@ pub const TimerModule = struct {
 
     /// Pauses a timer
     /// If the timer is already paused or is not started then this does nothing
+    /// NOTE: It is invalid to pause a timer from its own callback.
     pub fn pause(self: *TimerModule, timer: *Timer) void {
         if (timer.callback == null) {
             return;
@@ -246,7 +252,7 @@ pub const TimerModule = struct {
 
     /// For a timer that has been started at least once, returns the ticks since it was last started.
     /// Result is undefined for timers that have never been started or were started `Timer.max_ticks` ticks ago.
-    /// NOTE: Periodic timers automatically restart themselves.
+    /// NOTE: Periodic timers automatically re-**start** themselves.
     pub fn ticks_since_last_started(timer_module: *TimerModule, timer: *Timer) Ticks {
         if (is_paused(timer_module, timer)) {
             @panic("It is invalid to get ticks_since_last_started for a paused timer");
