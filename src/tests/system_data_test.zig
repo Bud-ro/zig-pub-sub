@@ -249,8 +249,8 @@ test "scratch allocations" {
     try std.testing.expect(system_data.scratch.ownsSlice(more_allocation));
 
     system_data.scratch_reset();
-    // NOTE: Notice how this does not fail!
+    // NOTE: The below doesn't fail, but depending on optimization level may yield different results!
     // One must be very careful since this data is now considered freed, but there's no runtime check on it.
-    system_data.write(.erd_application_version, more_allocation[0]);
-    try std.testing.expectEqual(0b10101010, system_data.read(.erd_application_version));
+    // system_data.write(.erd_application_version, more_allocation[0]);
+    // try std.testing.expectEqual(0b10101010, system_data.read(.erd_application_version));
 }

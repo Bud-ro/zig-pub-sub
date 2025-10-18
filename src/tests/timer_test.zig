@@ -80,6 +80,7 @@ test "stopping periodic timer during callback" {
 
     timer_module.increment_current_time(50);
     try std.testing.expectEqual(true, timer_module.run());
+    try std.testing.expect(!timer_module.is_running(&timer1));
 
     timer_module.increment_current_time(50);
     try std.testing.expectEqual(false, timer_module.run());
@@ -1549,6 +1550,22 @@ test "ticks since last started overflow condition" {
     try std.testing.expectEqual(28, observed_ticks_since_started);
 }
 
+test "restart periodic as one-shot" {
+    var timer_module = TimerModule{};
+    var timer1 = Timer{};
+
+    const A = struct {
+        fn callback(_: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
+            _timer_module.start_one_shot(_timer, 0, null, callback);
+        }
+    };
+
+    timer_module.start_periodic(&timer1, 20, null, A.callback);
+    try expect_timer_expires_after_exactly(&timer_module, 20);
+
+    try std.testing.expect(timer_module.run());
+}
+
 // NOTE:
 //   The below tests are for documenting behavior. The behaviors are not that important.
 //   Feel free to change any of them to a *reasonable alternative* for optimization reasons.
@@ -1581,12 +1598,14 @@ test "elapsed ticks from a callback" {
 }
 
 test "ticks since last started called without starting the timer" {
-    var timer_module = TimerModule{};
-    var timer1 = Timer{};
+    return error.SkipZigTest; // This test actually depends on optimization level as well
 
-    // This is 100% dependent on the default value of timer.duration and timer.timer_data.
-    try std.testing.expectEqual(0, timer_module.ticks_since_last_started(&timer1));
+    // var timer_module = TimerModule{};
+    // var timer1 = Timer{};
 
-    timer_module.increment_current_time(123);
-    try std.testing.expectEqual(123, timer_module.ticks_since_last_started(&timer1));
+    // // This is 100% dependent on the default value of timer.duration and timer.timer_data.
+    // try std.testing.expectEqual(0, timer_module.ticks_since_last_started(&timer1));
+
+    // timer_module.increment_current_time(123);
+    // try std.testing.expectEqual(123, timer_module.ticks_since_last_started(&timer1));
 }

@@ -3,7 +3,12 @@
     .version = "0.0.0",
     .fingerprint = 0x8ea4b5683ac6b938,
     .minimum_zig_version = "0.15.1",
-    .dependencies = .{},
+    .dependencies = .{
+        .assert_sometimes = .{
+            .url = "git+https://github.com/Bud-ro/zig-sometimes-assert#bc8afa4473141145684d51b6512a1538164c8985",
+            .hash = "assert_sometimes-0.0.0-q4tpTBk9AADUchDBdR4jR_lzkUoP0KFokCxUDvZ5pLaV",
+        },
+    },
 
     .paths = .{
         "build.zig",
