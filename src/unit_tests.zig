@@ -8,5 +8,6 @@ comptime {
     _ = @import("tests/timer_test.zig");
     _ = @import("tests/timer_fuzzing.zig");
     _ = @import("common/erd_logic.zig");
+    _ = @import("common/stopwatch.zig");
     _ = @import("common/timer_stats.zig");
 }

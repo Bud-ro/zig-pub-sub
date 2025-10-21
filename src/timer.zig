@@ -371,7 +371,7 @@ pub const TimerModule = struct {
     }
 
     /// Repeatedly reads the current_time until two consecutive reads are identical
-    fn safely_get_current_time(self: *TimerModule) Ticks {
+    pub fn safely_get_current_time(self: *const TimerModule) Ticks {
         // TODO: A lot of embedded platforms won't support atomic access to a u32.
         // The natural way to do so would be via a spin-loop, I just need to figure out
         // how to specify that to where it isn't optimized away.
