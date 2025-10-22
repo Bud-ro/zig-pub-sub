@@ -25,8 +25,7 @@ test "indirect data component read" {
 }
 
 test "indirect data component write" {
-    return error.SkipZigTest;
-    // TODO: Re-enable this test once you can test for compile error
+    return error.SkipZigTest; // Test for compile error
 
     // var indirect_data = IndirectDataComponent.init([_]IndirectErdMapping{
     //     .map(.erd_always_42, erd_always_42),
@@ -53,8 +52,7 @@ test "indirect data component runtime read" {
 }
 
 test "indirect data component runtime write" {
-    // return error.SkipZigTest;
-    // TODO: Re-enable this test once you can test for compile error
+    return error.SkipZigTest; // Test for compile error
 
     // var indirect_data = IndirectDataComponent.init([_]IndirectErdMapping{
     //     .map(.erd_always_42, erd_always_42),

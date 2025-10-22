@@ -58,8 +58,7 @@ test "structs" {
 }
 
 test "failure upon writing incorrect types" {
-    return error.SkipZigTest;
-    // TODO: Enable this test once you can test for compile errors
+    return error.SkipZigTest; // Test for compile error
 
     // var ram_data = RamDataComponent.init();
     // std.testing.expectError(, ram_data.write(SystemErds.erd.erd_some_bool, 20));

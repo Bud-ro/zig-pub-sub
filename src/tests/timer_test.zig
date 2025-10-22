@@ -509,8 +509,7 @@ test "One shot with null callback" {
     // var timer1 = Timer{};
     // var context: u32 = 0;
 
-    // TODO: This is a compile error, make sure to test for that if Zig ever allows for it
-    return error.SkipZigTest;
+    return error.SkipZigTest; // Test for compile error
     // timer_module.start_one_shot(&timer1, 0, &context, null);
 }
 
@@ -519,8 +518,7 @@ test "Periodic with null callback" {
     // var timer1 = Timer{};
     // var context: u32 = 0;
 
-    // TODO: This is a compile error, make sure to test for that if Zig ever allows for it
-    return error.SkipZigTest;
+    return error.SkipZigTest; // Test for compile error
     // timer_module.start_periodic(&timer1, 0, &context, null);
 }
 
