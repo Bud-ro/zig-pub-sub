@@ -102,6 +102,19 @@ test "subscription_test" {
     try std.testing.expectEqual(2, system_data.read(.erd_application_version));
 }
 
+test "re-subscribe" {
+    var system_data = SystemData.init();
+    system_data.subscribe(.erd_some_bool, null, turn_off_some_bool_and_increment_application_version);
+    system_data.subscribe(.erd_some_bool, null, turn_off_some_bool_and_increment_application_version);
+    system_data.subscribe(.erd_some_bool, null, turn_off_some_bool_and_increment_application_version);
+    system_data.subscribe(.erd_some_bool, null, turn_off_some_bool_and_increment_application_version);
+    system_data.subscribe(.erd_some_bool, null, turn_off_some_bool_and_increment_application_version);
+
+    system_data.write(.erd_some_bool, true);
+    try std.testing.expectEqual(false, system_data.read(.erd_some_bool));
+    try std.testing.expectEqual(2, system_data.read(.erd_application_version));
+}
+
 fn forward_context(context: ?*anyopaque, _: *const SystemData.OnChangeArgs, system_data: *SystemData) void {
     const a: *u8 = @ptrCast(context.?);
 

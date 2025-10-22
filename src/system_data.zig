@@ -39,6 +39,8 @@ fn total_subscriptions() usize {
 
 const SystemErdsLength: usize = std.meta.fields(SystemErds.ErdDefinitions).len;
 
+// The size of this is 4*numErds which means this will reach well over 4kB of ROM.
+// TODO: Add the option to binary search and avoid a large chunk of this cost
 const subscription_offsets = blk: {
     var _offsets: [SystemErdsLength]usize = undefined;
     var cur_offset = 0;
@@ -171,25 +173,31 @@ pub fn subscribe(
         std.debug.assert(erd.owner != .Indirect);
     }
     const sub_offset = subscription_offsets[erd.system_data_idx];
+    var first_free_spot: ?*Subscription = null;
 
-    // TODO: BUG, need to scan the entire subscription list for membership
-    // Also need to modify the behavior to not assert on re-subscribe
     for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
-        // Subscriptions cannot be added to the same list twice
-        std.debug.assert(_sub.callback != fn_ptr);
+        if (first_free_spot == null and _sub.callback == null) {
+            first_free_spot = _sub;
+        }
 
-        if (_sub.callback == null) {
-            _sub.context = context;
-            _sub.callback = fn_ptr;
+        if (_sub.callback == fn_ptr) {
+            // Subscriptions cannot be added to the same list twice
             return;
         }
     }
 
-    // In tests this verifies we aren't subscribing beyond our array length
-    // These names should be stripped out of the binary if a panic handler isn't set.
-    // TODO: Validate this assumption and switch to using something lighter if needed
-    const erd_names = comptime std.meta.fieldNames(SystemErds.ErdDefinitions);
-    std.debug.panic("ERD {s} oversubscribed!", .{erd_names[erd.system_data_idx]});
+    // Failed to find an empty spot, over-subscribed
+    if (first_free_spot == null) {
+        // In tests this verifies we aren't subscribing beyond our array length
+        // These names should be stripped out of the binary if a panic handler isn't set.
+        // TODO: Validate this assumption and switch to using something lighter if needed
+        // This is a ROM savings of likely over 10kB on large projects :)
+        const erd_names = comptime std.meta.fieldNames(SystemErds.ErdDefinitions);
+        std.debug.panic("ERD {s} oversubscribed!", .{erd_names[erd.system_data_idx]});
+    }
+
+    first_free_spot.?.context = context;
+    first_free_spot.?.callback = fn_ptr;
 }
 
 pub fn unsubscribe(this: *SystemData, comptime erd_enum: SystemErds.ErdEnum, fn_ptr: Subscription.SubscriptionCallback) void {
