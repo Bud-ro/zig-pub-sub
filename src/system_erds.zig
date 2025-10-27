@@ -1,6 +1,7 @@
 const std = @import("std");
 const Erd = @import("erd.zig");
 const TimerStats = @import("common/timer_stats.zig");
+const IndirectDataComponent = @import("indirect_data_component.zig");
 
 /// `ErdEnum` allows for use of decl literals which makes API use of ERDs *significantly* shorter
 pub const ErdEnum = enum {
@@ -73,68 +74,23 @@ pub const ErdDefinitions = struct {
     }
 };
 
-/// Erd Definitions with autofilled indexes
-pub const erd = blk: {
-    var _erds = ErdDefinitions{};
+const BlankErdDefinitions = ErdDefinitions{};
 
-    var owning_counts = std.mem.zeroes([std.meta.fields(Erd.ErdOwner).len]u16);
-    for (std.meta.fieldNames(ErdDefinitions)) |erd_field_name| {
-        const idx = @intFromEnum(@field(_erds, erd_field_name).owner);
-        @field(_erds, erd_field_name).data_component_idx = owning_counts[idx];
-        owning_counts[idx] += 1;
-    }
+fn always_42(data: *u16) void {
+    data.* = 42;
+}
 
-    // Assert because prints below assume this ERD size
-    std.debug.assert(0xffff == std.math.maxInt(Erd.ErdHandle));
-    var set = std.bit_set.ArrayBitSet(usize, std.math.maxInt(Erd.ErdHandle)).initEmpty();
+fn plus_one(data: *u16) void {
+    var should_be_42: u16 = undefined;
+    always_42(&should_be_42);
 
-    for (std.meta.fieldNames(ErdDefinitions), 0..) |erd_field_name, i| {
-        @field(_erds, erd_field_name).system_data_idx = i;
+    data.* = should_be_42 + 1;
+}
 
-        if (@field(_erds, erd_field_name).erd_number) |num| {
-            if (set.isSet(num)) {
-                @compileError(std.fmt.comptimePrint("Multiple ERD definitions with number 0x{x:0>4}", .{num}));
-            } else {
-                set.set(num);
-            }
-        }
-    }
-
-    break :blk _erds;
+pub const example_indirect_erd_mapping = [_]IndirectDataComponent.IndirectErdMapping{
+    .{ .erd = BlankErdDefinitions.erd_always_42, .fn_ptr = always_42 },
+    .{ .erd = BlankErdDefinitions.erd_another_erd_plus_one, .fn_ptr = plus_one },
 };
-
-fn num_erds(owner: Erd.ErdOwner) comptime_int {
-    var i = 0;
-    for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
-        if (@field(erd, erd_name).owner == owner) {
-            i += 1;
-        }
-    }
-    return i;
-}
-
-fn component_definitions(comptime owner: Erd.ErdOwner) [num_erds(owner)]Erd {
-    var _erds: [num_erds(owner)]Erd = undefined;
-    var i = 0;
-
-    for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
-        if (@field(erd, erd_name).owner == owner) {
-            _erds[i] = @field(erd, erd_name);
-            i += 1;
-        }
-    }
-
-    return _erds;
-}
-
-// Array versions of ERDs. For easier iteration.
-pub const ram_definitions = component_definitions(.Ram);
-pub const indirect_definitions = component_definitions(.Indirect);
-
-/// Enum to Erd mapper
-pub fn erd_from_enum(comptime erd_enum: ErdEnum) Erd {
-    return @field(erd, @tagName(erd_enum));
-}
 
 const WellPackedStruct = struct {
     a: u8,

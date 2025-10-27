@@ -18,6 +18,10 @@
       - Differing `.subscribe`, `.unsubscribe`, etc. functions for instance, which more flexibly allow for certain data components to not be subscribable
       - Allows for init of data components with different ERD tables
   - [x] Allow for definition of public ERD handles
+  - [ ] Explore usage of monotone minimal perfect hashing functions. 
+    - [ ] Public handle -> internal index. Need to ensure values outside the set can be detected. 
+    - [x] Internal idx -> Public handle: This one is better done via direct-indexed lookup table. Duh.
+    - [ ] Ensure that speedup is worth vs just using binary search
 - [x] Pub sub
   - [x] ~~Subscription lists are stored local to data components~~, ~~Subscription Linked List Stored in System Data~~, Subscription lists stored in system data
     - [x] ERDs that don't make sense to subscribe to can cause a compile error

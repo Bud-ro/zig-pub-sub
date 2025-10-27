@@ -9,282 +9,350 @@ const std = @import("std");
 const Erd = @import("erd.zig");
 const RamDataComponent = @import("ram_data_component.zig");
 const IndirectDataComponent = @import("indirect_data_component.zig");
-const SystemErds = @import("system_erds.zig");
 const Subscription = @import("subscription.zig");
 
-const SystemData = @This();
-
-/// Published for every on-change event
-pub const OnChangeArgs = struct {
-    system_data_idx: u16,
-    data: *const anyopaque,
+// TODO: Need to fully explore this idea, but I'm 99.9999% sure you won't ever need more than one of each kind.
+// Theoretically, a flash memory data-component could just take a configuration of items rather than require multiple.
+const SystemDataConfig = struct {
+    ram_component_options: struct { included: bool },
+    indirect_component_options: struct { included: bool, mappings: ?[]const IndirectDataComponent.IndirectErdMapping },
+    scratch_allocator_options: struct { included: bool, size: ?usize },
 };
 
-ram: RamDataComponent = undefined,
-indirect: IndirectDataComponent = undefined,
-subscriptions: [total_subscriptions()]Subscription = undefined,
-/// This is a bump allocator meant to be reset at the end of a run to complete
-scratch: std.heap.FixedBufferAllocator = undefined,
-scratch_buf: [2048]u8 align(@alignOf(usize)) = undefined, // TODO: Does this actually need to be aligned?
+pub fn SystemData(SystemErds: type, comptime config: SystemDataConfig) type {
+    std.debug.assert(@hasDecl(SystemErds, "ErdEnum"));
+    std.debug.assert(@hasDecl(SystemErds, "ErdDefinitions"));
 
-fn total_subscriptions() usize {
-    comptime {
-        var size: usize = 0;
-        for (std.meta.fieldNames(SystemErds.ErdDefinitions)) |erd_name| {
-            size += @field(SystemErds.erd, erd_name).subs;
-        }
-        return size;
-    }
-}
+    const SystemErdsLength: usize = std.meta.fields(SystemErds.ErdDefinitions).len;
 
-const SystemErdsLength: usize = std.meta.fields(SystemErds.ErdDefinitions).len;
+    return struct {
+        const SystemDataConcrete = @This();
 
-// The size of this is 4*numErds which means this will reach well over 4kB of ROM.
-// TODO: Add the option to binary search and avoid a large chunk of this cost
-const subscription_offsets = blk: {
-    var _offsets: [SystemErdsLength]usize = undefined;
-    var cur_offset = 0;
-
-    for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_name, i| {
-        if (@field(SystemErds.erd, erd_name).subs != 0) {
-            _offsets[i] = cur_offset;
-        }
-        cur_offset += @field(SystemErds.erd, erd_name).subs;
-    }
-    break :blk _offsets;
-};
-
-/// Returns a column from system_erds as an array of type []T
-fn system_erds_collect(T: type, column_name: []const u8) [SystemErdsLength]T {
-    var field_values: [SystemErdsLength]T = undefined;
-    for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_name, i| {
-        field_values[i] = @field(@field(SystemErds.erd, erd_name), column_name);
-    }
-
-    return field_values;
-}
-
-// Create .rodata that is indexed by `system_data_idx`
-const subs_from_idx = system_erds_collect(u8, "subs");
-const owner_from_idx = system_erds_collect(Erd.ErdOwner, "owner");
-const data_component_idx_from_idx = system_erds_collect(u16, "data_component_idx");
-
-fn always_42(data: *u16) void {
-    data.* = 42;
-}
-
-fn plus_one(data: *u16) void {
-    var should_be_42: u16 = undefined;
-    always_42(&should_be_42);
-
-    data.* = should_be_42 + 1;
-}
-
-const indirectErdMapping = [_]IndirectDataComponent.IndirectErdMapping{
-    .map(.erd_always_42, always_42),
-    .map(.erd_another_erd_plus_one, plus_one),
-};
-
-pub fn init() SystemData {
-    var this = SystemData{};
-    this.ram = .init();
-    this.indirect = .init(indirectErdMapping);
-    this.scratch = .init(&this.scratch_buf);
-
-    @memset(&this.subscriptions, Subscription{ .context = null, .callback = null });
-    return this;
-}
-
-/// Read an ERD by-value using comptime information (the `Erd` type)
-/// Due to the performance and code size benefits, this should be preferred over `runtime_read`.
-pub fn read(this: SystemData, comptime erd_enum: SystemErds.ErdEnum) SystemErds.erd_from_enum(erd_enum).T {
-    const erd: Erd = SystemErds.erd_from_enum(erd_enum);
-    switch (erd.owner) {
-        .Ram => return this.ram.read(erd),
-        .Indirect => return this.indirect.read(erd),
-    }
-}
-
-/// Read an ERD into the provided `data` pointer, using the ERD's corresponding system_data_idx
-/// This will be significantly slower than a comptime read, and should only be used sparingly, for example:
-/// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
-/// - Reading an ERD using info from an on-change callback
-pub fn runtime_read(this: SystemData, system_data_idx: u16, data: *anyopaque) void {
-    const owner: Erd.ErdOwner = owner_from_idx[system_data_idx];
-    const data_component_idx: u16 = data_component_idx_from_idx[system_data_idx];
-
-    switch (owner) {
-        .Ram => this.ram.runtime_read(data_component_idx, data),
-        .Indirect => this.indirect.runtime_read(data_component_idx, data),
-    }
-}
-
-/// Write to an ERD by-value using comptime information (the `Erd` type)
-/// Due to the performance and code size benefits, this should be preferred over `runtime_write`.
-pub fn write(this: *SystemData, comptime erd_enum: SystemErds.ErdEnum, data: SystemErds.erd_from_enum(erd_enum).T) void {
-    const erd: Erd = SystemErds.erd_from_enum(erd_enum);
-    const publish_required = switch (erd.owner) {
-        .Ram => this.ram.write(erd, data),
-        .Indirect => comptime unreachable,
-    };
-
-    if (publish_required and erd.subs != 0) {
-        this.publish(erd.system_data_idx, &data);
-    }
-}
-
-/// Write to an ERD from the provided `data` pointer, using the ERD's corresponding system_data_idx
-/// This will be significantly slower than a comptime write, and should only be used sparingly, for example:
-/// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
-/// - Writing an ERD using info from an on-change callback (common for ERD multiplexers)
-///
-/// NOTE: `data` must be aligned!
-pub fn runtime_write(this: *SystemData, system_data_idx: u16, data: *const anyopaque) void {
-    const publish_required = switch (owner_from_idx[system_data_idx]) {
-        .Ram => this.ram.runtime_write(data_component_idx_from_idx[system_data_idx], data),
-        .Indirect => unreachable,
-    };
-
-    if (publish_required and subs_from_idx[system_data_idx] != 0) {
-        this.publish(system_data_idx, data);
-    }
-}
-
-fn publish(this: *SystemData, system_data_idx: u16, data: *const anyopaque) void {
-    const sub_offset = subscription_offsets[system_data_idx];
-
-    for (this.subscriptions[sub_offset .. sub_offset + subs_from_idx[system_data_idx]]) |_sub| {
-        if (_sub.callback) |_callback| {
-            const args: OnChangeArgs = .{ .system_data_idx = system_data_idx, .data = data };
-            _callback(_sub.context, &args, this);
-        }
-    }
-}
-
-pub fn subscribe(
-    this: *SystemData,
-    comptime erd_enum: SystemErds.ErdEnum,
-    context: ?*anyopaque,
-    fn_ptr: Subscription.SubscriptionCallback,
-) void {
-    const erd: Erd = SystemErds.erd_from_enum(erd_enum);
-    comptime {
-        std.debug.assert(erd.subs > 0);
-        std.debug.assert(erd.owner != .Indirect);
-    }
-    const sub_offset = subscription_offsets[erd.system_data_idx];
-    var first_free_spot: ?*Subscription = null;
-
-    for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
-        if (first_free_spot == null and _sub.callback == null) {
-            first_free_spot = _sub;
-        }
-
-        if (_sub.callback == fn_ptr) {
-            // Subscriptions cannot be added to the same list twice
-            return;
-        }
-    }
-
-    // Failed to find an empty spot, over-subscribed
-    if (first_free_spot == null) {
-        // In tests this verifies we aren't subscribing beyond our array length
-        // These names should be stripped out of the binary if a panic handler isn't set.
-        // TODO: Validate this assumption and switch to using something lighter if needed
-        // This is a ROM savings of likely over 10kB on large projects :)
-        const erd_names = comptime std.meta.fieldNames(SystemErds.ErdDefinitions);
-        std.debug.panic("ERD {s} oversubscribed!", .{erd_names[erd.system_data_idx]});
-    }
-
-    first_free_spot.?.context = context;
-    first_free_spot.?.callback = fn_ptr;
-}
-
-pub fn unsubscribe(this: *SystemData, comptime erd_enum: SystemErds.ErdEnum, fn_ptr: Subscription.SubscriptionCallback) void {
-    const erd: Erd = SystemErds.erd_from_enum(erd_enum);
-    comptime {
-        std.debug.assert(erd.subs > 0);
-        // We know you can't sub/unsub to these:
-        std.debug.assert(erd.owner != .Indirect);
-    }
-
-    const sub_offset = subscription_offsets[erd.system_data_idx];
-
-    for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
-        if (_sub.callback == fn_ptr) {
-            _sub.callback = null;
-            return;
-        }
-    }
-}
-
-/// Returns a slice allocated to the scratch buffer.
-pub fn scratch_alloc(this: *SystemData, comptime T: type, n: usize) []T {
-    return this.scratch.allocator().alloc(T, n) catch @panic("We ran out of scratch memory!!!");
-}
-
-/// Call this at the end of a run to complete in your main-loop
-pub fn scratch_reset(this: *SystemData) void {
-    this.scratch.reset();
-}
-
-/// A test only type used with verify_all_subs_are_saturated
-pub const SubException = struct { erd_enum: SystemErds.ErdEnum, missing: comptime_int };
-
-/// A test only function used to verify that after initialization, all of your subscriptions arrays are fully saturated
-pub fn verify_all_subs_are_saturated(this: *SystemData, comptime exceptions: []const SubException) !void {
-    var failed = false;
-
-    inline for (exceptions) |e| {
-        const erd_name = @tagName(e.erd_enum);
-        const num_subs = @field(SystemErds.erd, erd_name).subs;
-        if (num_subs == 0) {
-            std.log.warn("Remove {s} from exceptions list since subscriptions are disabled for it", .{erd_name});
-            failed = true;
-        }
-    }
-
-    if (failed) {
-        return error.ErdWithNoSubsInExceptions;
-    }
-
-    inline for (std.meta.fields(SystemErds.ErdDefinitions), 0..) |field_info, i| {
-        const erd_name = field_info.name;
-        const sub_offset = subscription_offsets[i];
-        const num_subs = @field(SystemErds.erd, erd_name).subs;
-
-        if (num_subs == 0) {
-            continue;
-        }
-
-        const expected_count = blk: {
-            comptime var _expected = num_subs;
-            inline for (exceptions) |e| {
-                if (comptime std.mem.eql(u8, @tagName(e.erd_enum), erd_name)) {
-                    _expected = num_subs - e.missing;
-                    break :blk _expected;
-                }
-            }
-            break :blk _expected;
+        /// Published for every on-change event
+        pub const OnChangeArgs = struct {
+            system_data_idx: u16,
+            data: *const anyopaque,
         };
 
-        var actual_count: u16 = 0;
-        for (this.subscriptions[sub_offset .. sub_offset + num_subs]) |_sub| {
-            if (_sub.callback != null) {
-                actual_count += 1;
+        pub const ConcreteSubscription = Subscription.Concrete(SystemDataConcrete);
+
+        ram: if (config.ram_component_options.included) RamDataComponent.RamDataComponent(SystemErds, &ram_definitions) else void = undefined,
+        indirect: if (config.indirect_component_options.included) IndirectDataComponent.IndirectDataComponent(SystemErds, &indirect_definitions) else void = undefined,
+
+        subscriptions: [total_subscriptions()]ConcreteSubscription = undefined,
+        /// This is a bump allocator meant to be reset at the end of a run to complete
+        scratch: if (config.scratch_allocator_options.included) std.heap.FixedBufferAllocator else void = undefined,
+        scratch_buf: if (config.scratch_allocator_options.included) [config.scratch_allocator_options.size.?]u8 else void = undefined, // TODO: Idk how to specify alignment here
+
+        pub fn init() SystemDataConcrete {
+            var this = SystemDataConcrete{};
+
+            if (config.ram_component_options.included) this.ram = .init();
+            if (config.indirect_component_options.included) this.indirect = .init(config.indirect_component_options.mappings.?);
+
+            if (config.scratch_allocator_options.included) this.scratch = .init(&this.scratch_buf);
+
+            @memset(&this.subscriptions, ConcreteSubscription{ .context = null, .callback = null });
+            return this;
+        }
+
+        // The size of this is 4*numErds which means this will reach well over 4kB of ROM.
+        // TODO: Add the option to binary search and avoid a large chunk of this cost
+        const subscription_offsets = blk: {
+            var _offsets: [SystemErdsLength]usize = undefined;
+            var cur_offset = 0;
+
+            for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_name, i| {
+                if (@field(erds_autofilled, erd_name).subs != 0) {
+                    _offsets[i] = cur_offset;
+                }
+                cur_offset += @field(erds_autofilled, erd_name).subs;
+            }
+            break :blk _offsets;
+        };
+
+        /// Returns a column from system_erds as an array of type []T
+        fn system_erds_collect(T: type, column_name: []const u8) [SystemErdsLength]T {
+            var field_values: [SystemErdsLength]T = undefined;
+            for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_name, i| {
+                field_values[i] = @field(@field(erds_autofilled, erd_name), column_name);
+            }
+
+            return field_values;
+        }
+
+        // Create .rodata that is indexed by `system_data_idx`
+        const subs_from_idx = system_erds_collect(u8, "subs");
+        const owner_from_idx = system_erds_collect(Erd.ErdOwner, "owner");
+        const data_component_idx_from_idx = system_erds_collect(u16, "data_component_idx");
+
+        /// Read an ERD by-value using comptime information (the `Erd` type)
+        /// Due to the performance and code size benefits, this should be preferred over `runtime_read`.
+        pub fn read(this: SystemDataConcrete, comptime erd_enum: SystemErds.ErdEnum) erd_from_enum(erd_enum).T {
+            const erd: Erd = erd_from_enum(erd_enum);
+            switch (erd.owner) {
+                .Ram => return this.ram.read(erd),
+                .Indirect => return this.indirect.read(erd),
             }
         }
 
-        if (actual_count < expected_count) {
-            std.log.warn("ERD: {s} is under-subscribing after init. Decrease subs, or increase missing.", .{erd_name});
-            failed = true;
-        } else if (actual_count > expected_count) {
-            std.log.warn("ERD: {s} is over-subscribed after init. Increase subs or decrease missing.", .{erd_name});
-            failed = true;
-        }
-    }
+        /// Read an ERD into the provided `data` pointer, using the ERD's corresponding system_data_idx
+        /// This will be significantly slower than a comptime read, and should only be used sparingly, for example:
+        /// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
+        /// - Reading an ERD using info from an on-change callback
+        pub fn runtime_read(this: SystemDataConcrete, system_data_idx: u16, data: *anyopaque) void {
+            const owner: Erd.ErdOwner = owner_from_idx[system_data_idx];
+            const data_component_idx: u16 = data_component_idx_from_idx[system_data_idx];
 
-    if (failed) {
-        return error.ErdWithUnexpectedSubCount;
-    }
+            switch (owner) {
+                .Ram => this.ram.runtime_read(data_component_idx, data),
+                .Indirect => this.indirect.runtime_read(data_component_idx, data),
+            }
+        }
+
+        /// Write to an ERD by-value using comptime information (the `Erd` type)
+        /// Due to the performance and code size benefits, this should be preferred over `runtime_write`.
+        pub fn write(this: *SystemDataConcrete, comptime erd_enum: SystemErds.ErdEnum, data: erd_from_enum(erd_enum).T) void {
+            const erd: Erd = erd_from_enum(erd_enum);
+            const publish_required = switch (erd.owner) {
+                .Ram => this.ram.write(erd, data),
+                .Indirect => comptime unreachable,
+            };
+
+            if (publish_required and erd.subs != 0) {
+                this.publish(erd.system_data_idx, &data);
+            }
+        }
+
+        /// Write to an ERD from the provided `data` pointer, using the ERD's corresponding system_data_idx
+        /// This will be significantly slower than a comptime write, and should only be used sparingly, for example:
+        /// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
+        /// - Writing an ERD using info from an on-change callback (common for ERD multiplexers)
+        ///
+        /// NOTE: `data` must be aligned!
+        pub fn runtime_write(this: *SystemDataConcrete, system_data_idx: u16, data: *const anyopaque) void {
+            const publish_required = switch (owner_from_idx[system_data_idx]) {
+                .Ram => this.ram.runtime_write(data_component_idx_from_idx[system_data_idx], data),
+                .Indirect => unreachable,
+            };
+
+            if (publish_required and subs_from_idx[system_data_idx] != 0) {
+                this.publish(system_data_idx, data);
+            }
+        }
+
+        fn publish(this: *SystemDataConcrete, system_data_idx: u16, data: *const anyopaque) void {
+            const sub_offset = subscription_offsets[system_data_idx];
+
+            for (this.subscriptions[sub_offset .. sub_offset + subs_from_idx[system_data_idx]]) |_sub| {
+                if (_sub.callback) |_callback| {
+                    const args: OnChangeArgs = .{ .system_data_idx = system_data_idx, .data = data };
+                    _callback(_sub.context, &args, this);
+                }
+            }
+        }
+
+        /// Subscribe to the on-change event of an ERD
+        pub fn subscribe(
+            this: *SystemDataConcrete,
+            comptime erd_enum: SystemErds.ErdEnum,
+            context: ?*anyopaque,
+            fn_ptr: ConcreteSubscription.SubscriptionCallback,
+        ) void {
+            const erd: Erd = erd_from_enum(erd_enum);
+            comptime {
+                std.debug.assert(erd.subs > 0);
+                std.debug.assert(erd.owner != .Indirect);
+            }
+            const sub_offset = subscription_offsets[erd.system_data_idx];
+            var first_free_spot: ?*ConcreteSubscription = null;
+
+            for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
+                if (first_free_spot == null and _sub.callback == null) {
+                    first_free_spot = _sub;
+                }
+
+                if (_sub.callback == fn_ptr) {
+                    // Subscriptions cannot be added to the same list twice
+                    return;
+                }
+            }
+
+            // Failed to find an empty spot, over-subscribed
+            if (first_free_spot == null) {
+                // In tests this verifies we aren't subscribing beyond our array length
+                // These names should be stripped out of the binary if a panic handler isn't set.
+                // TODO: Validate this assumption and switch to using something lighter if needed
+                // This is a ROM savings of likely over 10kB on large projects :)
+                const erd_names = comptime std.meta.fieldNames(SystemErds.ErdDefinitions);
+                std.debug.panic("ERD {s} oversubscribed!", .{erd_names[erd.system_data_idx]});
+            }
+
+            first_free_spot.?.context = context;
+            first_free_spot.?.callback = fn_ptr;
+        }
+
+        /// Unsubscribe from the on-change event of an ERD
+        pub fn unsubscribe(this: *SystemDataConcrete, comptime erd_enum: SystemErds.ErdEnum, fn_ptr: ConcreteSubscription.SubscriptionCallback) void {
+            const erd: Erd = erd_from_enum(erd_enum);
+            comptime {
+                std.debug.assert(erd.subs > 0);
+                // We know you can't sub/unsub to these:
+                std.debug.assert(erd.owner != .Indirect);
+            }
+
+            const sub_offset = subscription_offsets[erd.system_data_idx];
+
+            for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
+                if (_sub.callback == fn_ptr) {
+                    _sub.callback = null;
+                    return;
+                }
+            }
+        }
+
+        /// Returns a slice allocated to the scratch buffer.
+        pub fn scratch_alloc(this: *SystemDataConcrete, comptime T: type, n: usize) []T {
+            return this.scratch.allocator().alloc(T, n) catch @panic("We ran out of scratch memory!!!");
+        }
+
+        /// Call this at the end of a run to complete in your main-loop
+        pub fn scratch_reset(this: *SystemDataConcrete) void {
+            this.scratch.reset();
+        }
+
+        fn total_subscriptions() usize {
+            comptime {
+                var size: usize = 0;
+                for (std.meta.fieldNames(SystemErds.ErdDefinitions)) |erd_name| {
+                    size += @field(erds_autofilled, erd_name).subs;
+                }
+                return size;
+            }
+        }
+
+        /// Enum to Erd mapper
+        pub fn erd_from_enum(comptime erd_enum: SystemErds.ErdEnum) Erd {
+            return @field(erds_autofilled, @tagName(erd_enum));
+        }
+
+        /// Erd Definitions with autofilled indexes
+        pub const erds_autofilled = blk: {
+            var _erds = SystemErds.ErdDefinitions{};
+
+            var owning_counts = std.mem.zeroes([std.meta.fields(Erd.ErdOwner).len]u16);
+            for (std.meta.fieldNames(SystemErds.ErdDefinitions)) |erd_field_name| {
+                const idx = @intFromEnum(@field(_erds, erd_field_name).owner);
+                @field(_erds, erd_field_name).data_component_idx = owning_counts[idx];
+                owning_counts[idx] += 1;
+            }
+
+            // Assert because prints below assume this ERD size
+            std.debug.assert(0xffff == std.math.maxInt(Erd.ErdHandle));
+            var set = std.bit_set.ArrayBitSet(usize, std.math.maxInt(Erd.ErdHandle)).initEmpty();
+
+            for (std.meta.fieldNames(SystemErds.ErdDefinitions), 0..) |erd_field_name, i| {
+                @field(_erds, erd_field_name).system_data_idx = i;
+
+                if (@field(_erds, erd_field_name).erd_number) |num| {
+                    if (set.isSet(num)) {
+                        @compileError(std.fmt.comptimePrint("Multiple ERD definitions with number 0x{x:0>4}", .{num}));
+                    } else {
+                        set.set(num);
+                    }
+                }
+            }
+
+            break :blk _erds;
+        };
+
+        /// Helper function to get the number of ERDs of a kind in a SystemErds type
+        pub fn num_erds(comptime owner: Erd.ErdOwner) comptime_int {
+            var i = 0;
+            for (std.meta.fieldNames(SystemErds.ErdDefinitions)) |erd_name| {
+                if (@field(erds_autofilled, erd_name).owner == owner) {
+                    i += 1;
+                }
+            }
+            return i;
+        }
+
+        pub fn component_definitions(comptime owner: Erd.ErdOwner) [num_erds(owner)]Erd {
+            var _erds: [num_erds(owner)]Erd = undefined;
+            var i = 0;
+
+            for (std.meta.fieldNames(SystemErds.ErdDefinitions)) |erd_name| {
+                if (@field(erds_autofilled, erd_name).owner == owner) {
+                    _erds[i] = @field(erds_autofilled, erd_name);
+                    i += 1;
+                }
+            }
+
+            return _erds;
+        }
+
+        const ram_definitions = component_definitions(.Ram);
+        const indirect_definitions = component_definitions(.Indirect);
+    };
 }
+
+// /// A test only type used with verify_all_subs_are_saturated
+// pub const SubException = struct { erd_enum: SystemErds.ErdEnum, missing: comptime_int };
+
+// /// A test only function used to verify that after initialization, all of your subscriptions arrays are fully saturated
+// pub fn verify_all_subs_are_saturated(this: *SystemData, comptime exceptions: []const SubException) !void {
+//     var failed = false;
+
+//     inline for (exceptions) |e| {
+//         const erd_name = @tagName(e.erd_enum);
+//         const num_subs = @field(SystemErds.erd, erd_name).subs;
+//         if (num_subs == 0) {
+//             std.log.warn("Remove {s} from exceptions list since subscriptions are disabled for it", .{erd_name});
+//             failed = true;
+//         }
+//     }
+
+//     if (failed) {
+//         return error.ErdWithNoSubsInExceptions;
+//     }
+
+//     inline for (std.meta.fields(SystemErds.ErdDefinitions), 0..) |field_info, i| {
+//         const erd_name = field_info.name;
+//         const sub_offset = subscription_offsets[i];
+//         const num_subs = @field(SystemErds.erd, erd_name).subs;
+
+//         if (num_subs == 0) {
+//             continue;
+//         }
+
+//         const expected_count = blk: {
+//             comptime var _expected = num_subs;
+//             inline for (exceptions) |e| {
+//                 if (comptime std.mem.eql(u8, @tagName(e.erd_enum), erd_name)) {
+//                     _expected = num_subs - e.missing;
+//                     break :blk _expected;
+//                 }
+//             }
+//             break :blk _expected;
+//         };
+
+//         var actual_count: u16 = 0;
+//         for (this.subscriptions[sub_offset .. sub_offset + num_subs]) |_sub| {
+//             if (_sub.callback != null) {
+//                 actual_count += 1;
+//             }
+//         }
+
+//         if (actual_count < expected_count) {
+//             std.log.warn("ERD: {s} is under-subscribing after init. Decrease subs, or increase missing.", .{erd_name});
+//             failed = true;
+//         } else if (actual_count > expected_count) {
+//             std.log.warn("ERD: {s} is over-subscribed after init. Increase subs or decrease missing.", .{erd_name});
+//             failed = true;
+//         }
+//     }
+
+//     if (failed) {
+//         return error.ErdWithUnexpectedSubCount;
+//     }
+// }
