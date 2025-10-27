@@ -2,8 +2,8 @@ name: "Tests"
 
 on:
   push:
-  schedule:
-  - cron: "0 3 * * 6" # Check results against zig master every week on Saturday (3AM)
+  # schedule: # TODO: Enable me if you start working off of master
+  # - cron: "0 3 * * 6" # Check results against zig master every week on Saturday (3AM)
   workflow_dispatch:
   pull_request:
 
@@ -21,7 +21,7 @@ jobs:
 
       - uses: mlugg/setup-zig@v2
         with:
-          version: master
+          version: 0.15.1
 
       - name: Formatting
         run: zig fmt --check src/*.zig
