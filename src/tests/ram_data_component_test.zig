@@ -2,8 +2,12 @@ const std = @import("std");
 const RamDataComponent = @import("../ram_data_component.zig");
 const SystemErds = @import("../system_erds.zig");
 
+const ExampleRamDataComponent = RamDataComponent.RamDataComponent(
+    SystemErds,
+);
+
 test "ram data component read and write" {
-    var ram_data = RamDataComponent.init();
+    var ram_data: ExampleRamDataComponent = .init();
     // Should zero init
     try std.testing.expectEqual(0, ram_data.read(SystemErds.erd.erd_application_version));
     try std.testing.expectEqual(false, ram_data.write(SystemErds.erd.erd_application_version, 0));
@@ -14,7 +18,7 @@ test "ram data component read and write" {
 }
 
 test "unaligned read and write" {
-    var ram_data = RamDataComponent.init();
+    var ram_data: ExampleRamDataComponent = .init();
     _ = ram_data.write(SystemErds.erd.erd_unaligned_u16, 0x1234);
     try std.testing.expectEqual(0x1234, ram_data.read(SystemErds.erd.erd_unaligned_u16));
 
@@ -23,7 +27,7 @@ test "unaligned read and write" {
 }
 
 test "read and write of type where @bitSizeOf is not multiple of 8" {
-    var ram_data = RamDataComponent.init();
+    var ram_data: ExampleRamDataComponent = .init();
     try std.testing.expectEqual(false, ram_data.read(SystemErds.erd.erd_some_bool));
 
     _ = ram_data.write(SystemErds.erd.erd_some_bool, true);
@@ -31,7 +35,7 @@ test "read and write of type where @bitSizeOf is not multiple of 8" {
 }
 
 test "pointers read/write" {
-    var ram_data = RamDataComponent.init();
+    var ram_data: ExampleRamDataComponent = .init();
     try std.testing.expectEqual(null, ram_data.read(SystemErds.erd.erd_pointer_to_something));
 
     var temp: u16 = 2;
@@ -40,7 +44,7 @@ test "pointers read/write" {
 }
 
 test "structs" {
-    var ram_data = RamDataComponent.init();
+    var ram_data: ExampleRamDataComponent = .init();
     const st = ram_data.read(SystemErds.erd.erd_well_packed);
     try std.testing.expectEqual(@as(@TypeOf(st), .{ .a = 0, .b = 0, .c = 0 }), st);
 
@@ -60,12 +64,12 @@ test "structs" {
 test "failure upon writing incorrect types" {
     return error.SkipZigTest; // Test for compile error
 
-    // var ram_data = RamDataComponent.init();
+    // var ram_data: ExampleRamDataComponent = .init();
     // std.testing.expectError(, ram_data.write(SystemErds.erd.erd_some_bool, 20));
 }
 
 test "runtime reads" {
-    var ram_data = RamDataComponent.init();
+    var ram_data: ExampleRamDataComponent = .init();
 
     _ = ram_data.write(SystemErds.erd.erd_some_bool, true);
 
@@ -76,7 +80,7 @@ test "runtime reads" {
 }
 
 test "runtime writes" {
-    var ram_data = RamDataComponent.init();
+    var ram_data: ExampleRamDataComponent = .init();
 
     const very_true = true;
     var changed = ram_data.runtime_write(SystemErds.erd.erd_some_bool.data_component_idx, &very_true);

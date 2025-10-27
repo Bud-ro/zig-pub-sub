@@ -26,7 +26,7 @@ pub const StatMeasurement = struct {
     maximum_latency: timer.Ticks,
 };
 
-system_data: *SystemData,
+system_data: *ExampleSystemDataType,
 timer_module: *TimerModule,
 throughput_timer: Timer,
 save_measurement_timer: Timer,
@@ -61,7 +61,7 @@ fn measure_throughput(ctx: ?*anyopaque, timer_module: *TimerModule, _: *Timer) v
     self.highest_latency_this_tick = @max(latency, self.highest_latency_this_tick);
 }
 
-fn on_enable_change(ctx: ?*anyopaque, args: *const SystemData.OnChangeArgs, system_data: *SystemData) void {
+fn on_enable_change(ctx: ?*anyopaque, args: *const ExampleSystemDataType.OnChangeArgs, system_data: *ExampleSystemDataType) void {
     const self: *TimerModuleStats = @ptrCast(@alignCast(ctx));
     const is_enabled: *const bool = @ptrCast(args.data);
 
@@ -85,7 +85,7 @@ fn on_enable_change(ctx: ?*anyopaque, args: *const SystemData.OnChangeArgs, syst
 // It feels more likely because of the `comptime` arguments.
 fn inner_init(
     self: *TimerModuleStats,
-    system_data: *SystemData,
+    system_data: *ExampleSystemDataType,
     timer_module: *TimerModule,
     enable_erd_idx: u16,
     output_erd_idx: u16,
@@ -98,20 +98,20 @@ fn inner_init(
     var is_enabled: bool = undefined;
     system_data.runtime_read(enable_erd_idx, &is_enabled);
 
-    const init_data: SystemData.OnChangeArgs = .{ .data = &is_enabled, .system_data_idx = enable_erd_idx };
+    const init_data: ExampleSystemDataType.OnChangeArgs = .{ .data = &is_enabled, .system_data_idx = enable_erd_idx };
     on_enable_change(self, &init_data, system_data);
 }
 
 pub fn init(
     self: *TimerModuleStats,
-    system_data: *SystemData,
+    system_data: *ExampleSystemDataType,
     timer_module: *TimerModule,
     comptime enable_erd: SystemErds.ErdEnum,
     comptime output_erd: SystemErds.ErdEnum,
 ) void {
     comptime {
-        std.debug.assert(SystemErds.erd_from_enum(enable_erd).T == bool);
-        std.debug.assert(SystemErds.erd_from_enum(output_erd).T == StatMeasurement);
+        std.debug.assert(ExampleSystemDataType.erd_from_enum(enable_erd).T == bool);
+        std.debug.assert(ExampleSystemDataType.erd_from_enum(output_erd).T == StatMeasurement);
     }
 
     system_data.subscribe(enable_erd, self, on_enable_change);
@@ -119,13 +119,19 @@ pub fn init(
     self.inner_init(
         system_data,
         timer_module,
-        SystemErds.erd_from_enum(enable_erd).system_data_idx,
-        SystemErds.erd_from_enum(output_erd).system_data_idx,
+        ExampleSystemDataType.erd_from_enum(enable_erd).system_data_idx,
+        ExampleSystemDataType.erd_from_enum(output_erd).system_data_idx,
     );
 }
 
+const ExampleSystemDataType = SystemData.SystemData(SystemErds, .{
+    .ram_component_options = .{ .included = true },
+    .indirect_component_options = .{ .included = true, .mappings = &SystemErds.example_indirect_erd_mapping },
+    .scratch_allocator_options = .{ .included = true, .size = 1024 },
+});
+
 test "does nothing if disabled" {
-    var system_data: SystemData = .init();
+    var system_data: ExampleSystemDataType = .init();
     var timer_module: TimerModule = .{};
     var instance: TimerModuleStats = undefined;
 
@@ -135,7 +141,7 @@ test "does nothing if disabled" {
 }
 
 test "stats are initialized to zero if enabled" {
-    var system_data: SystemData = .init();
+    var system_data: ExampleSystemDataType = .init();
     var timer_module: TimerModule = .{};
     var instance: TimerModuleStats = undefined;
 
@@ -149,7 +155,7 @@ test "stats are initialized to zero if enabled" {
 }
 
 test "throughput is measured" {
-    var system_data: SystemData = .init();
+    var system_data: ExampleSystemDataType = .init();
     var timer_module: TimerModule = .{};
     var instance: TimerModuleStats = undefined;
 
@@ -191,7 +197,7 @@ test "throughput is measured" {
 }
 
 test "latency is measured" {
-    var system_data: SystemData = .init();
+    var system_data: ExampleSystemDataType = .init();
     var timer_module: TimerModule = .{};
     var instance: TimerModuleStats = undefined;
 

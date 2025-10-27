@@ -1,15 +1,16 @@
-//! `Subscription` is a callback that takes a reference to SystemData, (optional) user provided context, and the on-change data.
-//! `Subscription`s are stored in `comptime` sized arrays.
+//! `Subscription` is a callback that takes a (optional) user provided context, some on-change data, and a pointer to the publishing object.
+//! Memory for `Subscription`s are managed by the publisher.
 //!
 //! The identity of a `Subscription` is solely based on its callback pointer
 //! `Subscription`s with the same identity cannot exist in the same subscription list.
 //! However `Subscription`s with the same identity may exist in separate subscription lists.
 
-const SystemData = @import("system_data.zig");
+/// Creates a subscription type from an existing type. The type must define OnChangeArgs.
+pub fn Concrete(T: type) type {
+    return struct {
+        pub const SubscriptionCallback = *const fn (context: ?*anyopaque, args: *const T.OnChangeArgs, publisher: *T) void;
 
-const Subscription = @This();
-// TODO: Consider making this generic so that any T can be used in place of SystemData
-pub const SubscriptionCallback = *const fn (context: ?*anyopaque, args: *const SystemData.OnChangeArgs, system_data: *SystemData) void;
-
-context: ?*anyopaque,
-callback: ?SubscriptionCallback,
+        context: ?*anyopaque,
+        callback: ?SubscriptionCallback,
+    };
+}
