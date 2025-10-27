@@ -42,5 +42,5 @@ jobs:
         working-directory: zig-pub-sub
 
       - name: Build executables
-        run: zig build
+        run: zig build -Doptimize=${{ matrix.optimize }}
         working-directory: zig-pub-sub
