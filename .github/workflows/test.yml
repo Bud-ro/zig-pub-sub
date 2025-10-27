@@ -2,6 +2,8 @@ name: "Tests"
 
 on:
   push:
+    branches:
+      - master
   # schedule: # TODO: Enable me if you start working off of master
   # - cron: "0 3 * * 6" # Check results against zig master every week on Saturday (3AM)
   workflow_dispatch:
