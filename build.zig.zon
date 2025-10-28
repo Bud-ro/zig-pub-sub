@@ -5,8 +5,8 @@
     .minimum_zig_version = "0.15.1",
     .dependencies = .{
         .assert_sometimes = .{
-            .url = "git+https://github.com/Bud-ro/zig-sometimes-assert#bc8afa4473141145684d51b6512a1538164c8985",
-            .hash = "assert_sometimes-0.0.0-q4tpTBk9AADUchDBdR4jR_lzkUoP0KFokCxUDvZ5pLaV",
+            .url = "git+https://github.com/Bud-ro/zig-sometimes-assert#cb2ef842f5c4fdd8d68436f332a59368f80b642c",
+            .hash = "assert_sometimes-0.0.1-q4tpTOxCAAC-OQKHtgPZmMQij7xGkMZnyF50b7PqCXnk",
         },
     },
 
