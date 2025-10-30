@@ -45,7 +45,9 @@ pub fn ErdLogic(comptime operator: ErdLogicOperator, comptime erds: []const Syst
 
     return struct {
         // TODO: Utilize args here to improve the code
-        fn on_change(_: ?*anyopaque, _: ?*const SystemData.OnChangeArgs, system_data: *SystemData) void {
+        fn on_change(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
+            var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+
             if (erds.len == 1) {
                 const value = system_data.read(erds[0]);
                 const output = switch (operator) {

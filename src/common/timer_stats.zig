@@ -61,7 +61,9 @@ fn measure_throughput(ctx: ?*anyopaque, timer_module: *TimerModule, _: *Timer) v
     self.highest_latency_this_tick = @max(latency, self.highest_latency_this_tick);
 }
 
-fn on_enable_change(ctx: ?*anyopaque, args: *const SystemData.OnChangeArgs, system_data: *SystemData) void {
+fn on_enable_change(ctx: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
+    const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
     const self: *TimerModuleStats = @ptrCast(@alignCast(ctx));
     const is_enabled: *const bool = @ptrCast(args.data);
 

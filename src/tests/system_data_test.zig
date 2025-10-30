@@ -78,7 +78,9 @@ test "retain reference to system_data" {
     try std.testing.expectEqual(0xCAFEBABE, system_data.read(.erd_application_version));
 }
 
-fn turn_off_some_bool_and_increment_application_version(_: ?*anyopaque, _: *const SystemData.OnChangeArgs, system_data: *SystemData) void {
+fn turn_off_some_bool_and_increment_application_version(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
+    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+
     system_data.write(.erd_some_bool, false);
     system_data.write(.erd_application_version, system_data.read(.erd_application_version) + 1);
 }
@@ -115,7 +117,8 @@ test "re-subscribe" {
     try std.testing.expectEqual(2, system_data.read(.erd_application_version));
 }
 
-fn forward_context(context: ?*anyopaque, _: *const SystemData.OnChangeArgs, system_data: *SystemData) void {
+fn forward_context(context: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
+    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
     const a: *u8 = @ptrCast(context.?);
 
     system_data.write(.erd_unaligned_u16, a.*);
@@ -131,7 +134,10 @@ test "subscription with context" {
     try std.testing.expectEqual(17, system_data.read(.erd_unaligned_u16));
 }
 
-fn context_must_match_args(context: ?*anyopaque, args: *const SystemData.OnChangeArgs, system_data: *SystemData) void {
+fn context_must_match_args(context: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
+    const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+
     const a: *u16 = @ptrCast(@alignCast(context.?));
     const b: *const u16 = @ptrCast(@alignCast(args.data));
 
@@ -155,7 +161,10 @@ test "subscription with args" {
     try std.testing.expect(false == system_data.read(.erd_some_bool));
 }
 
-fn switch_on_system_data_idx(_: ?*anyopaque, args: *const SystemData.OnChangeArgs, system_data: *SystemData) void {
+fn switch_on_system_data_idx(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
+    const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+
     // do something every time
     if (args.system_data_idx != SystemErds.erd.erd_some_bool.system_data_idx) {
         system_data.write(.erd_best_u16, system_data.read(.erd_best_u16) + 1);
@@ -197,7 +206,9 @@ test "subscription args using system_data_idx" {
     try std.testing.expectEqual(true, system_data.read(.erd_some_bool));
 }
 
-fn bump_some_u16(_: ?*anyopaque, _: *const SystemData.OnChangeArgs, system_data: *SystemData) void {
+fn bump_some_u16(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
+    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+
     system_data.write(.erd_unaligned_u16, system_data.read(.erd_unaligned_u16) + 1);
 }
 
@@ -218,7 +229,7 @@ test "double sub test" {
     try std.testing.expectEqual(3, system_data.read(.erd_unaligned_u16));
 }
 
-fn whatever(_: ?*anyopaque, _: *const SystemData.OnChangeArgs, _: *SystemData) void {}
+fn whatever(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {}
 
 test "exact subscription enforcement" {
     var system_data = SystemData.init();
@@ -236,7 +247,10 @@ test "exact subscription enforcement" {
     try system_data.verify_all_subs_are_saturated(&exceptions);
 }
 
-fn scratch_allocating(_: ?*anyopaque, args: *const SystemData.OnChangeArgs, system_data: *SystemData) void {
+fn scratch_allocating(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
+    const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+
     const val: *const u16 = @ptrCast(@alignCast(args.data));
     const allocated = system_data.scratch_alloc(u32, val.*);
     for (allocated, 1..) |*item, i| {

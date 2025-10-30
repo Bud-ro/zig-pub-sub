@@ -1,15 +1,15 @@
-//! `Subscription` is a callback that takes a reference to SystemData, (optional) user provided context, and the on-change data.
-//! `Subscription`s are stored in `comptime` sized arrays.
+//! `Subscription` allows publishers to send events to multiple subscribers.
+//! On publish, each client's callback will receive user provided context (optional), args associated with the publication, and a pointer to the publisher.
+//! `Subscription`s are owned by the publisher, typically in a `comptime` sized array or slice.
 //!
-//! The identity of a `Subscription` is solely based on its callback pointer
-//! `Subscription`s with the same identity cannot exist in the same subscription list.
-//! However `Subscription`s with the same identity may exist in separate subscription lists.
+//! The identity of a `Subscription` is solely based on its callback pointer.
+//! `Subscription`s with the same identity cannot be known to the same publisher.
+//! However `Subscription`s with the same identity may subscribe to several source.
 
 const SystemData = @import("system_data.zig");
 
 const Subscription = @This();
-// TODO: Consider making this generic so that any T can be used in place of SystemData
-pub const SubscriptionCallback = *const fn (context: ?*anyopaque, args: *const SystemData.OnChangeArgs, system_data: *SystemData) void;
+pub const SubscriptionCallback = *const fn (context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void;
 
 context: ?*anyopaque,
 callback: ?SubscriptionCallback,
