@@ -9,7 +9,7 @@
 const SystemData = @import("system_data.zig");
 
 const Subscription = @This();
-pub const SubscriptionCallback = *const fn (context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void;
+pub const Callback = *const fn (context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void;
 
 context: ?*anyopaque,
-callback: ?SubscriptionCallback,
+callback: ?Callback,

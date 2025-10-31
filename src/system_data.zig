@@ -165,7 +165,7 @@ pub fn subscribe(
     this: *SystemData,
     comptime erd_enum: SystemErds.ErdEnum,
     context: ?*anyopaque,
-    fn_ptr: Subscription.SubscriptionCallback,
+    fn_ptr: Subscription.Callback,
 ) void {
     const erd: Erd = SystemErds.erd_from_enum(erd_enum);
     comptime {
@@ -200,7 +200,7 @@ pub fn subscribe(
     first_free_spot.?.callback = fn_ptr;
 }
 
-pub fn unsubscribe(this: *SystemData, comptime erd_enum: SystemErds.ErdEnum, fn_ptr: Subscription.SubscriptionCallback) void {
+pub fn unsubscribe(this: *SystemData, comptime erd_enum: SystemErds.ErdEnum, fn_ptr: Subscription.Callback) void {
     const erd: Erd = SystemErds.erd_from_enum(erd_enum);
     comptime {
         std.debug.assert(erd.subs > 0);

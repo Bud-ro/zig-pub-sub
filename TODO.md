@@ -29,10 +29,11 @@
     - Unsubscribe removes the corresponding function pointer and moves the last function pointer in the array to the empty position to maintain memory continuity
       - This is only possible if order of the callbacks doesn't matter. FYI it SHOULDN'T matter.
     - Could be done by storing a comptime counter in the ERD table.
-  - [ ] External data capabilities in `SystemData`
-    - [ ] Swapping done automatically using `@typeInfo`
-    - [ ] Reads/writes are done using public ERD handles, so you don't really get any type safety (TODO: is this true?)
-    - [ ] Pub sub at this layer as well, only for ERDs that have `ErdHandle`s
+  - [ ] External (Big endian) data capabilities in `SystemData`
+    - [ ] Probably easiest if something `subscribe_all`'d, so `SystemData` doesn't actually have to know about it
+    - [ ] Swap definitions generated automatically using `@typeInfo` from ERD table
+    - [ ] Reads/writes done using public ERD handles
+    - [ ] Forwarded pub sub at this layer as well, only for ERDs that have `ErdHandle`s
 - [ ] JSON Serializer for SystemErds
 - [ ] Zig alternative to Lua for generating parametric data
 - [ ] Rename this project to embedded starter kit
