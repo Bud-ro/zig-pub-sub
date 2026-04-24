@@ -10,7 +10,8 @@
 //! `maximum_latency` = 1
 
 const std = @import("std");
-const SystemData = @import("../system_data.zig");
+const App = @import("../app.zig");
+const SystemData = App.SystemData;
 const SystemErds = @import("../system_erds.zig");
 const Erd = @import("../erd.zig");
 const timer = @import("../timer.zig");
@@ -127,7 +128,7 @@ pub fn init(
 }
 
 test "does nothing if disabled" {
-    var system_data: SystemData = .init();
+    var system_data: SystemData = App.init();
     var timer_module: TimerModule = .{};
     var instance: TimerModuleStats = undefined;
 
@@ -137,7 +138,7 @@ test "does nothing if disabled" {
 }
 
 test "stats are initialized to zero if enabled" {
-    var system_data: SystemData = .init();
+    var system_data: SystemData = App.init();
     var timer_module: TimerModule = .{};
     var instance: TimerModuleStats = undefined;
 
@@ -151,7 +152,7 @@ test "stats are initialized to zero if enabled" {
 }
 
 test "throughput is measured" {
-    var system_data: SystemData = .init();
+    var system_data: SystemData = App.init();
     var timer_module: TimerModule = .{};
     var instance: TimerModuleStats = undefined;
 
@@ -193,7 +194,7 @@ test "throughput is measured" {
 }
 
 test "latency is measured" {
-    var system_data: SystemData = .init();
+    var system_data: SystemData = App.init();
     var timer_module: TimerModule = .{};
     var instance: TimerModuleStats = undefined;
 
