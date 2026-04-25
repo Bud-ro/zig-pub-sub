@@ -150,13 +150,13 @@ fn switch_on_system_data_idx(_: ?*anyopaque, _args: ?*const anyopaque, publisher
     const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     var system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
-    if (args.system_data_idx != SystemData.erd_from_enum_pub(.some_bool).system_data_idx) {
+    if (args.system_data_idx != SystemData.erd_from_enum(.some_bool).system_data_idx) {
         system_data.write(.best_u16, system_data.read(.best_u16) + 1);
     }
 
     switch (args.system_data_idx) {
-        SystemData.erd_from_enum_pub(.cool_u16).system_data_idx => system_data.write(.some_bool, true),
-        SystemData.erd_from_enum_pub(.unaligned_u16).system_data_idx => system_data.write(.some_bool, false),
+        SystemData.erd_from_enum(.cool_u16).system_data_idx => system_data.write(.some_bool, true),
+        SystemData.erd_from_enum(.unaligned_u16).system_data_idx => system_data.write(.some_bool, false),
         else => {},
     }
 }

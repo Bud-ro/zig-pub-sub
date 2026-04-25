@@ -94,12 +94,9 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         };
 
         pub const ErdEnumType = ErdEnum;
+        pub const erds = erd_instance;
 
-        pub fn erd_from_enum_pub(comptime erd_enum: ErdEnum) Erd {
-            return erd_from_enum(erd_enum);
-        }
-
-        fn erd_from_enum(comptime erd_enum: ErdEnum) Erd {
+        pub fn erd_from_enum(comptime erd_enum: ErdEnum) Erd {
             return @field(erd_instance, @tagName(erd_enum));
         }
 
@@ -197,7 +194,6 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             const erd: Erd = erd_from_enum(erd_enum);
             comptime {
                 std.debug.assert(erd.subs > 0);
-                std.debug.assert(supports_write_from_component_idx[erd.component_idx]);
             }
             const sub_offset = subscription_offsets[erd.system_data_idx];
             var first_free_spot: ?*Subscription = null;
@@ -231,7 +227,6 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             const erd: Erd = erd_from_enum(erd_enum);
             comptime {
                 std.debug.assert(erd.subs > 0);
-                std.debug.assert(supports_write_from_component_idx[erd.component_idx]);
             }
 
             const sub_offset = subscription_offsets[erd.system_data_idx];

@@ -1,7 +1,6 @@
 const std = @import("std");
 const Erd = @import("../erd.zig");
 
-
 const WellPackedStruct = struct {
     a: u8,
     b: u8,

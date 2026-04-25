@@ -3,3 +3,24 @@ zig-out
 *.exe
 *.obj
 *.pdb
+
+# Claude
+.claude
+
+# Claude outputting garbage 0 byte temp files in sandbox (https://github.com/anthropics/claude-code/issues/29316):
+.vscode
+.bash_profile
+.bashrc
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.zprofile
+.zshrc
+HEAD
+config
+hooks
+objects
+refs

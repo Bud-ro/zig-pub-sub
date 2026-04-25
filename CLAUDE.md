@@ -46,6 +46,10 @@ Tests live in `src/tests/` and are aggregated via `src/unit_tests.zig` using com
 
 Managed via `build.zig.zon`. Single dependency: `assert_sometimes`, imported as `"sometimes"` in source. This is a code coverage tool, not a traditional assertion library — it verifies that both the true and false branches of a condition are exercised across test runs. The `test` step disables these checks; `test_coverage` enables them.
 
+## Formatting
+
+After completing any code changes, run `zig fmt src/` to format the entire repo before reporting results.
+
 ## Current Limitations
 
 This repo is early-stage and not yet cleanly usable as a library. Key issues:

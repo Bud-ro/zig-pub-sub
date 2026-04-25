@@ -2,8 +2,13 @@ const std = @import("std");
 const Erd = @import("erd.zig");
 const TimerStats = @import("common/timer_stats.zig");
 
-const Ram = 0;
-const Indirect = 1;
+pub const ComponentId = enum(u8) {
+    ram,
+    indirect,
+};
+
+const Ram = @intFromEnum(ComponentId.ram);
+const Indirect = @intFromEnum(ComponentId.indirect);
 
 /// `ErdEnum` allows for use of decl literals which makes API use of ERDs *significantly* shorter
 pub const ErdEnum = enum {
@@ -120,7 +125,8 @@ pub const erd = blk: {
     break :blk _erds;
 };
 
-pub fn num_erds(comptime component_idx: comptime_int) comptime_int {
+pub fn num_erds(comptime id: ComponentId) comptime_int {
+    const component_idx = @intFromEnum(id);
     var i = 0;
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
         if (@field(erd, erd_name).component_idx == component_idx) {
@@ -130,8 +136,9 @@ pub fn num_erds(comptime component_idx: comptime_int) comptime_int {
     return i;
 }
 
-pub fn component_definitions(comptime component_idx: comptime_int) [num_erds(component_idx)]Erd {
-    var _erds: [num_erds(component_idx)]Erd = undefined;
+pub fn component_definitions(comptime id: ComponentId) [num_erds(id)]Erd {
+    const component_idx = @intFromEnum(id);
+    var _erds: [num_erds(id)]Erd = undefined;
     var i = 0;
 
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
@@ -145,8 +152,8 @@ pub fn component_definitions(comptime component_idx: comptime_int) [num_erds(com
 }
 
 // Array versions of ERDs. For easier iteration.
-pub const ram_definitions = component_definitions(Ram);
-pub const indirect_definitions = component_definitions(Indirect);
+pub const ram_definitions = component_definitions(.ram);
+pub const indirect_definitions = component_definitions(.indirect);
 
 /// Enum to Erd mapper
 pub fn erd_from_enum(comptime erd_enum: ErdEnum) Erd {

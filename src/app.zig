@@ -2,6 +2,7 @@
 //! This file binds ERD definitions to concrete data component implementations
 //! and provides the fully instantiated SystemData type for this application.
 
+const std = @import("std");
 const SystemErds = @import("system_erds.zig");
 
 pub const RamDataComponent = @import("ram_data_component.zig").RamDataComponent(&SystemErds.ram_definitions);
@@ -10,6 +11,14 @@ pub const IndirectDataComponent = @import("indirect_data_component.zig").Indirec
 pub const Components = struct {
     ram: RamDataComponent,
     indirect: IndirectDataComponent,
+
+    comptime {
+        const Id = SystemErds.ComponentId;
+        if (std.meta.fields(Components)[@intFromEnum(Id.ram)].type != RamDataComponent)
+            @compileError("ComponentId.ram does not match RamDataComponent position in Components");
+        if (std.meta.fields(Components)[@intFromEnum(Id.indirect)].type != IndirectDataComponent)
+            @compileError("ComponentId.indirect does not match IndirectDataComponent position in Components");
+    }
 };
 
 pub const SystemData = @import("system_data.zig").SystemData(SystemErds.ErdDefinitions, SystemErds.ErdEnum, SystemErds.erd, Components);

@@ -33,11 +33,11 @@ pub fn ErdLogic(comptime SystemDataType: type, comptime operator: ErdLogicOperat
         if (erds.len > 1) {
             var window = std.mem.window(SystemDataType.ErdEnumType, erds, 2, 1);
             while (window.next()) |erd_pair| {
-                std.debug.assert(SystemDataType.erd_from_enum_pub(erd_pair[0]).T == SystemDataType.erd_from_enum_pub(erd_pair[1]).T);
+                std.debug.assert(SystemDataType.erd_from_enum(erd_pair[0]).T == SystemDataType.erd_from_enum(erd_pair[1]).T);
             }
         }
 
-        std.debug.assert(SystemDataType.erd_from_enum_pub(erds[0]).T == SystemDataType.erd_from_enum_pub(outputErd).T);
+        std.debug.assert(SystemDataType.erd_from_enum(erds[0]).T == SystemDataType.erd_from_enum(outputErd).T);
     }
 
     return struct {
