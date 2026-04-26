@@ -4,59 +4,58 @@
 
 const std = @import("std");
 const Erd = @import("erd.zig");
-const SystemErds = @import("system_erds.zig");
 
-const IndirectDataComponent = @This();
+pub fn IndirectDataComponent(comptime erds: []const Erd) type {
+    return struct {
+        const Self = @This();
 
-const num_indirect_erds = SystemErds.indirect_definitions.len;
+        pub const component_erds = erds;
+        pub const supports_write = false;
 
-read_functions: [num_indirect_erds](*const anyopaque) = undefined,
+        read_functions: [erds.len](*const anyopaque) = undefined,
 
-pub const IndirectErdMapping = struct {
-    erd: Erd,
-    fn_ptr: *const anyopaque,
+        pub const IndirectErdMapping = struct {
+            erd: Erd,
+            fn_ptr: *const anyopaque,
 
-    /// Compile-time guarantees a valid mapping
-    pub fn map(comptime erd_enum: SystemErds.ErdEnum, func: *const fn (*SystemErds.erd_from_enum(erd_enum).T) void) IndirectErdMapping {
-        const erd: Erd = SystemErds.erd_from_enum(erd_enum);
-        return .{ .erd = erd, .fn_ptr = func };
-    }
-};
+            pub fn map(comptime erd: Erd, func: *const fn (*erd.T) void) IndirectErdMapping {
+                return .{ .erd = erd, .fn_ptr = func };
+            }
+        };
 
-pub fn init(erdMappings: [num_indirect_erds]IndirectErdMapping) IndirectDataComponent {
-    var indirect_data_component = IndirectDataComponent{};
+        pub fn init(erdMappings: [erds.len]IndirectErdMapping) Self {
+            var indirect_data_component = Self{};
 
-    inline for (erdMappings) |mapping| {
-        comptime {
-            std.debug.assert(mapping.erd.owner == .Indirect);
+            inline for (erdMappings) |mapping| {
+                indirect_data_component.read_functions[mapping.erd.data_component_idx] = mapping.fn_ptr;
+            }
+            return indirect_data_component;
         }
-        indirect_data_component.read_functions[mapping.erd.data_component_idx] = mapping.fn_ptr;
-    }
-    return indirect_data_component;
-}
 
-pub fn read(self: IndirectDataComponent, erd: Erd) erd.T {
-    const fn_ptr: *const fn (*erd.T) void = @ptrCast(self.read_functions[erd.data_component_idx]);
+        pub fn read(self: Self, erd: Erd) erd.T {
+            const fn_ptr: *const fn (*erd.T) void = @ptrCast(self.read_functions[erd.data_component_idx]);
 
-    var temp: erd.T = undefined;
-    fn_ptr(&temp);
-    return temp;
-}
+            var temp: erd.T = undefined;
+            fn_ptr(&temp);
+            return temp;
+        }
 
-pub fn runtime_read(self: IndirectDataComponent, data_component_idx: u16, data: *anyopaque) void {
-    const fn_ptr: *const fn ([*]u8) void = @ptrCast(self.read_functions[data_component_idx]);
-    fn_ptr(@ptrCast(data));
-}
+        pub fn runtime_read(self: Self, data_component_idx: u16, data: *anyopaque) void {
+            const fn_ptr: *const fn ([*]u8) void = @ptrCast(self.read_functions[data_component_idx]);
+            fn_ptr(@ptrCast(data));
+        }
 
-pub fn write(self: *IndirectDataComponent, erd: Erd, data: erd.T) bool {
-    _ = self;
-    _ = data;
-    @compileError("Indirect ERD writes are not allowed");
-}
+        pub fn write(self: *Self, erd: Erd, data: erd.T) bool {
+            _ = self;
+            _ = data;
+            @compileError("Indirect ERD writes are not allowed");
+        }
 
-pub fn runtime_write(self: *IndirectDataComponent, data_component_idx: u16, data: *const anyopaque) bool {
-    _ = self;
-    _ = data_component_idx;
-    _ = data;
-    @compileError("Indirect ERD writes are not allowed");
+        pub fn runtime_write(self: *Self, data_component_idx: u16, data: *const anyopaque) bool {
+            _ = self;
+            _ = data_component_idx;
+            _ = data;
+            @compileError("Indirect ERD writes are not allowed");
+        }
+    };
 }

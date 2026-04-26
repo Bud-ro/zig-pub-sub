@@ -1,6 +1,4 @@
 const std = @import("std");
-const SystemData = @import("system_data.zig");
-const SystemErds = @import("system_erds.zig");
 const ErdJson = @import("erd_json.zig");
 
 pub fn main() !void {

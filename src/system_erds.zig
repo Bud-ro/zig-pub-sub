@@ -2,6 +2,14 @@ const std = @import("std");
 const Erd = @import("erd.zig");
 const TimerStats = @import("common/timer_stats.zig");
 
+pub const ComponentId = enum(u8) {
+    ram,
+    indirect,
+};
+
+const Ram = @intFromEnum(ComponentId.ram);
+const Indirect = @intFromEnum(ComponentId.indirect);
+
 /// `ErdEnum` allows for use of decl literals which makes API use of ERDs *significantly* shorter
 pub const ErdEnum = enum {
     // This must match one to one with ErdDefinitions
@@ -36,18 +44,18 @@ pub const ErdEnum = enum {
 
 pub const ErdDefinitions = struct {
     // zig fmt: off
-    erd_application_version:  Erd = .{ .erd_number = 0x0000, .T = u32,                         .owner = .Ram,      .subs = 0 },
-    erd_some_bool:            Erd = .{ .erd_number = 0x0001, .T = bool,                        .owner = .Ram,      .subs = 3 },
-    erd_unaligned_u16:        Erd = .{ .erd_number = 0x0002, .T = u16,                         .owner = .Ram,      .subs = 1 },
-    erd_well_packed:          Erd = .{ .erd_number = 0x0003, .T = WellPackedStruct,            .owner = .Ram,      .subs = 0 },
-    erd_padded:               Erd = .{ .erd_number = 0x0004, .T = PaddedStruct,                .owner = .Ram,      .subs = 0 },
-    erd_actually_packed_fr:   Erd = .{ .erd_number = 0x0005, .T = PackedFr,                    .owner = .Ram,      .subs = 0 },
-    erd_always_42:            Erd = .{ .erd_number = 0x0006, .T = u16,                         .owner = .Indirect, .subs = 0 },
-    erd_pointer_to_something: Erd = .{ .erd_number = null,   .T = ?*u16,                       .owner = .Ram,      .subs = 0 },
-    erd_another_erd_plus_one: Erd = .{ .erd_number = 0x0008, .T = u16,                         .owner = .Indirect, .subs = 0 },
-    erd_cool_u16:             Erd = .{ .erd_number = null,   .T = u16,                         .owner = .Ram,      .subs = 1 },
-    erd_best_u16:             Erd = .{ .erd_number = null,   .T = u16,                         .owner = .Ram,      .subs = 0 },
-    erd_timer_stats:          Erd = .{ .erd_number = null,   .T = TimerStats.StatMeasurement,  .owner = .Ram,      .subs = 0 },
+    erd_application_version:  Erd = .{ .erd_number = 0x0000, .T = u32,                         .component_idx = Ram,      .subs = 0 },
+    erd_some_bool:            Erd = .{ .erd_number = 0x0001, .T = bool,                        .component_idx = Ram,      .subs = 3 },
+    erd_unaligned_u16:        Erd = .{ .erd_number = 0x0002, .T = u16,                         .component_idx = Ram,      .subs = 1 },
+    erd_well_packed:          Erd = .{ .erd_number = 0x0003, .T = WellPackedStruct,            .component_idx = Ram,      .subs = 0 },
+    erd_padded:               Erd = .{ .erd_number = 0x0004, .T = PaddedStruct,                .component_idx = Ram,      .subs = 0 },
+    erd_actually_packed_fr:   Erd = .{ .erd_number = 0x0005, .T = PackedFr,                    .component_idx = Ram,      .subs = 0 },
+    erd_always_42:            Erd = .{ .erd_number = 0x0006, .T = u16,                         .component_idx = Indirect, .subs = 0 },
+    erd_pointer_to_something: Erd = .{ .erd_number = null,   .T = ?*u16,                       .component_idx = Ram,      .subs = 0 },
+    erd_another_erd_plus_one: Erd = .{ .erd_number = 0x0008, .T = u16,                         .component_idx = Indirect, .subs = 0 },
+    erd_cool_u16:             Erd = .{ .erd_number = null,   .T = u16,                         .component_idx = Ram,      .subs = 1 },
+    erd_best_u16:             Erd = .{ .erd_number = null,   .T = u16,                         .component_idx = Ram,      .subs = 0 },
+    erd_timer_stats:          Erd = .{ .erd_number = null,   .T = TimerStats.StatMeasurement,  .component_idx = Ram,      .subs = 0 },
     // zig fmt: on
 
     pub fn jsonStringify(self: ErdDefinitions, jws: anytype) !void {
@@ -62,8 +70,16 @@ pub const ErdDefinitions = struct {
             {
                 try jws.beginArray();
                 inline for (erd_names) |erd_name| {
-                    if (@field(self, erd_name).erd_number != null) {
-                        try jws.write(@field(self, erd_name));
+                    const e = @field(self, erd_name);
+                    if (e.erd_number != null) {
+                        try jws.beginObject();
+                        try jws.objectField("name");
+                        try jws.write(erd_name);
+                        try jws.objectField("id");
+                        try jws.print("\"0x{x:0>4}\"", .{e.erd_number.?});
+                        try jws.objectField("type");
+                        try jws.print("\"{}\"", .{e.T});
+                        try jws.endObject();
                     }
                 }
                 try jws.endArray();
@@ -77,9 +93,15 @@ pub const ErdDefinitions = struct {
 pub const erd = blk: {
     var _erds = ErdDefinitions{};
 
-    var owning_counts = std.mem.zeroes([std.meta.fields(Erd.ErdOwner).len]u16);
+    var max_component_idx: comptime_int = 0;
     for (std.meta.fieldNames(ErdDefinitions)) |erd_field_name| {
-        const idx = @intFromEnum(@field(_erds, erd_field_name).owner);
+        const idx = @field(_erds, erd_field_name).component_idx;
+        if (idx > max_component_idx) max_component_idx = idx;
+    }
+
+    var owning_counts = std.mem.zeroes([max_component_idx + 1]u16);
+    for (std.meta.fieldNames(ErdDefinitions)) |erd_field_name| {
+        const idx = @field(_erds, erd_field_name).component_idx;
         @field(_erds, erd_field_name).data_component_idx = owning_counts[idx];
         owning_counts[idx] += 1;
     }
@@ -103,22 +125,24 @@ pub const erd = blk: {
     break :blk _erds;
 };
 
-fn num_erds(owner: Erd.ErdOwner) comptime_int {
+pub fn num_erds(comptime id: ComponentId) comptime_int {
+    const component_idx = @intFromEnum(id);
     var i = 0;
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
-        if (@field(erd, erd_name).owner == owner) {
+        if (@field(erd, erd_name).component_idx == component_idx) {
             i += 1;
         }
     }
     return i;
 }
 
-fn component_definitions(comptime owner: Erd.ErdOwner) [num_erds(owner)]Erd {
-    var _erds: [num_erds(owner)]Erd = undefined;
+pub fn component_definitions(comptime id: ComponentId) [num_erds(id)]Erd {
+    const component_idx = @intFromEnum(id);
+    var _erds: [num_erds(id)]Erd = undefined;
     var i = 0;
 
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
-        if (@field(erd, erd_name).owner == owner) {
+        if (@field(erd, erd_name).component_idx == component_idx) {
             _erds[i] = @field(erd, erd_name);
             i += 1;
         }
@@ -128,8 +152,8 @@ fn component_definitions(comptime owner: Erd.ErdOwner) [num_erds(owner)]Erd {
 }
 
 // Array versions of ERDs. For easier iteration.
-pub const ram_definitions = component_definitions(.Ram);
-pub const indirect_definitions = component_definitions(.Indirect);
+pub const ram_definitions = component_definitions(.ram);
+pub const indirect_definitions = component_definitions(.indirect);
 
 /// Enum to Erd mapper
 pub fn erd_from_enum(comptime erd_enum: ErdEnum) Erd {
