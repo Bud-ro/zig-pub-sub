@@ -1,3 +1,16 @@
+//! Codegen inspection harness
+//!
+//! Exported functions that exercise SystemData read/write/subscribe across
+//! multiple configurations. Build as an object (`zig build emit-asm`) and
+//! inspect the generated assembly to verify zero-cost abstractions:
+//!   - Comptime reads should compile to a single load from a fixed offset
+//!   - Writes without subscriptions should be a single store
+//!   - Writes with subscriptions should inline the on-change check
+//!   - Multiple reads of the same ERD should be CSE'd by LLVM
+//!
+//! Use `zig build codegen-update` to snapshot stripped assembly and sizes,
+//! and `zig build codegen-check` to verify snapshots haven't regressed.
+
 const std = @import("std");
 const SystemDataTestDouble = @import("testing.zig");
 const Erd = @import("erd.zig");

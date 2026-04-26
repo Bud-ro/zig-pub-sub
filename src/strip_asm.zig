@@ -167,6 +167,8 @@ pub fn main() !void {
     }
 
     // Pass 2: find needed functions (exported + their direct call targets)
+    // Only scan exported functions for call targets — this gives us the exported
+    // functions plus one level of helpers they call, without chasing into stdlib.
     var needed_funcs: std.StringHashMapUnmanaged(void) = .empty;
     defer needed_funcs.deinit(gpa);
     var work_queue: std.ArrayListUnmanaged([]const u8) = .empty;

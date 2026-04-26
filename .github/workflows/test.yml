@@ -44,3 +44,8 @@ jobs:
       - name: Build executables
         run: zig build -Doptimize=${{ matrix.optimize }}
         working-directory: zig-pub-sub
+
+      - name: Codegen snapshot check
+        if: matrix.os == 'ubuntu-latest' && matrix.optimize == 'ReleaseFast'
+        run: zig build codegen-check
+        working-directory: zig-pub-sub
