@@ -155,6 +155,9 @@ fn switch_on_system_data_idx(_: ?*anyopaque, _args: ?*const anyopaque, publisher
     }
 
     switch (args.system_data_idx) {
+        // Ideally I'd like to type this instead:
+        // .cool_u16 => system_data.write(.some_bool, true)
+        // TODO: That probably requires unifying `system_data_idx` and `ErdEnum` to be the same thing
         SystemData.erd_from_enum(.cool_u16).system_data_idx => system_data.write(.some_bool, true),
         SystemData.erd_from_enum(.unaligned_u16).system_data_idx => system_data.write(.some_bool, false),
         else => {},
@@ -220,6 +223,8 @@ test "exact subscription enforcement" {
     system_data.subscribe(.unaligned_u16, null, whatever);
     system_data.subscribe(.cool_u16, null, whatever);
 
+    // TODO: Move this test into the Application test file
+    // and replace all of the above with `application.init`
     const exceptions = [_]SystemData.SubException{
         .{ .erd_enum = .some_bool, .missing = 1 },
     };
@@ -255,4 +260,8 @@ test "scratch allocations" {
     try std.testing.expect(system_data.scratch.ownsSlice(more_allocation));
 
     system_data.scratch_reset();
+    // NOTE: The below doesn't fail, but depending on optimization level may yield different results!
+    // One must be very careful since this data is now considered freed, but there's no runtime check on it.
+    // system_data.write(.application_version, more_allocation[0]);
+    // try std.testing.expectEqual(0b10101010, system_data.read(.application_version));
 }

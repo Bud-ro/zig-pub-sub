@@ -58,11 +58,9 @@ pub fn create(comptime ErdDefs: type) type {
         pub const SystemData = SystemDataType;
 
         pub fn init() SystemDataType {
-            var system_data = SystemDataType{};
-            system_data.components.ram = RamDataComponentType.init();
-            system_data.scratch = .init(&system_data.scratch_buf);
-            @memset(&system_data.subscriptions, .{ .context = null, .callback = null });
-            return system_data;
+            return SystemDataType.init(.{
+                .ram = RamDataComponentType.init(),
+            });
         }
     };
 }

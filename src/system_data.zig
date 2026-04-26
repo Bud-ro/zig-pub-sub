@@ -45,6 +45,14 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         scratch: std.heap.FixedBufferAllocator = undefined,
         scratch_buf: [2048]u8 align(@alignOf(usize)) = undefined, // TODO: Does this actually need to be aligned?
 
+        pub fn init(components: Components) Self {
+            var this = Self{};
+            this.components = components;
+            this.scratch = .init(&this.scratch_buf);
+            @memset(&this.subscriptions, .{ .context = null, .callback = null });
+            return this;
+        }
+
         fn total_subscriptions() usize {
             comptime {
                 var size: usize = 0;

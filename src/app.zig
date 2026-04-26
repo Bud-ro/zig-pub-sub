@@ -35,16 +35,17 @@ fn plus_one(data: *u16) void {
 }
 
 const indirect_mappings = [_]IndirectDataComponent.IndirectErdMapping{
-    IndirectDataComponent.IndirectErdMapping.map(SystemErds.erd.erd_always_42, always_42),
-    IndirectDataComponent.IndirectErdMapping.map(SystemErds.erd.erd_another_erd_plus_one, plus_one),
+    .map(SystemErds.erd.erd_always_42, always_42),
+    .map(SystemErds.erd.erd_another_erd_plus_one, plus_one),
 };
 
-pub fn init() SystemData {
-    var this = SystemData{};
-    this.components.ram = RamDataComponent.init();
-    this.components.indirect = IndirectDataComponent.init(indirect_mappings);
-    this.scratch = .init(&this.scratch_buf);
+pub const Application = struct {
+    system_data: SystemData,
+};
 
-    @memset(&this.subscriptions, .{ .context = null, .callback = null });
-    return this;
+pub fn init() Application {
+    return .{ .system_data = SystemData.init(.{
+        .ram = RamDataComponent.init(),
+        .indirect = IndirectDataComponent.init(indirect_mappings),
+    }) };
 }
