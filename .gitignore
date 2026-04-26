@@ -24,3 +24,4 @@ config
 hooks
 objects
 refs
+root.o

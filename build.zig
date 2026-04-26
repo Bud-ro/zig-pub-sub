@@ -70,4 +70,29 @@ pub fn build(b: *std.Build) void {
     const tests_install = b.addInstallArtifact(tests, .{ .dest_dir = .default });
     const test_no_run_step = b.step("test_no_run", "Build unit tests but don't run them");
     test_no_run_step.dependOn(&tests_install.step);
+
+    // --- Codegen analysis tools ---
+
+    const strip_asm = b.addExecutable(.{
+        .name = "strip_asm",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/strip_asm.zig"),
+            .target = b.graph.host,
+        }),
+    });
+    b.installArtifact(strip_asm);
+    _ = strip_asm;
+
+    const codegen_mod = b.createModule(.{
+        .root_source_file = b.path("src/codegen_harness.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    codegen_mod.addImport("sometimes", sometimes_disabled_mod);
+    const codegen_obj = b.addObject(.{
+        .name = "codegen_harness",
+        .root_module = codegen_mod,
+    });
+    const emit_asm_step = b.step("emit-asm", "Emit raw assembly for single optimization level");
+    emit_asm_step.dependOn(&b.addInstallFile(codegen_obj.getEmittedAsm(), "codegen_harness.s").step);
 }
