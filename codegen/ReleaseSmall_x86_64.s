@@ -698,6 +698,37 @@ mem.eql__anon_1101:
         pop	rbp
         ret
 
+"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2099":
+        push	rbp
+        mov	rbp, rsp
+        push	r14
+        push	rbx
+        sub	rsp, 16
+        mov	r14d, esi
+        mov	rbx, rdi
+        mov	word ptr [rbp - 18], r14w
+        lea	rdi, [rbp - 20]
+        mov	word ptr [rdi], r14w
+        lea	rdx, [rbx + 7]
+        push	2
+        pop	rcx
+        mov	rsi, rcx
+        call	mem.eql__anon_1101
+        mov	word ptr [rbx + 7], r14w
+        test	al, 1
+        jne	.LBB11_2
+        push	3
+        pop	rsi
+        lea	rdx, [rbp - 18]
+        mov	rdi, rbx
+        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).publish"
+.LBB11_2:
+        add	rsp, 16
+        pop	rbx
+        pop	r14
+        pop	rbp
+        ret
+
 "system_data.SystemData(codegen_harness.HugeSystem__struct_3633,meta.FieldEnum(codegen_harness.HugeSystem__struct_3633),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_3881":
         push	rbp
         mov	rbp, rsp

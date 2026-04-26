@@ -52,12 +52,17 @@ fn findBranchTarget(text: []const u8) ?struct { label: []const u8, rest: []const
 
 fn extractCallTarget(line: []const u8) ?[]const u8 {
     const trimmed = std.mem.trim(u8, line, " \t\r");
-    if (trimmed.len < 5) return null;
-    if (!std.mem.eql(u8, trimmed[0..4], "call")) return null;
-    if (trimmed[4] != '\t' and trimmed[4] != ' ') return null;
-    const target = std.mem.trim(u8, trimmed[4..], " \t");
-    if (target.len == 0 or target[0] == '*' or target[0] == 'r') return null;
-    return target;
+    const target_str = blk: {
+        if (trimmed.len >= 5 and std.mem.eql(u8, trimmed[0..4], "call") and
+            (trimmed[4] == '\t' or trimmed[4] == ' '))
+            break :blk std.mem.trim(u8, trimmed[4..], " \t");
+        if (trimmed.len >= 4 and std.mem.eql(u8, trimmed[0..3], "jmp") and
+            (trimmed[3] == '\t' or trimmed[3] == ' '))
+            break :blk std.mem.trim(u8, trimmed[3..], " \t");
+        return null;
+    };
+    if (target_str.len == 0 or target_str[0] == '*' or target_str[0] == 'r' or target_str[0] == '.') return null;
+    return target_str;
 }
 
 fn extractFunc(
@@ -302,11 +307,15 @@ test "findBranchTarget finds multiple targets in one line" {
     try testing.expectEqualStrings(".LBB0_2", second.label);
 }
 
-test "extractCallTarget parses call instructions" {
+test "extractCallTarget parses call and jmp instructions" {
     try testing.expectEqualStrings("my_helper", extractCallTarget("        call\tmy_helper").?);
     try testing.expectEqualStrings("foo", extractCallTarget("call foo").?);
+    try testing.expectEqualStrings("my_func", extractCallTarget("        jmp\tmy_func").?);
+    try testing.expectEqualStrings("foo", extractCallTarget("jmp foo").?);
     try testing.expectEqual(null, extractCallTarget("        call\t*rax"));
     try testing.expectEqual(null, extractCallTarget("        call\trax"));
+    try testing.expectEqual(null, extractCallTarget("        jmp\t.LBB0_1"));
+    try testing.expectEqual(null, extractCallTarget("        jmp\trax"));
     try testing.expectEqual(null, extractCallTarget("        mov eax, 1"));
     try testing.expectEqual(null, extractCallTarget(""));
 }
