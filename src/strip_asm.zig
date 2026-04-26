@@ -250,11 +250,7 @@ pub fn main() !void {
         defer file.close();
         try file.writeAll(output.items);
     } else {
-        const stdout = std.posix.STDOUT_FILENO;
-        var written: usize = 0;
-        while (written < output.items.len) {
-            written += try std.posix.write(stdout, output.items[written..]);
-        }
+        try std.fs.File.stdout().writeAll(output.items);
     }
 
     std.debug.print("{d} functions ({d} exported, {d} called), {d} instructions\n", .{
