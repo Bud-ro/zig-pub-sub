@@ -33,11 +33,11 @@ codegen_write_u16_no_subs:
         push	r14
         push	rbx
         sub	rsp, 16
+        mov	ebx, esi
         mov	r14, rdi
         lea	rdi, [rbp - 18]
-        mov	ebx, esi
-        lea	rdx, [r14 + 5]
         mov	word ptr [rdi], bx
+        lea	rdx, [r14 + 5]
         push	2
         pop	rcx
         mov	rsi, rcx
@@ -53,13 +53,13 @@ codegen_write_bool_with_subs:
         push	rbp
         mov	rbp, rsp
         pop	rbp
-        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2428"
+        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2038"
 
 codegen_write_u16_with_subs:
         push	rbp
         mov	rbp, rsp
         pop	rbp
-        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2489"
+        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2099"
 
 codegen_runtime_write_u32:
         push	rbp
@@ -98,8 +98,8 @@ codegen_dual_write:
         pop	rsi
         call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_1072"
         lea	rdi, [rbp - 12]
-        lea	rdx, [rbx + 4]
         or	dword ptr [rdi], -1
+        lea	rdx, [rbx + 4]
         push	4
         pop	rcx
         mov	rsi, rcx
@@ -139,12 +139,12 @@ codegen_many_write_last_with_subs:
         push	r12
         push	rbx
         sub	rsp, 32
-        mov	rbx, rdi
-        lea	rdi, [rbp - 56]
         mov	r14, rsi
+        mov	rbx, rdi
         mov	qword ptr [rbp - 40], rsi
-        lea	rdx, [rbx + 112]
+        lea	rdi, [rbp - 56]
         mov	qword ptr [rdi], rsi
+        lea	rdx, [rbx + 112]
         push	8
         pop	rcx
         mov	rsi, rcx
@@ -186,11 +186,11 @@ codegen_many_write_middle_no_subs:
         push	r14
         push	rbx
         sub	rsp, 16
+        mov	ebx, esi
         mov	r14, rdi
         lea	rdi, [rbp - 20]
-        mov	ebx, esi
-        lea	rdx, [r14 + 48]
         mov	dword ptr [rdi], esi
+        lea	rdx, [r14 + 48]
         push	4
         pop	rcx
         mov	rsi, rcx
@@ -205,27 +205,20 @@ codegen_many_write_middle_no_subs:
 codegen_read_big_struct:
         push	rbp
         mov	rbp, rsp
-        vmovups	zmm0, zmmword ptr [rsi]
-        vmovups	zmm1, zmmword ptr [rsi + 64]
-        vmovups	zmm2, zmmword ptr [rsi + 128]
-        vmovups	zmm3, zmmword ptr [rsi + 192]
         mov	rax, rdi
-        vmovups	zmmword ptr [rdi + 192], zmm3
-        vmovups	zmmword ptr [rdi + 128], zmm2
-        vmovups	zmmword ptr [rdi + 64], zmm1
-        vmovups	zmmword ptr [rdi], zmm0
+        mov	ecx, 256
+        rep movsb es:[rdi], [rsi]
         pop	rbp
-        vzeroupper
         ret
 
 codegen_read_medium_struct:
         push	rbp
         mov	rbp, rsp
-        mov	rcx, qword ptr [rsi + 272]
         mov	rax, rdi
+        mov	rcx, qword ptr [rsi + 272]
         mov	qword ptr [rdi + 16], rcx
-        vmovups	xmm0, xmmword ptr [rsi + 256]
-        vmovups	xmmword ptr [rdi], xmm0
+        movups	xmm0, xmmword ptr [rsi + 256]
+        movups	xmmword ptr [rdi], xmm0
         pop	rbp
         ret
 
@@ -240,13 +233,13 @@ codegen_write_big_struct:
         push	rbp
         mov	rbp, rsp
         pop	rbp
-        jmp	"system_data.SystemData(codegen_harness.HugeSystem__struct_3991,meta.FieldEnum(codegen_harness.HugeSystem__struct_3991),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_4238"
+        jmp	"system_data.SystemData(codegen_harness.HugeSystem__struct_3633,meta.FieldEnum(codegen_harness.HugeSystem__struct_3633),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_3881"
 
 codegen_write_medium_with_subs:
         push	rbp
         mov	rbp, rsp
         pop	rbp
-        jmp	"system_data.SystemData(codegen_harness.HugeSystem__struct_3991,meta.FieldEnum(codegen_harness.HugeSystem__struct_3991),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_4267"
+        jmp	"system_data.SystemData(codegen_harness.HugeSystem__struct_3633,meta.FieldEnum(codegen_harness.HugeSystem__struct_3633),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_3910"
 
 codegen_read_modify_write_medium:
         push	rbp
@@ -255,11 +248,11 @@ codegen_read_modify_write_medium:
         mov	rax, qword ptr [rdi + 272]
         lea	rsi, [rbp - 32]
         mov	qword ptr [rsi + 16], rax
+        movups	xmm0, xmmword ptr [rdi + 256]
+        movaps	xmmword ptr [rsi], xmm0
         inc	eax
-        vmovups	xmm0, xmmword ptr [rdi + 256]
-        vmovaps	xmmword ptr [rsi], xmm0
         mov	dword ptr [rsi + 16], eax
-        call	"system_data.SystemData(codegen_harness.HugeSystem__struct_3991,meta.FieldEnum(codegen_harness.HugeSystem__struct_3991),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_4267"
+        call	"system_data.SystemData(codegen_harness.HugeSystem__struct_3633,meta.FieldEnum(codegen_harness.HugeSystem__struct_3633),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_3910"
         add	rsp, 32
         pop	rbp
         ret
@@ -268,18 +261,16 @@ codegen_read_modify_write_big:
         push	rbp
         mov	rbp, rsp
         sub	rsp, 256
-        vmovups	zmm0, zmmword ptr [rdi]
-        vmovups	zmm1, zmmword ptr [rdi + 64]
-        vmovups	zmm2, zmmword ptr [rdi + 128]
-        vmovups	zmm3, zmmword ptr [rdi + 192]
-        lea	rsi, [rbp - 256]
-        vmovups	zmmword ptr [rsi], zmm0
-        inc	byte ptr [rsi]
-        vmovups	zmmword ptr [rsi + 192], zmm3
-        vmovups	zmmword ptr [rsi + 128], zmm2
-        vmovups	zmmword ptr [rsi + 64], zmm1
-        vzeroupper
-        call	"system_data.SystemData(codegen_harness.HugeSystem__struct_3991,meta.FieldEnum(codegen_harness.HugeSystem__struct_3991),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_4238"
+        mov	rax, rdi
+        lea	rdx, [rbp - 256]
+        mov	ecx, 256
+        mov	rdi, rdx
+        mov	rsi, rax
+        rep movsb es:[rdi], [rsi]
+        inc	byte ptr [rdx]
+        mov	rdi, rax
+        mov	rsi, rdx
+        call	"system_data.SystemData(codegen_harness.HugeSystem__struct_3633,meta.FieldEnum(codegen_harness.HugeSystem__struct_3633),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_3881"
         add	rsp, 256
         pop	rbp
         ret
@@ -291,11 +282,11 @@ codegen_setup_timer_callback:
         push	r14
         push	r12
         push	rbx
-        cmp	qword ptr [rdx + 8], 0
-        lea	rbx, [rdx + 16]
         mov	r15, rdx
         mov	r14, rsi
         mov	r12, rdi
+        lea	rbx, [rdx + 16]
+        cmp	qword ptr [rdx + 8], 0
         je	.LBB29_1
 .LBB29_8:
         mov	rdi, r14
@@ -311,9 +302,9 @@ codegen_setup_timer_callback:
         cmp	qword ptr [r14], rbx
         je	.LBB29_8
 .LBB29_2:
-        or	r12, 1
         mov	qword ptr [r15 + 8], offset codegen_harness.timer_callback_read_write
         mov	dword ptr [r15 + 28], 100
+        or	r12, 1
         mov	qword ptr [r15], r12
         mov	ecx, dword ptr [r14 + 16]
         lea	eax, [rcx + 100]
@@ -381,8 +372,8 @@ codegen_read_write_read:
         mov	rbp, rsp
         push	rbx
         push	rax
-        mov	esi, dword ptr [rdi]
         mov	rbx, rdi
+        mov	esi, dword ptr [rdi]
         inc	esi
         call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_1072"
         mov	eax, dword ptr [rbx]
@@ -396,9 +387,9 @@ codegen_read_write_other_read:
         mov	rbp, rsp
         push	r14
         push	rbx
-        mov	r14d, dword ptr [rdi]
         mov	rbx, rdi
-        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2428"
+        mov	r14d, dword ptr [rdi]
+        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2038"
         add	r14d, dword ptr [rbx]
         mov	eax, r14d
         pop	rbx
@@ -428,7 +419,7 @@ codegen_subscribe_callback:
 .LBB37_4:
         push	rbp
         mov	rbp, rsp
-        call	debug.panic__anon_4476
+        call	debug.panic__anon_4119
 
 codegen_harness.accumulate_callback:
         push	rbp
@@ -437,8 +428,8 @@ codegen_harness.accumulate_callback:
         cmp	byte ptr [rax], 0
         je	.LBB38_1
         mov	esi, dword ptr [rdx]
-        mov	rdi, rdx
         inc	esi
+        mov	rdi, rdx
         pop	rbp
         jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_1072"
 .LBB38_1:
@@ -450,7 +441,7 @@ codegen_write_triggering_callback:
         mov	rbp, rsp
         mov	esi, 1
         pop	rbp
-        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2428"
+        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2038"
 
 codegen_increment_n_times:
         push	rbp
@@ -463,8 +454,8 @@ codegen_increment_n_times:
         cmp	ebx, 1
         jb	.LBB60_3
         mov	esi, dword ptr [r14]
-        mov	rdi, r14
         inc	esi
+        mov	rdi, r14
         call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_1072"
         dec	ebx
         jmp	.LBB60_1
@@ -479,19 +470,19 @@ codegen_conditional_write_chain:
         mov	rbp, rsp
         push	rbx
         push	rax
-        test	byte ptr [rdi + 4], 1
         mov	rbx, rdi
+        test	byte ptr [rdi + 4], 1
         je	.LBB61_1
         mov	esi, dword ptr [rbx]
-        mov	rdi, rbx
         add	esi, 10
+        mov	rdi, rbx
         call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_1072"
 .LBB61_1:
         cmp	word ptr [rbx + 5], 100
         jbe	.LBB61_4
         mov	esi, dword ptr [rbx]
-        mov	rdi, rbx
         add	esi, 20
+        mov	rdi, rbx
         add	rsp, 8
         pop	rbx
         pop	rbp
@@ -508,15 +499,15 @@ codegen_cross_erd_compute:
         movzx	esi, word ptr [rdi + 5]
         add	si, word ptr [rdi]
         pop	rbp
-        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2489"
+        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2099"
 
 codegen_cross_system_read_add:
         push	rbp
         mov	rbp, rsp
         mov	eax, dword ptr [rdi]
         movsxd	rcx, dword ptr [rsi]
-        movzx	edx, word ptr [rdi + 5]
         add	rcx, rax
+        movzx	edx, word ptr [rdi + 5]
         movsxd	rax, dword ptr [rsi + 4]
         add	rax, rdx
         add	rax, rcx
@@ -537,11 +528,11 @@ codegen_cross_system_swap:
         push	rbx
         sub	rsp, 32
         mov	rbx, rsi
-        mov	esi, dword ptr [rsi]
         mov	r14d, dword ptr [rdi]
+        mov	esi, dword ptr [rsi]
         call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_1072"
-        lea	rdi, [rbp - 40]
         mov	dword ptr [rbp - 20], r14d
+        lea	rdi, [rbp - 40]
         mov	dword ptr [rdi], r14d
         push	4
         pop	rcx
@@ -554,12 +545,12 @@ codegen_cross_system_swap:
         mov	rax, qword ptr [rbx + 24]
         test	rax, rax
         je	.LBB65_3
-        lea	rsi, [rbp - 40]
         mov	rdi, qword ptr [rbx + 16]
-        lea	rcx, [rbp - 20]
-        mov	rdx, rbx
+        lea	rsi, [rbp - 40]
         and	word ptr [rsi + 8], 0
+        lea	rcx, [rbp - 20]
         mov	qword ptr [rsi], rcx
+        mov	rdx, rbx
         call	rax
 .LBB65_3:
         add	rsp, 32
@@ -582,9 +573,9 @@ codegen_runtime_read_u32:
         push	r14
         push	rbx
         sub	rsp, 16
+        mov	ebx, esi
         mov	r14, rdi
         lea	rdi, [rbp - 20]
-        mov	ebx, esi
         mov	dword ptr [rdi], esi
         push	4
         pop	rcx
@@ -600,98 +591,82 @@ codegen_runtime_read_u32:
 
 mem.eql__anon_1101:
         cmp	rsi, rcx
-        jne	.LBB5_17
+        jne	.LBB5_9
         cmp	rdi, rdx
         je	.LBB5_5
         cmp	rsi, 16
         ja	.LBB5_6
         cmp	rsi, 4
-        jae	.LBB5_8
+        jae	.LBB5_13
         mov	al, byte ptr [rdi]
         mov	cl, byte ptr [rdi + rsi - 1]
         mov	r8, rsi
         shr	r8
-        mov	dil, byte ptr [rdi + r8]
         xor	al, byte ptr [rdx]
+        mov	dil, byte ptr [rdi + r8]
         xor	cl, byte ptr [rdx + rsi - 1]
-        xor	dil, byte ptr [rdx + r8]
         or	cl, al
+        xor	dil, byte ptr [rdx + r8]
         or	dil, cl
-        jmp	.LBB5_20
+        jmp	.LBB5_12
 .LBB5_5:
         mov	al, 1
         ret
 .LBB5_6:
-        cmp	rsi, 33
-        jae	.LBB5_11
-        vmovdqu	xmm0, xmmword ptr [rdi]
-        vmovdqu	xmm1, xmmword ptr [rdi + rsi - 16]
-        vpcmpneqb	k0, xmm0, xmmword ptr [rdx]
-        vpcmpneqb	k1, xmm1, xmmword ptr [rdx + rsi - 16]
-        kortestw	k0, k1
-        jmp	.LBB5_20
-.LBB5_8:
+        lea	rax, [rsi - 1]
+        and	rax, -16
+        xor	ecx, ecx
+.LBB5_7:
+        cmp	rax, rcx
+        je	.LBB5_11
+        movdqu	xmm0, xmmword ptr [rdi + rcx]
+        movdqu	xmm1, xmmword ptr [rdx + rcx]
+        add	rcx, 16
+        pcmpeqb	xmm1, xmm0
+        pmovmskb	r8d, xmm1
+        xor	r8d, 65535
+        je	.LBB5_7
+.LBB5_9:
+        xor	eax, eax
+        ret
+.LBB5_11:
+        movdqu	xmm0, xmmword ptr [rdi + rsi - 16]
+        movdqu	xmm1, xmmword ptr [rdx + rsi - 16]
+        pcmpeqb	xmm1, xmm0
+        pmovmskb	eax, xmm1
+        xor	eax, 65535
+.LBB5_12:
+        sete	al
+        ret
+.LBB5_13:
         push	rbp
         mov	rbp, rsp
-        and	qword ptr [rbp - 32], 0
         lea	rax, [rsi - 4]
+        and	qword ptr [rbp - 32], 0
         shr	esi
-        xor	ecx, ecx
         and	esi, 12
         mov	qword ptr [rbp - 24], rax
         sub	rax, rsi
         mov	qword ptr [rbp - 16], rsi
         mov	qword ptr [rbp - 8], rax
         xor	eax, eax
-.LBB5_9:
+        xor	ecx, ecx
+.LBB5_14:
         cmp	rcx, 4
-        je	.LBB5_13
+        je	.LBB5_16
         mov	rsi, qword ptr [rbp + 8*rcx - 32]
-        inc	rcx
         mov	r8d, dword ptr [rdx + rsi]
         xor	r8d, dword ptr [rdi + rsi]
         or	eax, r8d
-        jmp	.LBB5_9
-.LBB5_11:
-        cmp	rsi, 64
-        ja	.LBB5_14
-        vmovdqu	ymm0, ymmword ptr [rdi]
-        vmovdqu	ymm1, ymmword ptr [rdi + rsi - 32]
-        vpcmpneqb	k0, ymm0, ymmword ptr [rdx]
-        vpcmpneqb	k1, ymm1, ymmword ptr [rdx + rsi - 32]
-        kortestd	k0, k1
-        jmp	.LBB5_20
-.LBB5_13:
+        inc	rcx
+        jmp	.LBB5_14
+.LBB5_16:
         test	eax, eax
         sete	al
         pop	rbp
         ret
-.LBB5_14:
-        lea	rax, [rsi - 1]
-        xor	ecx, ecx
-        and	rax, -64
-.LBB5_15:
-        cmp	rax, rcx
-        je	.LBB5_19
-        vmovdqu64	zmm0, zmmword ptr [rdi + rcx]
-        vpcmpneqd	k0, zmm0, zmmword ptr [rdx + rcx]
-        add	rcx, 64
-        kortestw	k0, k0
-        je	.LBB5_15
-.LBB5_17:
-        xor	eax, eax
-        vzeroupper
-        ret
-.LBB5_19:
-        vmovdqu64	zmm0, zmmword ptr [rdi + rsi - 64]
-        vpcmpneqd	k0, zmm0, zmmword ptr [rdx + rsi - 64]
-        kortestw	k0, k0
-.LBB5_20:
-        sete	al
-        vzeroupper
-        ret
 
-"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2428":
+"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).write__anon_2038":
         push	rbp
         mov	rbp, rsp
         push	r14
@@ -700,10 +675,10 @@ mem.eql__anon_1101:
         mov	r14d, esi
         mov	rbx, rdi
         and	r14b, 1
-        lea	rdi, [rbp - 18]
-        lea	rdx, [rbx + 4]
         mov	byte ptr [rbp - 17], r14b
+        lea	rdi, [rbp - 18]
         mov	byte ptr [rdi], r14b
+        lea	rdx, [rbx + 4]
         push	1
         pop	rcx
         mov	rsi, rcx
@@ -723,69 +698,58 @@ mem.eql__anon_1101:
         pop	rbp
         ret
 
-"system_data.SystemData(codegen_harness.HugeSystem__struct_3991,meta.FieldEnum(codegen_harness.HugeSystem__struct_3991),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_4238":
+"system_data.SystemData(codegen_harness.HugeSystem__struct_3633,meta.FieldEnum(codegen_harness.HugeSystem__struct_3633),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_3881":
         push	rbp
         mov	rbp, rsp
         push	r14
         push	rbx
         sub	rsp, 256
-        vmovups	zmm0, zmmword ptr [rsi]
-        vmovups	zmm1, zmmword ptr [rsi + 64]
-        vmovups	zmm2, zmmword ptr [rsi + 128]
-        vmovups	zmm3, zmmword ptr [rsi + 192]
-        mov	r14, rdi
-        lea	rdi, [rbp - 272]
         mov	rbx, rsi
+        mov	r14, rdi
+        lea	rax, [rbp - 272]
+        mov	ecx, 256
+        mov	rdi, rax
+        rep movsb es:[rdi], [rsi]
         mov	esi, 256
         mov	ecx, 256
+        mov	rdi, rax
         mov	rdx, r14
-        vmovups	zmmword ptr [rdi + 192], zmm3
-        vmovups	zmmword ptr [rdi + 128], zmm2
-        vmovups	zmmword ptr [rdi + 64], zmm1
-        vmovups	zmmword ptr [rdi], zmm0
-        vzeroupper
         call	mem.eql__anon_1101
-        vmovups	zmm0, zmmword ptr [rbx]
-        vmovups	zmm1, zmmword ptr [rbx + 64]
-        vmovups	zmm2, zmmword ptr [rbx + 128]
-        vmovups	zmm3, zmmword ptr [rbx + 192]
-        vmovups	zmmword ptr [r14], zmm0
-        vmovups	zmmword ptr [r14 + 192], zmm3
-        vmovups	zmmword ptr [r14 + 128], zmm2
-        vmovups	zmmword ptr [r14 + 64], zmm1
+        mov	edx, 256
+        mov	rdi, r14
+        mov	rsi, rbx
         add	rsp, 256
         pop	rbx
         pop	r14
         pop	rbp
-        vzeroupper
-        ret
+        jmp	memmove@PLT
 
-"system_data.SystemData(codegen_harness.HugeSystem__struct_3991,meta.FieldEnum(codegen_harness.HugeSystem__struct_3991),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_4267":
+"system_data.SystemData(codegen_harness.HugeSystem__struct_3633,meta.FieldEnum(codegen_harness.HugeSystem__struct_3633),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).write__anon_3910":
         push	rbp
         mov	rbp, rsp
         push	r14
         push	rbx
         sub	rsp, 64
-        mov	rax, qword ptr [rsi + 16]
-        mov	rbx, rdi
-        lea	rdi, [rbp - 80]
         mov	r14, rsi
-        lea	rdx, [rbx + 256]
-        mov	qword ptr [rbp - 32], rax
-        vmovups	xmm0, xmmword ptr [rsi]
-        vmovaps	xmmword ptr [rbp - 48], xmm0
+        mov	rbx, rdi
         mov	rax, qword ptr [rsi + 16]
+        mov	qword ptr [rbp - 32], rax
+        movups	xmm0, xmmword ptr [rsi]
+        movaps	xmmword ptr [rbp - 48], xmm0
+        mov	rax, qword ptr [rsi + 16]
+        lea	rdi, [rbp - 80]
         mov	qword ptr [rdi + 16], rax
-        vmovups	xmm0, xmmword ptr [rsi]
-        vmovaps	xmmword ptr [rdi], xmm0
+        movups	xmm0, xmmword ptr [rsi]
+        movaps	xmmword ptr [rdi], xmm0
+        lea	rdx, [rbx + 256]
         push	24
         pop	rcx
         mov	rsi, rcx
         call	mem.eql__anon_1101
-        vmovups	xmm0, xmmword ptr [r14]
         mov	rcx, qword ptr [r14 + 16]
+        movups	xmm0, xmmword ptr [r14]
+        movups	xmmword ptr [rbx + 256], xmm0
         mov	qword ptr [rbx + 272], rcx
-        vmovups	xmmword ptr [rbx + 256], xmm0
         test	al, 1
         jne	.LBB26_3
         mov	rax, qword ptr [rbx + 296]
@@ -793,10 +757,10 @@ mem.eql__anon_1101:
         je	.LBB26_3
         mov	rdi, qword ptr [rbx + 288]
         lea	rsi, [rbp - 80]
-        lea	rcx, [rbp - 48]
-        mov	rdx, rbx
         mov	word ptr [rsi + 8], 1
+        lea	rcx, [rbp - 48]
         mov	qword ptr [rsi], rcx
+        mov	rdx, rbx
         call	rax
 .LBB26_3:
         add	rsp, 64
@@ -835,8 +799,8 @@ timer.TimerModule.try_remove:
         pop	rbp
         ret
 
-debug.panic__anon_4476:
+debug.panic__anon_4119:
         push	rbp
         mov	rbp, rsp
-        call	debug.panicExtra__anon_4485
+        call	debug.panicExtra__anon_4128
 

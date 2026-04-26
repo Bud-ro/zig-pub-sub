@@ -23,7 +23,7 @@ jobs:
 
       - uses: mlugg/setup-zig@v2
         with:
-          version: 0.15.1
+          version: 0.15.2
           cache-key: ${{ matrix.optimize }}
           use-cache: true
           use-tool-cache: true
@@ -45,10 +45,7 @@ jobs:
         run: zig build -Doptimize=${{ matrix.optimize }}
         working-directory: zig-pub-sub
 
-      # TODO: Enable codegen-check once snapshots are generated on the CI runner.
-      # Snapshots are CPU-feature and Zig-version sensitive, so they must be
-      # generated in the same environment that checks them.
-      # - name: Codegen snapshot check
-      #   if: matrix.os == 'ubuntu-latest' && matrix.optimize == 'ReleaseFast'
-      #   run: zig build codegen-check
-      #   working-directory: zig-pub-sub
+      - name: Codegen snapshot check
+        if: matrix.os == 'ubuntu-latest' && matrix.optimize == 'ReleaseFast'
+        run: zig build codegen-check
+        working-directory: zig-pub-sub

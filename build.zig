@@ -95,15 +95,20 @@ pub fn build(b: *std.Build) void {
         const modes = [_]std.builtin.OptimizeMode{ .ReleaseSafe, .ReleaseSmall, .ReleaseFast };
         const mode_names = [_][]const u8{ "ReleaseSafe", "ReleaseSmall", "ReleaseFast" };
 
+        const codegen_target = b.resolveTargetQuery(.{
+            .cpu_arch = .x86_64,
+            .os_tag = .linux,
+        });
+
         for (modes, mode_names) |mode, mode_name| {
             const codegen_mod = b.createModule(.{
                 .root_source_file = b.path("src/codegen_harness.zig"),
-                .target = target,
+                .target = codegen_target,
                 .optimize = mode,
             });
 
             const sometimes_dep = b.dependency("assert_sometimes", .{
-                .target = target,
+                .target = codegen_target,
                 .optimize = mode,
                 .enable_sometimes = false,
             });

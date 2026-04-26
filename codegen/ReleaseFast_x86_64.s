@@ -35,15 +35,15 @@ codegen_write_bool_with_subs:
         cmp	sil, byte ptr [rdi + 4]
         mov	byte ptr [rdi + 4], sil
         je	.LBB5_3
-        mov	rax, qword ptr [rdi + 24]
         mov	rdx, rdi
+        mov	rax, qword ptr [rdi + 24]
         test	rax, rax
         je	.LBB5_3
         mov	rdi, qword ptr [rdx + 16]
-        lea	rsi, [rbp - 24]
-        lea	rcx, [rbp - 1]
         mov	word ptr [rbp - 16], 1
+        lea	rcx, [rbp - 1]
         mov	qword ptr [rbp - 24], rcx
+        lea	rsi, [rbp - 24]
         call	rax
 .LBB5_3:
         add	rsp, 32
@@ -55,8 +55,8 @@ codegen_write_u16_with_subs:
         mov	rbp, rsp
         push	rbx
         sub	rsp, 24
-        mov	word ptr [rbp - 10], si
         mov	rbx, rdi
+        mov	word ptr [rbp - 10], si
         movzx	eax, byte ptr [rdi + 8]
         cmp	byte ptr [rdi + 7], sil
         mov	word ptr [rdi + 7], si
@@ -74,22 +74,22 @@ codegen_write_u16_with_subs:
         test	rax, rax
         je	.LBB6_3
         mov	rdi, qword ptr [rbx + 32]
-        lea	rcx, [rbp - 10]
-        lea	rsi, [rbp - 32]
         mov	word ptr [rbp - 24], 3
-        mov	rdx, rbx
+        lea	rcx, [rbp - 10]
         mov	qword ptr [rbp - 32], rcx
+        lea	rsi, [rbp - 32]
+        mov	rdx, rbx
         call	rax
 .LBB6_3:
         mov	rax, qword ptr [rbx + 56]
         test	rax, rax
         je	.LBB6_5
         mov	rdi, qword ptr [rbx + 48]
-        lea	rcx, [rbp - 10]
-        lea	rsi, [rbp - 32]
         mov	word ptr [rbp - 24], 3
-        mov	rdx, rbx
+        lea	rcx, [rbp - 10]
         mov	qword ptr [rbp - 32], rcx
+        lea	rsi, [rbp - 32]
+        mov	rdx, rbx
         call	rax
         add	rsp, 24
         pop	rbx
@@ -146,8 +146,8 @@ codegen_many_write_last_with_subs:
         mov	rbp, rsp
         push	rbx
         sub	rsp, 24
-        mov	qword ptr [rbp - 32], rsi
         mov	rbx, rdi
+        mov	qword ptr [rbp - 32], rsi
         mov	eax, dword ptr [rdi + 116]
         cmp	dword ptr [rdi + 112], esi
         mov	qword ptr [rdi + 112], rsi
@@ -165,33 +165,33 @@ codegen_many_write_last_with_subs:
         test	rax, rax
         je	.LBB13_3
         mov	rdi, qword ptr [rbx + 136]
-        lea	rcx, [rbp - 32]
-        lea	rsi, [rbp - 24]
         mov	word ptr [rbp - 16], 31
-        mov	rdx, rbx
+        lea	rcx, [rbp - 32]
         mov	qword ptr [rbp - 24], rcx
+        lea	rsi, [rbp - 24]
+        mov	rdx, rbx
         call	rax
 .LBB13_3:
         mov	rax, qword ptr [rbx + 160]
         test	rax, rax
         je	.LBB13_5
         mov	rdi, qword ptr [rbx + 152]
-        lea	rcx, [rbp - 32]
-        lea	rsi, [rbp - 24]
         mov	word ptr [rbp - 16], 31
-        mov	rdx, rbx
+        lea	rcx, [rbp - 32]
         mov	qword ptr [rbp - 24], rcx
+        lea	rsi, [rbp - 24]
+        mov	rdx, rbx
         call	rax
 .LBB13_5:
         mov	rax, qword ptr [rbx + 176]
         test	rax, rax
         je	.LBB13_7
         mov	rdi, qword ptr [rbx + 168]
-        lea	rcx, [rbp - 32]
-        lea	rsi, [rbp - 24]
         mov	word ptr [rbp - 16], 31
-        mov	rdx, rbx
+        lea	rcx, [rbp - 32]
         mov	qword ptr [rbp - 24], rcx
+        lea	rsi, [rbp - 24]
+        mov	rdx, rbx
         call	rax
         add	rsp, 24
         pop	rbx
@@ -208,27 +208,25 @@ codegen_many_write_middle_no_subs:
 codegen_read_big_struct:
         push	rbp
         mov	rbp, rsp
-        vmovups	zmm0, zmmword ptr [rsi]
-        vmovups	zmm1, zmmword ptr [rsi + 64]
-        vmovups	zmm2, zmmword ptr [rsi + 128]
-        vmovups	zmm3, zmmword ptr [rsi + 192]
-        mov	rax, rdi
-        vmovups	zmmword ptr [rdi + 192], zmm3
-        vmovups	zmmword ptr [rdi + 128], zmm2
-        vmovups	zmmword ptr [rdi + 64], zmm1
-        vmovups	zmmword ptr [rdi], zmm0
+        push	rbx
+        push	rax
+        mov	rbx, rdi
+        mov	edx, 256
+        call	memcpy@PLT
+        mov	rax, rbx
+        add	rsp, 8
+        pop	rbx
         pop	rbp
-        vzeroupper
         ret
 
 codegen_read_medium_struct:
         push	rbp
         mov	rbp, rsp
-        mov	rcx, qword ptr [rsi + 272]
         mov	rax, rdi
+        mov	rcx, qword ptr [rsi + 272]
         mov	qword ptr [rdi + 16], rcx
-        vmovups	xmm0, xmmword ptr [rsi + 256]
-        vmovups	xmmword ptr [rdi], xmm0
+        movups	xmm0, xmmword ptr [rsi + 256]
+        movups	xmmword ptr [rdi], xmm0
         pop	rbp
         ret
 
@@ -242,50 +240,87 @@ codegen_read_u32_after_big:
 codegen_write_big_struct:
         push	rbp
         mov	rbp, rsp
-        vmovups	zmm0, zmmword ptr [rsi]
-        vmovups	zmm1, zmmword ptr [rsi + 64]
-        vmovups	zmm2, zmmword ptr [rsi + 128]
-        vmovups	zmm3, zmmword ptr [rsi + 192]
-        vmovups	zmmword ptr [rdi], zmm0
-        vmovups	zmmword ptr [rdi + 64], zmm1
-        vmovups	zmmword ptr [rdi + 128], zmm2
-        vmovups	zmmword ptr [rdi + 192], zmm3
+        movups	xmm0, xmmword ptr [rsi]
+        movups	xmm1, xmmword ptr [rsi + 16]
+        movups	xmm2, xmmword ptr [rsi + 32]
+        movups	xmm3, xmmword ptr [rsi + 48]
+        movups	xmm4, xmmword ptr [rsi + 64]
+        movups	xmm5, xmmword ptr [rsi + 80]
+        movups	xmm6, xmmword ptr [rsi + 96]
+        movups	xmm7, xmmword ptr [rsi + 112]
+        movups	xmm8, xmmword ptr [rsi + 128]
+        movups	xmm9, xmmword ptr [rsi + 144]
+        movups	xmm10, xmmword ptr [rsi + 160]
+        movups	xmm11, xmmword ptr [rsi + 176]
+        movups	xmm12, xmmword ptr [rsi + 192]
+        movups	xmm13, xmmword ptr [rsi + 208]
+        movups	xmm14, xmmword ptr [rsi + 224]
+        movups	xmm15, xmmword ptr [rsi + 240]
+        movups	xmmword ptr [rdi], xmm0
+        movups	xmmword ptr [rdi + 16], xmm1
+        movups	xmmword ptr [rdi + 32], xmm2
+        movups	xmmword ptr [rdi + 48], xmm3
+        movups	xmmword ptr [rdi + 64], xmm4
+        movups	xmmword ptr [rdi + 80], xmm5
+        movups	xmmword ptr [rdi + 96], xmm6
+        movups	xmmword ptr [rdi + 112], xmm7
+        movups	xmmword ptr [rdi + 128], xmm8
+        movups	xmmword ptr [rdi + 144], xmm9
+        movups	xmmword ptr [rdi + 160], xmm10
+        movups	xmmword ptr [rdi + 176], xmm11
+        movups	xmmword ptr [rdi + 192], xmm12
+        movups	xmmword ptr [rdi + 208], xmm13
+        movups	xmmword ptr [rdi + 224], xmm14
+        movups	xmmword ptr [rdi + 240], xmm15
         pop	rbp
-        vzeroupper
         ret
 
 codegen_write_medium_with_subs:
         push	rbp
         mov	rbp, rsp
         sub	rsp, 64
+        mov	rdx, rdi
         mov	rax, qword ptr [rsi + 16]
         mov	qword ptr [rbp - 48], rax
-        vmovups	xmm0, xmmword ptr [rsi]
-        vmovaps	xmmword ptr [rbp - 64], xmm0
+        movups	xmm0, xmmword ptr [rsi]
+        movaps	xmmword ptr [rbp - 64], xmm0
         mov	rax, qword ptr [rsi + 16]
         mov	qword ptr [rbp - 16], rax
-        vmovdqu	xmm0, xmmword ptr [rsi]
-        vmovdqa	xmmword ptr [rbp - 32], xmm0
-        vmovdqu	xmm1, xmmword ptr [rbp - 24]
-        vpcmpneqb	k0, xmm0, xmmword ptr [rdi + 256]
-        vmovups	xmm0, xmmword ptr [rsi]
-        mov	rax, qword ptr [rsi + 16]
-        vpcmpneqb	k1, xmm1, xmmword ptr [rdi + 264]
-        mov	qword ptr [rdi + 272], rax
-        vmovups	xmmword ptr [rdi + 256], xmm0
-        kortestw	k0, k1
-        je	.LBB19_3
-        mov	rax, qword ptr [rdi + 296]
-        mov	rdx, rdi
-        test	rax, rax
-        je	.LBB19_3
-        mov	rdi, qword ptr [rdx + 288]
-        lea	rsi, [rbp - 32]
-        lea	rcx, [rbp - 64]
-        mov	word ptr [rbp - 24], 1
-        mov	qword ptr [rbp - 32], rcx
-        call	rax
+        movdqu	xmm0, xmmword ptr [rsi]
+        movdqa	xmmword ptr [rbp - 32], xmm0
+        lea	rax, [rdi + 256]
+        movdqu	xmm1, xmmword ptr [rdi + 256]
+        pcmpeqb	xmm1, xmm0
+        pmovmskb	ecx, xmm1
+        xor	ecx, 65535
+        je	.LBB19_2
+        movups	xmm0, xmmword ptr [rsi]
+        mov	rcx, qword ptr [rsi + 16]
+        mov	qword ptr [rax + 16], rcx
+        movups	xmmword ptr [rax], xmm0
+        jmp	.LBB19_3
+.LBB19_2:
+        movdqu	xmm0, xmmword ptr [rbp - 24]
+        movdqu	xmm1, xmmword ptr [rdx + 264]
+        pcmpeqb	xmm1, xmm0
+        pmovmskb	ecx, xmm1
+        xor	ecx, 65535
+        movups	xmm0, xmmword ptr [rsi]
+        mov	rcx, qword ptr [rsi + 16]
+        mov	qword ptr [rax + 16], rcx
+        movups	xmmword ptr [rax], xmm0
+        je	.LBB19_5
 .LBB19_3:
+        mov	rax, qword ptr [rdx + 296]
+        test	rax, rax
+        je	.LBB19_5
+        mov	rdi, qword ptr [rdx + 288]
+        mov	word ptr [rbp - 24], 1
+        lea	rcx, [rbp - 64]
+        mov	qword ptr [rbp - 32], rcx
+        lea	rsi, [rbp - 32]
+        call	rax
+.LBB19_5:
         add	rsp, 64
         pop	rbp
         ret
@@ -294,34 +329,44 @@ codegen_read_modify_write_medium:
         push	rbp
         mov	rbp, rsp
         sub	rsp, 64
-        vmovups	xmm0, xmmword ptr [rdi + 256]
+        mov	rdx, rdi
         mov	eax, dword ptr [rdi + 272]
         mov	ecx, dword ptr [rdi + 276]
-        inc	eax
-        vmovaps	xmmword ptr [rbp - 64], xmm0
+        add	eax, 1
+        movups	xmm0, xmmword ptr [rdi + 256]
+        movaps	xmmword ptr [rbp - 64], xmm0
         mov	dword ptr [rbp - 48], eax
         mov	dword ptr [rbp - 44], ecx
-        vmovdqu	xmm0, xmmword ptr [rdi + 256]
-        vmovdqa	xmmword ptr [rbp - 32], xmm0
+        movdqu	xmm0, xmmword ptr [rdi + 256]
+        movdqa	xmmword ptr [rbp - 32], xmm0
         mov	dword ptr [rbp - 16], eax
         mov	dword ptr [rbp - 12], ecx
-        vmovdqu	xmm1, xmmword ptr [rbp - 24]
-        vpcmpneqb	k0, xmm0, xmmword ptr [rdi + 256]
-        vpcmpneqb	k1, xmm1, xmmword ptr [rdi + 264]
-        mov	dword ptr [rdi + 272], eax
-        kortestw	k0, k1
-        je	.LBB20_3
-        mov	rax, qword ptr [rdi + 296]
-        mov	rdx, rdi
-        test	rax, rax
-        je	.LBB20_3
-        mov	rdi, qword ptr [rdx + 288]
-        lea	rsi, [rbp - 32]
-        lea	rcx, [rbp - 64]
-        mov	word ptr [rbp - 24], 1
-        mov	qword ptr [rbp - 32], rcx
-        call	rax
+        movdqu	xmm1, xmmword ptr [rdi + 256]
+        pcmpeqb	xmm1, xmm0
+        pmovmskb	ecx, xmm1
+        xor	ecx, 65535
+        je	.LBB20_2
+        mov	dword ptr [rdx + 272], eax
+        jmp	.LBB20_3
+.LBB20_2:
+        movdqu	xmm0, xmmword ptr [rbp - 24]
+        movdqu	xmm1, xmmword ptr [rdx + 264]
+        pcmpeqb	xmm1, xmm0
+        pmovmskb	ecx, xmm1
+        xor	ecx, 65535
+        mov	dword ptr [rdx + 272], eax
+        je	.LBB20_5
 .LBB20_3:
+        mov	rax, qword ptr [rdx + 296]
+        test	rax, rax
+        je	.LBB20_5
+        mov	rdi, qword ptr [rdx + 288]
+        mov	word ptr [rbp - 24], 1
+        lea	rcx, [rbp - 64]
+        mov	qword ptr [rbp - 32], rcx
+        lea	rsi, [rbp - 32]
+        call	rax
+.LBB20_5:
         add	rsp, 64
         pop	rbp
         ret
@@ -329,16 +374,16 @@ codegen_read_modify_write_medium:
 codegen_read_modify_write_big:
         push	rbp
         mov	rbp, rsp
-        inc	byte ptr [rdi]
+        add	byte ptr [rdi], 1
         pop	rbp
         ret
 
 codegen_setup_timer_callback:
         push	rbp
         mov	rbp, rsp
-        cmp	qword ptr [rdx + 8], 0
         mov	rcx, qword ptr [rsi]
         lea	rax, [rdx + 16]
+        cmp	qword ptr [rdx + 8], 0
         setne	r8b
         cmp	rcx, rax
         sete	r9b
@@ -379,9 +424,9 @@ codegen_setup_timer_callback:
         mov	rcx, qword ptr [rax]
         mov	qword ptr [r8], rcx
 .LBB22_11:
-        or	rdi, 1
         mov	qword ptr [rdx + 8], offset codegen_harness.timer_callback_read_write
         mov	dword ptr [rdx + 28], 100
+        or	rdi, 1
         mov	qword ptr [rdx], rdi
         mov	edi, dword ptr [rsi + 16]
         lea	ecx, [rdi + 100]
@@ -419,7 +464,7 @@ codegen_setup_timer_callback:
 codegen_harness.timer_callback_read_write:
         push	rbp
         mov	rbp, rsp
-        inc	dword ptr [rdi]
+        add	dword ptr [rdi], 1
         pop	rbp
         ret
 
@@ -447,7 +492,7 @@ codegen_read_write_read:
         push	rbp
         mov	rbp, rsp
         mov	eax, dword ptr [rdi]
-        inc	eax
+        add	eax, 1
         mov	dword ptr [rdi], eax
         pop	rbp
         ret
@@ -469,13 +514,13 @@ codegen_read_write_other_read:
         test	rcx, rcx
         je	.LBB27_3
         mov	rax, qword ptr [rdi + 16]
-        lea	rdx, [rbp - 17]
-        lea	rsi, [rbp - 40]
         mov	word ptr [rbp - 32], 1
-        mov	rbx, rdi
+        lea	rdx, [rbp - 17]
         mov	qword ptr [rbp - 40], rdx
-        mov	rdx, rbx
+        lea	rsi, [rbp - 40]
+        mov	rbx, rdi
         mov	rdi, rax
+        mov	rdx, rbx
         call	rcx
         mov	eax, dword ptr [rbx]
 .LBB27_3:
@@ -508,7 +553,7 @@ codegen_subscribe_callback:
 .LBB29_4:
         push	rbp
         mov	rbp, rsp
-        call	debug.panic__anon_4478
+        call	debug.panic__anon_4121
 
 codegen_harness.accumulate_callback:
         push	rbp
@@ -516,7 +561,7 @@ codegen_harness.accumulate_callback:
         mov	rax, qword ptr [rsi]
         cmp	byte ptr [rax], 0
         je	.LBB30_2
-        inc	dword ptr [rdx]
+        add	dword ptr [rdx], 1
 .LBB30_2:
         pop	rbp
         ret
@@ -530,15 +575,15 @@ codegen_write_triggering_callback:
         cmp	al, byte ptr [rdi + 4]
         mov	byte ptr [rdi + 4], 1
         je	.LBB125_3
-        mov	rax, qword ptr [rdi + 24]
         mov	rdx, rdi
+        mov	rax, qword ptr [rdi + 24]
         test	rax, rax
         je	.LBB125_3
         mov	rdi, qword ptr [rdx + 16]
-        lea	rsi, [rbp - 24]
-        lea	rcx, [rbp - 1]
         mov	word ptr [rbp - 16], 1
+        lea	rcx, [rbp - 1]
         mov	qword ptr [rbp - 24], rcx
+        lea	rsi, [rbp - 24]
         call	rax
 .LBB125_3:
         add	rsp, 32
@@ -579,8 +624,8 @@ codegen_cross_erd_compute:
         mov	rbp, rsp
         push	rbx
         sub	rsp, 24
-        movzx	eax, word ptr [rdi + 5]
         mov	rbx, rdi
+        movzx	eax, word ptr [rdi + 5]
         add	ax, word ptr [rdi]
         mov	word ptr [rbp - 10], ax
         movzx	ecx, byte ptr [rdi + 8]
@@ -600,22 +645,22 @@ codegen_cross_erd_compute:
         test	rax, rax
         je	.LBB128_3
         mov	rdi, qword ptr [rbx + 32]
-        lea	rcx, [rbp - 10]
-        lea	rsi, [rbp - 32]
         mov	word ptr [rbp - 24], 3
-        mov	rdx, rbx
+        lea	rcx, [rbp - 10]
         mov	qword ptr [rbp - 32], rcx
+        lea	rsi, [rbp - 32]
+        mov	rdx, rbx
         call	rax
 .LBB128_3:
         mov	rax, qword ptr [rbx + 56]
         test	rax, rax
         je	.LBB128_5
         mov	rdi, qword ptr [rbx + 48]
-        lea	rcx, [rbp - 10]
-        lea	rsi, [rbp - 32]
         mov	word ptr [rbp - 24], 3
-        mov	rdx, rbx
+        lea	rcx, [rbp - 10]
         mov	qword ptr [rbp - 32], rcx
+        lea	rsi, [rbp - 32]
+        mov	rdx, rbx
         call	rax
         add	rsp, 24
         pop	rbx
@@ -627,8 +672,8 @@ codegen_cross_system_read_add:
         mov	rbp, rsp
         mov	eax, dword ptr [rdi]
         movsxd	rcx, dword ptr [rsi]
-        movzx	edx, word ptr [rdi + 5]
         add	rcx, rax
+        movzx	edx, word ptr [rdi + 5]
         movsxd	rax, dword ptr [rsi + 4]
         add	rax, rdx
         add	rax, rcx
@@ -654,15 +699,15 @@ codegen_cross_system_swap:
         mov	dword ptr [rsi], eax
         cmp	ecx, eax
         je	.LBB131_3
-        mov	rax, qword ptr [rsi + 24]
         mov	rdx, rsi
+        mov	rax, qword ptr [rsi + 24]
         test	rax, rax
         je	.LBB131_3
         mov	rdi, qword ptr [rdx + 16]
-        lea	rsi, [rbp - 24]
-        lea	rcx, [rbp - 4]
         mov	word ptr [rbp - 16], 0
+        lea	rcx, [rbp - 4]
         mov	qword ptr [rbp - 24], rcx
+        lea	rsi, [rbp - 24]
         call	rax
 .LBB131_3:
         add	rsp, 32
@@ -683,13 +728,13 @@ codegen_write_u32_no_subs:
 
 ; --- called functions ---
 
-debug.panic__anon_4478:
+debug.panic__anon_4121:
         push	rbp
         mov	rbp, rsp
         sub	rsp, 16
         mov	rax, qword ptr [rbp + 8]
-        lea	rdi, [rbp - 16]
         mov	qword ptr [rbp - 16], rax
         mov	byte ptr [rbp - 8], 1
-        call	debug.panicExtra__anon_4487
+        lea	rdi, [rbp - 16]
+        call	debug.panicExtra__anon_4130
 
