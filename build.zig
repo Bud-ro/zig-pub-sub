@@ -82,15 +82,10 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(strip_asm);
 
-    const codegen_update_step = b.step("codegen-update", "Regenerate codegen/ assembly snapshots and sizes (POSIX only)");
-    const codegen_check_step = b.step("codegen-check", "Verify codegen/ snapshots are up-to-date (POSIX only, used in CI)");
+    const codegen_update_step = b.step("codegen-update", "Regenerate codegen/ assembly snapshots and sizes (Linux only)");
+    const codegen_check_step = b.step("codegen-check", "Verify codegen/ snapshots are up-to-date (Linux only, used in CI)");
 
-    const is_posix = switch (b.graph.host.result.os.tag) {
-        .windows => false,
-        else => true,
-    };
-
-    if (is_posix) {
+    if (b.graph.host.result.os.tag == .linux) {
         // TODO: Add Debug mode once Zig emits assembly for Debug objects (0.15 doesn't)
         const modes = [_]std.builtin.OptimizeMode{ .ReleaseSafe, .ReleaseSmall, .ReleaseFast };
         const mode_names = [_][]const u8{ "ReleaseSafe", "ReleaseSmall", "ReleaseFast" };

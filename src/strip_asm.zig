@@ -61,8 +61,18 @@ fn extractCallTarget(line: []const u8) ?[]const u8 {
             break :blk std.mem.trim(u8, trimmed[3..], " \t");
         return null;
     };
-    if (target_str.len == 0 or target_str[0] == '*' or target_str[0] == 'r' or target_str[0] == '.') return null;
+    if (target_str.len == 0 or target_str[0] == '*' or target_str[0] == '.') return null;
+    if (isRegister(target_str)) return null;
     return target_str;
+}
+
+fn isRegister(name: []const u8) bool {
+    const registers = [_][]const u8{
+        "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp",
+        "r8",  "r9",  "r10", "r11", "r12", "r13", "r14", "r15",
+    };
+    for (registers) |r| if (std.mem.eql(u8, name, r)) return true;
+    return false;
 }
 
 fn extractFunc(
@@ -312,10 +322,14 @@ test "extractCallTarget parses call and jmp instructions" {
     try testing.expectEqualStrings("foo", extractCallTarget("call foo").?);
     try testing.expectEqualStrings("my_func", extractCallTarget("        jmp\tmy_func").?);
     try testing.expectEqualStrings("foo", extractCallTarget("jmp foo").?);
+    try testing.expectEqualStrings("read_helper", extractCallTarget("        call\tread_helper").?);
+    try testing.expectEqualStrings("ram_data_component.write", extractCallTarget("        jmp\tram_data_component.write").?);
     try testing.expectEqual(null, extractCallTarget("        call\t*rax"));
     try testing.expectEqual(null, extractCallTarget("        call\trax"));
+    try testing.expectEqual(null, extractCallTarget("        call\tr12"));
     try testing.expectEqual(null, extractCallTarget("        jmp\t.LBB0_1"));
     try testing.expectEqual(null, extractCallTarget("        jmp\trax"));
+    try testing.expectEqual(null, extractCallTarget("        jmp\trsp"));
     try testing.expectEqual(null, extractCallTarget("        mov eax, 1"));
     try testing.expectEqual(null, extractCallTarget(""));
 }
