@@ -10,4 +10,5 @@ comptime {
     _ = @import("common/erd_logic.zig");
     _ = @import("common/stopwatch.zig");
     _ = @import("common/timer_stats.zig");
+    _ = @import("strip_asm.zig");
 }

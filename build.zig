@@ -70,4 +70,6 @@ pub fn build(b: *std.Build) void {
     const tests_install = b.addInstallArtifact(tests, .{ .dest_dir = .default });
     const test_no_run_step = b.step("test_no_run", "Build unit tests but don't run them");
     test_no_run_step.dependOn(&tests_install.step);
+
+    @import("build_codegen.zig").setup(b, target, optimize, sometimes_disabled_mod);
 }

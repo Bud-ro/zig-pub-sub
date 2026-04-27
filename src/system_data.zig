@@ -124,7 +124,8 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         /// This will be significantly slower than a comptime read, and should only be used sparingly, for example:
         /// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
         /// - Reading an ERD using info from an on-change callback
-        pub fn runtime_read(this: Self, system_data_idx: u16, data: *anyopaque) void {
+        // noinline so the dispatch logic is shared across all call sites.
+        pub noinline fn runtime_read(this: Self, system_data_idx: u16, data: *anyopaque) void {
             const component_idx = component_idx_from_system_idx[system_data_idx];
             const data_component_idx = data_component_idx_from_system_idx[system_data_idx];
 
@@ -138,6 +139,12 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
         /// Write to an ERD by-value using comptime information (the `Erd` type)
         /// Due to the performance and code size benefits, this should be preferred over `runtime_write`.
+        ///
+        /// Two comptime-selected write paths:
+        /// - With subscribers: calls component.write() which returns whether the
+        ///   value changed. Publishes only if the component reports a change.
+        ///   The comparison strategy is owned by the data component, not SystemData.
+        /// - Without subscribers: calls write_no_compare, skipping comparison entirely.
         pub fn write(this: *Self, comptime erd_enum: ErdEnum, data: erd_from_enum(erd_enum).T) void {
             const erd: Erd = erd_from_enum(erd_enum);
 
@@ -147,14 +154,22 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
                 }
             }
 
-            const publish_required = inline for (component_fields, 0..) |field, i| {
-                if (erd.component_idx == i) {
-                    break @field(this.components, field.name).write(erd, data);
-                }
-            } else unreachable;
+            if (erd.subs != 0) {
+                const publish_required = inline for (component_fields, 0..) |field, i| {
+                    if (erd.component_idx == i) {
+                        break @field(this.components, field.name).write(erd, data);
+                    }
+                } else unreachable;
 
-            if (publish_required and erd.subs != 0) {
-                this.publish(erd.system_data_idx, &data);
+                if (publish_required) {
+                    this.publish(erd.system_data_idx, &data);
+                }
+            } else {
+                inline for (component_fields, 0..) |field, i| {
+                    if (erd.component_idx == i) {
+                        @field(this.components, field.name).write_no_compare(erd, data);
+                    }
+                }
             }
         }
 
@@ -164,7 +179,8 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         /// - Writing an ERD using info from an on-change callback (common for ERD multiplexers)
         ///
         /// NOTE: `data` must be aligned!
-        pub fn runtime_write(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
+        // noinline so the dispatch logic is shared across all call sites.
+        pub noinline fn runtime_write(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
             const component_idx = component_idx_from_system_idx[system_data_idx];
             const data_component_idx = data_component_idx_from_system_idx[system_data_idx];
 
@@ -182,7 +198,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             }
         }
 
-        fn publish(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
+        noinline fn publish(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
             const sub_offset = subscription_offsets[system_data_idx];
 
             for (this.subscriptions[sub_offset .. sub_offset + subs_from_idx[system_data_idx]]) |_sub| {
