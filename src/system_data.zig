@@ -140,15 +140,10 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         /// Due to the performance and code size benefits, this should be preferred over `runtime_write`.
         ///
         /// Two comptime-selected write paths:
-        /// - With subscribers: read old value via this.read(), write unconditionally
-        ///   via write_no_compare, then compare old vs new with std.meta.eql. Only
-        ///   publishes if the value actually changed. Using typed comparison (not byte
-        ///   comparison) lets LLVM see field-level relationships and eliminate unchanged
-        ///   field comparisons in read-modify-write patterns.
-        /// - Without subscribers: write unconditionally, skip comparison entirely.
-        ///
-        /// This approach works with any data component (RAM, flash, etc.) since it
-        /// only uses the read/write_no_compare interface — no direct storage access.
+        /// - With subscribers: calls component.write() which returns whether the
+        ///   value changed. Publishes only if the component reports a change.
+        ///   The comparison strategy is owned by the data component, not SystemData.
+        /// - Without subscribers: calls write_no_compare, skipping comparison entirely.
         pub fn write(this: *Self, comptime erd_enum: ErdEnum, data: erd_from_enum(erd_enum).T) void {
             const erd: Erd = erd_from_enum(erd_enum);
 
@@ -159,13 +154,13 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             }
 
             if (erd.subs != 0) {
-                const old = this.read(erd_enum);
-                inline for (component_fields, 0..) |field, i| {
+                const publish_required = inline for (component_fields, 0..) |field, i| {
                     if (erd.component_idx == i) {
-                        @field(this.components, field.name).write_no_compare(erd, data);
+                        break @field(this.components, field.name).write(erd, data);
                     }
-                }
-                if (!std.meta.eql(old, data)) {
+                } else unreachable;
+
+                if (publish_required) {
                     this.publish(erd.system_data_idx, &data);
                 }
             } else {
@@ -201,9 +196,6 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             }
         }
 
-        // noinline prevents LLVM from duplicating the subscription loop at every
-        // write call site. Without this, each write-with-subs inlines N null-check +
-        // indirect-call sequences (one per subscription slot), bloating code size.
         noinline fn publish(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
             const sub_offset = subscription_offsets[system_data_idx];
 

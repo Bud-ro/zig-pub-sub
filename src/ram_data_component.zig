@@ -65,6 +65,35 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             @memcpy(data_slice[0..size], self.storage[ram_offsets[data_component_idx] .. ram_offsets[data_component_idx] + size]);
         }
 
+        /// Write and return whether the value changed (for on-change publish).
+        /// Uses two comparison strategies depending on type size:
+        /// - ≤ 8 bytes: integer comparison via readInt (single cmp instruction)
+        /// - > 8 bytes: typed comparison via std.meta.eql, which lets LLVM see
+        ///   field-level relationships and eliminate unchanged field comparisons
+        ///   in read-modify-write patterns
+        pub fn write(self: *Self, erd: Erd, data: erd.T) bool {
+            const idx = erd.data_component_idx;
+            const N = @sizeOf(erd.T);
+            const data_bytes = std.mem.toBytes(data);
+
+            if (N <= 8) {
+                const stored: *[N]u8 = self.storage[ram_offsets[idx]..][0..N];
+                const data_changed = bytesChanged(stored, &data_bytes);
+                stored.* = data_bytes;
+                return data_changed;
+            } else {
+                const old = self.read(erd);
+                self.storage[ram_offsets[idx]..][0..N].* = data_bytes;
+                return !std.meta.eql(old, data);
+            }
+        }
+
+        fn bytesChanged(a: anytype, b: anytype) bool {
+            const len = @typeInfo(@TypeOf(a.*)).array.len;
+            const Int = std.meta.Int(.unsigned, len * 8);
+            return std.mem.readInt(Int, a, .little) != std.mem.readInt(Int, b, .little);
+        }
+
         pub fn write_no_compare(self: *Self, erd: Erd, data: erd.T) void {
             const idx = erd.data_component_idx;
             self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = std.mem.toBytes(data);
