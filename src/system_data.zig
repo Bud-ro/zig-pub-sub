@@ -148,14 +148,27 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             }
 
             if (erd.subs != 0) {
-                const publish_required = inline for (component_fields, 0..) |field, i| {
-                    if (erd.component_idx == i) {
-                        break @field(this.components, field.name).write(erd, data);
+                const T = erd_from_enum(erd_enum).T;
+                if (@typeInfo(T) == .@"struct") {
+                    const old = this.read(erd_enum);
+                    inline for (component_fields, 0..) |field, i| {
+                        if (erd.component_idx == i) {
+                            @field(this.components, field.name).write_no_compare(erd, data);
+                        }
                     }
-                } else unreachable;
+                    if (!std.meta.eql(old, data)) {
+                        this.publish(erd.system_data_idx, &data);
+                    }
+                } else {
+                    const publish_required = inline for (component_fields, 0..) |field, i| {
+                        if (erd.component_idx == i) {
+                            break @field(this.components, field.name).write(erd, data);
+                        }
+                    } else unreachable;
 
-                if (publish_required) {
-                    this.publish(erd.system_data_idx, &data);
+                    if (publish_required) {
+                        this.publish(erd.system_data_idx, &data);
+                    }
                 }
             } else {
                 inline for (component_fields, 0..) |field, i| {
