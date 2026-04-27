@@ -84,9 +84,12 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             return data_changed;
         }
 
-        // Unconditional store with no old-vs-new comparison. Used by two paths:
-        // 1. Zero-subscriber ERDs where the comparison result would be discarded
-        // 2. Struct ERDs where the comparison is done at the type level in system_data
+        pub fn storagePtr(self: *Self, erd: Erd) [*]u8 {
+            return self.storage[ram_offsets[erd.data_component_idx]..].ptr;
+        }
+
+        // Unconditional store with no old-vs-new comparison.
+        // Used for zero-subscriber ERDs where the comparison result would be discarded.
         pub fn write_no_compare(self: *Self, erd: Erd, data: erd.T) void {
             const idx = erd.data_component_idx;
             self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = std.mem.toBytes(data);

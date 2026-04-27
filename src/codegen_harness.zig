@@ -364,3 +364,47 @@ export fn codegen_cross_system_swap(sd_a: *SmallSD, sd_b: *OtherSD) void {
     sd_a.write(.version, b);
     sd_b.write(.sensor_a, @bitCast(a));
 }
+
+// ===========================================================================
+// Multi-write patterns — verify LLVM eliminates redundant checks
+// ===========================================================================
+
+// Writing the same value twice: second write should be eliminated or at
+// minimum the second publish should be skipped since the value hasn't changed.
+export fn codegen_double_write_same_value(sd: *SmallSD) void {
+    sd.write(.flag, true);
+    sd.write(.flag, true);
+}
+
+// Writing different values: both writes must happen, but only the value that
+// actually differs from storage should trigger a publish.
+export fn codegen_double_write_diff_values(sd: *SmallSD) void {
+    sd.write(.flag, true);
+    sd.write(.flag, false);
+}
+
+// Write, read something unrelated, write again. The junk read shouldn't
+// prevent LLVM from reasoning about the two writes.
+export fn codegen_write_junk_read_write(sd: *SmallSD) void {
+    sd.write(.subscribable_u16, 1);
+    _ = sd.read(.version);
+    sd.write(.subscribable_u16, 2);
+}
+
+// Triple write to the same ERD with incrementing values.
+export fn codegen_triple_write_increment(sd: *SmallSD) void {
+    sd.write(.subscribable_u16, 1);
+    sd.write(.subscribable_u16, 2);
+    sd.write(.subscribable_u16, 3);
+}
+
+// Read-modify-write twice on a struct: change different fields each time.
+export fn codegen_double_rmw_struct(sd: *HugeSD) void {
+    var val = sd.read(.medium);
+    val.c +%= 1;
+    sd.write(.medium, val);
+
+    var val2 = sd.read(.medium);
+    val2.a +%= 1;
+    sd.write(.medium, val2);
+}
