@@ -168,80 +168,64 @@ codegen_write_big_struct:
 codegen_write_medium_with_subs:
         push	rbp
         mov	rbp, rsp
-        sub	rsp, 64
+        sub	rsp, 32
         mov	rax, qword ptr [rsi + 16]
         mov	qword ptr [rbp - 16], rax
         movups	xmm0, xmmword ptr [rsi]
         movaps	xmmword ptr [rbp - 32], xmm0
-        mov	rax, qword ptr [rsi + 16]
-        mov	qword ptr [rbp - 48], rax
-        movdqu	xmm0, xmmword ptr [rsi]
-        movdqa	xmmword ptr [rbp - 64], xmm0
-        lea	rax, [rdi + 256]
-        movdqu	xmm1, xmmword ptr [rdi + 256]
-        pcmpeqb	xmm1, xmm0
-        pmovmskb	ecx, xmm1
-        xor	ecx, 65535
+        mov	rax, qword ptr [rsi]
+        mov	rcx, qword ptr [rsi + 8]
+        mov	rdx, qword ptr [rsi + 16]
+        mov	rsi, qword ptr [rdi + 272]
+        xor	rsi, rdx
+        mov	r8, qword ptr [rdi + 256]
+        xor	r8, rax
+        or	r8, rsi
+        mov	rsi, qword ptr [rdi + 264]
+        xor	rsi, rcx
+        or	rsi, r8
+        mov	qword ptr [rdi + 272], rdx
+        mov	qword ptr [rdi + 256], rax
+        mov	qword ptr [rdi + 264], rcx
         je	.LBB21_2
-        movups	xmm0, xmmword ptr [rsi]
-        mov	rcx, qword ptr [rsi + 16]
-        mov	qword ptr [rax + 16], rcx
-        movups	xmmword ptr [rax], xmm0
-        jmp	.LBB21_3
-.LBB21_2:
-        movdqu	xmm0, xmmword ptr [rdi + 264]
-        movdqu	xmm1, xmmword ptr [rbp - 56]
-        pcmpeqb	xmm1, xmm0
-        pmovmskb	ecx, xmm1
-        xor	ecx, 65535
-        movups	xmm0, xmmword ptr [rsi]
-        mov	rcx, qword ptr [rsi + 16]
-        mov	qword ptr [rax + 16], rcx
-        movups	xmmword ptr [rax], xmm0
-        je	.LBB21_4
-.LBB21_3:
         lea	rsi, [rbp - 32]
-        call	"system_data.SystemData(codegen_harness.HugeSystem__struct_3683,meta.FieldEnum(codegen_harness.HugeSystem__struct_3683),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).publish"
-.LBB21_4:
-        add	rsp, 64
+        call	"system_data.SystemData(codegen_harness.HugeSystem__struct_3681,meta.FieldEnum(codegen_harness.HugeSystem__struct_3681),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).publish"
+.LBB21_2:
+        add	rsp, 32
         pop	rbp
         ret
 
 codegen_read_modify_write_medium:
         push	rbp
         mov	rbp, rsp
-        sub	rsp, 64
-        mov	eax, dword ptr [rdi + 272]
-        mov	ecx, dword ptr [rdi + 276]
-        add	eax, 1
-        movups	xmm0, xmmword ptr [rdi + 256]
-        movaps	xmmword ptr [rbp - 32], xmm0
-        mov	dword ptr [rbp - 16], eax
-        mov	dword ptr [rbp - 12], ecx
-        movdqu	xmm0, xmmword ptr [rdi + 256]
-        movdqa	xmmword ptr [rbp - 64], xmm0
-        mov	dword ptr [rbp - 48], eax
-        mov	dword ptr [rbp - 44], ecx
-        movdqu	xmm1, xmmword ptr [rdi + 256]
-        pcmpeqb	xmm1, xmm0
-        pmovmskb	ecx, xmm1
-        xor	ecx, 65535
+        sub	rsp, 32
+        mov	rax, qword ptr [rdi + 256]
+        mov	rcx, qword ptr [rdi + 264]
+        mov	edx, dword ptr [rdi + 272]
+        mov	esi, dword ptr [rdi + 276]
+        add	edx, 1
+        mov	qword ptr [rbp - 24], rcx
+        mov	qword ptr [rbp - 32], rax
+        mov	dword ptr [rbp - 16], edx
+        mov	dword ptr [rbp - 12], esi
+        shl	rsi, 32
+        or	rdx, rsi
+        mov	rsi, qword ptr [rdi + 272]
+        xor	rsi, rdx
+        mov	r8, qword ptr [rdi + 256]
+        xor	r8, rax
+        or	r8, rsi
+        mov	rsi, qword ptr [rdi + 264]
+        xor	rsi, rcx
+        or	rsi, r8
+        mov	qword ptr [rdi + 256], rax
+        mov	qword ptr [rdi + 264], rcx
+        mov	qword ptr [rdi + 272], rdx
         je	.LBB23_2
-        mov	dword ptr [rdi + 272], eax
-        jmp	.LBB23_3
-.LBB23_2:
-        movdqu	xmm0, xmmword ptr [rdi + 264]
-        movdqu	xmm1, xmmword ptr [rbp - 56]
-        pcmpeqb	xmm1, xmm0
-        pmovmskb	ecx, xmm1
-        xor	ecx, 65535
-        mov	dword ptr [rdi + 272], eax
-        je	.LBB23_4
-.LBB23_3:
         lea	rsi, [rbp - 32]
-        call	"system_data.SystemData(codegen_harness.HugeSystem__struct_3683,meta.FieldEnum(codegen_harness.HugeSystem__struct_3683),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).publish"
-.LBB23_4:
-        add	rsp, 64
+        call	"system_data.SystemData(codegen_harness.HugeSystem__struct_3681,meta.FieldEnum(codegen_harness.HugeSystem__struct_3681),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).publish"
+.LBB23_2:
+        add	rsp, 32
         pop	rbp
         ret
 
@@ -418,7 +402,7 @@ codegen_subscribe_callback:
 .LBB32_4:
         push	rbp
         mov	rbp, rsp
-        call	debug.panic__anon_4180
+        call	debug.panic__anon_4181
 
 codegen_harness.accumulate_callback:
         push	rbp
@@ -646,7 +630,7 @@ codegen_write_u32_no_subs:
         pop	rbp
         ret
 
-"system_data.SystemData(codegen_harness.HugeSystem__struct_3683,meta.FieldEnum(codegen_harness.HugeSystem__struct_3683),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).publish":
+"system_data.SystemData(codegen_harness.HugeSystem__struct_3681,meta.FieldEnum(codegen_harness.HugeSystem__struct_3681),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).publish":
         mov	rax, qword ptr [rdi + 296]
         test	rax, rax
         je	.LBB22_2
@@ -664,7 +648,7 @@ codegen_write_u32_no_subs:
 .LBB22_2:
         ret
 
-debug.panic__anon_4180:
+debug.panic__anon_4181:
         push	rbp
         mov	rbp, rsp
         sub	rsp, 16
@@ -672,7 +656,7 @@ debug.panic__anon_4180:
         mov	qword ptr [rbp - 16], rax
         mov	byte ptr [rbp - 8], 1
         lea	rdi, [rbp - 16]
-        call	debug.panicExtra__anon_4189
+        call	debug.panicExtra__anon_4190
 
 "system_data.SystemData(codegen_harness.OtherSystem__struct_2193,meta.FieldEnum(codegen_harness.OtherSystem__struct_2193),.{ .sensor_a = .{ ... }, .sensor_b = .{ ... }, .output = .{ ... } },testing.create.Components).publish":
         mov	rax, qword ptr [rdi + 24]

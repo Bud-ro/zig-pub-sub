@@ -17,6 +17,7 @@
 70	codegen_cross_system_read_write
 87	codegen_read_u32_after_big
 107	codegen_dual_read
+108	codegen_write_medium_with_subs
 126	codegen_read_write_read
 128	codegen_many_read_first
 129	codegen_cross_system_swap
@@ -25,7 +26,6 @@
 138	codegen_many_read_last
 142	codegen_cross_erd_compute
 142	codegen_triple_read_same_erd
-145	codegen_write_medium_with_subs
 148	codegen_read_then_branch
 155	codegen_read_across_two_erds
 169	codegen_increment_n_times
@@ -34,5 +34,5 @@
 208	codegen_cross_system_read_add
 215	codegen_read_big_struct
 228	codegen_conditional_write_chain
+247	codegen_read_modify_write_medium
 249	codegen_setup_timer_callback
-261	codegen_read_modify_write_medium

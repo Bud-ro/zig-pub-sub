@@ -33,6 +33,6 @@
 44	codegen_cross_system_swap
 49	codegen_cross_erd_compute
 62	codegen_read_write_other_read
-145	codegen_write_medium_with_subs
-153	codegen_read_modify_write_medium
+108	codegen_write_medium_with_subs
+132	codegen_read_modify_write_medium
 224	codegen_setup_timer_callback

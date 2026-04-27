@@ -5,6 +5,12 @@
 const std = @import("std");
 const Erd = @import("erd.zig");
 
+pub fn bytesChanged(a: anytype, b: anytype) bool {
+    const len = @typeInfo(@TypeOf(a.*)).array.len;
+    const Int = std.meta.Int(.unsigned, len * 8);
+    return std.mem.readInt(Int, a, .little) != std.mem.readInt(Int, b, .little);
+}
+
 pub fn RamDataComponent(comptime erds: []const Erd) type {
     return struct {
         const Self = @This();
@@ -72,15 +78,6 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             const data_changed = bytesChanged(stored, &data_bytes);
             stored.* = data_bytes;
             return data_changed;
-        }
-
-        fn bytesChanged(a: anytype, b: anytype) bool {
-            const len = @typeInfo(@TypeOf(a.*)).array.len;
-            if (len <= 8) {
-                const Int = std.meta.Int(.unsigned, len * 8);
-                return std.mem.readInt(Int, a, .little) != std.mem.readInt(Int, b, .little);
-            }
-            return !std.mem.eql(u8, a, b);
         }
 
         pub fn write_no_compare(self: *Self, erd: Erd, data: erd.T) void {
