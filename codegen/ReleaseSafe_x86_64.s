@@ -88,69 +88,39 @@ codegen_write_u16_no_subs:
 codegen_write_bool_with_subs:
         push	rbp
         mov	rbp, rsp
-        sub	rsp, 32
+        sub	rsp, 16
         mov	byte ptr [rbp - 1], sil
-        cmp	sil, byte ptr [rdi + 4]
+        cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
-        je	.LBB189_3
-        mov	rdx, rdi
-        mov	rax, qword ptr [rdi + 24]
-        test	rax, rax
-        je	.LBB189_3
-        mov	rdi, qword ptr [rdx + 16]
-        mov	word ptr [rbp - 16], 1
-        lea	rcx, [rbp - 1]
-        mov	qword ptr [rbp - 24], rcx
-        lea	rsi, [rbp - 24]
-        call	rax
-.LBB189_3:
-        add	rsp, 32
+        je	.LBB189_2
+        lea	rdx, [rbp - 1]
+        mov	esi, 1
+        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).publish"
+.LBB189_2:
+        add	rsp, 16
         pop	rbp
         ret
 
 codegen_write_u16_with_subs:
         push	rbp
         mov	rbp, rsp
-        push	rbx
-        sub	rsp, 24
-        mov	rbx, rdi
-        mov	word ptr [rbp - 10], si
+        sub	rsp, 16
+        mov	word ptr [rbp - 2], si
         movzx	eax, byte ptr [rdi + 8]
         cmp	byte ptr [rdi + 7], sil
         mov	word ptr [rdi + 7], si
-        jne	.LBB190_2
+        jne	.LBB191_2
         shr	esi, 8
         cmp	al, sil
-        jne	.LBB190_2
-.LBB190_5:
-        add	rsp, 24
-        pop	rbx
+        jne	.LBB191_2
+        add	rsp, 16
         pop	rbp
         ret
-.LBB190_2:
-        mov	rax, qword ptr [rbx + 40]
-        test	rax, rax
-        je	.LBB190_3
-        mov	rdi, qword ptr [rbx + 32]
-        mov	word ptr [rbp - 24], 3
-        lea	rcx, [rbp - 10]
-        mov	qword ptr [rbp - 32], rcx
-        lea	rsi, [rbp - 32]
-        mov	rdx, rbx
-        call	rax
-.LBB190_3:
-        mov	rax, qword ptr [rbx + 56]
-        test	rax, rax
-        je	.LBB190_5
-        mov	rdi, qword ptr [rbx + 48]
-        mov	word ptr [rbp - 24], 3
-        lea	rcx, [rbp - 10]
-        mov	qword ptr [rbp - 32], rcx
-        lea	rsi, [rbp - 32]
-        mov	rdx, rbx
-        call	rax
-        add	rsp, 24
-        pop	rbx
+.LBB191_2:
+        lea	rdx, [rbp - 2]
+        mov	esi, 3
+        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).publish"
+        add	rsp, 16
         pop	rbp
         ret
 
@@ -170,12 +140,12 @@ codegen_runtime_read_u32:
         cmp	rdx, rcx
         setae	cl
         or	cl, al
-        je	.LBB191_2
+        je	.LBB192_2
         mov	eax, dword ptr [rbp - 32]
         add	rsp, 32
         pop	rbp
         ret
-.LBB191_2:
+.LBB192_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_runtime_write_u32:
@@ -185,10 +155,10 @@ codegen_runtime_write_u32:
         cmp	rax, offset __anon_17845
         setbe	al
         or	al, cl
-        je	.LBB192_2
+        je	.LBB193_2
         mov	dword ptr [rdi], -559038737
         ret
-.LBB192_2:
+.LBB193_2:
         push	rbp
         mov	rbp, rsp
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
@@ -209,7 +179,7 @@ codegen_dual_read:
         cmp	rdx, rcx
         setae	cl
         or	cl, al
-        je	.LBB193_2
+        je	.LBB194_2
         mov	ecx, dword ptr [rbp - 32]
         movups	xmm0, xmmword ptr [rsi]
         movaps	xmmword ptr [rbp - 32], xmm0
@@ -218,7 +188,7 @@ codegen_dual_read:
         add	rsp, 32
         pop	rbp
         ret
-.LBB193_2:
+.LBB194_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_dual_write:
@@ -259,12 +229,12 @@ codegen_many_read_first:
         cmp	rdx, rcx
         setae	cl
         or	cl, al
-        je	.LBB195_2
+        je	.LBB196_2
         movzx	eax, byte ptr [rbp - 128]
         add	rsp, 128
         pop	rbp
         ret
-.LBB195_2:
+.LBB196_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_many_read_middle:
@@ -297,12 +267,12 @@ codegen_many_read_middle:
         cmp	rax, rdx
         setae	al
         or	al, cl
-        je	.LBB196_2
+        je	.LBB197_2
         mov	eax, dword ptr [rbp - 80]
         add	rsp, 128
         pop	rbp
         ret
-.LBB196_2:
+.LBB197_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_many_read_last:
@@ -336,69 +306,34 @@ codegen_many_read_last:
         cmp	rax, rdx
         setae	al
         or	al, cl
-        je	.LBB197_2
+        je	.LBB198_2
         mov	rax, qword ptr [rbp - 16]
         add	rsp, 128
         pop	rbp
         ret
-.LBB197_2:
+.LBB198_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_many_write_last_with_subs:
         push	rbp
         mov	rbp, rsp
-        push	rbx
-        sub	rsp, 24
-        mov	rbx, rdi
-        mov	qword ptr [rbp - 32], rsi
+        sub	rsp, 16
+        mov	qword ptr [rbp - 8], rsi
         mov	rcx, rsi
         shr	rcx, 32
         mov	eax, dword ptr [rdi + 112]
         cmp	dword ptr [rdi + 116], ecx
         mov	qword ptr [rdi + 112], rsi
-        jne	.LBB198_2
+        jne	.LBB199_2
         cmp	eax, esi
-        jne	.LBB198_2
-.LBB198_7:
-        add	rsp, 24
-        pop	rbx
+        jne	.LBB199_2
+        add	rsp, 16
         pop	rbp
         ret
-.LBB198_2:
-        mov	rax, qword ptr [rbx + 144]
-        test	rax, rax
-        je	.LBB198_3
-        mov	rdi, qword ptr [rbx + 136]
-        mov	word ptr [rbp - 16], 31
-        lea	rcx, [rbp - 32]
-        mov	qword ptr [rbp - 24], rcx
-        lea	rsi, [rbp - 24]
-        mov	rdx, rbx
-        call	rax
-.LBB198_3:
-        mov	rax, qword ptr [rbx + 160]
-        test	rax, rax
-        je	.LBB198_5
-        mov	rdi, qword ptr [rbx + 152]
-        mov	word ptr [rbp - 16], 31
-        lea	rcx, [rbp - 32]
-        mov	qword ptr [rbp - 24], rcx
-        lea	rsi, [rbp - 24]
-        mov	rdx, rbx
-        call	rax
-.LBB198_5:
-        mov	rax, qword ptr [rbx + 176]
-        test	rax, rax
-        je	.LBB198_7
-        mov	rdi, qword ptr [rbx + 168]
-        mov	word ptr [rbp - 16], 31
-        lea	rcx, [rbp - 32]
-        mov	qword ptr [rbp - 24], rcx
-        lea	rsi, [rbp - 24]
-        mov	rdx, rbx
-        call	rax
-        add	rsp, 24
-        pop	rbx
+.LBB199_2:
+        lea	rsi, [rbp - 8]
+        call	"system_data.SystemData(codegen_harness.ManyErdsSystem__struct_18241,meta.FieldEnum(codegen_harness.ManyErdsSystem__struct_18241),.{ .e00 = .{ ... }, .e01 = .{ ... }, .e02 = .{ ... }, .e03 = .{ ... }, .e04 = .{ ... }, .e05 = .{ ... }, .e06 = .{ ... }, .e07 = .{ ... }, .e08 = .{ ... }, .e09 = .{ ... }, .e10 = .{ ... }, .e11 = .{ ... }, .e12 = .{ ... }, .e13 = .{ ... }, .e14 = .{ ... }, .e15 = .{ ... }, .e16 = .{ ... }, .e17 = .{ ... }, .e18 = .{ ... }, .e19 = .{ ... }, .e20 = .{ ... }, .e21 = .{ ... }, .e22 = .{ ... }, .e23 = .{ ... }, .e24 = .{ ... }, .e25 = .{ ... }, .e26 = .{ ... }, .e27 = .{ ... }, .e28 = .{ ... }, .e29 = .{ ... }, .e30 = .{ ... }, .e31 = .{ ... } },testing.create.Components).publish"
+        add	rsp, 16
         pop	rbp
         ret
 
@@ -422,7 +357,7 @@ codegen_read_big_struct:
         mov	edx, 288
         mov	rdi, r15
         call	memcpy@PLT
-        movaps	xmm0, xmmword ptr [rip + .LCPI200_0]
+        movaps	xmm0, xmmword ptr [rip + .LCPI202_0]
         movaps	xmmword ptr [rbp - 288], xmm0
         movaps	xmmword ptr [rbp - 272], xmm0
         movaps	xmmword ptr [rbp - 256], xmm0
@@ -447,7 +382,7 @@ codegen_read_big_struct:
         cmp	r15, rcx
         setae	cl
         or	cl, al
-        je	.LBB200_2
+        je	.LBB202_2
         mov	edx, 256
         mov	rdi, rbx
         mov	rsi, r14
@@ -459,7 +394,7 @@ codegen_read_big_struct:
         pop	r15
         pop	rbp
         ret
-.LBB200_2:
+.LBB202_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_read_medium_struct:
@@ -473,7 +408,7 @@ codegen_read_medium_struct:
         lea	rdi, [rbp - 336]
         mov	edx, 288
         call	memcpy@PLT
-        movaps	xmm0, xmmword ptr [rip + .LCPI201_0]
+        movaps	xmm0, xmmword ptr [rip + .LCPI203_0]
         movaps	xmmword ptr [rbp - 48], xmm0
         movabs	rax, -6148914691236517206
         mov	qword ptr [rbp - 32], rax
@@ -486,7 +421,7 @@ codegen_read_medium_struct:
         cmp	rax, rdx
         setae	al
         or	al, cl
-        je	.LBB201_2
+        je	.LBB203_2
         mov	rax, qword ptr [r14 + 272]
         mov	qword ptr [rbx + 16], rax
         movups	xmm0, xmmword ptr [r14 + 256]
@@ -497,7 +432,7 @@ codegen_read_medium_struct:
         pop	r14
         pop	rbp
         ret
-.LBB201_2:
+.LBB203_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_read_u32_after_big:
@@ -518,79 +453,47 @@ codegen_read_u32_after_big:
         cmp	rax, rdx
         setae	al
         or	al, cl
-        je	.LBB202_2
+        je	.LBB204_2
         mov	eax, dword ptr [rbp - 16]
         add	rsp, 304
         pop	rbp
         ret
-.LBB202_2:
+.LBB204_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_write_big_struct:
         push	rbp
         mov	rbp, rsp
-        movups	xmm0, xmmword ptr [rsi]
-        movups	xmm1, xmmword ptr [rsi + 16]
-        movups	xmm2, xmmword ptr [rsi + 32]
-        movups	xmm3, xmmword ptr [rsi + 48]
-        movups	xmm4, xmmword ptr [rsi + 64]
-        movups	xmm5, xmmword ptr [rsi + 80]
-        movups	xmm6, xmmword ptr [rsi + 96]
-        movups	xmm7, xmmword ptr [rsi + 112]
-        movups	xmm8, xmmword ptr [rsi + 128]
-        movups	xmm9, xmmword ptr [rsi + 144]
-        movups	xmm10, xmmword ptr [rsi + 160]
-        movups	xmm11, xmmword ptr [rsi + 176]
-        movups	xmm12, xmmword ptr [rsi + 192]
-        movups	xmm13, xmmword ptr [rsi + 208]
-        movups	xmm14, xmmword ptr [rsi + 224]
-        movups	xmm15, xmmword ptr [rsi + 240]
-        movups	xmmword ptr [rdi], xmm0
-        movups	xmmword ptr [rdi + 16], xmm1
-        movups	xmmword ptr [rdi + 32], xmm2
-        movups	xmmword ptr [rdi + 48], xmm3
-        movups	xmmword ptr [rdi + 64], xmm4
-        movups	xmmword ptr [rdi + 80], xmm5
-        movups	xmmword ptr [rdi + 96], xmm6
-        movups	xmmword ptr [rdi + 112], xmm7
-        movups	xmmword ptr [rdi + 128], xmm8
-        movups	xmmword ptr [rdi + 144], xmm9
-        movups	xmmword ptr [rdi + 160], xmm10
-        movups	xmmword ptr [rdi + 176], xmm11
-        movups	xmmword ptr [rdi + 192], xmm12
-        movups	xmmword ptr [rdi + 208], xmm13
-        movups	xmmword ptr [rdi + 224], xmm14
-        movups	xmmword ptr [rdi + 240], xmm15
+        mov	edx, 256
         pop	rbp
-        ret
+        jmp	memmove@PLT
 
 codegen_write_medium_with_subs:
         push	rbp
         mov	rbp, rsp
         sub	rsp, 64
-        mov	rdx, rdi
-        mov	rax, qword ptr [rsi + 16]
-        mov	qword ptr [rbp - 48], rax
-        movups	xmm0, xmmword ptr [rsi]
-        movaps	xmmword ptr [rbp - 64], xmm0
         mov	rax, qword ptr [rsi + 16]
         mov	qword ptr [rbp - 16], rax
+        movups	xmm0, xmmword ptr [rsi]
+        movaps	xmmword ptr [rbp - 32], xmm0
+        mov	rax, qword ptr [rsi + 16]
+        mov	qword ptr [rbp - 48], rax
         movdqu	xmm0, xmmword ptr [rsi]
-        movdqa	xmmword ptr [rbp - 32], xmm0
+        movdqa	xmmword ptr [rbp - 64], xmm0
         lea	rax, [rdi + 256]
         movdqu	xmm1, xmmword ptr [rdi + 256]
         pcmpeqb	xmm1, xmm0
         pmovmskb	ecx, xmm1
         xor	ecx, 65535
-        je	.LBB204_2
+        je	.LBB206_2
         movups	xmm0, xmmword ptr [rsi]
         mov	rcx, qword ptr [rsi + 16]
         mov	qword ptr [rax + 16], rcx
         movups	xmmword ptr [rax], xmm0
-        jmp	.LBB204_3
-.LBB204_2:
-        movdqu	xmm0, xmmword ptr [rbp - 24]
-        movdqu	xmm1, xmmword ptr [rdx + 264]
+        jmp	.LBB206_3
+.LBB206_2:
+        movdqu	xmm0, xmmword ptr [rdi + 264]
+        movdqu	xmm1, xmmword ptr [rbp - 56]
         pcmpeqb	xmm1, xmm0
         pmovmskb	ecx, xmm1
         xor	ecx, 65535
@@ -598,18 +501,11 @@ codegen_write_medium_with_subs:
         mov	rcx, qword ptr [rsi + 16]
         mov	qword ptr [rax + 16], rcx
         movups	xmmword ptr [rax], xmm0
-        je	.LBB204_5
-.LBB204_3:
-        mov	rax, qword ptr [rdx + 296]
-        test	rax, rax
-        je	.LBB204_5
-        mov	rdi, qword ptr [rdx + 288]
-        mov	word ptr [rbp - 24], 1
-        lea	rcx, [rbp - 64]
-        mov	qword ptr [rbp - 32], rcx
+        je	.LBB206_4
+.LBB206_3:
         lea	rsi, [rbp - 32]
-        call	rax
-.LBB204_5:
+        call	"system_data.SystemData(codegen_harness.HugeSystem__struct_19379,meta.FieldEnum(codegen_harness.HugeSystem__struct_19379),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).publish"
+.LBB206_4:
         add	rsp, 64
         pop	rbp
         ret
@@ -624,62 +520,55 @@ codegen_read_modify_write_medium:
         mov	edx, 288
         mov	rsi, rbx
         call	memcpy@PLT
-        movaps	xmm0, xmmword ptr [rip + .LCPI205_0]
+        movaps	xmm0, xmmword ptr [rip + .LCPI208_0]
         movaps	xmmword ptr [rbp - 32], xmm0
         movabs	rax, -6148914691236517206
         mov	qword ptr [rbp - 16], rax
-        lea	rcx, [rbp - 64]
-        lea	rdx, [rbp - 40]
-        lea	rsi, [rbp - 8]
-        lea	rax, [rbp - 32]
-        cmp	rax, rdx
-        setae	dl
-        cmp	rcx, rsi
+        lea	rax, [rbp - 64]
+        lea	rcx, [rbp - 40]
+        lea	rdx, [rbp - 8]
+        lea	rsi, [rbp - 32]
+        cmp	rsi, rcx
         setae	cl
-        or	cl, dl
-        je	.LBB205_7
-        mov	ecx, dword ptr [rbx + 272]
-        mov	edx, dword ptr [rbx + 276]
-        add	ecx, 1
+        cmp	rax, rdx
+        setae	al
+        or	al, cl
+        je	.LBB208_6
+        mov	eax, dword ptr [rbx + 272]
+        mov	ecx, dword ptr [rbx + 276]
+        add	eax, 1
         movups	xmm0, xmmword ptr [rbx + 256]
         movaps	xmmword ptr [rbp - 32], xmm0
-        mov	dword ptr [rbp - 16], ecx
-        mov	dword ptr [rbp - 12], edx
+        mov	dword ptr [rbp - 16], eax
+        mov	dword ptr [rbp - 12], ecx
         movdqu	xmm0, xmmword ptr [rbx + 256]
         movdqa	xmmword ptr [rbp - 320], xmm0
-        mov	dword ptr [rbp - 304], ecx
-        mov	dword ptr [rbp - 300], edx
+        mov	dword ptr [rbp - 304], eax
+        mov	dword ptr [rbp - 300], ecx
         movdqu	xmm1, xmmword ptr [rbx + 256]
         pcmpeqb	xmm1, xmm0
-        pmovmskb	edx, xmm1
-        xor	edx, 65535
-        je	.LBB205_3
-        mov	dword ptr [rbx + 272], ecx
-        jmp	.LBB205_4
-.LBB205_3:
-        movdqu	xmm0, xmmword ptr [rbp - 312]
-        movdqu	xmm1, xmmword ptr [rbx + 264]
+        pmovmskb	ecx, xmm1
+        xor	ecx, 65535
+        je	.LBB208_3
+        mov	dword ptr [rbx + 272], eax
+        jmp	.LBB208_4
+.LBB208_3:
+        movdqu	xmm0, xmmword ptr [rbx + 264]
+        movdqu	xmm1, xmmword ptr [rbp - 312]
         pcmpeqb	xmm1, xmm0
-        pmovmskb	edx, xmm1
-        xor	edx, 65535
-        mov	dword ptr [rbx + 272], ecx
-        je	.LBB205_6
-.LBB205_4:
-        mov	rcx, qword ptr [rbx + 296]
-        test	rcx, rcx
-        je	.LBB205_6
-        mov	rdi, qword ptr [rbx + 288]
-        mov	word ptr [rbp - 312], 1
-        mov	qword ptr [rbp - 320], rax
-        lea	rsi, [rbp - 320]
-        mov	rdx, rbx
-        call	rcx
-.LBB205_6:
+        pmovmskb	ecx, xmm1
+        xor	ecx, 65535
+        mov	dword ptr [rbx + 272], eax
+        je	.LBB208_5
+.LBB208_4:
+        mov	rdi, rbx
+        call	"system_data.SystemData(codegen_harness.HugeSystem__struct_19379,meta.FieldEnum(codegen_harness.HugeSystem__struct_19379),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).publish"
+.LBB208_5:
         add	rsp, 312
         pop	rbx
         pop	rbp
         ret
-.LBB205_7:
+.LBB208_6:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_read_modify_write_big:
@@ -694,7 +583,7 @@ codegen_read_modify_write_big:
         mov	rdi, r14
         mov	rsi, rbx
         call	memcpy@PLT
-        movaps	xmm0, xmmword ptr [rip + .LCPI206_0]
+        movaps	xmm0, xmmword ptr [rip + .LCPI209_0]
         movaps	xmmword ptr [rbp - 272], xmm0
         movaps	xmmword ptr [rbp - 256], xmm0
         movaps	xmmword ptr [rbp - 240], xmm0
@@ -719,14 +608,14 @@ codegen_read_modify_write_big:
         cmp	r14, rcx
         setae	cl
         or	cl, al
-        je	.LBB206_2
+        je	.LBB209_2
         add	byte ptr [rbx], 1
         add	rsp, 544
         pop	rbx
         pop	r14
         pop	rbp
         ret
-.LBB206_2:
+.LBB209_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_setup_timer_callback:
@@ -736,43 +625,43 @@ codegen_setup_timer_callback:
         mov	rcx, qword ptr [rsi]
         lea	rax, [rdx + 16]
         cmp	qword ptr [rdx + 8], 0
-        je	.LBB207_9
+        je	.LBB210_9
         test	rcx, rcx
-        je	.LBB207_5
+        je	.LBB210_5
         mov	r8, rsi
-.LBB207_3:
+.LBB210_3:
         cmp	rcx, rax
-        je	.LBB207_11
+        je	.LBB210_11
         mov	r8, rcx
         mov	rcx, qword ptr [rcx]
         test	rcx, rcx
-        jne	.LBB207_3
-.LBB207_5:
+        jne	.LBB210_3
+.LBB210_5:
         mov	rcx, qword ptr [rsi + 8]
         test	rcx, rcx
-        je	.LBB207_12
+        je	.LBB210_12
         cmp	rcx, rax
-        je	.LBB207_10
-.LBB207_7:
+        je	.LBB210_10
+.LBB210_7:
         mov	r9, qword ptr [rcx]
         test	r9, r9
-        je	.LBB207_12
+        je	.LBB210_12
         mov	r8, rcx
         mov	rcx, r9
         cmp	r9, rax
-        jne	.LBB207_7
-        jmp	.LBB207_11
-.LBB207_9:
+        jne	.LBB210_7
+        jmp	.LBB210_11
+.LBB210_9:
         mov	r8, rsi
         cmp	rcx, rax
-        jne	.LBB207_12
-        jmp	.LBB207_11
-.LBB207_10:
+        jne	.LBB210_12
+        jmp	.LBB210_11
+.LBB210_10:
         lea	r8, [rsi + 8]
-.LBB207_11:
+.LBB210_11:
         mov	rcx, qword ptr [rax]
         mov	qword ptr [r8], rcx
-.LBB207_12:
+.LBB210_12:
         mov	qword ptr [rdx + 8], offset codegen_harness.timer_callback_read_write
         mov	dword ptr [rdx + 32], 100
         or	rdi, 1
@@ -785,46 +674,46 @@ codegen_setup_timer_callback:
         mov	byte ptr [rdx + 28], cl
         mov	rcx, qword ptr [rsi]
         test	rcx, rcx
-        je	.LBB207_19
+        je	.LBB210_19
         cmp	byte ptr [rcx + 12], 1
-        je	.LBB207_21
+        je	.LBB210_21
         mov	edx, dword ptr [rcx + 8]
         sub	edx, edi
         add	edx, -101
         cmp	edx, -65636
-        jb	.LBB207_20
-.LBB207_15:
+        jb	.LBB210_20
+.LBB210_15:
         mov	rsi, rcx
         mov	rcx, qword ptr [rcx]
         test	rcx, rcx
-        je	.LBB207_19
+        je	.LBB210_19
         cmp	byte ptr [rcx + 12], 1
-        je	.LBB207_21
+        je	.LBB210_21
         mov	edx, dword ptr [rcx + 8]
         sub	edx, edi
         add	edx, 65535
         cmp	edx, 65636
-        jb	.LBB207_15
-        jmp	.LBB207_20
-.LBB207_19:
+        jb	.LBB210_15
+        jmp	.LBB210_20
+.LBB210_19:
         xor	ecx, ecx
-.LBB207_20:
+.LBB210_20:
         mov	qword ptr [rax], rcx
         mov	qword ptr [rsi], rax
         add	rsp, 16
         pop	rbp
         ret
-.LBB207_21:
-        call	"debug.FullPanic((function 'defaultPanic')).inactiveUnionField__anon_19756"
+.LBB210_21:
+        call	"debug.FullPanic((function 'defaultPanic')).inactiveUnionField__anon_19771"
 
 codegen_harness.timer_callback_read_write:
         push	rbp
         mov	rbp, rsp
         sub	rsp, 32
         test	rdi, rdi
-        je	.LBB208_5
+        je	.LBB211_5
         test	dil, 7
-        jne	.LBB208_4
+        jne	.LBB211_4
         movups	xmm0, xmmword ptr [rdi]
         movaps	xmmword ptr [rbp - 32], xmm0
         mov	dword ptr [rbp - 4], -1431655766
@@ -837,18 +726,18 @@ codegen_harness.timer_callback_read_write:
         cmp	rdx, rcx
         setae	cl
         or	cl, al
-        je	.LBB208_6
+        je	.LBB211_6
         mov	eax, dword ptr [rbp - 32]
         add	eax, 1
         mov	dword ptr [rdi], eax
         add	rsp, 32
         pop	rbp
         ret
-.LBB208_5:
+.LBB211_5:
         call	"debug.FullPanic((function 'defaultPanic')).unwrapNull"
-.LBB208_4:
+.LBB211_4:
         call	"debug.FullPanic((function 'defaultPanic')).incorrectAlignment"
-.LBB208_6:
+.LBB211_6:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_triple_read_same_erd:
@@ -867,7 +756,7 @@ codegen_triple_read_same_erd:
         cmp	rdx, rcx
         setae	cl
         or	cl, al
-        je	.LBB210_2
+        je	.LBB213_2
         mov	eax, dword ptr [rbp - 32]
         movups	xmm0, xmmword ptr [rdi]
         movaps	xmmword ptr [rbp - 32], xmm0
@@ -878,7 +767,7 @@ codegen_triple_read_same_erd:
         add	rsp, 32
         pop	rbp
         ret
-.LBB210_2:
+.LBB213_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_read_then_branch:
@@ -897,7 +786,7 @@ codegen_read_then_branch:
         cmp	rdx, rcx
         setae	cl
         or	cl, al
-        je	.LBB211_2
+        je	.LBB214_2
         mov	ecx, dword ptr [rbp - 32]
         movups	xmm0, xmmword ptr [rdi]
         movaps	xmmword ptr [rbp - 32], xmm0
@@ -910,7 +799,7 @@ codegen_read_then_branch:
         add	rsp, 32
         pop	rbp
         ret
-.LBB211_2:
+.LBB214_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_read_write_read:
@@ -929,7 +818,7 @@ codegen_read_write_read:
         cmp	rdx, rcx
         setae	cl
         or	cl, al
-        je	.LBB212_2
+        je	.LBB215_2
         mov	eax, dword ptr [rbp - 32]
         add	eax, 1
         mov	dword ptr [rdi], eax
@@ -943,7 +832,7 @@ codegen_read_write_read:
         add	rsp, 32
         pop	rbp
         ret
-.LBB212_2:
+.LBB215_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_read_write_other_read:
@@ -951,55 +840,48 @@ codegen_read_write_other_read:
         mov	rbp, rsp
         push	r14
         push	rbx
-        sub	rsp, 48
-        mov	rbx, rdi
+        sub	rsp, 32
         movups	xmm0, xmmword ptr [rdi]
-        movaps	xmmword ptr [rbp - 48], xmm0
-        mov	dword ptr [rbp - 20], -1431655766
-        lea	rax, [rbp - 44]
-        lea	rdx, [rbp - 16]
-        lea	rcx, [rbp - 20]
-        cmp	rcx, rax
+        movaps	xmmword ptr [rbp - 32], xmm0
+        mov	dword ptr [rbp - 36], -1431655766
+        lea	rax, [rbp - 28]
+        lea	rcx, [rbp - 32]
+        lea	rdx, [rbp - 36]
+        cmp	rdx, rax
         setae	al
-        lea	rdi, [rbp - 48]
-        cmp	rdi, rdx
-        setae	dl
-        or	dl, al
-        je	.LBB213_5
-        mov	eax, dword ptr [rbp - 48]
-        mov	byte ptr [rbp - 20], sil
-        cmp	sil, byte ptr [rbx + 4]
-        mov	byte ptr [rbx + 4], sil
-        je	.LBB213_4
-        mov	r8, qword ptr [rbx + 24]
-        test	r8, r8
-        je	.LBB213_4
-        mov	rdi, qword ptr [rbx + 16]
-        mov	word ptr [rbp - 40], 1
-        mov	qword ptr [rbp - 48], rcx
-        lea	rsi, [rbp - 48]
-        mov	rdx, rbx
-        mov	r14d, eax
-        call	r8
+        lea	rdx, [rbp - 32]
+        cmp	rdx, rcx
+        setae	cl
+        or	cl, al
+        je	.LBB216_4
+        mov	rbx, rdi
+        mov	r14d, dword ptr [rbp - 32]
+        mov	byte ptr [rbp - 32], sil
+        cmp	byte ptr [rdi + 4], sil
+        mov	byte ptr [rdi + 4], sil
+        je	.LBB216_3
+        mov	rdi, rbx
+        mov	esi, 1
+        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).publish"
+.LBB216_3:
+        mov	eax, dword ptr [rbx]
+        mov	dword ptr [rbp - 32], eax
+        movzx	eax, byte ptr [rbx + 4]
+        mov	byte ptr [rbp - 28], al
+        mov	rax, qword ptr [rbx + 5]
+        mov	qword ptr [rbp - 27], rax
+        movzx	eax, word ptr [rbx + 13]
+        mov	word ptr [rbp - 19], ax
+        movzx	eax, byte ptr [rbx + 15]
+        mov	byte ptr [rbp - 17], al
+        add	r14d, dword ptr [rbp - 32]
         mov	eax, r14d
-.LBB213_4:
-        mov	ecx, dword ptr [rbx]
-        mov	dword ptr [rbp - 48], ecx
-        movzx	ecx, byte ptr [rbx + 4]
-        mov	byte ptr [rbp - 44], cl
-        mov	rcx, qword ptr [rbx + 5]
-        mov	qword ptr [rbp - 43], rcx
-        movzx	ecx, word ptr [rbx + 13]
-        mov	word ptr [rbp - 35], cx
-        movzx	ecx, byte ptr [rbx + 15]
-        mov	byte ptr [rbp - 33], cl
-        add	eax, dword ptr [rbp - 48]
-        add	rsp, 48
+        add	rsp, 32
         pop	rbx
         pop	r14
         pop	rbp
         ret
-.LBB213_5:
+.LBB216_4:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_read_across_two_erds:
@@ -1018,7 +900,7 @@ codegen_read_across_two_erds:
         cmp	rsi, rdx
         setae	dl
         or	dl, al
-        je	.LBB214_3
+        je	.LBB217_3
         mov	eax, dword ptr [rbp - 32]
         movups	xmm0, xmmword ptr [rdi]
         movaps	xmmword ptr [rbp - 32], xmm0
@@ -1031,7 +913,7 @@ codegen_read_across_two_erds:
         cmp	rdx, r8
         setae	dl
         or	dl, cl
-        je	.LBB214_3
+        je	.LBB217_3
         movzx	ecx, word ptr [rbp - 27]
         add	eax, ecx
         movups	xmm0, xmmword ptr [rdi]
@@ -1040,37 +922,37 @@ codegen_read_across_two_erds:
         add	rsp, 32
         pop	rbp
         ret
-.LBB214_3:
+.LBB217_3:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_subscribe_callback:
         mov	rax, qword ptr [rdi + 24]
         cmp	rax, offset codegen_harness.accumulate_callback
-        je	.LBB215_3
+        je	.LBB218_3
         test	rax, rax
-        jne	.LBB215_4
+        jne	.LBB218_4
         mov	qword ptr [rdi + 16], 0
         mov	qword ptr [rdi + 24], offset codegen_harness.accumulate_callback
-.LBB215_3:
+.LBB218_3:
         ret
-.LBB215_4:
+.LBB218_4:
         push	rbp
         mov	rbp, rsp
-        call	debug.panic__anon_19790
+        call	debug.panic__anon_19805
 
 codegen_harness.accumulate_callback:
         push	rbp
         mov	rbp, rsp
         sub	rsp, 32
         test	rsi, rsi
-        je	.LBB216_7
+        je	.LBB219_7
         test	sil, 7
-        jne	.LBB216_8
+        jne	.LBB219_8
         test	dl, 7
-        jne	.LBB216_8
+        jne	.LBB219_8
         mov	rax, qword ptr [rsi]
         cmp	byte ptr [rax], 0
-        je	.LBB216_6
+        je	.LBB219_6
         movups	xmm0, xmmword ptr [rdx]
         movaps	xmmword ptr [rbp - 32], xmm0
         mov	dword ptr [rbp - 4], -1431655766
@@ -1083,42 +965,34 @@ codegen_harness.accumulate_callback:
         cmp	rsi, rcx
         setae	cl
         or	cl, al
-        je	.LBB216_9
+        je	.LBB219_9
         mov	eax, dword ptr [rbp - 32]
         add	eax, 1
         mov	dword ptr [rdx], eax
-.LBB216_6:
+.LBB219_6:
         add	rsp, 32
         pop	rbp
         ret
-.LBB216_8:
+.LBB219_8:
         call	"debug.FullPanic((function 'defaultPanic')).incorrectAlignment"
-.LBB216_7:
+.LBB219_7:
         call	"debug.FullPanic((function 'defaultPanic')).unwrapNull"
-.LBB216_9:
+.LBB219_9:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_write_triggering_callback:
         push	rbp
         mov	rbp, rsp
-        sub	rsp, 32
+        sub	rsp, 16
         mov	byte ptr [rbp - 1], 1
-        mov	al, 1
-        cmp	al, byte ptr [rdi + 4]
+        cmp	byte ptr [rdi + 4], 1
         mov	byte ptr [rdi + 4], 1
-        je	.LBB219_3
-        mov	rdx, rdi
-        mov	rax, qword ptr [rdi + 24]
-        test	rax, rax
-        je	.LBB219_3
-        mov	rdi, qword ptr [rdx + 16]
-        mov	word ptr [rbp - 16], 1
-        lea	rcx, [rbp - 1]
-        mov	qword ptr [rbp - 24], rcx
-        lea	rsi, [rbp - 24]
-        call	rax
-.LBB219_3:
-        add	rsp, 32
+        je	.LBB222_2
+        lea	rdx, [rbp - 1]
+        mov	esi, 1
+        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).publish"
+.LBB222_2:
+        add	rsp, 16
         pop	rbp
         ret
 
@@ -1127,7 +1001,7 @@ codegen_increment_n_times:
         mov	rbp, rsp
         sub	rsp, 32
         test	esi, esi
-        je	.LBB220_7
+        je	.LBB223_7
         lea	rax, [rbp - 12]
         lea	rcx, [rbp - 16]
         lea	rdx, [rbp - 20]
@@ -1137,13 +1011,13 @@ codegen_increment_n_times:
         cmp	rdx, rcx
         setb	cl
         test	cl, al
-        jne	.LBB220_8
+        jne	.LBB223_8
         cmp	esi, 1
-        je	.LBB220_6
+        je	.LBB223_6
         mov	eax, esi
         and	eax, -2
         neg	eax
-.LBB220_4:
+.LBB223_4:
         mov	ecx, dword ptr [rdi]
         mov	dword ptr [rbp - 16], ecx
         mov	rcx, qword ptr [rdi + 4]
@@ -1163,20 +1037,20 @@ codegen_increment_n_times:
         add	ecx, 1
         mov	dword ptr [rdi], ecx
         add	eax, 2
-        jne	.LBB220_4
+        jne	.LBB223_4
         test	sil, 1
-        je	.LBB220_7
-.LBB220_6:
+        je	.LBB223_7
+.LBB223_6:
         movups	xmm0, xmmword ptr [rdi]
         movaps	xmmword ptr [rbp - 16], xmm0
         mov	eax, dword ptr [rbp - 16]
         add	eax, 1
         mov	dword ptr [rdi], eax
-.LBB220_7:
+.LBB223_7:
         add	rsp, 32
         pop	rbp
         ret
-.LBB220_8:
+.LBB223_8:
         movups	xmm0, xmmword ptr [rdi]
         movaps	xmmword ptr [rbp - 16], xmm0
         mov	dword ptr [rbp - 20], -1431655766
@@ -1198,9 +1072,9 @@ codegen_conditional_write_chain:
         cmp	rax, rsi
         setae	sil
         or	sil, r8b
-        je	.LBB221_9
+        je	.LBB224_9
         test	byte ptr [rbp - 28], 1
-        je	.LBB221_2
+        je	.LBB224_2
         movups	xmm0, xmmword ptr [rdi]
         movaps	xmmword ptr [rbp - 32], xmm0
         mov	dword ptr [rbp - 4], -1431655766
@@ -1211,11 +1085,11 @@ codegen_conditional_write_chain:
         cmp	r9, rsi
         setae	sil
         or	sil, r8b
-        je	.LBB221_9
+        je	.LBB224_9
         mov	esi, dword ptr [rbp - 32]
         add	esi, 10
         mov	dword ptr [rdi], esi
-.LBB221_2:
+.LBB224_2:
         mov	esi, dword ptr [rdi]
         mov	dword ptr [rbp - 32], esi
         mov	rsi, qword ptr [rdi + 4]
@@ -1230,9 +1104,9 @@ codegen_conditional_write_chain:
         cmp	rdx, r8
         setae	dl
         or	dl, sil
-        je	.LBB221_9
+        je	.LBB224_9
         cmp	word ptr [rbp - 27], 100
-        jbe	.LBB221_4
+        jbe	.LBB224_4
         movups	xmm0, xmmword ptr [rdi]
         movaps	xmmword ptr [rbp - 32], xmm0
         mov	dword ptr [rbp - 4], -1431655766
@@ -1243,85 +1117,67 @@ codegen_conditional_write_chain:
         cmp	rcx, rdx
         setae	cl
         or	cl, al
-        je	.LBB221_9
+        je	.LBB224_9
         mov	eax, dword ptr [rbp - 32]
         add	eax, 20
         mov	dword ptr [rdi], eax
-.LBB221_4:
+.LBB224_4:
         add	rsp, 32
         pop	rbp
         ret
-.LBB221_9:
+.LBB224_9:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_cross_erd_compute:
         push	rbp
         mov	rbp, rsp
-        push	r14
-        push	rbx
         sub	rsp, 32
         movups	xmm0, xmmword ptr [rdi]
-        movaps	xmmword ptr [rbp - 48], xmm0
-        mov	word ptr [rbp - 20], -21846
-        lea	rax, [rbp - 43]
-        lea	rcx, [rbp - 41]
-        lea	rdx, [rbp - 18]
-        lea	r14, [rbp - 20]
-        cmp	r14, rcx
-        setae	cl
-        cmp	rax, rdx
+        movaps	xmmword ptr [rbp - 32], xmm0
+        mov	word ptr [rbp - 4], -21846
+        lea	rax, [rbp - 27]
+        lea	rdx, [rbp - 25]
+        lea	rsi, [rbp - 2]
+        lea	rcx, [rbp - 4]
+        cmp	rcx, rdx
+        setae	dl
+        cmp	rax, rsi
         setae	al
-        or	al, cl
-        je	.LBB222_8
-        mov	rbx, rdi
-        movzx	eax, word ptr [rbp - 43]
+        or	al, dl
+        je	.LBB225_6
+        movzx	eax, word ptr [rbp - 27]
         movups	xmm0, xmmword ptr [rdi]
-        movaps	xmmword ptr [rbp - 48], xmm0
-        mov	dword ptr [rbp - 20], -1431655766
-        lea	rcx, [rbp - 44]
-        lea	rdx, [rbp - 16]
-        cmp	r14, rcx
+        movaps	xmmword ptr [rbp - 32], xmm0
+        mov	dword ptr [rbp - 4], -1431655766
+        lea	rdx, [rbp - 28]
+        lea	rsi, [rbp]
+        cmp	rcx, rdx
         setae	cl
-        lea	rsi, [rbp - 48]
-        cmp	rsi, rdx
+        lea	rdx, [rbp - 32]
+        cmp	rdx, rsi
         setae	dl
         or	dl, cl
-        je	.LBB222_8
-        add	ax, word ptr [rbp - 48]
-        mov	word ptr [rbp - 20], ax
-        movzx	ecx, byte ptr [rbx + 8]
-        cmp	byte ptr [rbx + 7], al
-        mov	word ptr [rbx + 7], ax
-        jne	.LBB222_4
+        je	.LBB225_6
+        add	ax, word ptr [rbp - 32]
+        mov	word ptr [rbp - 32], ax
+        movzx	ecx, byte ptr [rdi + 8]
+        cmp	byte ptr [rdi + 7], al
+        mov	word ptr [rdi + 7], ax
+        jne	.LBB225_4
         shr	eax, 8
         cmp	cl, al
-        je	.LBB222_7
-.LBB222_4:
-        mov	rax, qword ptr [rbx + 40]
-        test	rax, rax
-        je	.LBB222_5
-        mov	rdi, qword ptr [rbx + 32]
-        mov	word ptr [rbp - 40], 3
-        mov	qword ptr [rbp - 48], r14
-        mov	rdx, rbx
-        call	rax
-.LBB222_5:
-        mov	rax, qword ptr [rbx + 56]
-        test	rax, rax
-        je	.LBB222_7
-        mov	rdi, qword ptr [rbx + 48]
-        mov	word ptr [rbp - 40], 3
-        mov	qword ptr [rbp - 48], r14
-        lea	rsi, [rbp - 48]
-        mov	rdx, rbx
-        call	rax
-.LBB222_7:
+        jne	.LBB225_4
         add	rsp, 32
-        pop	rbx
-        pop	r14
         pop	rbp
         ret
-.LBB222_8:
+.LBB225_4:
+        lea	rdx, [rbp - 32]
+        mov	esi, 3
+        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).publish"
+        add	rsp, 32
+        pop	rbp
+        ret
+.LBB225_6:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_cross_system_read_add:
@@ -1340,7 +1196,7 @@ codegen_cross_system_read_add:
         cmp	r8, rdx
         setae	dl
         or	dl, cl
-        je	.LBB223_4
+        je	.LBB226_4
         mov	edx, dword ptr [rbp - 32]
         movups	xmm0, xmmword ptr [rsi]
         movaps	xmmword ptr [rbp - 32], xmm0
@@ -1356,7 +1212,7 @@ codegen_cross_system_read_add:
         cmp	rdi, r10
         setae	dil
         or	dil, r9b
-        je	.LBB223_4
+        je	.LBB226_4
         movzx	edi, word ptr [rbp - 27]
         movups	xmm0, xmmword ptr [rsi]
         movaps	xmmword ptr [rbp - 32], xmm0
@@ -1367,7 +1223,7 @@ codegen_cross_system_read_add:
         cmp	r8, rax
         setae	al
         or	al, sil
-        je	.LBB223_4
+        je	.LBB226_4
         add	rcx, rdx
         movsxd	rax, dword ptr [rbp - 28]
         add	rax, rdi
@@ -1375,7 +1231,7 @@ codegen_cross_system_read_add:
         add	rsp, 32
         pop	rbp
         ret
-.LBB223_4:
+.LBB226_4:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_cross_system_read_write:
@@ -1394,55 +1250,50 @@ codegen_cross_system_read_write:
         cmp	rdx, rcx
         setae	cl
         or	cl, al
-        je	.LBB224_2
+        je	.LBB227_2
         mov	eax, dword ptr [rbp - 32]
         mov	dword ptr [rdi], eax
         add	rsp, 32
         pop	rbp
         ret
-.LBB224_2:
+.LBB227_2:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 codegen_cross_system_swap:
         push	rbp
         mov	rbp, rsp
         sub	rsp, 32
-        mov	rdx, rsi
         movups	xmm0, xmmword ptr [rdi]
         movaps	xmmword ptr [rbp - 32], xmm0
         mov	dword ptr [rbp - 4], -1431655766
-        lea	rcx, [rbp - 28]
-        lea	rsi, [rbp]
-        lea	rax, [rbp - 4]
-        cmp	rax, rcx
+        lea	rax, [rbp - 28]
+        lea	rcx, [rbp]
+        lea	rdx, [rbp - 4]
+        cmp	rdx, rax
+        setae	al
+        lea	rdx, [rbp - 32]
+        cmp	rdx, rcx
         setae	cl
-        lea	r8, [rbp - 32]
-        cmp	r8, rsi
-        setae	sil
-        or	sil, cl
-        je	.LBB225_5
-        mov	ecx, dword ptr [rbp - 32]
-        movups	xmm0, xmmword ptr [rdx]
+        or	cl, al
+        je	.LBB228_4
+        mov	eax, dword ptr [rbp - 32]
+        movups	xmm0, xmmword ptr [rsi]
         movaps	xmmword ptr [rbp - 32], xmm0
-        mov	esi, dword ptr [rbp - 32]
-        mov	dword ptr [rdi], esi
-        mov	dword ptr [rbp - 4], ecx
-        cmp	dword ptr [rdx], ecx
-        mov	dword ptr [rdx], ecx
-        je	.LBB225_4
-        mov	rcx, qword ptr [rdx + 24]
-        test	rcx, rcx
-        je	.LBB225_4
-        mov	rdi, qword ptr [rdx + 16]
-        mov	word ptr [rbp - 24], 0
-        mov	qword ptr [rbp - 32], rax
-        lea	rsi, [rbp - 32]
-        call	rcx
-.LBB225_4:
+        mov	ecx, dword ptr [rbp - 32]
+        mov	dword ptr [rdi], ecx
+        mov	dword ptr [rbp - 32], eax
+        cmp	eax, dword ptr [rsi]
+        mov	dword ptr [rsi], eax
+        je	.LBB228_3
+        lea	rax, [rbp - 32]
+        mov	rdi, rsi
+        mov	rsi, rax
+        call	"system_data.SystemData(codegen_harness.OtherSystem__struct_18008,meta.FieldEnum(codegen_harness.OtherSystem__struct_18008),.{ .sensor_a = .{ ... }, .sensor_b = .{ ... }, .output = .{ ... } },testing.create.Components).publish"
+.LBB228_3:
         add	rsp, 32
         pop	rbp
         ret
-.LBB225_5:
+.LBB228_4:
         call	"debug.FullPanic((function 'defaultPanic')).memcpyAlias"
 
 ; --- called functions ---
@@ -1485,23 +1336,147 @@ codegen_cross_system_swap:
         call	debug.defaultPanic
         .text
 
-"debug.FullPanic((function 'defaultPanic')).inactiveUnionField__anon_19756":
+"system_data.SystemData(codegen_harness.SmallSystem__struct_219,meta.FieldEnum(codegen_harness.SmallSystem__struct_219),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },testing.create.Components).publish":
+        push	rbp
+        mov	rbp, rsp
+        push	r15
+        push	r14
+        push	r13
+        push	r12
+        push	rbx
+        sub	rsp, 24
+        mov	qword ptr [rbp - 48], rdx
+        mov	r14d, esi
+        mov	r15, rdi
+        movzx	ecx, r14w
+        mov	rax, qword ptr [8*rcx + .L__unnamed_76]
+        movzx	r13d, byte ptr [rcx + .L__unnamed_77]
+        mov	rdi, rax
+        add	rdi, r13
+        jb	.LBB190_8
+        cmp	rdi, 3
+        ja	.LBB190_9
+        cmp	rdi, rax
+        jne	.LBB190_3
+.LBB190_6:
+        add	rsp, 24
+        pop	rbx
+        pop	r12
+        pop	r13
+        pop	r14
+        pop	r15
+        pop	rbp
+        ret
+.LBB190_3:
+        cmp	r13, 1
+        adc	r13, 0
+        shl	r13d, 4
+        shl	rax, 4
+        lea	r12, [r15 + rax]
+        add	r12, 24
+        xor	ebx, ebx
+        jmp	.LBB190_4
+.LBB190_5:
+        add	rbx, 16
+        cmp	r13, rbx
+        je	.LBB190_6
+.LBB190_4:
+        mov	rax, qword ptr [r12 + rbx]
+        test	rax, rax
+        je	.LBB190_5
+        mov	rdi, qword ptr [r12 + rbx - 8]
+        mov	word ptr [rbp - 56], r14w
+        mov	rcx, qword ptr [rbp - 48]
+        mov	qword ptr [rbp - 64], rcx
+        lea	rsi, [rbp - 64]
+        mov	rdx, r15
+        call	rax
+        jmp	.LBB190_5
+.LBB190_8:
+        call	"debug.FullPanic((function 'defaultPanic')).integerOverflow"
+.LBB190_9:
+        mov	esi, 3
+        call	"debug.FullPanic((function 'defaultPanic')).outOfBounds"
+
+"system_data.SystemData(codegen_harness.ManyErdsSystem__struct_18241,meta.FieldEnum(codegen_harness.ManyErdsSystem__struct_18241),.{ .e00 = .{ ... }, .e01 = .{ ... }, .e02 = .{ ... }, .e03 = .{ ... }, .e04 = .{ ... }, .e05 = .{ ... }, .e06 = .{ ... }, .e07 = .{ ... }, .e08 = .{ ... }, .e09 = .{ ... }, .e10 = .{ ... }, .e11 = .{ ... }, .e12 = .{ ... }, .e13 = .{ ... }, .e14 = .{ ... }, .e15 = .{ ... }, .e16 = .{ ... }, .e17 = .{ ... }, .e18 = .{ ... }, .e19 = .{ ... }, .e20 = .{ ... }, .e21 = .{ ... }, .e22 = .{ ... }, .e23 = .{ ... }, .e24 = .{ ... }, .e25 = .{ ... }, .e26 = .{ ... }, .e27 = .{ ... }, .e28 = .{ ... }, .e29 = .{ ... }, .e30 = .{ ... }, .e31 = .{ ... } },testing.create.Components).publish":
+        push	rbp
+        mov	rbp, rsp
+        push	r14
+        push	rbx
+        sub	rsp, 16
+        mov	r14, rsi
+        mov	rbx, rdi
+        mov	rax, qword ptr [rdi + 144]
+        test	rax, rax
+        je	.LBB200_1
+        mov	rdi, qword ptr [rbx + 136]
+        mov	word ptr [rbp - 24], 31
+        mov	qword ptr [rbp - 32], r14
+        lea	rsi, [rbp - 32]
+        mov	rdx, rbx
+        call	rax
+.LBB200_1:
+        mov	rax, qword ptr [rbx + 160]
+        test	rax, rax
+        je	.LBB200_3
+        mov	rdi, qword ptr [rbx + 152]
+        mov	word ptr [rbp - 24], 31
+        mov	qword ptr [rbp - 32], r14
+        lea	rsi, [rbp - 32]
+        mov	rdx, rbx
+        call	rax
+.LBB200_3:
+        mov	rax, qword ptr [rbx + 176]
+        test	rax, rax
+        je	.LBB200_5
+        mov	rdi, qword ptr [rbx + 168]
+        mov	word ptr [rbp - 24], 31
+        mov	qword ptr [rbp - 32], r14
+        lea	rsi, [rbp - 32]
+        mov	rdx, rbx
+        call	rax
+.LBB200_5:
+        add	rsp, 16
+        pop	rbx
+        pop	r14
+        pop	rbp
+        ret
+
+"system_data.SystemData(codegen_harness.HugeSystem__struct_19379,meta.FieldEnum(codegen_harness.HugeSystem__struct_19379),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },testing.create.Components).publish":
+        mov	rax, qword ptr [rdi + 296]
+        test	rax, rax
+        je	.LBB207_2
+        push	rbp
+        mov	rbp, rsp
+        sub	rsp, 16
+        mov	rdx, rdi
+        mov	rdi, qword ptr [rdi + 288]
+        mov	word ptr [rbp - 8], 1
+        mov	qword ptr [rbp - 16], rsi
+        lea	rsi, [rbp - 16]
+        call	rax
+        add	rsp, 16
+        pop	rbp
+.LBB207_2:
+        ret
+
+"debug.FullPanic((function 'defaultPanic')).inactiveUnionField__anon_19771":
         push	rbp
         mov	rbp, rsp
         sub	rsp, 48
         mov	rax, qword ptr [rbp + 8]
         mov	qword ptr [rbp - 16], rax
         mov	byte ptr [rbp - 8], 1
-        mov	qword ptr [rbp - 48], offset .L__unnamed_76
+        mov	qword ptr [rbp - 48], offset .L__unnamed_78
         mov	qword ptr [rbp - 40], 10
-        mov	qword ptr [rbp - 32], offset .L__unnamed_77
+        mov	qword ptr [rbp - 32], offset .L__unnamed_79
         mov	qword ptr [rbp - 24], 25
         lea	rdi, [rbp - 16]
         lea	rsi, [rbp - 48]
         call	debug.panicExtra__anon_11113
         .text
 
-debug.panic__anon_19790:
+debug.panic__anon_19805:
         push	rbp
         mov	rbp, rsp
         sub	rsp, 16
@@ -1509,5 +1484,23 @@ debug.panic__anon_19790:
         mov	qword ptr [rbp - 16], rax
         mov	byte ptr [rbp - 8], 1
         lea	rdi, [rbp - 16]
-        call	debug.panicExtra__anon_19793
+        call	debug.panicExtra__anon_19808
+
+"system_data.SystemData(codegen_harness.OtherSystem__struct_18008,meta.FieldEnum(codegen_harness.OtherSystem__struct_18008),.{ .sensor_a = .{ ... }, .sensor_b = .{ ... }, .output = .{ ... } },testing.create.Components).publish":
+        mov	rax, qword ptr [rdi + 24]
+        test	rax, rax
+        je	.LBB229_2
+        push	rbp
+        mov	rbp, rsp
+        sub	rsp, 16
+        mov	rdx, rdi
+        mov	rdi, qword ptr [rdi + 16]
+        mov	word ptr [rbp - 8], 0
+        mov	qword ptr [rbp - 16], rsi
+        lea	rsi, [rbp - 16]
+        call	rax
+        add	rsp, 16
+        pop	rbp
+.LBB229_2:
+        ret
 

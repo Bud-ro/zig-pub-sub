@@ -147,14 +147,22 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
                 }
             }
 
-            const publish_required = inline for (component_fields, 0..) |field, i| {
-                if (erd.component_idx == i) {
-                    break @field(this.components, field.name).write(erd, data);
-                }
-            } else unreachable;
+            if (erd.subs != 0) {
+                const publish_required = inline for (component_fields, 0..) |field, i| {
+                    if (erd.component_idx == i) {
+                        break @field(this.components, field.name).write(erd, data);
+                    }
+                } else unreachable;
 
-            if (publish_required and erd.subs != 0) {
-                this.publish(erd.system_data_idx, &data);
+                if (publish_required) {
+                    this.publish(erd.system_data_idx, &data);
+                }
+            } else {
+                inline for (component_fields, 0..) |field, i| {
+                    if (erd.component_idx == i) {
+                        @field(this.components, field.name).write_no_compare(erd, data);
+                    }
+                }
             }
         }
 
@@ -182,7 +190,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             }
         }
 
-        fn publish(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
+        noinline fn publish(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
             const sub_offset = subscription_offsets[system_data_idx];
 
             for (this.subscriptions[sub_offset .. sub_offset + subs_from_idx[system_data_idx]]) |_sub| {

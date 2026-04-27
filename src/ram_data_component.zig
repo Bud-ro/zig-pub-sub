@@ -67,13 +67,16 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
 
         pub fn write(self: *Self, erd: Erd, data: erd.T) bool {
             const idx = erd.data_component_idx;
-
             const data_bytes = std.mem.toBytes(data);
-
-            const data_changed = !std.mem.eql(u8, &data_bytes, self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)]);
-            self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = data_bytes;
-
+            const stored: *[@sizeOf(erd.T)]u8 = self.storage[ram_offsets[idx]..][0..@sizeOf(erd.T)];
+            const data_changed = !std.mem.eql(u8, stored, &data_bytes);
+            stored.* = data_bytes;
             return data_changed;
+        }
+
+        pub fn write_no_compare(self: *Self, erd: Erd, data: erd.T) void {
+            const idx = erd.data_component_idx;
+            self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = std.mem.toBytes(data);
         }
 
         pub fn runtime_write(self: *Self, data_component_idx: u16, data: *const anyopaque) bool {
