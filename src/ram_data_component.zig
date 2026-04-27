@@ -5,16 +5,6 @@
 const std = @import("std");
 const Erd = @import("erd.zig");
 
-// Compare two fixed-size byte arrays as a single integer. Zig's arbitrary-width
-// integers let LLVM decompose this into optimal register-width operations — a
-// single `cmp` for ≤8 bytes, or XOR+OR chains for larger types. This avoids
-// calling std.mem.eql which generates a function call in ReleaseSmall.
-pub fn bytesChanged(a: anytype, b: anytype) bool {
-    const len = @typeInfo(@TypeOf(a.*)).array.len;
-    const Int = std.meta.Int(.unsigned, len * 8);
-    return std.mem.readInt(Int, a, .little) != std.mem.readInt(Int, b, .little);
-}
-
 pub fn RamDataComponent(comptime erds: []const Erd) type {
     return struct {
         const Self = @This();
@@ -75,21 +65,6 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             @memcpy(data_slice[0..size], self.storage[ram_offsets[data_component_idx] .. ram_offsets[data_component_idx] + size]);
         }
 
-        pub fn write(self: *Self, erd: Erd, data: erd.T) bool {
-            const idx = erd.data_component_idx;
-            const data_bytes = std.mem.toBytes(data);
-            const stored: *[@sizeOf(erd.T)]u8 = self.storage[ram_offsets[idx]..][0..@sizeOf(erd.T)];
-            const data_changed = bytesChanged(stored, &data_bytes);
-            stored.* = data_bytes;
-            return data_changed;
-        }
-
-        pub fn storagePtr(self: *Self, erd: Erd) [*]u8 {
-            return self.storage[ram_offsets[erd.data_component_idx]..].ptr;
-        }
-
-        // Unconditional store with no old-vs-new comparison.
-        // Used for zero-subscriber ERDs where the comparison result would be discarded.
         pub fn write_no_compare(self: *Self, erd: Erd, data: erd.T) void {
             const idx = erd.data_component_idx;
             self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = std.mem.toBytes(data);

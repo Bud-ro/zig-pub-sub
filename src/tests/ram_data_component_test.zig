@@ -47,16 +47,15 @@ const erd_ptr = erds[6];
 test "ram data component read and write" {
     var ram_data = RamDataComponent.init();
     try std.testing.expectEqual(0, ram_data.read(erd_u32));
-    try std.testing.expectEqual(false, ram_data.write(erd_u32, 0));
 
     const new_ver: u32 = 0x12345678;
-    try std.testing.expectEqual(true, ram_data.write(erd_u32, new_ver));
+    ram_data.write_no_compare(erd_u32, new_ver);
     try std.testing.expectEqual(new_ver, ram_data.read(erd_u32));
 }
 
 test "unaligned read and write" {
     var ram_data = RamDataComponent.init();
-    _ = ram_data.write(erd_u16, 0x1234);
+    ram_data.write_no_compare(erd_u16, 0x1234);
     try std.testing.expectEqual(0x1234, ram_data.read(erd_u16));
 
     try std.testing.expectEqual(0, ram_data.read(erd_u32));
@@ -67,7 +66,7 @@ test "read and write of type where @bitSizeOf is not multiple of 8" {
     var ram_data = RamDataComponent.init();
     try std.testing.expectEqual(false, ram_data.read(erd_bool));
 
-    _ = ram_data.write(erd_bool, true);
+    ram_data.write_no_compare(erd_bool, true);
     try std.testing.expectEqual(true, ram_data.read(erd_bool));
 }
 
@@ -76,7 +75,7 @@ test "pointers read/write" {
     try std.testing.expectEqual(null, ram_data.read(erd_ptr));
 
     var temp: u16 = 2;
-    _ = ram_data.write(erd_ptr, &temp);
+    ram_data.write_no_compare(erd_ptr, &temp);
     try std.testing.expectEqual(2, ram_data.read(erd_ptr).?.*);
 }
 
@@ -88,11 +87,11 @@ test "structs" {
     const packed_st = ram_data.read(erd_packed_fr);
     try std.testing.expectEqual(std.mem.zeroes(@TypeOf(packed_st)), packed_st);
 
-    _ = ram_data.write(erd_packed_fr, .{ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 });
+    ram_data.write_no_compare(erd_packed_fr, .{ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 });
     const packed_st_with_data = ram_data.read(erd_packed_fr);
     try std.testing.expectEqual(@TypeOf(packed_st_with_data){ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 }, packed_st_with_data);
 
-    _ = ram_data.write(erd_padded, .{ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF });
+    ram_data.write_no_compare(erd_padded, .{ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF });
 
     const padded = ram_data.read(erd_padded);
     try std.testing.expectEqual(@TypeOf(padded){ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF }, padded);
@@ -108,7 +107,7 @@ test "failure upon writing incorrect types" {
 test "runtime reads" {
     var ram_data = RamDataComponent.init();
 
-    _ = ram_data.write(erd_bool, true);
+    ram_data.write_no_compare(erd_bool, true);
 
     var bool_val: bool = undefined;
     ram_data.runtime_read(erd_bool.data_component_idx, &bool_val);
@@ -126,9 +125,10 @@ test "runtime writes" {
     const bool_val = ram_data.read(erd_bool);
     try std.testing.expectEqual(true, bool_val);
 
-    changed = ram_data.write(erd_bool, true);
+    changed = ram_data.runtime_write(erd_bool.data_component_idx, &very_true);
     try std.testing.expect(!changed);
 
-    changed = ram_data.write(erd_bool, false);
+    const very_false = false;
+    changed = ram_data.runtime_write(erd_bool.data_component_idx, &very_false);
     try std.testing.expect(changed);
 }

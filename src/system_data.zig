@@ -139,21 +139,16 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         /// Write to an ERD by-value using comptime information (the `Erd` type)
         /// Due to the performance and code size benefits, this should be preferred over `runtime_write`.
         ///
-        /// Three comptime-selected write paths:
+        /// Two comptime-selected write paths:
+        /// - With subscribers: read old value via this.read(), write unconditionally
+        ///   via write_no_compare, then compare old vs new with std.meta.eql. Only
+        ///   publishes if the value actually changed. Using typed comparison (not byte
+        ///   comparison) lets LLVM see field-level relationships and eliminate unchanged
+        ///   field comparisons in read-modify-write patterns.
+        /// - Without subscribers: write unconditionally, skip comparison entirely.
         ///
-        /// 1. No subscribers: write unconditionally, skip comparison entirely.
-        ///
-        /// 2. Small types (≤ 8 bytes): delegate to writeAndPublish, a shared noinline
-        ///    handler that does memcmp + memcpy + conditional publish. One function
-        ///    body handles all small ERDs, avoiding per-ERD monomorphization. 8 bytes
-        ///    is the cutoff because all Zig primitives fit in a single register.
-        ///
-        /// 3. Large types (> 8 bytes): read old value, write unconditionally, compare
-        ///    typed values via std.meta.eql. This lets LLVM see field-level
-        ///    relationships and eliminate unchanged field comparisons in
-        ///    read-modify-write patterns. For example, reading a struct, incrementing
-        ///    one field, and writing it back compiles to a single field store +
-        ///    unconditional publish — LLVM proves the other fields are identical.
+        /// This approach works with any data component (RAM, flash, etc.) since it
+        /// only uses the read/write_no_compare interface — no direct storage access.
         pub fn write(this: *Self, comptime erd_enum: ErdEnum, data: erd_from_enum(erd_enum).T) void {
             const erd: Erd = erd_from_enum(erd_enum);
 
@@ -164,26 +159,14 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             }
 
             if (erd.subs != 0) {
-                if (@sizeOf(erd_from_enum(erd_enum).T) > 8) {
-                    const old = this.read(erd_enum);
-                    inline for (component_fields, 0..) |field, i| {
-                        if (erd.component_idx == i) {
-                            @field(this.components, field.name).write_no_compare(erd, data);
-                        }
+                const old = this.read(erd_enum);
+                inline for (component_fields, 0..) |field, i| {
+                    if (erd.component_idx == i) {
+                        @field(this.components, field.name).write_no_compare(erd, data);
                     }
-                    if (!std.meta.eql(old, data)) {
-                        this.publish(erd.system_data_idx, &data);
-                    }
-                } else {
-                    const data_bytes = std.mem.toBytes(data);
-                    this.writeAndPublish(
-                        inline for (component_fields, 0..) |field, i| {
-                            if (erd.component_idx == i) break @field(this.components, field.name).storagePtr(erd);
-                        } else unreachable,
-                        @sizeOf(erd_from_enum(erd_enum).T),
-                        &data_bytes,
-                        erd.system_data_idx,
-                    );
+                }
+                if (!std.meta.eql(old, data)) {
+                    this.publish(erd.system_data_idx, &data);
                 }
             } else {
                 inline for (component_fields, 0..) |field, i| {
@@ -191,18 +174,6 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
                         @field(this.components, field.name).write_no_compare(erd, data);
                     }
                 }
-            }
-        }
-
-        /// Shared handler for writes to small ERDs with subscribers. One function
-        /// body handles all small ERD sizes, avoiding per-ERD monomorphization of
-        /// the compare + write + publish sequence.
-        noinline fn writeAndPublish(this: *Self, storage: [*]u8, size: usize, new_data: [*]const u8, system_data_idx: u16) void {
-            if (!std.mem.eql(u8, storage[0..size], new_data[0..size])) {
-                @memcpy(storage[0..size], new_data[0..size]);
-                this.publish(system_data_idx, new_data);
-            } else {
-                @memcpy(storage[0..size], new_data[0..size]);
             }
         }
 
