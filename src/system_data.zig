@@ -138,6 +138,10 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
         /// Write to an ERD by-value using comptime information (the `Erd` type)
         /// Due to the performance and code size benefits, this should be preferred over `runtime_write`.
+        ///
+        /// The write path is split into three comptime-selected branches to minimize
+        /// generated code. Each branch is chosen based on information known at comptime
+        /// (subscriber count and type kind), so only one branch survives compilation.
         pub fn write(this: *Self, comptime erd_enum: ErdEnum, data: erd_from_enum(erd_enum).T) void {
             const erd: Erd = erd_from_enum(erd_enum);
 
@@ -150,6 +154,19 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             if (erd.subs != 0) {
                 const T = erd_from_enum(erd_enum).T;
                 if (@typeInfo(T) == .@"struct") {
+                    // Struct path: read the old value as a typed local, write unconditionally,
+                    // then compare old vs new field-by-field via std.meta.eql.
+                    //
+                    // This is critical for read-modify-write patterns: since both `old` and
+                    // `data` are typed stack values, LLVM can see which fields actually differ
+                    // and eliminate comparisons for unchanged fields. For example, reading a
+                    // struct, incrementing one field, and writing it back compiles to a single
+                    // field store + unconditional publish — the comparison is optimized away
+                    // entirely because LLVM proves the other fields are identical.
+                    //
+                    // Standalone writes still get field-by-field comparison with early-exit
+                    // short-circuiting (branch on first mismatched field), which is faster at
+                    // runtime than a full byte comparison even though it uses more code bytes.
                     const old = this.read(erd_enum);
                     inline for (component_fields, 0..) |field, i| {
                         if (erd.component_idx == i) {
@@ -160,6 +177,9 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
                         this.publish(erd.system_data_idx, &data);
                     }
                 } else {
+                    // Primitive path: compare old vs new as bytes in packed storage via
+                    // bytesChanged, which uses integer comparison (e.g. a single `cmp`
+                    // instruction for u8/u16/u32) rather than mem.eql.
                     const publish_required = inline for (component_fields, 0..) |field, i| {
                         if (erd.component_idx == i) {
                             break @field(this.components, field.name).write(erd, data);
@@ -171,6 +191,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
                     }
                 }
             } else {
+                // No subscribers: skip the comparison entirely and just write.
                 inline for (component_fields, 0..) |field, i| {
                     if (erd.component_idx == i) {
                         @field(this.components, field.name).write_no_compare(erd, data);
@@ -203,6 +224,9 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             }
         }
 
+        // noinline prevents LLVM from duplicating the subscription loop at every
+        // write call site. Without this, each write-with-subs inlines N null-check +
+        // indirect-call sequences (one per subscription slot), bloating code size.
         noinline fn publish(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
             const sub_offset = subscription_offsets[system_data_idx];
 
