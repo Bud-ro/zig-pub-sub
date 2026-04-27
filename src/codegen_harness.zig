@@ -139,15 +139,12 @@ export fn codegen_write_u16_with_subs(sd: *SmallSD, val: u16) void {
 // Runtime read/write — small system
 // ===========================================================================
 
-export fn codegen_runtime_read_u32(sd: *SmallSD) u32 {
-    var val: u32 = undefined;
-    sd.runtime_read(0, &val);
-    return val;
+export fn codegen_runtime_read(sd: *SmallSD, idx: u16, out: *anyopaque) void {
+    sd.runtime_read(idx, out);
 }
 
-export fn codegen_runtime_write_u32(sd: *SmallSD) void {
-    const val: u32 = 0xDEADBEEF;
-    sd.runtime_write(0, &val);
+export fn codegen_runtime_write(sd: *SmallSD, idx: u16, data: *const anyopaque) void {
+    sd.runtime_write(idx, data);
 }
 
 // ===========================================================================

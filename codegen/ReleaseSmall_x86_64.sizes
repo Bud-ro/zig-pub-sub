@@ -11,13 +11,11 @@
 10	codegen_cross_system_read_write
 10	codegen_many_read_last
 10	codegen_read_u16_unaligned
-10	codegen_runtime_read_u32
 10	codegen_write_u16_no_subs
-10	codegen_write_u32_no_subs
 11	codegen_read_bool
 12	codegen_read_u32_after_big
 12	codegen_read_write_read
-12	codegen_runtime_write_u32
+12	codegen_write_u32_no_subs
 14	codegen_dual_read
 15	codegen_increment_n_times
 15	codegen_read_across_two_erds
@@ -39,5 +37,7 @@
 44	codegen_cross_system_swap
 45	codegen_triple_write_increment
 49	codegen_read_modify_write_medium
+61	codegen_runtime_read
 90	codegen_double_rmw_struct
 172	codegen_setup_timer_callback
+228	codegen_runtime_write
