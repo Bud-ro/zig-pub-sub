@@ -124,7 +124,8 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         /// This will be significantly slower than a comptime read, and should only be used sparingly, for example:
         /// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
         /// - Reading an ERD using info from an on-change callback
-        pub fn runtime_read(this: Self, system_data_idx: u16, data: *anyopaque) void {
+        // noinline so the dispatch logic is shared across all call sites.
+        pub noinline fn runtime_read(this: Self, system_data_idx: u16, data: *anyopaque) void {
             const component_idx = component_idx_from_system_idx[system_data_idx];
             const data_component_idx = data_component_idx_from_system_idx[system_data_idx];
 
@@ -178,7 +179,8 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         /// - Writing an ERD using info from an on-change callback (common for ERD multiplexers)
         ///
         /// NOTE: `data` must be aligned!
-        pub fn runtime_write(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
+        // noinline so the dispatch logic is shared across all call sites.
+        pub noinline fn runtime_write(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
             const component_idx = component_idx_from_system_idx[system_data_idx];
             const data_component_idx = data_component_idx_from_system_idx[system_data_idx];
 

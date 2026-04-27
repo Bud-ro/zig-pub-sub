@@ -1,4 +1,5 @@
 # size (bytes)	function
+7	codegen_runtime_read
 7	codegen_runtime_write
 9	codegen_many_write_middle_no_subs
 10	codegen_write_u16_no_subs
@@ -10,10 +11,13 @@
 42	codegen_write_triggering_callback
 42	codegen_write_u16_with_subs
 43	codegen_subscribe_callback
+48	codegen_runtime_read_two
+48	codegen_runtime_write_two
 68	codegen_read_bool
 68	codegen_read_u16_unaligned
 68	codegen_read_u32
 70	codegen_cross_system_read_write
+76	codegen_runtime_write_three
 87	codegen_read_u32_after_big
 98	codegen_double_write_diff_values
 98	codegen_double_write_same_value
@@ -28,7 +32,6 @@
 142	codegen_triple_read_same_erd
 148	codegen_read_then_branch
 155	codegen_read_across_two_erds
-158	codegen_runtime_read
 158	codegen_triple_write_increment
 169	codegen_increment_n_times
 177	codegen_write_junk_read_write
