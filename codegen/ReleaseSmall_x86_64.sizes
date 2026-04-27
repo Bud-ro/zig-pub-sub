@@ -30,9 +30,9 @@
 28	codegen_cross_system_read_add
 29	codegen_read_write_other_read
 30	codegen_read_medium_struct
+37	codegen_many_write_last_with_subs
 40	codegen_subscribe_callback
 41	codegen_runtime_write_u32
+44	codegen_cross_system_swap
 49	codegen_read_modify_write_medium
-72	codegen_many_write_last_with_subs
-74	codegen_cross_system_swap
 172	codegen_setup_timer_callback

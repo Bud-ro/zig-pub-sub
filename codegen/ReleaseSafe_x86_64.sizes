@@ -4,12 +4,12 @@
 12	codegen_write_u32_no_subs
 15	codegen_write_big_struct
 19	codegen_dual_write
+37	codegen_many_write_last_with_subs
 42	codegen_write_bool_with_subs
 42	codegen_write_triggering_callback
+42	codegen_write_u16_with_subs
 43	codegen_runtime_write_u32
 43	codegen_subscribe_callback
-56	codegen_many_write_last_with_subs
-60	codegen_write_u16_with_subs
 68	codegen_read_bool
 68	codegen_read_u16_unaligned
 68	codegen_read_u32
@@ -23,11 +23,11 @@
 130	codegen_many_read_middle
 136	codegen_read_medium_struct
 138	codegen_many_read_last
+142	codegen_cross_erd_compute
 142	codegen_triple_read_same_erd
 145	codegen_write_medium_with_subs
 148	codegen_read_then_branch
 155	codegen_read_across_two_erds
-158	codegen_cross_erd_compute
 169	codegen_increment_n_times
 190	codegen_read_write_other_read
 192	codegen_read_modify_write_big

@@ -25,14 +25,14 @@
 29	codegen_read_big_struct
 30	codegen_read_medium_struct
 34	codegen_conditional_write_chain
+37	codegen_many_write_last_with_subs
 42	codegen_write_bool_with_subs
 42	codegen_write_triggering_callback
+42	codegen_write_u16_with_subs
 43	codegen_subscribe_callback
 44	codegen_cross_system_swap
-53	codegen_many_write_last_with_subs
-60	codegen_write_u16_with_subs
+49	codegen_cross_erd_compute
 62	codegen_read_write_other_read
-65	codegen_cross_erd_compute
 145	codegen_write_medium_with_subs
 153	codegen_read_modify_write_medium
 224	codegen_setup_timer_callback
