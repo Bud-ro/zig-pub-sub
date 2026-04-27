@@ -82,11 +82,13 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
         }
     }
 
-    // Keep single-mode emit-asm for quick iteration
+    // Single-mode emit-asm for quick iteration.
+    // Defaults to ReleaseFast because Debug mode doesn't emit assembly in Zig 0.15.
+    const emit_optimize = if (optimize == .Debug) .ReleaseFast else optimize;
     const codegen_mod = b.createModule(.{
         .root_source_file = b.path("src/codegen_harness.zig"),
         .target = target,
-        .optimize = optimize,
+        .optimize = emit_optimize,
     });
     codegen_mod.addImport("sometimes", sometimes_disabled_mod);
     const codegen_obj = b.addObject(.{
