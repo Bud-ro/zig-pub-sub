@@ -7,21 +7,21 @@
     - Can be used instead of stack allocator, which is only capable of a fixed number of allocation sizes
     - Improves memory report since it removes implicit assumption that we have enough stack space to support them
       - It does assume that we don't exceed 2 kiB (or however much configured) of scratch space used per RTC
-  - [ ] Converted data component once subscriptions are in implemented
-    - [ ] Subscribe to ERDs in it
-    - [ ] Denote *multiple* ERDs as a dependency
+  - [x] Converted data component
+    - [x] Subscribe to ERDs in it
+    - [x] Denote *multiple* ERDs as a dependency
 - [x] Implement System Data
-  - [ ] Define ERDs top down (pass down from system data into other components)
+  - [x] Define ERDs top down (pass down from system data into other components)
     - Can probably do this by calling `SystemData(ErdDefinitions)`, that's just a ton of work
     - This buys:
-      - Fully committing to storing subscriptions in data components
-      - Differing `.subscribe`, `.unsubscribe`, etc. functions for instance, which more flexibly allow for certain data components to not be subscribable
+      - Fully committing to storing subscriptions in data components ✓
+      - Differing `.subscribe`, `.unsubscribe`, etc. functions for instance, which more flexibly allow for certain data components to not be subscribable ✓
       - Allows for init of data components with different ERD tables
   - [x] Allow for definition of public ERD handles
 - [x] Pub sub
-  - [x] ~~Subscription lists are stored local to data components~~, ~~Subscription Linked List Stored in System Data~~, Subscription lists stored in system data
+  - [x] ~~Subscription lists are stored local to data components~~, ~~Subscription Linked List Stored in System Data~~, ~~Subscription lists stored in system data~~, Subscription lists stored in data components (SystemData is a pure router)
     - [x] ERDs that don't make sense to subscribe to can cause a compile error
-    - [x] ~~Entire data components can have their subscribe function be a `@compileError`~~ N/A since sub is done at the system data level
+    - [x] Entire data components can have their subscribe function be a `@compileError` (e.g. IndirectDataComponent)
   - [x] ~~Linked List unsubscribe~~
   - [ ] `.subscribe_all` and `.unsubscribe_all`
   - [x] `comptime` known upper bound of subscriptions which can be used to hold callbacks in an array instead of wasting a shit ton of memory (and time) on linked list pointers.
