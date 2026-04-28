@@ -4,6 +4,7 @@
 
 const std = @import("std");
 const Erd = @import("erd.zig");
+const Subscription = @import("subscription.zig");
 
 pub fn RamDataComponent(comptime erds: []const Erd) type {
     return struct {
@@ -11,15 +12,18 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
 
         pub const component_erds = erds;
         pub const supports_write = true;
+        pub const supports_subscriptions = true;
 
         // TODO: Add a flag that reorders fields to efficiently pack this
         // and another that guarantees alignment for faster R/W.
         storage: [store_size()]u8 align(@alignOf(usize)) = undefined,
+        subscriptions: [total_own_subs()]Subscription = undefined,
 
         pub fn init() Self {
-            var ram_data_component = Self{};
-            @memset(ram_data_component.storage[0..], 0);
-            return ram_data_component;
+            var self = Self{};
+            @memset(self.storage[0..], 0);
+            @memset(&self.subscriptions, .{ .context = null, .callback = null });
+            return self;
         }
 
         const ram_offsets = blk: {
@@ -50,6 +54,40 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             return size;
         }
 
+        fn total_own_subs() usize {
+            var size: usize = 0;
+            for (erds) |erd| {
+                size += erd.subs;
+            }
+            return size;
+        }
+
+        pub const sub_offsets = blk: {
+            var _offsets: [erds.len]usize = undefined;
+            var cur_offset: usize = 0;
+            for (erds, 0..) |erd, i| {
+                _offsets[i] = cur_offset;
+                cur_offset += erd.subs;
+            }
+            break :blk _offsets;
+        };
+
+        const subs_from_idx: [erds.len]u8 = blk: {
+            var _subs: [erds.len]u8 = undefined;
+            for (erds, 0..) |erd, i| {
+                _subs[i] = erd.subs;
+            }
+            break :blk _subs;
+        };
+
+        const system_data_idx_from_idx: [erds.len]u16 = blk: {
+            var _idx: [erds.len]u16 = undefined;
+            for (erds, 0..) |erd, i| {
+                _idx[i] = erd.system_data_idx;
+            }
+            break :blk _idx;
+        };
+
         pub fn read(self: Self, erd: Erd) erd.T {
             const idx = erd.data_component_idx;
 
@@ -65,26 +103,35 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             @memcpy(data_slice[0..size], self.storage[ram_offsets[data_component_idx] .. ram_offsets[data_component_idx] + size]);
         }
 
-        /// Write and return whether the value changed (for on-change publish).
+        /// Write and publish if the value changed. When subs == 0, skips comparison entirely.
         /// Uses two comparison strategies depending on type size:
         /// - ≤ 8 bytes: integer comparison via readInt (single cmp instruction)
         /// - > 8 bytes: typed comparison via std.meta.eql, which lets LLVM see
         ///   field-level relationships and eliminate unchanged field comparisons
         ///   in read-modify-write patterns
-        pub fn write(self: *Self, erd: Erd, data: erd.T) bool {
+        pub fn write(self: *Self, erd: Erd, data: erd.T, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
             const N = @sizeOf(erd.T);
             const data_bytes = std.mem.toBytes(data);
 
-            if (N <= 8) {
+            if (erd.subs == 0) {
+                self.storage[ram_offsets[idx]..][0..N].* = data_bytes;
+                return;
+            }
+
+            const changed = if (N <= 8) blk: {
                 const stored: *[N]u8 = self.storage[ram_offsets[idx]..][0..N];
                 const data_changed = bytesChanged(stored, &data_bytes);
                 stored.* = data_bytes;
-                return data_changed;
-            } else {
+                break :blk data_changed;
+            } else blk: {
                 const old = self.read(erd);
                 self.storage[ram_offsets[idx]..][0..N].* = data_bytes;
-                return !std.meta.eql(old, data);
+                break :blk !std.meta.eql(old, data);
+            };
+
+            if (changed) {
+                self.publish(erd.data_component_idx, &data, publisher);
             }
         }
 
@@ -99,17 +146,68 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = std.mem.toBytes(data);
         }
 
-        pub fn runtime_write(self: *Self, data_component_idx: u16, data: *const anyopaque) bool {
+        pub fn runtime_write(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
             const idx = data_component_idx;
 
-            var data_slice: [*]const u8 = @ptrCast(data);
+            const data_slice: [*]const u8 = @ptrCast(data);
             const size = data_size[data_component_idx];
 
             const data_changed = !std.mem.eql(u8, data_slice[0..size], self.storage[ram_offsets[idx] .. ram_offsets[idx] + size]);
 
             @memcpy(self.storage[ram_offsets[idx] .. ram_offsets[idx] + size], data_slice[0..size]);
 
-            return data_changed;
+            if (data_changed and subs_from_idx[data_component_idx] != 0) {
+                self.publish(data_component_idx, data, publisher);
+            }
+        }
+
+        // noinline so the dispatch logic is shared across all call sites.
+        noinline fn publish(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
+            const offset = sub_offsets[data_component_idx];
+            const count = subs_from_idx[data_component_idx];
+            for (self.subscriptions[offset .. offset + count]) |sub| {
+                if (sub.callback) |cb| {
+                    const args: Subscription.OnChangeArgs = .{
+                        .system_data_idx = system_data_idx_from_idx[data_component_idx],
+                        .data = data,
+                    };
+                    cb(sub.context, @ptrCast(&args), publisher);
+                }
+            }
+        }
+
+        pub fn subscribe(self: *Self, erd: Erd, context: ?*anyopaque, fn_ptr: Subscription.Callback) void {
+            std.debug.assert(erd.subs > 0);
+            const offset = sub_offsets[erd.data_component_idx];
+            var first_free: ?*Subscription = null;
+
+            for (self.subscriptions[offset .. offset + erd.subs]) |*sub| {
+                if (first_free == null and sub.callback == null) {
+                    first_free = sub;
+                }
+                if (sub.callback == fn_ptr) {
+                    return;
+                }
+            }
+
+            if (first_free == null) {
+                @panic("RAM ERD oversubscribed!");
+            }
+
+            first_free.?.context = context;
+            first_free.?.callback = fn_ptr;
+        }
+
+        pub fn unsubscribe(self: *Self, erd: Erd, fn_ptr: Subscription.Callback) void {
+            std.debug.assert(erd.subs > 0);
+            const offset = sub_offsets[erd.data_component_idx];
+
+            for (self.subscriptions[offset .. offset + erd.subs]) |*sub| {
+                if (sub.callback == fn_ptr) {
+                    sub.callback = null;
+                    return;
+                }
+            }
         }
 
         // TODO: This is a neat way of gaining automatic optimized alignment, but MAN

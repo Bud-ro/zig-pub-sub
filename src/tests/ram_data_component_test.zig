@@ -44,19 +44,22 @@ const erd_padded = erds[4];
 const erd_packed_fr = erds[5];
 const erd_ptr = erds[6];
 
+var dummy_publisher: u8 = 0;
+
 test "ram data component read and write" {
     var ram_data = RamDataComponent.init();
     try std.testing.expectEqual(0, ram_data.read(erd_u32));
-    try std.testing.expectEqual(false, ram_data.write(erd_u32, 0));
+
+    ram_data.write(erd_u32, 0, &dummy_publisher);
 
     const new_ver: u32 = 0x12345678;
-    try std.testing.expectEqual(true, ram_data.write(erd_u32, new_ver));
+    ram_data.write(erd_u32, new_ver, &dummy_publisher);
     try std.testing.expectEqual(new_ver, ram_data.read(erd_u32));
 }
 
 test "unaligned read and write" {
     var ram_data = RamDataComponent.init();
-    _ = ram_data.write(erd_u16, 0x1234);
+    ram_data.write(erd_u16, 0x1234, &dummy_publisher);
     try std.testing.expectEqual(0x1234, ram_data.read(erd_u16));
 
     try std.testing.expectEqual(0, ram_data.read(erd_u32));
@@ -67,7 +70,7 @@ test "read and write of type where @bitSizeOf is not multiple of 8" {
     var ram_data = RamDataComponent.init();
     try std.testing.expectEqual(false, ram_data.read(erd_bool));
 
-    _ = ram_data.write(erd_bool, true);
+    ram_data.write(erd_bool, true, &dummy_publisher);
     try std.testing.expectEqual(true, ram_data.read(erd_bool));
 }
 
@@ -76,7 +79,7 @@ test "pointers read/write" {
     try std.testing.expectEqual(null, ram_data.read(erd_ptr));
 
     var temp: u16 = 2;
-    _ = ram_data.write(erd_ptr, &temp);
+    ram_data.write(erd_ptr, &temp, &dummy_publisher);
     try std.testing.expectEqual(2, ram_data.read(erd_ptr).?.*);
 }
 
@@ -88,11 +91,11 @@ test "structs" {
     const packed_st = ram_data.read(erd_packed_fr);
     try std.testing.expectEqual(std.mem.zeroes(@TypeOf(packed_st)), packed_st);
 
-    _ = ram_data.write(erd_packed_fr, .{ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 });
+    ram_data.write(erd_packed_fr, .{ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 }, &dummy_publisher);
     const packed_st_with_data = ram_data.read(erd_packed_fr);
     try std.testing.expectEqual(@TypeOf(packed_st_with_data){ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 }, packed_st_with_data);
 
-    _ = ram_data.write(erd_padded, .{ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF });
+    ram_data.write(erd_padded, .{ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF }, &dummy_publisher);
 
     const padded = ram_data.read(erd_padded);
     try std.testing.expectEqual(@TypeOf(padded){ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF }, padded);
@@ -102,13 +105,13 @@ test "failure upon writing incorrect types" {
     return error.SkipZigTest; // Test for compile error
 
     // var ram_data = RamDataComponent.init();
-    // std.testing.expectError(, ram_data.write(erd_bool, 20));
+    // std.testing.expectError(, ram_data.write(erd_bool, 20, &dummy_publisher));
 }
 
 test "runtime reads" {
     var ram_data = RamDataComponent.init();
 
-    _ = ram_data.write(erd_bool, true);
+    ram_data.write(erd_bool, true, &dummy_publisher);
 
     var bool_val: bool = undefined;
     ram_data.runtime_read(erd_bool.data_component_idx, &bool_val);
@@ -120,15 +123,14 @@ test "runtime writes" {
     var ram_data = RamDataComponent.init();
 
     const very_true = true;
-    var changed = ram_data.runtime_write(erd_bool.data_component_idx, &very_true);
-    try std.testing.expect(changed);
+    ram_data.runtime_write(erd_bool.data_component_idx, &very_true, &dummy_publisher);
 
     const bool_val = ram_data.read(erd_bool);
     try std.testing.expectEqual(true, bool_val);
 
-    changed = ram_data.write(erd_bool, true);
-    try std.testing.expect(!changed);
+    ram_data.write(erd_bool, true, &dummy_publisher);
+    try std.testing.expectEqual(true, ram_data.read(erd_bool));
 
-    changed = ram_data.write(erd_bool, false);
-    try std.testing.expect(changed);
+    ram_data.write(erd_bool, false, &dummy_publisher);
+    try std.testing.expectEqual(false, ram_data.read(erd_bool));
 }

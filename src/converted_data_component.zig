@@ -16,12 +16,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd) type {
 
         pub const component_erds = erds;
         pub const supports_write = false;
-        pub const manages_own_subscriptions = true;
-
-        const OnChangeArgs = struct {
-            system_data_idx: u16,
-            data: *const anyopaque,
-        };
+        pub const supports_subscriptions = true;
 
         read_functions: [erds.len]*const anyopaque = undefined,
         subscriptions: [total_own_subs()]Subscription = undefined,
@@ -45,13 +40,11 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd) type {
             return size;
         }
 
-        const sub_offsets = blk: {
+        pub const sub_offsets = blk: {
             var _offsets: [erds.len]usize = undefined;
             var cur_offset: usize = 0;
             for (erds, 0..) |erd, i| {
-                if (erd.subs != 0) {
-                    _offsets[i] = cur_offset;
-                }
+                _offsets[i] = cur_offset;
                 cur_offset += erd.subs;
             }
             break :blk _offsets;
@@ -149,7 +142,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd) type {
             const count = erds[erd_data_component_idx].subs;
             for (self.subscriptions[offset .. offset + count]) |sub| {
                 if (sub.callback) |cb| {
-                    const args: OnChangeArgs = .{
+                    const args: Subscription.OnChangeArgs = .{
                         .system_data_idx = erds[erd_data_component_idx].system_data_idx,
                         .data = data,
                     };
