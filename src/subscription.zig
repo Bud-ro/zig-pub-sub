@@ -9,5 +9,10 @@
 const Subscription = @This();
 pub const Callback = *const fn (context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void;
 
+pub const OnChangeArgs = struct {
+    system_data_idx: u16,
+    data: *const anyopaque,
+};
+
 context: ?*anyopaque,
 callback: ?Callback,
