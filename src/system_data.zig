@@ -53,11 +53,18 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             return this;
         }
 
+        fn component_manages_own_subs(comptime idx: comptime_int) bool {
+            return @hasDecl(component_fields[idx].type, "manages_own_subscriptions");
+        }
+
         fn total_subscriptions() usize {
             comptime {
                 var size: usize = 0;
                 for (std.meta.fieldNames(ErdDefs)) |erd_name| {
-                    size += @field(erd_instance, erd_name).subs;
+                    const e = @field(erd_instance, erd_name);
+                    if (!component_manages_own_subs(e.component_idx)) {
+                        size += e.subs;
+                    }
                 }
                 return size;
             }
@@ -70,10 +77,12 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             var cur_offset = 0;
 
             for (std.meta.fieldNames(ErdDefs), 0..) |erd_name, i| {
-                if (@field(erd_instance, erd_name).subs != 0) {
+                const e = @field(erd_instance, erd_name);
+                if (component_manages_own_subs(e.component_idx)) continue;
+                if (e.subs != 0) {
                     _offsets[i] = cur_offset;
                 }
-                cur_offset += @field(erd_instance, erd_name).subs;
+                cur_offset += e.subs;
             }
             break :blk _offsets;
         };
@@ -219,6 +228,16 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             comptime {
                 std.debug.assert(erd.subs > 0);
             }
+
+            if (comptime component_manages_own_subs(erd.component_idx)) {
+                inline for (component_fields, 0..) |field, i| {
+                    if (erd.component_idx == i) {
+                        @field(this.components, field.name).subscribe(erd, context, fn_ptr);
+                        return;
+                    }
+                }
+            }
+
             const sub_offset = subscription_offsets[erd.system_data_idx];
             var first_free_spot: ?*Subscription = null;
 
@@ -228,17 +247,11 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
                 }
 
                 if (_sub.callback == fn_ptr) {
-                    // Subscriptions cannot be added to the same list twice
                     return;
                 }
             }
 
-            // Failed to find an empty spot, over-subscribed
             if (first_free_spot == null) {
-                // In tests this verifies we aren't subscribing beyond our array length
-                // These names should be stripped out of the binary if a panic handler isn't set.
-                // TODO: Validate this assumption and switch to using something lighter if needed
-                // This is a ROM savings of likely over 10kB on large projects :)
                 const erd_names = comptime std.meta.fieldNames(ErdDefs);
                 std.debug.panic("ERD {s} oversubscribed!", .{erd_names[erd.system_data_idx]});
             }
@@ -251,6 +264,15 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             const erd: Erd = erd_from_enum(erd_enum);
             comptime {
                 std.debug.assert(erd.subs > 0);
+            }
+
+            if (comptime component_manages_own_subs(erd.component_idx)) {
+                inline for (component_fields, 0..) |field, i| {
+                    if (erd.component_idx == i) {
+                        @field(this.components, field.name).unsubscribe(erd, fn_ptr);
+                        return;
+                    }
+                }
             }
 
             const sub_offset = subscription_offsets[erd.system_data_idx];
@@ -292,12 +314,17 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
             inline for (std.meta.fields(ErdDefs), 0..) |field_info, i| {
                 const erd_name = field_info.name;
-                const sub_offset = subscription_offsets[i];
                 const num_subs = @field(erd_instance, erd_name).subs;
 
                 if (num_subs == 0) {
                     continue;
                 }
+
+                if (comptime component_manages_own_subs(@field(erd_instance, erd_name).component_idx)) {
+                    continue;
+                }
+
+                const sub_offset = subscription_offsets[i];
 
                 const expected_count = blk: {
                     comptime var _expected = num_subs;

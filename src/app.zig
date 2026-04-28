@@ -7,10 +7,12 @@ const SystemErds = @import("system_erds.zig");
 
 pub const RamDataComponent = @import("ram_data_component.zig").RamDataComponent(&SystemErds.ram_definitions);
 pub const IndirectDataComponent = @import("indirect_data_component.zig").IndirectDataComponent(&SystemErds.indirect_definitions);
+pub const ConvertedDataComponent = @import("converted_data_component.zig").ConvertedDataComponent(&SystemErds.converted_definitions);
 
 pub const Components = struct {
     ram: RamDataComponent,
     indirect: IndirectDataComponent,
+    converted: ConvertedDataComponent,
 
     comptime {
         const Id = SystemErds.ComponentId;
@@ -18,6 +20,8 @@ pub const Components = struct {
             @compileError("ComponentId.ram does not match RamDataComponent position in Components");
         if (std.meta.fields(Components)[@intFromEnum(Id.indirect)].type != IndirectDataComponent)
             @compileError("ComponentId.indirect does not match IndirectDataComponent position in Components");
+        if (std.meta.fields(Components)[@intFromEnum(Id.converted)].type != ConvertedDataComponent)
+            @compileError("ComponentId.converted does not match ConvertedDataComponent position in Components");
     }
 };
 
@@ -39,13 +43,32 @@ const indirect_mappings = [_]IndirectDataComponent.IndirectErdMapping{
     .map(SystemErds.erd.erd_another_erd_plus_one, plus_one),
 };
 
+fn compute_cool_plus_best(result: *u16, ctx: *anyopaque) void {
+    const sd: *SystemData = @ptrCast(@alignCast(ctx));
+    result.* = sd.read(.erd_cool_u16) + sd.read(.erd_best_u16);
+}
+
+const converted_mappings = [_]ConvertedDataComponent.ConvertedErdMapping{
+    .map(SystemErds.erd.erd_cool_plus_best, compute_cool_plus_best, &.{
+        SystemErds.erd.erd_cool_u16.system_data_idx,
+        SystemErds.erd.erd_best_u16.system_data_idx,
+    }),
+};
+
+const sum_callback = ConvertedDataComponent.make_callback(SystemErds.erd.erd_cool_plus_best.data_component_idx);
+
 pub const Application = struct {
     system_data: SystemData,
 };
 
 pub fn init() Application {
-    return .{ .system_data = SystemData.init(.{
+    var app = Application{ .system_data = SystemData.init(.{
         .ram = RamDataComponent.init(),
         .indirect = IndirectDataComponent.init(indirect_mappings),
+        .converted = ConvertedDataComponent.init(converted_mappings),
     }) };
+    app.system_data.components.converted.set_system_data(@ptrCast(&app.system_data));
+    app.system_data.subscribe(.erd_cool_u16, @ptrCast(&app.system_data.components.converted), sum_callback);
+    app.system_data.subscribe(.erd_best_u16, @ptrCast(&app.system_data.components.converted), sum_callback);
+    return app;
 }
