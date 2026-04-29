@@ -152,6 +152,9 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             }
         }
 
+        /// Subscribe to changes on an ERD. The callback receives `context`,
+        /// on-change args, and a `publisher` pointer which is always `*SystemData`
+        /// (type-erased as `*anyopaque`).
         pub fn subscribe(
             this: *Self,
             comptime erd_enum: ErdEnum,
