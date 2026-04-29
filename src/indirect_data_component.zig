@@ -14,7 +14,7 @@ pub fn IndirectDataComponent(comptime erds: []const Erd) type {
         pub const supports_write = false;
 
         read_functions: [erds.len](*const anyopaque) = undefined,
-        subscription: DataComponentSubscription.Unsupported = .{},
+        subs: DataComponentSubscription.Unsupported = .{},
 
         pub const IndirectErdMapping = struct {
             erd: Erd,

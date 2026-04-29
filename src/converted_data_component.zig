@@ -37,7 +37,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         pub const supports_write = false;
 
         read_functions: [erds.len]*const anyopaque = undefined,
-        subscription: DataComponentSubscription(erds) = .{},
+        subs: DataComponentSubscription(erds) = .{},
         system_data_ref: *anyopaque = undefined,
         is_fully_initialized: bool = false,
 
@@ -111,7 +111,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         fn do_publish(self: *Self, comptime erd_data_component_idx: comptime_int, data: *const anyopaque, publisher: *anyopaque) void {
             const offset = DataComponentSubscription(erds).sub_offsets[erd_data_component_idx];
             const count = erds[erd_data_component_idx].subs;
-            for (self.subscription.slots[offset .. offset + count]) |sub| {
+            for (self.subs.slots[offset .. offset + count]) |sub| {
                 if (sub.callback) |cb| {
                     const args: Subscription.OnChangeArgs = .{
                         .system_data_idx = erds[erd_data_component_idx].system_data_idx,

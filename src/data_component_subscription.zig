@@ -1,11 +1,31 @@
-//! Subscription storage and dispatch for data components.
-//! Embed `DataComponentSubscription(erds)` as a `subscription` field in any
-//! component that supports subscriptions, or `Unsupported` for components that don't.
+//! Subscription storage and dispatch mixin for data components.
+//!
+//! Every data component must have a `subs` field of one of these types so that
+//! SystemData can uniformly route subscribe/unsubscribe calls.
+//!
+//! ```
+//! // Component that supports subscriptions:
+//! subs: DataComponentSubscription(erds) = .{},
+//!
+//! // Component that does not:
+//! subs: Unsupported = .{},
+//! ```
 
 const std = @import("std");
 const Erd = @import("erd.zig");
 const Subscription = @import("subscription.zig");
 
+/// Validates that every component in `Components` has a `subs` field.
+pub fn validateComponents(comptime Components: type) void {
+    for (std.meta.fields(Components)) |field| {
+        if (!@hasField(field.type, "subs")) {
+            @compileError(std.fmt.comptimePrint("Component {s} must have a subs field (use DataComponentSubscription or Unsupported)", .{field.name}));
+        }
+    }
+}
+
+/// Subscription slot storage with subscribe/unsubscribe dispatch.
+/// Parameterized by the ERD slice to compute slot counts and offsets at comptime.
 pub fn DataComponentSubscription(comptime erds: []const Erd) type {
     return struct {
         const Self = @This();
@@ -67,6 +87,8 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
     };
 }
 
+/// Stub for components that do not support subscriptions.
+/// Any attempt to subscribe or unsubscribe is a compile error.
 pub const Unsupported = struct {
     pub const supported = false;
     pub const sub_offsets = [_]usize{};

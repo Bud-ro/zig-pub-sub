@@ -28,11 +28,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
     const SystemErdsLength: usize = std.meta.fields(ErdDefs).len;
 
     comptime {
-        for (component_fields) |field| {
-            if (!@hasField(field.type, "subscription")) {
-                @compileError(std.fmt.comptimePrint("Component {s} must have a subscription field", .{field.name}));
-            }
-        }
+        @import("data_component_subscription.zig").validateComponents(Components);
     }
 
     return struct {
@@ -168,7 +164,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
             inline for (component_fields, 0..) |field, i| {
                 if (erd.component_idx == i) {
-                    @field(this.components, field.name).subscription.subscribe(erd, context, fn_ptr);
+                    @field(this.components, field.name).subs.subscribe(erd, context, fn_ptr);
                     return;
                 }
             }
@@ -182,7 +178,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
             inline for (component_fields, 0..) |field, i| {
                 if (erd.component_idx == i) {
-                    @field(this.components, field.name).subscription.unsubscribe(erd, fn_ptr);
+                    @field(this.components, field.name).subs.unsubscribe(erd, fn_ptr);
                     return;
                 }
             }
@@ -241,7 +237,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
                 inline for (component_fields, 0..) |comp_field, ci| {
                     if (component_idx == ci) {
-                        const sub_field = &@field(this.components, comp_field.name).subscription;
+                        const sub_field = &@field(this.components, comp_field.name).subs;
                         const SubscriptionType = @TypeOf(sub_field.*);
                         const offset = SubscriptionType.sub_offsets[erd.data_component_idx];
                         for (sub_field.slots[offset .. offset + num_subs]) |sub| {

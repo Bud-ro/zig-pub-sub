@@ -16,7 +16,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         // TODO: Add a flag that reorders fields to efficiently pack this
         // and another that guarantees alignment for faster R/W.
         storage: [store_size()]u8 align(@alignOf(usize)) = undefined,
-        subscription: DataComponentSubscription(erds) = .{},
+        subs: DataComponentSubscription(erds) = .{},
 
         pub fn init() Self {
             var self = Self{};
@@ -148,7 +148,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         noinline fn publish(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
             const offset = DataComponentSubscription(erds).sub_offsets[data_component_idx];
             const count = subs_from_idx[data_component_idx];
-            for (self.subscription.slots[offset .. offset + count]) |sub| {
+            for (self.subs.slots[offset .. offset + count]) |sub| {
                 if (sub.callback) |cb| {
                     const args: Subscription.OnChangeArgs = .{
                         .system_data_idx = system_data_idx_from_idx[data_component_idx],
@@ -158,5 +158,37 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
                 }
             }
         }
+
+        // TODO: This is a neat way of gaining automatic optimized alignment, but MAN
+        //       it sucks for actually accessing fields, particularly using runtime info
+        //       see if it can eventually be used?
+        // const ram_fields: [erds.len]std.builtin.Type.StructField = blk: {
+        //     var _fields: [erds.len]std.builtin.Type.StructField = undefined;
+        //
+        //     for (erds, 0..) |erd, i| {
+        //         // Fields have the name of "_number"
+        //         const fieldName = std.fmt.comptimePrint("_{}", .{erd.data_component_idx});
+        //         _fields[i] = .{
+        //             .name = fieldName,
+        //             .type = erd.T,
+        //             .default_value_ptr = null,
+        //             .is_comptime = false,
+        //             // Proper alignment is the default. If you want denser memory
+        //             // then set alignment to 1.
+        //             .alignment = 0,
+        //         };
+        //     }
+        //
+        //     break :blk _fields;
+        // };
+        //
+        // const StoreStruct = @Type(.{
+        //     .@"struct" = .{
+        //         .layout = .auto,
+        //         .fields = ram_fields[0..],
+        //         .decls = &[_]std.builtin.Type.Declaration{},
+        //         .is_tuple = false,
+        //     },
+        // });
     };
 }
