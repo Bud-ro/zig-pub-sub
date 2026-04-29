@@ -7,8 +7,6 @@ pub fn main() !void {
     var buf: [max_json_size]u8 = undefined;
 
     var out = std.io.Writer.fixed(&buf);
-    try erd_schema.generate_erd_json(SystemErds.ErdDefinitions, SystemErds.erd, &out, .{
-        .namespace = "zig-embedded-starter-kit",
-    });
+    try erd_schema.generate_erd_json(SystemErds.ErdDefinitions, SystemErds.erd, &out, .{});
     std.log.debug("System Erds as JSON Object:\n{s}", .{out.buffered()});
 }
