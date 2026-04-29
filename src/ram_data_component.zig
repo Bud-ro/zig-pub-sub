@@ -12,11 +12,12 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         const Self = @This();
 
         pub const supports_write = true;
+        const Subs = DataComponentSubscription(erds);
 
         // TODO: Add a flag that reorders fields to efficiently pack this
         // and another that guarantees alignment for faster R/W.
         storage: [store_size()]u8 align(@alignOf(usize)) = undefined,
-        subs: DataComponentSubscription(erds) = .{},
+        subs: Subs = .{},
 
         pub fn init() Self {
             var self = Self{};
@@ -146,7 +147,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         // The size of this is 4*numErds which means this will reach well over 4kB of ROM.
         // TODO: Add the option to binary search and avoid a large chunk of this cost
         noinline fn publish(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
-            const offset = DataComponentSubscription(erds).sub_offsets[data_component_idx];
+            const offset = Subs.sub_offsets[data_component_idx];
             const count = subs_from_idx[data_component_idx];
             for (self.subs.slots[offset .. offset + count]) |sub| {
                 if (sub.callback) |cb| {
