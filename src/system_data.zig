@@ -27,20 +27,23 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
     const component_fields = std.meta.fields(Components);
     const SystemErdsLength: usize = std.meta.fields(ErdDefs).len;
 
+    comptime {
+        for (component_fields) |field| {
+            if (!@hasDecl(field.type, "supports_subscriptions") or !field.type.supports_subscriptions) {
+                @compileError(std.fmt.comptimePrint("Component {s} must declare supports_subscriptions = true", .{field.name}));
+            }
+        }
+    }
+
     return struct {
         const Self = @This();
 
-        /// Published for every on-change event
-        pub const OnChangeArgs = struct {
-            system_data_idx: u16,
-            data: *const anyopaque,
-        };
+        pub const OnChangeArgs = Subscription.OnChangeArgs;
 
         /// A test only type used with verify_all_subs_are_saturated
         pub const SubException = struct { erd_enum: ErdEnum, missing: comptime_int };
 
         components: Components = undefined,
-        subscriptions: [total_subscriptions()]Subscription = undefined,
         /// This is a bump allocator meant to be reset at the end of a run to complete
         scratch: std.heap.FixedBufferAllocator = undefined,
         scratch_buf: [2048]u8 align(@alignOf(usize)) = undefined, // TODO: Does this actually need to be aligned?
@@ -49,34 +52,8 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             var this = Self{};
             this.components = components;
             this.scratch = .init(&this.scratch_buf);
-            @memset(&this.subscriptions, .{ .context = null, .callback = null });
             return this;
         }
-
-        fn total_subscriptions() usize {
-            comptime {
-                var size: usize = 0;
-                for (std.meta.fieldNames(ErdDefs)) |erd_name| {
-                    size += @field(erd_instance, erd_name).subs;
-                }
-                return size;
-            }
-        }
-
-        // The size of this is 4*numErds which means this will reach well over 4kB of ROM.
-        // TODO: Add the option to binary search and avoid a large chunk of this cost
-        const subscription_offsets = blk: {
-            var _offsets: [SystemErdsLength]usize = undefined;
-            var cur_offset = 0;
-
-            for (std.meta.fieldNames(ErdDefs), 0..) |erd_name, i| {
-                if (@field(erd_instance, erd_name).subs != 0) {
-                    _offsets[i] = cur_offset;
-                }
-                cur_offset += @field(erd_instance, erd_name).subs;
-            }
-            break :blk _offsets;
-        };
 
         /// Returns a column from erd_instance as an array of type []T
         fn erd_collect(T: type, column_name: []const u8) [SystemErdsLength]T {
@@ -88,8 +65,6 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             return field_values;
         }
 
-        // Create .rodata that is indexed by `system_data_idx`
-        const subs_from_idx = erd_collect(u8, "subs");
         const component_idx_from_system_idx = erd_collect(u8, "component_idx");
         const data_component_idx_from_system_idx = erd_collect(u16, "data_component_idx");
 
@@ -139,12 +114,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
         /// Write to an ERD by-value using comptime information (the `Erd` type)
         /// Due to the performance and code size benefits, this should be preferred over `runtime_write`.
-        ///
-        /// Two comptime-selected write paths:
-        /// - With subscribers: calls component.write() which returns whether the
-        ///   value changed. Publishes only if the component reports a change.
-        ///   The comparison strategy is owned by the data component, not SystemData.
-        /// - Without subscribers: calls write_no_compare, skipping comparison entirely.
+        /// The owning data component handles change detection and publishes to subscribers.
         pub fn write(this: *Self, comptime erd_enum: ErdEnum, data: erd_from_enum(erd_enum).T) void {
             const erd: Erd = erd_from_enum(erd_enum);
 
@@ -154,21 +124,9 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
                 }
             }
 
-            if (erd.subs != 0) {
-                const publish_required = inline for (component_fields, 0..) |field, i| {
-                    if (erd.component_idx == i) {
-                        break @field(this.components, field.name).write(erd, data);
-                    }
-                } else unreachable;
-
-                if (publish_required) {
-                    this.publish(erd.system_data_idx, &data);
-                }
-            } else {
-                inline for (component_fields, 0..) |field, i| {
-                    if (erd.component_idx == i) {
-                        @field(this.components, field.name).write_no_compare(erd, data);
-                    }
+            inline for (component_fields, 0..) |field, i| {
+                if (erd.component_idx == i) {
+                    @field(this.components, field.name).write(erd, data, @ptrCast(this));
                 }
             }
         }
@@ -184,31 +142,19 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             const component_idx = component_idx_from_system_idx[system_data_idx];
             const data_component_idx = data_component_idx_from_system_idx[system_data_idx];
 
-            const publish_required = inline for (component_fields, 0..) |field, i| {
+            inline for (component_fields, 0..) |field, i| {
                 if (component_idx == i) {
                     if (!supports_write_from_component_idx[i]) {
                         unreachable;
                     }
-                    break @field(this.components, field.name).runtime_write(data_component_idx, data);
-                }
-            } else unreachable;
-
-            if (publish_required and subs_from_idx[system_data_idx] != 0) {
-                this.publish(system_data_idx, data);
-            }
-        }
-
-        noinline fn publish(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
-            const sub_offset = subscription_offsets[system_data_idx];
-
-            for (this.subscriptions[sub_offset .. sub_offset + subs_from_idx[system_data_idx]]) |_sub| {
-                if (_sub.callback) |_callback| {
-                    const args: OnChangeArgs = .{ .system_data_idx = system_data_idx, .data = data };
-                    _callback(_sub.context, &args, this);
+                    @field(this.components, field.name).runtime_write(data_component_idx, data, @ptrCast(this));
                 }
             }
         }
 
+        /// Subscribe to changes on an ERD. The callback receives `context`,
+        /// on-change args, and a `publisher` pointer which is always `*SystemData`
+        /// (type-erased as `*anyopaque`).
         pub fn subscribe(
             this: *Self,
             comptime erd_enum: ErdEnum,
@@ -219,32 +165,13 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             comptime {
                 std.debug.assert(erd.subs > 0);
             }
-            const sub_offset = subscription_offsets[erd.system_data_idx];
-            var first_free_spot: ?*Subscription = null;
 
-            for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
-                if (first_free_spot == null and _sub.callback == null) {
-                    first_free_spot = _sub;
-                }
-
-                if (_sub.callback == fn_ptr) {
-                    // Subscriptions cannot be added to the same list twice
+            inline for (component_fields, 0..) |field, i| {
+                if (erd.component_idx == i) {
+                    @field(this.components, field.name).subscribe(erd, context, fn_ptr);
                     return;
                 }
             }
-
-            // Failed to find an empty spot, over-subscribed
-            if (first_free_spot == null) {
-                // In tests this verifies we aren't subscribing beyond our array length
-                // These names should be stripped out of the binary if a panic handler isn't set.
-                // TODO: Validate this assumption and switch to using something lighter if needed
-                // This is a ROM savings of likely over 10kB on large projects :)
-                const erd_names = comptime std.meta.fieldNames(ErdDefs);
-                std.debug.panic("ERD {s} oversubscribed!", .{erd_names[erd.system_data_idx]});
-            }
-
-            first_free_spot.?.context = context;
-            first_free_spot.?.callback = fn_ptr;
         }
 
         pub fn unsubscribe(this: *Self, comptime erd_enum: ErdEnum, fn_ptr: Subscription.Callback) void {
@@ -253,11 +180,9 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
                 std.debug.assert(erd.subs > 0);
             }
 
-            const sub_offset = subscription_offsets[erd.system_data_idx];
-
-            for (this.subscriptions[sub_offset .. sub_offset + erd.subs]) |*_sub| {
-                if (_sub.callback == fn_ptr) {
-                    _sub.callback = null;
+            inline for (component_fields, 0..) |field, i| {
+                if (erd.component_idx == i) {
+                    @field(this.components, field.name).unsubscribe(erd, fn_ptr);
                     return;
                 }
             }
@@ -273,7 +198,8 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             this.scratch.reset();
         }
 
-        /// A test only function used to verify that after initialization, all of your subscriptions arrays are fully saturated
+        /// A test only function used to verify that after initialization,
+        /// all of your subscriptions arrays are fully saturated
         pub fn verify_all_subs_are_saturated(this: *Self, comptime exceptions: []const SubException) !void {
             var failed = false;
 
@@ -290,10 +216,10 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
                 return error.ErdWithNoSubsInExceptions;
             }
 
-            inline for (std.meta.fields(ErdDefs), 0..) |field_info, i| {
+            inline for (std.meta.fields(ErdDefs)) |field_info| {
                 const erd_name = field_info.name;
-                const sub_offset = subscription_offsets[i];
-                const num_subs = @field(erd_instance, erd_name).subs;
+                const erd: Erd = @field(erd_instance, erd_name);
+                const num_subs = erd.subs;
 
                 if (num_subs == 0) {
                     continue;
@@ -310,10 +236,18 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
                     break :blk _expected;
                 };
 
+                const component_idx = erd.component_idx;
                 var actual_count: u16 = 0;
-                for (this.subscriptions[sub_offset .. sub_offset + num_subs]) |_sub| {
-                    if (_sub.callback != null) {
-                        actual_count += 1;
+
+                inline for (component_fields, 0..) |comp_field, ci| {
+                    if (component_idx == ci) {
+                        const component = &@field(this.components, comp_field.name);
+                        const offset = comp_field.type.sub_offsets[erd.data_component_idx];
+                        for (component.subscriptions[offset .. offset + num_subs]) |sub| {
+                            if (sub.callback != null) {
+                                actual_count += 1;
+                            }
+                        }
                     }
                 }
 

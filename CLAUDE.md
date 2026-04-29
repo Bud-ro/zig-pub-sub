@@ -46,6 +46,14 @@ Tests live in `src/tests/` and are aggregated via `src/unit_tests.zig` using com
 
 Managed via `build.zig.zon`. Single dependency: `assert_sometimes`, imported as `"sometimes"` in source. This is a code coverage tool, not a traditional assertion library — it verifies that both the true and false branches of a condition are exercised across test runs. The `test` step disables these checks; `test_coverage` enables them.
 
+## Code Style
+
+- **Preserve doc comments.** Do not remove or rewrite existing `///` doc comments when modifying code. Update them if the behavior changes, but never delete them.
+
+## Codegen Snapshots
+
+After making changes to data components, system_data, or subscription logic, run `zig build codegen-check` to verify assembly snapshots haven't regressed. If there are intentional changes, update with `zig build codegen-update`. Snapshot files live in `codegen/`.
+
 ## Formatting
 
 After completing any code changes, run `zig fmt src/` to format the entire repo before reporting results.

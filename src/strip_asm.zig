@@ -66,6 +66,17 @@ fn extractCallTarget(line: []const u8) ?[]const u8 {
     return target_str;
 }
 
+fn isStdlibFunc(name: []const u8) bool {
+    const bare = if (name.len > 0 and name[0] == '"') name[1..] else name;
+    const prefixes = [_][]const u8{
+        "debug.", "Thread.", "Io.", "fs.", "mem.", "os.", "posix.",
+    };
+    for (prefixes) |prefix| {
+        if (std.mem.startsWith(u8, bare, prefix)) return true;
+    }
+    return false;
+}
+
 fn isRegister(name: []const u8) bool {
     const registers = [_][]const u8{
         "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp",
@@ -206,7 +217,7 @@ pub fn main() !void {
         const end = func_ends.get(func_name) orelse continue;
         for (all_lines[func.start..end]) |raw_line| {
             if (extractCallTarget(raw_line)) |target| {
-                if (!needed_funcs.contains(target)) {
+                if (!needed_funcs.contains(target) and !isStdlibFunc(target)) {
                     if (all_funcs.contains(target)) {
                         try needed_funcs.put(gpa, target, {});
                         try work_queue.append(gpa, target);
@@ -332,6 +343,20 @@ test "extractCallTarget parses call and jmp instructions" {
     try testing.expectEqual(null, extractCallTarget("        jmp\trsp"));
     try testing.expectEqual(null, extractCallTarget("        mov eax, 1"));
     try testing.expectEqual(null, extractCallTarget(""));
+}
+
+test "isStdlibFunc matches stdlib prefixes" {
+    try testing.expect(isStdlibFunc("debug.defaultPanic"));
+    try testing.expect(isStdlibFunc("debug.FullPanic((function 'defaultPanic')).outOfBounds"));
+    try testing.expect(isStdlibFunc("\"debug.FullPanic((function 'defaultPanic')).unwrapNull\""));
+    try testing.expect(isStdlibFunc("Thread.Mutex.FutexImpl.lockSlow"));
+    try testing.expect(isStdlibFunc("fs.File.writeAll"));
+    try testing.expect(isStdlibFunc("posix.abort"));
+    try testing.expect(isStdlibFunc("mem.eql__anon_3258"));
+    try testing.expect(!isStdlibFunc("ram_data_component.RamDataComponent.publish"));
+    try testing.expect(!isStdlibFunc("system_data.SystemData.runtime_read"));
+    try testing.expect(!isStdlibFunc("codegen_foo"));
+    try testing.expect(!isStdlibFunc("timer.TimerModule.try_remove"));
 }
 
 test "isDirective filters assembler directives" {

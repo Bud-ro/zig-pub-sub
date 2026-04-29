@@ -5,10 +5,12 @@ const TimerStats = @import("common/timer_stats.zig");
 pub const ComponentId = enum(u8) {
     ram,
     indirect,
+    converted,
 };
 
 const Ram = @intFromEnum(ComponentId.ram);
 const Indirect = @intFromEnum(ComponentId.indirect);
+const Converted = @intFromEnum(ComponentId.converted);
 
 /// `ErdEnum` allows for use of decl literals which makes API use of ERDs *significantly* shorter
 pub const ErdEnum = enum {
@@ -40,6 +42,7 @@ pub const ErdEnum = enum {
     erd_cool_u16,
     erd_best_u16,
     erd_timer_stats,
+    erd_cool_plus_best,
 };
 
 pub const ErdDefinitions = struct {
@@ -53,9 +56,10 @@ pub const ErdDefinitions = struct {
     erd_always_42:            Erd = .{ .erd_number = 0x0006, .T = u16,                         .component_idx = Indirect, .subs = 0 },
     erd_pointer_to_something: Erd = .{ .erd_number = null,   .T = ?*u16,                       .component_idx = Ram,      .subs = 0 },
     erd_another_erd_plus_one: Erd = .{ .erd_number = 0x0008, .T = u16,                         .component_idx = Indirect, .subs = 0 },
-    erd_cool_u16:             Erd = .{ .erd_number = null,   .T = u16,                         .component_idx = Ram,      .subs = 1 },
-    erd_best_u16:             Erd = .{ .erd_number = null,   .T = u16,                         .component_idx = Ram,      .subs = 0 },
+    erd_cool_u16:             Erd = .{ .erd_number = null,   .T = u16,                         .component_idx = Ram,      .subs = 2 },
+    erd_best_u16:             Erd = .{ .erd_number = null,   .T = u16,                         .component_idx = Ram,      .subs = 1 },
     erd_timer_stats:          Erd = .{ .erd_number = null,   .T = TimerStats.StatMeasurement,  .component_idx = Ram,      .subs = 0 },
+    erd_cool_plus_best:       Erd = .{ .erd_number = null,   .T = u16,                         .component_idx = Converted,.subs = 0 },
     // zig fmt: on
 
     pub fn jsonStringify(self: ErdDefinitions, jws: anytype) !void {
@@ -154,6 +158,7 @@ pub fn component_definitions(comptime id: ComponentId) [num_erds(id)]Erd {
 // Array versions of ERDs. For easier iteration.
 pub const ram_definitions = component_definitions(.ram);
 pub const indirect_definitions = component_definitions(.indirect);
+pub const converted_definitions = component_definitions(.converted);
 
 /// Enum to Erd mapper
 pub fn erd_from_enum(comptime erd_enum: ErdEnum) Erd {

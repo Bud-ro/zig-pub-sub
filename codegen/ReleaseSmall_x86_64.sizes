@@ -34,7 +34,7 @@
 33	codegen_double_write_diff_values
 34	codegen_write_junk_read_write
 37	codegen_double_write_same_value
-37	codegen_many_write_last_with_subs
+40	codegen_many_write_last_with_subs
 40	codegen_subscribe_callback
 44	codegen_cross_system_swap
 45	codegen_triple_write_increment
