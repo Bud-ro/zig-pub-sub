@@ -16,5 +16,6 @@
         "build_codegen.zig",
         "src",
         "codegen",
+        "README.md",
     },
 }

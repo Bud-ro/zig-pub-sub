@@ -1,19 +1,29 @@
+const std = @import("std");
+
+// --- Types ---
 pub const Erd = @import("erd.zig");
-pub const Subscription = @import("subscription.zig");
 pub const SystemData = @import("system_data.zig").SystemData;
-pub const RamDataComponent = @import("ram_data_component.zig").RamDataComponent;
-pub const IndirectDataComponent = @import("indirect_data_component.zig").IndirectDataComponent;
 
-const converted = @import("converted_data_component.zig");
-pub const ConvertedDataComponent = converted.ConvertedDataComponent;
-pub const ConvertedErdMapping = converted.ConvertedErdMapping;
+// --- Namespaces ---
+pub const data_component = struct {
+    pub const Ram = @import("ram_data_component.zig").RamDataComponent;
+    pub const Indirect = @import("indirect_data_component.zig").IndirectDataComponent;
 
-pub const DataComponentSubscription = @import("data_component_subscription.zig");
+    const converted_mod = @import("converted_data_component.zig");
+    pub const Converted = converted_mod.ConvertedDataComponent;
+    pub const ConvertedMapping = converted_mod.ConvertedErdMapping;
 
-const timer_mod = @import("timer.zig");
-pub const Timer = timer_mod.Timer;
-pub const TimerModule = timer_mod.TimerModule;
-pub const Ticks = timer_mod.Ticks;
+    pub const subscription = @import("data_component_subscription.zig");
+};
+
+pub const subscription = @import("subscription.zig");
+
+pub const timer = struct {
+    const mod = @import("timer.zig");
+    pub const Timer = mod.Timer;
+    pub const Module = mod.TimerModule;
+    pub const Ticks = mod.Ticks;
+};
 
 pub const testing = @import("testing.zig");
 
@@ -24,14 +34,12 @@ pub const common = struct {
 };
 
 test {
+    std.testing.refAllDecls(@This());
     _ = @import("tests/system_data_test.zig");
     _ = @import("tests/ram_data_component_test.zig");
     _ = @import("tests/indirect_data_component_test.zig");
     _ = @import("tests/converted_data_component_test.zig");
     _ = @import("tests/timer_test.zig");
     _ = @import("tests/timer_fuzzing.zig");
-    _ = @import("common/erd_logic.zig");
-    _ = @import("common/stopwatch.zig");
-    _ = @import("common/timer_stats.zig");
     _ = @import("strip_asm.zig");
 }
