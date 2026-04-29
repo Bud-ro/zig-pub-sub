@@ -29,8 +29,8 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
     comptime {
         for (component_fields) |field| {
-            if (!@hasDecl(field.type, "supports_subscriptions") or !field.type.supports_subscriptions) {
-                @compileError(std.fmt.comptimePrint("Component {s} must declare supports_subscriptions = true", .{field.name}));
+            if (!@hasField(field.type, "subscription")) {
+                @compileError(std.fmt.comptimePrint("Component {s} must have a subscription field", .{field.name}));
             }
         }
     }
@@ -168,7 +168,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
             inline for (component_fields, 0..) |field, i| {
                 if (erd.component_idx == i) {
-                    @field(this.components, field.name).subscribe(erd, context, fn_ptr);
+                    @field(this.components, field.name).subscription.subscribe(erd, context, fn_ptr);
                     return;
                 }
             }
@@ -182,7 +182,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
             inline for (component_fields, 0..) |field, i| {
                 if (erd.component_idx == i) {
-                    @field(this.components, field.name).unsubscribe(erd, fn_ptr);
+                    @field(this.components, field.name).subscription.unsubscribe(erd, fn_ptr);
                     return;
                 }
             }
@@ -241,9 +241,10 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
                 inline for (component_fields, 0..) |comp_field, ci| {
                     if (component_idx == ci) {
-                        const component = &@field(this.components, comp_field.name);
-                        const offset = comp_field.type.sub_offsets[erd.data_component_idx];
-                        for (component.subscriptions[offset .. offset + num_subs]) |sub| {
+                        const sub_field = &@field(this.components, comp_field.name).subscription;
+                        const SubscriptionType = @TypeOf(sub_field.*);
+                        const offset = SubscriptionType.sub_offsets[erd.data_component_idx];
+                        for (sub_field.slots[offset .. offset + num_subs]) |sub| {
                             if (sub.callback != null) {
                                 actual_count += 1;
                             }

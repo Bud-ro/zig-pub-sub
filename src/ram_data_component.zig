@@ -5,23 +5,22 @@
 const std = @import("std");
 const Erd = @import("erd.zig");
 const Subscription = @import("subscription.zig");
+const DataComponentSubscription = @import("data_component_subscription.zig").DataComponentSubscription;
 
 pub fn RamDataComponent(comptime erds: []const Erd) type {
     return struct {
         const Self = @This();
 
         pub const supports_write = true;
-        pub const supports_subscriptions = true;
 
         // TODO: Add a flag that reorders fields to efficiently pack this
         // and another that guarantees alignment for faster R/W.
         storage: [store_size()]u8 align(@alignOf(usize)) = undefined,
-        subscriptions: [total_own_subs()]Subscription = undefined,
+        subscription: DataComponentSubscription(erds) = .{},
 
         pub fn init() Self {
             var self = Self{};
             @memset(self.storage[0..], 0);
-            @memset(&self.subscriptions, .{ .context = null, .callback = null });
             return self;
         }
 
@@ -52,24 +51,6 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             }
             return size;
         }
-
-        fn total_own_subs() usize {
-            var size: usize = 0;
-            for (erds) |erd| {
-                size += erd.subs;
-            }
-            return size;
-        }
-
-        pub const sub_offsets = blk: {
-            var _offsets: [erds.len]usize = undefined;
-            var cur_offset: usize = 0;
-            for (erds, 0..) |erd, i| {
-                _offsets[i] = cur_offset;
-                cur_offset += erd.subs;
-            }
-            break :blk _offsets;
-        };
 
         const subs_from_idx: [erds.len]u8 = blk: {
             var _subs: [erds.len]u8 = undefined;
@@ -165,9 +146,9 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         // The size of this is 4*numErds which means this will reach well over 4kB of ROM.
         // TODO: Add the option to binary search and avoid a large chunk of this cost
         noinline fn publish(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
-            const offset = sub_offsets[data_component_idx];
+            const offset = DataComponentSubscription(erds).sub_offsets[data_component_idx];
             const count = subs_from_idx[data_component_idx];
-            for (self.subscriptions[offset .. offset + count]) |sub| {
+            for (self.subscription.slots[offset .. offset + count]) |sub| {
                 if (sub.callback) |cb| {
                     const args: Subscription.OnChangeArgs = .{
                         .system_data_idx = system_data_idx_from_idx[data_component_idx],
@@ -177,71 +158,5 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
                 }
             }
         }
-
-        pub fn subscribe(self: *Self, erd: Erd, context: ?*anyopaque, fn_ptr: Subscription.Callback) void {
-            std.debug.assert(erd.subs > 0);
-            const offset = sub_offsets[erd.data_component_idx];
-            var first_free: ?*Subscription = null;
-
-            for (self.subscriptions[offset .. offset + erd.subs]) |*sub| {
-                if (first_free == null and sub.callback == null) {
-                    first_free = sub;
-                }
-                if (sub.callback == fn_ptr) {
-                    return;
-                }
-            }
-
-            if (first_free == null) {
-                @panic("RAM ERD oversubscribed!");
-            }
-
-            first_free.?.context = context;
-            first_free.?.callback = fn_ptr;
-        }
-
-        pub fn unsubscribe(self: *Self, erd: Erd, fn_ptr: Subscription.Callback) void {
-            std.debug.assert(erd.subs > 0);
-            const offset = sub_offsets[erd.data_component_idx];
-
-            for (self.subscriptions[offset .. offset + erd.subs]) |*sub| {
-                if (sub.callback == fn_ptr) {
-                    sub.callback = null;
-                    return;
-                }
-            }
-        }
-
-        // TODO: This is a neat way of gaining automatic optimized alignment, but MAN
-        //       it sucks for actually accessing fields, particularly using runtime info
-        //       see if it can eventually be used?
-        // const ram_fields: [erds.len]std.builtin.Type.StructField = blk: {
-        //     var _fields: [erds.len]std.builtin.Type.StructField = undefined;
-        //
-        //     for (erds, 0..) |erd, i| {
-        //         // Fields have the name of "_number"
-        //         const fieldName = std.fmt.comptimePrint("_{}", .{erd.data_component_idx});
-        //         _fields[i] = .{
-        //             .name = fieldName,
-        //             .type = erd.T,
-        //             .default_value_ptr = null,
-        //             .is_comptime = false,
-        //             // Proper alignment is the default. If you want denser memory
-        //             // then set alignment to 1.
-        //             .alignment = 0,
-        //         };
-        //     }
-        //
-        //     break :blk _fields;
-        // };
-        //
-        // const StoreStruct = @Type(.{
-        //     .@"struct" = .{
-        //         .layout = .auto,
-        //         .fields = ram_fields[0..],
-        //         .decls = &[_]std.builtin.Type.Declaration{},
-        //         .is_tuple = false,
-        //     },
-        // });
     };
 }

@@ -5,15 +5,16 @@
 const std = @import("std");
 const Erd = @import("erd.zig");
 const Subscription = @import("subscription.zig");
+const DataComponentSubscription = @import("data_component_subscription.zig");
 
 pub fn IndirectDataComponent(comptime erds: []const Erd) type {
     return struct {
         const Self = @This();
 
         pub const supports_write = false;
-        pub const supports_subscriptions = true;
 
         read_functions: [erds.len](*const anyopaque) = undefined,
+        subscription: DataComponentSubscription.Unsupported = .{},
 
         pub const IndirectErdMapping = struct {
             erd: Erd,
@@ -23,8 +24,6 @@ pub fn IndirectDataComponent(comptime erds: []const Erd) type {
                 return .{ .erd = erd, .fn_ptr = func };
             }
         };
-
-        pub const sub_offsets = [_]usize{0} ** erds.len;
 
         pub fn init(erdMappings: [erds.len]IndirectErdMapping) Self {
             var self = Self{};
@@ -61,14 +60,6 @@ pub fn IndirectDataComponent(comptime erds: []const Erd) type {
             _ = data;
             _ = publisher;
             @compileError("Indirect ERD writes are not allowed");
-        }
-
-        pub fn subscribe(_: *Self, _: Erd, _: ?*anyopaque, _: Subscription.Callback) void {
-            @compileError("Indirect ERDs do not support subscriptions");
-        }
-
-        pub fn unsubscribe(_: *Self, _: Erd, _: Subscription.Callback) void {
-            @compileError("Indirect ERDs do not support subscriptions");
         }
     };
 }

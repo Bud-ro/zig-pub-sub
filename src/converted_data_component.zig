@@ -11,6 +11,7 @@
 const std = @import("std");
 const Erd = @import("erd.zig");
 const Subscription = @import("subscription.zig");
+const DataComponentSubscription = @import("data_component_subscription.zig").DataComponentSubscription;
 
 /// Binds a converted ERD to its compute function and dependency list.
 pub const ConvertedErdMapping = struct {
@@ -34,37 +35,17 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         const Self = @This();
 
         pub const supports_write = false;
-        pub const supports_subscriptions = true;
 
         read_functions: [erds.len]*const anyopaque = undefined,
-        subscriptions: [total_own_subs()]Subscription = undefined,
+        subscription: DataComponentSubscription(erds) = .{},
         system_data_ref: *anyopaque = undefined,
         is_fully_initialized: bool = false,
-
-        fn total_own_subs() usize {
-            var size: usize = 0;
-            for (erds) |erd| {
-                size += erd.subs;
-            }
-            return size;
-        }
-
-        pub const sub_offsets = blk: {
-            var _offsets: [erds.len]usize = undefined;
-            var cur_offset: usize = 0;
-            for (erds, 0..) |erd, i| {
-                _offsets[i] = cur_offset;
-                cur_offset += erd.subs;
-            }
-            break :blk _offsets;
-        };
 
         pub fn init() Self {
             var self = Self{};
             inline for (erd_mappings) |mapping| {
                 self.read_functions[mapping.erd.data_component_idx] = mapping.fn_ptr;
             }
-            @memset(&self.subscriptions, .{ .context = null, .callback = null });
             return self;
         }
 
@@ -109,40 +90,6 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
             @compileError("Converted ERD writes are not allowed");
         }
 
-        pub fn subscribe(self: *Self, erd: Erd, context: ?*anyopaque, fn_ptr: Subscription.Callback) void {
-            std.debug.assert(erd.subs > 0);
-            const offset = sub_offsets[erd.data_component_idx];
-            var first_free: ?*Subscription = null;
-
-            for (self.subscriptions[offset .. offset + erd.subs]) |*sub| {
-                if (first_free == null and sub.callback == null) {
-                    first_free = sub;
-                }
-                if (sub.callback == fn_ptr) {
-                    return;
-                }
-            }
-
-            if (first_free == null) {
-                @panic("Converted ERD oversubscribed!");
-            }
-
-            first_free.?.context = context;
-            first_free.?.callback = fn_ptr;
-        }
-
-        pub fn unsubscribe(self: *Self, erd: Erd, fn_ptr: Subscription.Callback) void {
-            std.debug.assert(erd.subs > 0);
-            const offset = sub_offsets[erd.data_component_idx];
-
-            for (self.subscriptions[offset .. offset + erd.subs]) |*sub| {
-                if (sub.callback == fn_ptr) {
-                    sub.callback = null;
-                    return;
-                }
-            }
-        }
-
         /// Generate the on-change callback for a converted ERD.
         /// When a dependency changes, this callback recomputes the output
         /// and publishes to subscribers of the converted ERD.
@@ -162,9 +109,9 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         }
 
         fn do_publish(self: *Self, comptime erd_data_component_idx: comptime_int, data: *const anyopaque, publisher: *anyopaque) void {
-            const offset = sub_offsets[erd_data_component_idx];
+            const offset = DataComponentSubscription(erds).sub_offsets[erd_data_component_idx];
             const count = erds[erd_data_component_idx].subs;
-            for (self.subscriptions[offset .. offset + count]) |sub| {
+            for (self.subscription.slots[offset .. offset + count]) |sub| {
                 if (sub.callback) |cb| {
                     const args: Subscription.OnChangeArgs = .{
                         .system_data_idx = erds[erd_data_component_idx].system_data_idx,
