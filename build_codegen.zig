@@ -15,8 +15,8 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
 
     if (b.graph.host.result.os.tag == .linux) {
         // TODO: Add Debug mode once Zig emits assembly for Debug objects (0.15 doesn't)
-        const modes = [_]std.builtin.OptimizeMode{ .ReleaseSafe, .ReleaseSmall, .ReleaseFast };
-        const mode_names = [_][]const u8{ "ReleaseSafe", "ReleaseSmall", "ReleaseFast" };
+        const modes = [_]std.builtin.OptimizeMode{ .ReleaseSmall, .ReleaseFast };
+        const mode_names = [_][]const u8{ "ReleaseSmall", "ReleaseFast" };
 
         const codegen_target = b.resolveTargetQuery(.{
             .cpu_arch = .x86_64,
