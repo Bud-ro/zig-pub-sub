@@ -1,0 +1,13 @@
+.{
+    .name = .data_gen,
+    .version = "0.1.0",
+    .fingerprint = 0x44d536bf1e3d1b3b,
+    .minimum_zig_version = "0.15.1",
+    .dependencies = .{},
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

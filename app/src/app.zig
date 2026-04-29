@@ -3,12 +3,13 @@
 //! and provides the fully instantiated SystemData type for this application.
 
 const std = @import("std");
+const erd_core = @import("erd_core");
 const SystemErds = @import("system_erds.zig");
-const ConvertedErdMapping = @import("converted_data_component.zig").ConvertedErdMapping;
+const ConvertedErdMapping = erd_core.ConvertedErdMapping;
 
-pub const RamDataComponent = @import("ram_data_component.zig").RamDataComponent(&SystemErds.ram_definitions);
-pub const IndirectDataComponent = @import("indirect_data_component.zig").IndirectDataComponent(&SystemErds.indirect_definitions);
-pub const ConvertedDataComponent = @import("converted_data_component.zig").ConvertedDataComponent(&SystemErds.converted_definitions, converted_mappings);
+pub const RamDataComponent = erd_core.RamDataComponent(&SystemErds.ram_definitions);
+pub const IndirectDataComponent = erd_core.IndirectDataComponent(&SystemErds.indirect_definitions);
+pub const ConvertedDataComponent = erd_core.ConvertedDataComponent(&SystemErds.converted_definitions, converted_mappings);
 
 fn always_42(data: *u16) void {
     data.* = 42;
@@ -54,7 +55,7 @@ pub const Components = struct {
     }
 };
 
-pub const SystemData = @import("system_data.zig").SystemData(SystemErds.ErdDefinitions, SystemErds.ErdEnum, SystemErds.erd, Components);
+pub const SystemData = erd_core.SystemData(SystemErds.ErdDefinitions, SystemErds.ErdEnum, SystemErds.erd, Components);
 
 pub const Application = struct {
     system_data: SystemData,

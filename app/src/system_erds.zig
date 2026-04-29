@@ -1,6 +1,7 @@
 const std = @import("std");
-const Erd = @import("erd.zig");
-const TimerStats = @import("common/timer_stats.zig");
+const erd_core = @import("erd_core");
+const Erd = erd_core.Erd;
+const TimerStats = erd_core.common.timer_stats;
 
 pub const ComponentId = enum(u8) {
     ram,
@@ -61,36 +62,6 @@ pub const ErdDefinitions = struct {
     erd_timer_stats:          Erd = .{ .erd_number = null,   .T = TimerStats.StatMeasurement,  .component_idx = Ram,      .subs = 0 },
     erd_cool_plus_best:       Erd = .{ .erd_number = null,   .T = u16,                         .component_idx = Converted,.subs = 0 },
     // zig fmt: on
-
-    pub fn jsonStringify(self: ErdDefinitions, jws: anytype) !void {
-        const erd_names = comptime std.meta.fieldNames(ErdDefinitions);
-        try jws.beginObject();
-        {
-            try jws.objectField("erd-json-version");
-            try jws.write("0.1.0");
-            try jws.objectField("namespace");
-            try jws.write("zig-embedded-starter-kit");
-            try jws.objectField("erds");
-            {
-                try jws.beginArray();
-                inline for (erd_names) |erd_name| {
-                    const e = @field(self, erd_name);
-                    if (e.erd_number != null) {
-                        try jws.beginObject();
-                        try jws.objectField("name");
-                        try jws.write(erd_name);
-                        try jws.objectField("id");
-                        try jws.print("\"0x{x:0>4}\"", .{e.erd_number.?});
-                        try jws.objectField("type");
-                        try jws.print("\"{}\"", .{e.T});
-                        try jws.endObject();
-                    }
-                }
-                try jws.endArray();
-            }
-        }
-        try jws.endObject();
-    }
 };
 
 /// Erd Definitions with autofilled indexes
