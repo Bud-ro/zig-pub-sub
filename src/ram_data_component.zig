@@ -161,6 +161,9 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         }
 
         // noinline so the dispatch logic is shared across all call sites.
+        // Create .rodata that is indexed by `system_data_idx`
+        // The size of this is 4*numErds which means this will reach well over 4kB of ROM.
+        // TODO: Add the option to binary search and avoid a large chunk of this cost
         noinline fn publish(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
             const offset = sub_offsets[data_component_idx];
             const count = subs_from_idx[data_component_idx];

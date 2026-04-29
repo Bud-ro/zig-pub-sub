@@ -188,14 +188,18 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             }
         }
 
+        /// Returns a slice allocated to the scratch buffer.
         pub fn scratch_alloc(this: *Self, comptime T: type, n: usize) []T {
             return this.scratch.allocator().alloc(T, n) catch @panic("We ran out of scratch memory!!!");
         }
 
+        /// Call this at the end of a run to complete in your main-loop
         pub fn scratch_reset(this: *Self) void {
             this.scratch.reset();
         }
 
+        /// A test only function used to verify that after initialization,
+        /// all of your subscriptions arrays are fully saturated
         pub fn verify_all_subs_are_saturated(this: *Self, comptime exceptions: []const SubException) !void {
             var failed = false;
 
