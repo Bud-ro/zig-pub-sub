@@ -86,28 +86,6 @@ fn isRegister(name: []const u8) bool {
     return false;
 }
 
-fn normalizeAnonIds(input: []const u8, out: *std.ArrayListUnmanaged(u8), gpa: std.mem.Allocator) !void {
-    const prefixes = [_][]const u8{ "__anon_", "__struct_" };
-    var i: usize = 0;
-    while (i < input.len) {
-        var matched = false;
-        for (prefixes) |prefix| {
-            if (i + prefix.len <= input.len and std.mem.eql(u8, input[i..][0..prefix.len], prefix)) {
-                try out.appendSlice(gpa, prefix);
-                try out.append(gpa, '*');
-                i += prefix.len;
-                while (i < input.len and std.ascii.isDigit(input[i])) : (i += 1) {}
-                matched = true;
-                break;
-            }
-        }
-        if (!matched) {
-            try out.append(gpa, input[i]);
-            i += 1;
-        }
-    }
-}
-
 fn extractFunc(
     all_lines: []const []const u8,
     start: usize,
@@ -293,17 +271,12 @@ pub fn main() !void {
         }
     }
 
-    // Normalize compiler-generated IDs to suppress churn across rebuilds.
-    var normalized: std.ArrayListUnmanaged(u8) = .empty;
-    defer normalized.deinit(gpa);
-    try normalizeAnonIds(output.items, &normalized, gpa);
-
     if (output_path) |path| {
         const file = try std.fs.cwd().createFile(path, .{});
         defer file.close();
-        try file.writeAll(normalized.items);
+        try file.writeAll(output.items);
     } else {
-        try std.fs.File.stdout().writeAll(normalized.items);
+        try std.fs.File.stdout().writeAll(output.items);
     }
 
     std.debug.print("{d} functions ({d} exported, {d} called), {d} instructions\n", .{
@@ -384,18 +357,6 @@ test "isStdlibFunc matches stdlib prefixes" {
     try testing.expect(!isStdlibFunc("system_data.SystemData.runtime_read"));
     try testing.expect(!isStdlibFunc("codegen_foo"));
     try testing.expect(!isStdlibFunc("timer.TimerModule.try_remove"));
-}
-
-test "normalizeAnonIds replaces compiler-generated numeric suffixes" {
-    var out: std.ArrayListUnmanaged(u8) = .empty;
-    defer out.deinit(testing.allocator);
-
-    try normalizeAnonIds("call foo__anon_1234.bar__struct_567", &out, testing.allocator);
-    try testing.expectEqualStrings("call foo__anon_*.bar__struct_*", out.items);
-
-    out.clearRetainingCapacity();
-    try normalizeAnonIds("no ids here", &out, testing.allocator);
-    try testing.expectEqualStrings("no ids here", out.items);
 }
 
 test "isDirective filters assembler directives" {
