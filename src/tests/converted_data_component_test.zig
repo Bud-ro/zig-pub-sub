@@ -2,7 +2,8 @@ const std = @import("std");
 const Erd = @import("../erd.zig");
 const Subscription = @import("../subscription.zig");
 const RamDataComponent = @import("../ram_data_component.zig").RamDataComponent;
-const ConvertedDataComponent = @import("../converted_data_component.zig").ConvertedDataComponent;
+const ConvertedDataComponentFn = @import("../converted_data_component.zig").ConvertedDataComponent;
+const ConvertedErdMapping = @import("../converted_data_component.zig").ConvertedErdMapping;
 const SystemDataFn = @import("../system_data.zig").SystemData;
 
 const ComponentId = enum(u8) { ram, converted };
@@ -11,7 +12,7 @@ const Converted = @intFromEnum(ComponentId.converted);
 
 const ErdDefs = struct {
     // zig fmt: off
-    dep_a:   Erd = .{ .erd_number = null, .T = u16,  .component_idx = Ram,       .subs = 1 },
+    dep_a:   Erd = .{ .erd_number = null, .T = u16,  .component_idx = Ram,       .subs = 2 },
     dep_b:   Erd = .{ .erd_number = null, .T = u16,  .component_idx = Ram,       .subs = 1 },
     dep_c:   Erd = .{ .erd_number = null, .T = u16,  .component_idx = Ram,       .subs = 0 },
     sum_ab:  Erd = .{ .erd_number = null, .T = u16,  .component_idx = Converted, .subs = 1 },
@@ -60,14 +61,6 @@ const ram_erds = collect_component_erds(Ram);
 const converted_erds = collect_component_erds(Converted);
 
 const RamComponent = RamDataComponent(&ram_erds);
-const ConvertedComponent = ConvertedDataComponent(&converted_erds);
-
-const Components = struct {
-    ram: RamComponent,
-    converted: ConvertedComponent,
-};
-
-const SystemData = SystemDataFn(ErdDefs, ErdEnum, erd_instance, Components);
 
 fn compute_sum(result: *u16, ctx: *anyopaque) void {
     const sd: *SystemData = @ptrCast(@alignCast(ctx));
@@ -79,26 +72,31 @@ fn compute_no_subs(result: *u16, ctx: *anyopaque) void {
     result.* = sd.read(.dep_a) * 2;
 }
 
-const converted_mappings = [_]ConvertedComponent.ConvertedErdMapping{
+const converted_mappings = [_]ConvertedErdMapping{
     .map(erd_instance.sum_ab, compute_sum, &.{
-        erd_instance.dep_a.system_data_idx,
-        erd_instance.dep_b.system_data_idx,
+        erd_instance.dep_a,
+        erd_instance.dep_b,
     }),
     .map(erd_instance.no_subs, compute_no_subs, &.{
-        erd_instance.dep_a.system_data_idx,
+        erd_instance.dep_a,
     }),
 };
 
-const sum_callback = ConvertedComponent.make_callback(erd_instance.sum_ab.data_component_idx);
+const ConvertedComponent = ConvertedDataComponentFn(&converted_erds, converted_mappings);
+
+const Components = struct {
+    ram: RamComponent,
+    converted: ConvertedComponent,
+};
+
+const SystemData = SystemDataFn(ErdDefs, ErdEnum, erd_instance, Components);
 
 fn setup_system(sd: *SystemData) void {
     sd.* = SystemData.init(.{
         .ram = RamComponent.init(),
-        .converted = ConvertedComponent.init(converted_mappings),
+        .converted = ConvertedComponent.init(),
     });
-    sd.components.converted.set_system_data(@ptrCast(sd));
-    sd.subscribe(.dep_a, @ptrCast(&sd.components.converted), sum_callback);
-    sd.subscribe(.dep_b, @ptrCast(&sd.components.converted), sum_callback);
+    sd.components.converted.post_system_data_init(sd);
 }
 
 test "read always recomputes" {

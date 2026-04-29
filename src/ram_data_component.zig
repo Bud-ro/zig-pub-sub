@@ -10,7 +10,6 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
     return struct {
         const Self = @This();
 
-        pub const component_erds = erds;
         pub const supports_write = true;
         pub const supports_subscriptions = true;
 
