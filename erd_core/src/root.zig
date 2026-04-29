@@ -10,21 +10,16 @@ pub const data_component = struct {
     pub const Indirect = @import("indirect_data_component.zig").IndirectDataComponent;
 
     const converted_mod = @import("converted_data_component.zig");
-    pub const Converted = converted_mod.ConvertedDataComponent;
-    pub const ConvertedMapping = converted_mod.ConvertedErdMapping;
+    pub const Converted = struct {
+        pub const init = converted_mod.ConvertedDataComponent;
+        pub const Mapping = converted_mod.ConvertedErdMapping;
+    };
 
     pub const subscription = @import("data_component_subscription.zig");
 };
 
 pub const subscription = @import("subscription.zig");
-
-pub const timer = struct {
-    const mod = @import("timer.zig");
-    pub const Timer = mod.Timer;
-    pub const Module = mod.TimerModule;
-    pub const Ticks = mod.Ticks;
-};
-
+pub const timer = @import("timer.zig");
 pub const testing = @import("testing.zig");
 
 pub const common = struct {
