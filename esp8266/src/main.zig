@@ -1,35 +1,41 @@
-const GPIO_OUT_W1TS: *volatile u32 = @ptrFromInt(0x60000304);
-const GPIO_OUT_W1TC: *volatile u32 = @ptrFromInt(0x60000308);
-const GPIO_ENABLE_W1TS: *volatile u32 = @ptrFromInt(0x60000310);
+const std = @import("std");
+const sdk = @import("sdk.zig");
+const hardware = @import("hardware.zig");
 
-const IO_MUX_GPIO2: *volatile u32 = @ptrFromInt(0x60000838);
+const UART0_FIFO: *volatile u32 = @ptrFromInt(0x60000000);
+const UART0_STATUS: *volatile u32 = @ptrFromInt(0x60000004);
 
-const WDT_CTL: *volatile u32 = @ptrFromInt(0x60000900);
-
-// FUNC select: bit 4 (low bit), bits 8-9 (high bits)
-const FUNC_MASK: u32 = (1 << 4) | (0x3 << 8);
-
-const LED_PIN: u5 = 2;
-
-export fn user_init() void {
-    WDT_CTL.* = 0;
-
-    // Select GPIO function for pin 2 (function 0 = GPIO)
-    IO_MUX_GPIO2.* = IO_MUX_GPIO2.* & ~FUNC_MASK;
-
-    GPIO_ENABLE_W1TS.* = @as(u32, 1) << LED_PIN;
-
-    while (true) {
-        GPIO_OUT_W1TC.* = @as(u32, 1) << LED_PIN;
-        delay(5_000_000);
-        GPIO_OUT_W1TS.* = @as(u32, 1) << LED_PIN;
-        delay(5_000_000);
-    }
+fn uart_putc(c: u8) void {
+    while ((UART0_STATUS.* >> 16) & 0xFF >= 126) {}
+    UART0_FIFO.* = c;
 }
 
-fn delay(count: u32) void {
-    var i: u32 = 0;
-    while (i < count) : (i += 1) {
-        asm volatile ("nop");
-    }
+fn uart_puts(s: []const u8) void {
+    for (s) |c| uart_putc(c);
+}
+
+var led_state: bool = false;
+var blink_timer: sdk.ETSTimer = undefined;
+
+fn blink_callback(_: ?*anyopaque) callconv(sdk.cc) void {
+    led_state = !led_state;
+    hardware.set_led(led_state);
+}
+
+fn on_system_ready() callconv(sdk.cc) void {
+    uart_puts("System ready!\r\n");
+
+    blink_timer = std.mem.zeroes(sdk.ETSTimer);
+    sdk.ets_timer_setfn(&blink_timer, blink_callback, null);
+    sdk.timer_arm_ms(&blink_timer, 500, true);
+
+    uart_puts("LED blink timer started (500ms)\r\n");
+}
+
+export fn user_pre_init() void {}
+
+export fn user_init() void {
+    hardware.init();
+    uart_puts("Hardware initialized\r\n");
+    sdk.system_init_done_cb(on_system_ready);
 }

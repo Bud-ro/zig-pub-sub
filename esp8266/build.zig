@@ -11,8 +11,8 @@ pub fn build(b: *std.Build) void {
         "-target",
         "xtensa-freestanding-none",
         "-ofmt=c",
-        "-OReleaseSafe",
-        "-femit-bin=zig-out/blinky.c",
+        "-OReleaseSmall",
+        "-femit-bin=zig-out/firmware.c",
         "src/main.zig",
         "--zig-lib-dir",
         zig_lib_path,
@@ -28,10 +28,12 @@ pub fn build(b: *std.Build) void {
         "-Os",
         "-ffunction-sections",
         "-fdata-sections",
+        "-mlongcalls",
         zig_h_include,
-        "zig-out/blinky.c",
+        "-Isdk/include",
+        "zig-out/firmware.c",
         "-o",
-        "zig-out/blinky.o",
+        "zig-out/firmware.o",
     });
     compile_c.setCwd(b.path("."));
     compile_c.step.dependOn(&emit_c.step);
@@ -40,6 +42,7 @@ pub fn build(b: *std.Build) void {
         "xtensa-lx106-elf-gcc",
         "-c",
         "-Os",
+        "-Isdk/include",
         "src/libc_stubs.c",
         "-o",
         "zig-out/libc_stubs.o",
@@ -51,13 +54,29 @@ pub fn build(b: *std.Build) void {
         "xtensa-lx106-elf-gcc",
         "-nostdlib",
         "-Wl,--gc-sections",
+        "-Wl,--no-check-sections",
         "-T",
         "esp8266.ld",
         "-o",
-        "zig-out/blinky.elf",
-        "zig-out/blinky.o",
+        "zig-out/firmware.elf",
+        "zig-out/firmware.o",
         "zig-out/libc_stubs.o",
+        "-Lsdk/lib",
+        "-lmain",
+        "-lwpa",
+        "-lcrypto",
+        "-lnet80211",
+        "-lpp",
+        "-lphy",
+        "-llwip",
+        "-lhal",
+        "-ldriver",
+        "-lc",
         "-lgcc",
+        "-lmain",
+        "-lwpa",
+        "-lcrypto",
+        "-lnet80211",
     });
     link.setCwd(b.path("."));
     link.step.dependOn(&compile_c.step);
@@ -69,21 +88,23 @@ pub fn build(b: *std.Build) void {
         "esp8266",
         "elf2image",
         "--version",
-        "1",
+        "2",
         "--flash_mode",
         "dout",
         "--flash_size",
         "4MB",
-        "zig-out/blinky.elf",
+        "--flash_freq",
+        "40m",
+        "zig-out/firmware.elf",
         "-o",
-        "zig-out/blinky_",
+        "zig-out/firmware_",
     });
     elf2image.setCwd(b.path("."));
     elf2image.step.dependOn(&link.step);
 
     b.getInstallStep().dependOn(&elf2image.step);
 
-    const flash_step = b.step("flash", "Flash blinky to ESP8266 via esptool");
+    const flash_step = b.step("flash", "Flash firmware to ESP8266 via esptool");
     const flash_cmd = b.addSystemCommand(&.{
         "esptool",
         "--port",
@@ -91,8 +112,22 @@ pub fn build(b: *std.Build) void {
         "--baud",
         "115200",
         "write_flash",
+        "-fs", "4MB",
+        "-fm", "dout",
         "0x0",
-        "zig-out/blinky_0x00000.bin",
+        "sdk/bin/boot_v1.7.bin",
+        "0x1000",
+        "zig-out/firmware_",
+        "0x3FB000",
+        "sdk/bin/blank.bin",
+        "0x3FC000",
+        "sdk/bin/esp_init_data_default_v08.bin",
+        "0x3FD000",
+        "sdk/bin/blank.bin",
+        "0x3FE000",
+        "sdk/bin/blank.bin",
+        "0x3FF000",
+        "sdk/bin/blank.bin",
     });
     flash_cmd.setCwd(b.path("."));
     flash_cmd.step.dependOn(&elf2image.step);
