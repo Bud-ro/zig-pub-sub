@@ -2,49 +2,79 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Repository Structure
+
+This is a **multi-package monorepo** with four Zig packages:
+
+| Package | Path | Description |
+|---------|------|-------------|
+| **erd_core** | `erd_core/` | Core ERD/pub-sub framework - generic data components, system data, timer, subscriptions |
+| **erd_schema** | `erd_schema/` | ERD serialization (JSON, future formats) - transforms Zig ERD types into consumable output |
+| **data_gen** | `data_gen/` | Constraint-based data generation for property-based testing |
+| **app** | `app/` | Demo application - wires ERD definitions to concrete components |
+
 ## Build & Test Commands
 
 ```bash
-zig build                # Build executable
-zig build run            # Run (generates ERD JSON output)
-zig build test           # Run unit tests (sometimes-assertions disabled)
-zig build test_coverage  # Run tests with all assertions enabled
-zig build test_no_run    # Build tests without running
-```
+# From root (workspace)
+zig build                # Build app executable
+zig build run            # Run app (generates ERD JSON output)
+zig build test           # Run all tests across all packages
+zig build test_coverage  # Run erd_core tests with all assertions enabled
+zig build codegen-check  # Verify assembly snapshots haven't regressed
+zig build codegen-update # Regenerate assembly snapshots
+zig build emit-asm       # Emit raw assembly for inspection
 
-All test steps run across four optimization modes: Debug, ReleaseSafe, ReleaseSmall, ReleaseFast.
+# Per-package (cd into package directory)
+cd erd_core && zig build test           # Core tests only
+cd erd_schema && zig build test         # Schema tests only
+cd data_gen && zig build test           # Data gen tests only
+cd app && zig build run                 # Run app standalone
+```
 
 ## Architecture
 
-This is a **typed publish-subscribe data system** for embedded/real-time Zig applications. It uses comptime-known ERD (Entity-Reference-Descriptor) definitions to achieve zero-cost abstractions over static memory.
+This is a **typed publish-subscribe data system** for embedded/real-time Zig applications. It uses comptime-known ERD (Entity-Reference-Designator) definitions to achieve zero-cost abstractions over static memory.
 
-### Core Concepts
+### Core Concepts (erd_core)
 
-**ERD (Entity-Reference-Descriptor)** - A named, typed data field with a unique 16-bit handle. Each ERD declares its type, owner, and subscription slot count at comptime. Defined in `src/system_erds.zig`.
+**ERD (Entity-Reference-Designator)** - A named, typed data field with a 16-bit handle. Each ERD declares its type, owner, and subscription slot count at comptime.
+
+**SystemData** - Top-level aggregator that owns data components and subscription arrays. Provides the public API: `read`, `write`, `subscribe`, `unsubscribe`, `publish`. Also has `runtime_read`/`runtime_write` for dynamic ERD access.
 
 **Data Components** own ERDs and provide storage:
-- **RamDataComponent** (`src/ram_data_component.zig`) - Stores values in a packed byte array. Comptime reads/writes compile to direct loads/stores. Fires on-change subscriptions on write.
-- **IndirectDataComponent** (`src/indirect_data_component.zig`) - Read-only computed data via function pointers. No writes allowed (compile error).
+- **RamDataComponent** (`erd_core/src/ram_data_component.zig`) - Packed byte-array storage with comptime-optimized reads/writes and on-change subscriptions.
+- **IndirectDataComponent** (`erd_core/src/indirect_data_component.zig`) - Read-only computed values via function pointers.
+- **ConvertedDataComponent** (`erd_core/src/converted_data_component.zig`) - Derived data computed from other ERDs via mappings.
 
-**SystemData** (`src/system_data.zig`) - Top-level aggregator that owns both data components and the subscription arrays. Provides the public API: `read`, `write`, `subscribe`, `unsubscribe`, `publish`. Also has `runtime_read`/`runtime_write` for dynamic ERD access via `system_data_idx`.
-
-**Subscriptions** - Fixed-size arrays per ERD (slot count from `.subs` field at comptime). Callbacks receive `(?*anyopaque, *OnChangeArgs, *SystemData)`. Identity is by function pointer; no duplicates per ERD.
+**Subscription** - Fixed-size callback arrays per ERD, identity by function pointer.
 
 ### Timer Module
 
-`src/timer.zig` - Lightweight software scheduler using a sorted singly-linked list. Supports periodic and one-shot timers, pause/resume, and uses pointer alignment tricks (LSB stores `is_periodic` flag) for memory efficiency. Designed for tick-based embedded run-to-completion loops.
+`erd_core/src/timer.zig` - Lightweight software scheduler using a sorted singly-linked list. Supports periodic and one-shot timers, pause/resume, and uses pointer alignment tricks (LSB stores `is_periodic` flag) for memory efficiency. Designed for tick-based embedded run-to-completion loops.
 
-### Data Generation Framework
+### ERD Schema (erd_schema)
 
-`src/data_gen/` - Constraint-based data generation for property-based testing. Separate from the pub-sub core but included in the test suite.
+`erd_schema/src/erd_json.zig` - Generic JSON serialization for any ERD definitions struct. Accepts any type whose fields are Erd types and produces JSON with name, id, and type information for ERDs that have an `erd_number`.
+
+### Data Generation Framework (data_gen)
+
+`data_gen/src/` - Constraint-based data generation for property-based testing. Completely standalone (no dependencies beyond std).
+
+### Application (app)
+
+`app/src/system_erds.zig` - Application-specific ERD definitions. `app/src/app.zig` - Wires ERD definitions to concrete data component implementations. `app/src/main.zig` - Entry point that dumps ERD definitions as JSON.
 
 ## Testing
 
-Tests live in `src/tests/` and are aggregated via `src/unit_tests.zig` using comptime imports. The `assert_sometimes` dependency provides assertions that can be toggled: disabled in `test` step (for binary size), enabled in `test_coverage` step (full assertion coverage). CI runs both modes on Ubuntu and Windows.
+Each package has its own tests aggregated via `src/root.zig` test blocks. The root `zig build test` runs all packages. The `assert_sometimes` dependency provides assertions that can be toggled: disabled in `test` step (for binary size), enabled in `test_coverage` step (full assertion coverage).
 
 ## Dependencies
 
-Managed via `build.zig.zon`. Single dependency: `assert_sometimes`, imported as `"sometimes"` in source. This is a code coverage tool, not a traditional assertion library — it verifies that both the true and false branches of a condition are exercised across test runs. The `test` step disables these checks; `test_coverage` enables them.
+- **erd_core** depends on `assert_sometimes` (external, via git)
+- **erd_schema** depends on `erd_core` (path dep)
+- **data_gen** has no dependencies
+- **app** depends on `erd_core` and `erd_schema` (path deps)
 
 ## Code Style
 
@@ -52,16 +82,8 @@ Managed via `build.zig.zon`. Single dependency: `assert_sometimes`, imported as 
 
 ## Codegen Snapshots
 
-After making changes to data components, system_data, or subscription logic, run `zig build codegen-check` to verify assembly snapshots haven't regressed. If there are intentional changes, update with `zig build codegen-update`. Snapshot files live in `codegen/`.
+After making changes to data components, system_data, or subscription logic, run `zig build codegen-check` to verify assembly snapshots haven't regressed. If there are intentional changes, update with `zig build codegen-update`. Snapshot files live in `erd_core/codegen/`.
 
 ## Formatting
 
-After completing any code changes, run `zig fmt src/` to format the entire repo before reporting results.
-
-## Current Limitations
-
-This repo is early-stage and not yet cleanly usable as a library. Key issues:
-
-- **`system_erds.zig`** defines the ERD table for a specific application. To use this framework in a new project, you'd need to copy and customize this file.
-- **`system_data.zig`** conflates two concerns: the public interface (read/write/subscribe) and the structural wiring of data components. These should eventually be separated so the interface is reusable without dictating component choices.
-- **`src/common/`** contains utilities generic enough to extract into a standalone library, but still has coupling to project-specific types.
+After completing any code changes, run `zig fmt erd_core/src/ erd_schema/src/ data_gen/src/ app/src/` to format all packages before reporting results.

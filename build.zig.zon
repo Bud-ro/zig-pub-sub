@@ -4,16 +4,15 @@
     .fingerprint = 0x8ea4b5683ac6b938,
     .minimum_zig_version = "0.15.1",
     .dependencies = .{
-        .assert_sometimes = .{
-            .url = "git+https://github.com/Bud-ro/zig-sometimes-assert#a33590f9021b2661fea625cff40b3a718adb35a2",
-            .hash = "assert_sometimes-0.0.2-q4tpTJRFAABMCj5_i4s3UfAXwzfi9QRraC0S6isCstRI",
-        },
+        .erd_core = .{ .path = "erd_core" },
+        .erd_schema = .{ .path = "erd_schema" },
+        .data_gen = .{ .path = "data_gen" },
+        .app = .{ .path = "app" },
     },
 
     .paths = .{
         "build.zig",
         "build.zig.zon",
-        "src",
         "LICENSE",
         "README.md",
     },

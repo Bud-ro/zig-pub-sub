@@ -2,8 +2,8 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "exe",
-            "preLaunchTask": "zig-build-exe",
+            "name": "app",
+            "preLaunchTask": "build-app",
             "request": "launch",
             "type": "cppvsdbg",
             "program": "${workspaceFolder}/zig-out/bin/zig-pub-sub.exe",
@@ -11,13 +11,31 @@
             "cwd": "${workspaceFolder}"
         },
         {
-            "name": "test",
-            "preLaunchTask": "zig-build-test",
+            "name": "test: erd_core",
+            "preLaunchTask": "build-test-erd-core",
             "request": "launch",
             "type": "cppvsdbg",
-            "program": "${workspaceFolder}/zig-out/bin/test",
+            "program": "${workspaceFolder}/erd_core/zig-out/bin/test",
             "args": [],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}/erd_core"
+        },
+        {
+            "name": "test: erd_schema",
+            "preLaunchTask": "build-test-erd-schema",
+            "request": "launch",
+            "type": "cppvsdbg",
+            "program": "${workspaceFolder}/erd_schema/zig-out/bin/test",
+            "args": [],
+            "cwd": "${workspaceFolder}/erd_schema"
+        },
+        {
+            "name": "test: data_gen",
+            "preLaunchTask": "build-test-data-gen",
+            "request": "launch",
+            "type": "cppvsdbg",
+            "program": "${workspaceFolder}/data_gen/zig-out/bin/test",
+            "args": [],
+            "cwd": "${workspaceFolder}/data_gen"
         }
-    ],
+    ]
 }

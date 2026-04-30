@@ -1,0 +1,17 @@
+.{
+    .name = .erd_schema,
+    .version = "0.1.0",
+    .fingerprint = 0x82619bff2b09f589,
+    .minimum_zig_version = "0.15.1",
+    .dependencies = .{
+        .erd_core = .{ .path = "../erd_core" },
+    },
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "../LICENSE",
+        "README.md",
+    },
+}

@@ -1,0 +1,137 @@
+//! This module supports multiple different operations on ERDs of the same type
+//!
+//! Each instance of this creates its own `init` and `on_change` functions
+//! and also takes `n * @sizeof(Subscription) = 8n/16n` bytes of RAM.
+//! As an upside, comptime read/writes are performed and the operator is comptime known so
+//! there is an O(0) lookup.
+
+const std = @import("std");
+
+const ErdLogicOperator = enum {
+    _and,
+    _or,
+    _nor,
+    _xor,
+    _not,
+    _bitwise_and,
+    _bitwise_or,
+    _bitwise_nor,
+    _bitwise_xor,
+    _bitwise_not,
+};
+
+// TODO: Should this really be this generic? It probably leads to a lot of code bloat. I'd much prefer
+// this to use the same machine code for all instances (or at least one set for the unary operators, and one set for binary operators).
+/// Constructs an ErdLogic type
+pub fn ErdLogic(comptime SystemDataType: type, comptime operator: ErdLogicOperator, comptime erds: []const SystemDataType.ErdEnumType, outputErd: SystemDataType.ErdEnumType) type {
+    comptime {
+        switch (operator) {
+            ._bitwise_not, ._not => std.debug.assert(erds.len == 1), // Unary operators
+            else => std.debug.assert(erds.len > 1), // Binary operators that reduce
+        }
+
+        if (erds.len > 1) {
+            var window = std.mem.window(SystemDataType.ErdEnumType, erds, 2, 1);
+            while (window.next()) |erd_pair| {
+                std.debug.assert(SystemDataType.erd_from_enum(erd_pair[0]).T == SystemDataType.erd_from_enum(erd_pair[1]).T);
+            }
+        }
+
+        std.debug.assert(SystemDataType.erd_from_enum(erds[0]).T == SystemDataType.erd_from_enum(outputErd).T);
+    }
+
+    return struct {
+        // TODO: Utilize args here to improve the code
+        fn on_change(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
+            var system_data: *SystemDataType = @ptrCast(@alignCast(publisher));
+
+            if (erds.len == 1) {
+                const value = system_data.read(erds[0]);
+                const output = switch (operator) {
+                    ._bitwise_not => ~value,
+                    ._not => !value,
+                    else => comptime unreachable,
+                };
+
+                system_data.write(outputErd, output);
+            } else if (erds.len > 1) {
+                var value = system_data.read(erds[0]);
+
+                inline for (erds[1..]) |erd| {
+                    const next = system_data.read(erd);
+
+                    value = switch (operator) {
+                        ._and => value and next,
+                        ._or => value or next,
+                        ._nor => !(value or next),
+                        ._xor => value != next,
+                        ._bitwise_and => value & next,
+                        ._bitwise_or => value | next,
+                        ._bitwise_nor => ~(value | next),
+                        ._bitwise_xor => (~value & next) | (value & ~next),
+                        else => comptime unreachable,
+                    };
+                }
+
+                system_data.write(outputErd, value);
+            }
+        }
+
+        fn init(system_data: *SystemDataType) void {
+            inline for (erds) |erd| {
+                system_data.subscribe(erd, null, on_change);
+            }
+
+            on_change(null, null, system_data);
+        }
+    };
+}
+
+const erd_core = @import("erd_core");
+const Erd = erd_core.Erd;
+const SystemDataTestDouble = erd_core.testing.SystemDataTestDouble;
+
+const TestSystem = SystemDataTestDouble.create(struct {
+    input_a: Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
+    input_b: Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
+    output: Erd = SystemDataTestDouble.ramErd(u16, .{}),
+});
+const SystemData = TestSystem.SystemData;
+const ErdEnum = SystemData.ErdEnumType;
+
+test "can _bitwise_and" {
+    var system_data: SystemData = TestSystem.init();
+
+    const input_erds = &[_]ErdEnum{ .input_a, .input_b };
+    ErdLogic(SystemData, ._bitwise_and, input_erds, .output).init(&system_data);
+
+    try std.testing.expectEqual(0, system_data.read(.output));
+    // Can't do anything about this without an extra subscription
+    // it's up to the programmer to not write to "output" ERDs:
+    system_data.write(.output, 1337);
+    try std.testing.expectEqual(1337, system_data.read(.output));
+
+    system_data.write(.input_a, 0b01010101);
+    system_data.write(.input_b, 0b10101010);
+    try std.testing.expectEqual(0, system_data.read(.output));
+
+    system_data.write(.input_a, 0b00001010);
+    try std.testing.expectEqual(0b1010, system_data.read(.output));
+
+    system_data.write(.input_a, 0b10100000);
+    try std.testing.expectEqual(0b10100000, system_data.read(.output));
+
+    system_data.write(.input_a, 0xFF);
+    try std.testing.expectEqual(system_data.read(.input_b), system_data.read(.output));
+}
+
+test "unary operators work" {
+    var system_data: SystemData = TestSystem.init();
+
+    ErdLogic(SystemData, ._bitwise_not, &[_]ErdEnum{.input_a}, .output).init(&system_data);
+
+    system_data.write(.input_a, 0x1F7F);
+    try std.testing.expectEqual(0b1110_0000_1000_0000, system_data.read(.output));
+}
+
+// TODO: Finish the rest of the tests when there's a way to create testing (locally scoped) ERDs

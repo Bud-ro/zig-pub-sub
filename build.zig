@@ -4,72 +4,106 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const assert_sometimes_disabled = b.dependency("assert_sometimes", .{
+    // --- Sub-package dependencies ---
+    const erd_core_dep = b.dependency("erd_core", .{ .target = target, .optimize = optimize });
+    const erd_schema_dep = b.dependency("erd_schema", .{ .target = target, .optimize = optimize });
+    const data_gen_dep = b.dependency("data_gen", .{ .target = target, .optimize = optimize });
+    const app_dep = b.dependency("app", .{ .target = target, .optimize = optimize });
+
+    // --- Aggregate test step ---
+    const test_step = b.step("test", "Run all tests across all packages");
+
+    const erd_core_mod = erd_core_dep.module("erd_core");
+
+    // erd_core tests
+    const assert_sometimes_disabled = erd_core_dep.builder.dependency("assert_sometimes", .{
         .target = target,
         .optimize = optimize,
         .enable_sometimes = false,
     });
     const sometimes_disabled_mod = assert_sometimes_disabled.module("sometimes");
 
-    const exe_mod = b.createModule(.{
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+    const core_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = erd_core_dep.path("src/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
-    exe_mod.addImport("sometimes", sometimes_disabled_mod);
+    core_tests.root_module.addImport("sometimes", sometimes_disabled_mod);
+    core_tests.root_module.addImport("erd_core", core_tests.root_module);
+    test_step.dependOn(&b.addRunArtifact(core_tests).step);
 
-    const exe = b.addExecutable(.{
-        .name = "zig-pub-sub",
-        .root_module = exe_mod,
-    });
-    b.installArtifact(exe);
-
-    const run_cmd = b.addRunArtifact(exe);
-    run_cmd.step.dependOn(b.getInstallStep());
-
-    const run_step = b.step("run", "Run the app");
-    run_step.dependOn(&run_cmd.step);
-
-    const assert_sometimes_enabled = b.dependency("assert_sometimes", .{
+    // erd_core coverage tests
+    const assert_sometimes_enabled = erd_core_dep.builder.dependency("assert_sometimes", .{
         .target = target,
         .optimize = optimize,
         .enable_sometimes = true,
     });
-    const sometimes_mod = assert_sometimes_enabled.module("sometimes");
+    const sometimes_enabled_mod = assert_sometimes_enabled.module("sometimes");
 
-    const test_coverage = b.addTest(.{
+    const core_coverage = b.addTest(.{
         .test_runner = .{
             .path = assert_sometimes_enabled.path("src/test_runner.zig"),
             .mode = .simple,
         },
         .root_module = b.createModule(.{
-            .root_source_file = b.path("src/unit_tests.zig"),
+            .root_source_file = erd_core_dep.path("src/root.zig"),
             .target = target,
             .optimize = optimize,
         }),
     });
-    test_coverage.root_module.addImport("sometimes", sometimes_mod);
+    core_coverage.root_module.addImport("sometimes", sometimes_enabled_mod);
+    core_coverage.root_module.addImport("erd_core", core_coverage.root_module);
 
-    const run_unit_tests_coverage = b.addRunArtifact(test_coverage);
-    const test_coverage_step = b.step("test_coverage", "Run unit tests with coverage (sometimes assertions)");
-    test_coverage_step.dependOn(&run_unit_tests_coverage.step);
+    const test_coverage_step = b.step("test_coverage", "Run erd_core tests with coverage (sometimes assertions)");
+    test_coverage_step.dependOn(&b.addRunArtifact(core_coverage).step);
 
-    const tests = b.addTest(.{
+    // erd_schema tests
+    const schema_tests = b.addTest(.{
         .root_module = b.createModule(.{
-            .root_source_file = b.path("src/unit_tests.zig"),
+            .root_source_file = erd_schema_dep.path("src/root.zig"),
             .target = target,
             .optimize = optimize,
         }),
     });
-    tests.root_module.addImport("sometimes", sometimes_disabled_mod);
+    schema_tests.root_module.addImport("erd_core", erd_core_mod);
+    schema_tests.root_module.addImport("erd_schema", schema_tests.root_module);
+    test_step.dependOn(&b.addRunArtifact(schema_tests).step);
 
-    const run_unit_tests = b.addRunArtifact(tests);
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_unit_tests.step);
+    // data_gen tests
+    const data_gen_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = data_gen_dep.path("src/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    data_gen_tests.root_module.addImport("data_gen", data_gen_tests.root_module);
+    test_step.dependOn(&b.addRunArtifact(data_gen_tests).step);
 
-    const tests_install = b.addInstallArtifact(tests, .{ .dest_dir = .default });
-    const test_no_run_step = b.step("test_no_run", "Build unit tests but don't run them");
-    test_no_run_step.dependOn(&tests_install.step);
+    // --- Run step (forwards to app) ---
+    const app_exe = app_dep.artifact("zig-pub-sub");
+    const run_cmd = b.addRunArtifact(app_exe);
+    run_cmd.step.dependOn(b.getInstallStep());
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run_cmd.step);
 
-    @import("build_codegen.zig").setup(b, target, optimize, sometimes_disabled_mod);
+    b.installArtifact(app_exe);
+
+    // --- Codegen steps (delegate to erd_core) ---
+    const codegen_check = b.addSystemCommand(&.{ b.graph.zig_exe, "build", "codegen-check" });
+    codegen_check.setCwd(b.path("erd_core"));
+    const codegen_check_step = b.step("codegen-check", "Verify codegen/ snapshots are up-to-date (delegates to erd_core)");
+    codegen_check_step.dependOn(&codegen_check.step);
+
+    const codegen_update = b.addSystemCommand(&.{ b.graph.zig_exe, "build", "codegen-update" });
+    codegen_update.setCwd(b.path("erd_core"));
+    const codegen_update_step = b.step("codegen-update", "Regenerate codegen/ assembly snapshots (delegates to erd_core)");
+    codegen_update_step.dependOn(&codegen_update.step);
+
+    const emit_asm = b.addSystemCommand(&.{ b.graph.zig_exe, "build", "emit-asm" });
+    emit_asm.setCwd(b.path("erd_core"));
+    const emit_asm_step = b.step("emit-asm", "Emit raw assembly for single optimization level (delegates to erd_core)");
+    emit_asm_step.dependOn(&emit_asm.step);
 }
