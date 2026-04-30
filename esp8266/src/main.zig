@@ -32,7 +32,9 @@ fn on_system_ready() callconv(sdk.cc) void {
     uart_puts("LED blink timer started (500ms)\r\n");
 }
 
-export fn user_pre_init() void {}
+export fn user_rf_cal_sector_set() u32 {
+    return 0x3FB;
+}
 
 export fn user_init() void {
     hardware.init();
