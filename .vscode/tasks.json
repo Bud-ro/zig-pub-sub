@@ -2,14 +2,27 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "zig-build-exe",
+            "label": "build-app",
             "command": "zig build",
             "type": "shell",
         },
         {
-            "label": "zig-build-test",
+            "label": "build-test-erd-core",
             "command": "zig build test_no_run",
             "type": "shell",
+            "options": { "cwd": "${workspaceFolder}/erd_core" }
+        },
+        {
+            "label": "build-test-erd-schema",
+            "command": "zig build test_no_run",
+            "type": "shell",
+            "options": { "cwd": "${workspaceFolder}/erd_schema" }
+        },
+        {
+            "label": "build-test-data-gen",
+            "command": "zig build test_no_run",
+            "type": "shell",
+            "options": { "cwd": "${workspaceFolder}/data_gen" }
         }
     ]
 }

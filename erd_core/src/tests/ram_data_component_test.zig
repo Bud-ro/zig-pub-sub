@@ -1,5 +1,6 @@
 const std = @import("std");
-const Erd = @import("../erd.zig");
+const erd_core = @import("erd_core");
+const Erd = erd_core.Erd;
 
 const WellPackedStruct = struct {
     a: u8,
@@ -34,7 +35,7 @@ const erds = [_]Erd{
     .{ .erd_number = null, .T = ?*u16, .component_idx = 0, .subs = 0, .data_component_idx = 6, .system_data_idx = 6 },
 };
 
-const RamDataComponent = @import("../ram_data_component.zig").RamDataComponent(&erds);
+const RamDataComponent = erd_core.data_component.Ram(&erds);
 
 const erd_u32 = erds[0];
 const erd_bool = erds[1];

@@ -1,7 +1,5 @@
-const DataGen = @import("../data_gen.zig");
-const Constraint = DataGen.Constraint;
-
 const std = @import("std");
+const Constraint = @import("data_gen").Constraint;
 
 test "Anded Constraint" {
     const multi_constraint = Constraint.anded(&[_]Constraint{ Constraint.in_range(0, 2), Constraint.in_range(0, 3) });

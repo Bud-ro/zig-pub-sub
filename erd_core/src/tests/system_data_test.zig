@@ -1,6 +1,7 @@
 const std = @import("std");
-const SystemDataTestDouble = @import("../testing.zig");
-const Subscription = @import("../subscription.zig");
+const erd_core = @import("erd_core");
+const SystemDataTestDouble = erd_core.testing;
+const Subscription = erd_core.subscription;
 
 const TestSystem = SystemDataTestDouble.create(struct {
     application_version: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u32, .{}),

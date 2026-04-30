@@ -24,8 +24,13 @@ pub fn build(b: *std.Build) void {
         }),
     });
     tests.root_module.addImport("erd_core", erd_core_dep.module("erd_core"));
+    tests.root_module.addImport("erd_schema", tests.root_module);
 
     const run_tests = b.addRunArtifact(tests);
     const test_step = b.step("test", "Run erd_schema unit tests");
     test_step.dependOn(&run_tests.step);
+
+    const tests_install = b.addInstallArtifact(tests, .{ .dest_dir = .default });
+    const test_no_run_step = b.step("test_no_run", "Build erd_schema tests but don't run them");
+    test_no_run_step.dependOn(&tests_install.step);
 }

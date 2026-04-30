@@ -1,5 +1,6 @@
 const std = @import("std");
-const erd_json = @import("../erd_json.zig");
+const erd_schema = @import("erd_schema");
+const erd_json = erd_schema.json;
 const Erd = @import("erd_core").Erd;
 
 const TestErds = struct {

@@ -125,7 +125,7 @@ pub fn TimerModuleStats(comptime SystemDataType: type) type {
     };
 }
 
-const SystemDataTestDouble = @import("../testing.zig");
+const SystemDataTestDouble = @import("erd_core").testing;
 
 const TestSystem = SystemDataTestDouble.create(struct {
     enable: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(bool, .{ .subs = 1 }),

@@ -87,7 +87,7 @@ pub fn ErdLogic(comptime SystemDataType: type, comptime operator: ErdLogicOperat
     };
 }
 
-const SystemDataTestDouble = @import("../testing.zig");
+const SystemDataTestDouble = @import("erd_core").testing;
 
 const TestSystem = SystemDataTestDouble.create(struct {
     input_a: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),

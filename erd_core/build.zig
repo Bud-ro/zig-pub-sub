@@ -37,6 +37,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     test_coverage.root_module.addImport("sometimes", sometimes_enabled_mod);
+    test_coverage.root_module.addImport("erd_core", test_coverage.root_module);
 
     const run_coverage = b.addRunArtifact(test_coverage);
     const coverage_step = b.step("test_coverage", "Run core tests with coverage (sometimes assertions)");
@@ -50,6 +51,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     tests.root_module.addImport("sometimes", sometimes_disabled_mod);
+    tests.root_module.addImport("erd_core", tests.root_module);
 
     const run_tests = b.addRunArtifact(tests);
     const test_step = b.step("test", "Run core unit tests");

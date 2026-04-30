@@ -1,12 +1,13 @@
 const std = @import("std");
-const Erd = @import("../erd.zig");
+const erd_core = @import("erd_core");
+const Erd = erd_core.Erd;
 
 const erds = [_]Erd{
     .{ .erd_number = null, .T = u16, .component_idx = 0, .subs = 0, .data_component_idx = 0, .system_data_idx = 0 },
     .{ .erd_number = null, .T = u16, .component_idx = 0, .subs = 0, .data_component_idx = 1, .system_data_idx = 1 },
 };
 
-const IndirectDataComponent = @import("../indirect_data_component.zig").IndirectDataComponent(&erds);
+const IndirectDataComponent = erd_core.data_component.Indirect(&erds);
 const IndirectErdMapping = IndirectDataComponent.IndirectErdMapping;
 
 const erd_always_42 = erds[0];

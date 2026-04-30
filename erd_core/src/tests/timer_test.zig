@@ -1,5 +1,5 @@
 const std = @import("std");
-const timer = @import("../timer.zig");
+const timer = @import("erd_core").timer;
 const TimerModule = timer.TimerModule;
 const Timer = timer.Timer;
 

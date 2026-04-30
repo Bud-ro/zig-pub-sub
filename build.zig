@@ -31,6 +31,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     core_tests.root_module.addImport("sometimes", sometimes_disabled_mod);
+    core_tests.root_module.addImport("erd_core", core_tests.root_module);
     test_step.dependOn(&b.addRunArtifact(core_tests).step);
 
     // erd_core coverage tests
@@ -53,6 +54,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     core_coverage.root_module.addImport("sometimes", sometimes_enabled_mod);
+    core_coverage.root_module.addImport("erd_core", core_coverage.root_module);
 
     const test_coverage_step = b.step("test_coverage", "Run erd_core tests with coverage (sometimes assertions)");
     test_coverage_step.dependOn(&b.addRunArtifact(core_coverage).step);
@@ -66,6 +68,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     schema_tests.root_module.addImport("erd_core", erd_core_mod);
+    schema_tests.root_module.addImport("erd_schema", schema_tests.root_module);
     test_step.dependOn(&b.addRunArtifact(schema_tests).step);
 
     // data_gen tests
@@ -76,6 +79,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
+    data_gen_tests.root_module.addImport("data_gen", data_gen_tests.root_module);
     test_step.dependOn(&b.addRunArtifact(data_gen_tests).step);
 
     // --- Run step (forwards to app) ---

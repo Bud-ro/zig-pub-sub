@@ -1,10 +1,11 @@
 const std = @import("std");
-const Erd = @import("../erd.zig");
-const Subscription = @import("../subscription.zig");
-const RamDataComponent = @import("../ram_data_component.zig").RamDataComponent;
-const ConvertedDataComponentFn = @import("../converted_data_component.zig").ConvertedDataComponent;
-const ConvertedErdMapping = @import("../converted_data_component.zig").ConvertedErdMapping;
-const SystemDataFn = @import("../system_data.zig").SystemData;
+const erd_core = @import("erd_core");
+const Erd = erd_core.Erd;
+const Subscription = erd_core.subscription;
+const RamDataComponent = erd_core.data_component.Ram;
+const ConvertedDataComponentFn = erd_core.data_component.Converted.init;
+const ConvertedErdMapping = erd_core.data_component.Converted.Mapping;
+const SystemDataFn = erd_core.SystemData;
 
 const ComponentId = enum(u8) { ram, converted };
 const Ram = @intFromEnum(ComponentId.ram);
