@@ -2,6 +2,8 @@ const std = @import("std");
 const sdk = @import("sdk.zig");
 const hardware = @import("hardware.zig");
 const application = @import("application.zig");
+const wifi = @import("wifi.zig");
+const http_server = @import("http_server.zig");
 
 const UART0_FIFO: *volatile u32 = @ptrFromInt(0x60000000);
 const UART0_STATUS: *volatile u32 = @ptrFromInt(0x60000004);
@@ -18,8 +20,10 @@ fn uart_puts(s: []const u8) void {
 var app: application.Application = undefined;
 
 fn on_system_ready() callconv(sdk.cc) void {
-    uart_puts("System ready - starting timers\r\n");
+    uart_puts("System ready\r\n");
+    wifi.init();
     application.start(&app);
+    uart_puts("Timers started\r\n");
 }
 
 export fn user_rf_cal_sector_set() u32 {

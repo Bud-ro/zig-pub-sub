@@ -26,7 +26,8 @@ pub const SoftApConfig = extern struct {
     password: [64]u8,
     ssid_len: u8,
     channel: u8,
-    authmode: u8,
+    _pad0: [2]u8 = .{ 0, 0 },
+    authmode: u32,
     ssid_hidden: u8,
     max_connection: u8,
     beacon_interval: u16,
@@ -97,3 +98,39 @@ pub const PartitionItem = extern struct {
 };
 
 pub extern fn system_partition_table_regist(partition_table: [*]const PartitionItem, partition_num: u32, map: u32) bool;
+
+// TCP/espconn
+pub const ConnectCallback = *const fn (?*anyopaque) callconv(cc) void;
+pub const RecvCallback = *const fn (?*anyopaque, [*]u8, u16) callconv(cc) void;
+pub const SentCallback = *const fn (?*anyopaque) callconv(cc) void;
+
+pub const EspTcp = extern struct {
+    remote_port: i32,
+    local_port: i32,
+    local_ip: [4]u8,
+    remote_ip: [4]u8,
+    connect_callback: ?ConnectCallback,
+    reconnect_callback: ?ConnectCallback,
+    disconnect_callback: ?ConnectCallback,
+    write_finish_fn: ?ConnectCallback,
+};
+
+pub const ESPCONN_TCP: u8 = 0x10;
+
+pub const Espconn = extern struct {
+    type: u8,
+    state: u8,
+    tcp: ?*EspTcp,
+    recv_callback: ?RecvCallback,
+    sent_callback: ?SentCallback,
+    link_cnt: u8,
+    reverse: ?*anyopaque,
+};
+
+pub extern fn espconn_accept(conn: *Espconn) i8;
+pub extern fn espconn_regist_connectcb(conn: *Espconn, cb: ConnectCallback) i8;
+pub extern fn espconn_regist_recvcb(conn: *Espconn, cb: RecvCallback) i8;
+pub extern fn espconn_regist_sentcb(conn: *Espconn, cb: SentCallback) i8;
+pub extern fn espconn_send(conn: *Espconn, data: [*]const u8, len: u16) i8;
+pub extern fn espconn_disconnect(conn: *Espconn) i8;
+pub extern fn espconn_regist_time(conn: *Espconn, interval: u32, type_flag: u8) i8;
