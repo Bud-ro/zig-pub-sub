@@ -16,7 +16,7 @@
         "build_codegen.zig",
         "src",
         "codegen",
-        "LICENSE",
+        "../LICENSE",
         "README.md",
     },
 }
