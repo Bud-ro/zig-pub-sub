@@ -1,10 +1,10 @@
 const std = @import("std");
 const erd_core = @import("erd_core");
 const Erd = erd_core.Erd;
-const Subscription = erd_core.subscription;
+const Subscription = erd_core.Subscription;
 const RamDataComponent = erd_core.data_component.Ram;
-const ConvertedDataComponentFn = erd_core.data_component.Converted.init;
-const ConvertedErdMapping = erd_core.data_component.Converted.Mapping;
+const ConvertedDataComponentFn = erd_core.data_component.Converted;
+const ConvertedMapping = erd_core.data_component.ConvertedMapping;
 const SystemDataFn = erd_core.SystemData;
 
 const ComponentId = enum(u8) { ram, converted };
@@ -73,7 +73,7 @@ fn compute_no_subs(result: *u16, ctx: *anyopaque) void {
     result.* = sd.read(.dep_a) * 2;
 }
 
-const converted_mappings = [_]ConvertedErdMapping{
+const converted_mappings = [_]ConvertedMapping{
     .map(erd_instance.sum_ab, compute_sum, &.{
         erd_instance.dep_a,
         erd_instance.dep_b,

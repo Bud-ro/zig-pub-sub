@@ -14,7 +14,7 @@ const Subscription = @import("subscription.zig");
 const DataComponentSubscription = @import("data_component_subscription.zig").DataComponentSubscription;
 
 /// Binds a converted ERD to its compute function and dependency list.
-pub const ConvertedErdMapping = struct {
+pub const Mapping = struct {
     erd: Erd,
     fn_ptr: *const anyopaque,
     /// ERDs this converted ERD depends on. `post_system_data_init` subscribes to each.
@@ -23,14 +23,14 @@ pub const ConvertedErdMapping = struct {
     /// Create a mapping from an ERD to its compute function and dependencies.
     /// The compute function writes its result into the provided pointer,
     /// reading source values from the SystemData pointer.
-    pub fn map(comptime erd: Erd, func: *const fn (*erd.T, *anyopaque) void, comptime dependencies: []const Erd) ConvertedErdMapping {
+    pub fn map(comptime erd: Erd, func: *const fn (*erd.T, *anyopaque) void, comptime dependencies: []const Erd) Mapping {
         return .{ .erd = erd, .fn_ptr = func, .dependencies = dependencies };
     }
 };
 
 /// A data component that provides derived ERDs whose values are computed from
 /// dependency ERDs. Parameterized by the ERDs it owns and their mappings.
-pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings: [erds.len]ConvertedErdMapping) type {
+pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings: [erds.len]Mapping) type {
     return struct {
         const Self = @This();
 

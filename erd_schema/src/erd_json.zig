@@ -9,15 +9,16 @@ pub const Options = struct {
     version: []const u8 = "0.1.0",
 };
 
-pub fn generate(comptime ErdDefs: type, erd_defs: ErdDefs, writer: *std.io.Writer, comptime options: Options) !void {
+pub fn generate(erd_defs: anytype, writer: *std.io.Writer, comptime options: Options) !void {
     var jws: std.json.Stringify = .{
         .writer = writer,
         .options = .{ .whitespace = .indent_4 },
     };
-    try serialize(ErdDefs, erd_defs, &jws, options);
+    try serialize(erd_defs, &jws, options);
 }
 
-pub fn serialize(comptime ErdDefs: type, erd_defs: ErdDefs, jws: anytype, comptime options: Options) !void {
+pub fn serialize(erd_defs: anytype, jws: anytype, comptime options: Options) !void {
+    const ErdDefs = @TypeOf(erd_defs);
     const erd_names = comptime std.meta.fieldNames(ErdDefs);
     try jws.beginObject();
     {

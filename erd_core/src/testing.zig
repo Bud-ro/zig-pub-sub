@@ -17,7 +17,7 @@
 //! ```
 
 const std = @import("std");
-pub const Erd = @import("erd.zig");
+const Erd = @import("erd.zig");
 
 pub const RamErdOptions = struct {
     subs: comptime_int = 0,

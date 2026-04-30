@@ -34,20 +34,20 @@ cd app && zig build run                 # Run app standalone
 
 ## Architecture
 
-This is a **typed publish-subscribe data system** for embedded/real-time Zig applications. It uses comptime-known ERD (Entity-Reference-Descriptor) definitions to achieve zero-cost abstractions over static memory.
+This is a **typed publish-subscribe data system** for embedded/real-time Zig applications. It uses comptime-known ERD (Entity-Reference-Designator) definitions to achieve zero-cost abstractions over static memory.
 
 ### Core Concepts (erd_core)
 
-**ERD (Entity-Reference-Descriptor)** - A named, typed data field with a unique 16-bit handle. Each ERD declares its type, owner, and subscription slot count at comptime.
+**ERD (Entity-Reference-Designator)** - A named, typed data field with a 16-bit handle. Each ERD declares its type, owner, and subscription slot count at comptime.
+
+**SystemData** - Top-level aggregator that owns data components and subscription arrays. Provides the public API: `read`, `write`, `subscribe`, `unsubscribe`, `publish`. Also has `runtime_read`/`runtime_write` for dynamic ERD access.
 
 **Data Components** own ERDs and provide storage:
-- **RamDataComponent** (`erd_core/src/ram_data_component.zig`) - Stores values in a packed byte array. Comptime reads/writes compile to direct loads/stores. Fires on-change subscriptions on write.
-- **IndirectDataComponent** (`erd_core/src/indirect_data_component.zig`) - Read-only computed data via function pointers. No writes allowed (compile error).
+- **RamDataComponent** (`erd_core/src/ram_data_component.zig`) - Packed byte-array storage with comptime-optimized reads/writes and on-change subscriptions.
+- **IndirectDataComponent** (`erd_core/src/indirect_data_component.zig`) - Read-only computed values via function pointers.
 - **ConvertedDataComponent** (`erd_core/src/converted_data_component.zig`) - Derived data computed from other ERDs via mappings.
 
-**SystemData** (`erd_core/src/system_data.zig`) - Top-level aggregator that owns data components and subscription arrays. Provides the public API: `read`, `write`, `subscribe`, `unsubscribe`, `publish`. Also has `runtime_read`/`runtime_write` for dynamic ERD access.
-
-**Subscriptions** - Fixed-size arrays per ERD (slot count from `.subs` field at comptime). Callbacks receive `(?*anyopaque, *OnChangeArgs, *SystemData)`. Identity is by function pointer; no duplicates per ERD.
+**Subscription** - Fixed-size callback arrays per ERD, identity by function pointer.
 
 ### Timer Module
 

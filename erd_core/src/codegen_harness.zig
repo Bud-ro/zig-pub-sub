@@ -20,10 +20,10 @@ const timer = @import("timer.zig");
 // System A: small system (4 ERDs, one with subs)
 // ---------------------------------------------------------------------------
 const SmallSystem = SystemDataTestDouble.create(struct {
-    version: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u32, .{}),
-    flag: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(bool, .{ .subs = 1 }),
-    unaligned_u16: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u16, .{}),
-    subscribable_u16: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 2 }),
+    version: Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    flag: Erd = SystemDataTestDouble.ramErd(bool, .{ .subs = 1 }),
+    unaligned_u16: Erd = SystemDataTestDouble.ramErd(u16, .{}),
+    subscribable_u16: Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 2 }),
 });
 const SmallSD = SmallSystem.SystemData;
 
@@ -31,9 +31,9 @@ const SmallSD = SmallSystem.SystemData;
 // System B: second independent SystemData (verifies no cross-contamination)
 // ---------------------------------------------------------------------------
 const OtherSystem = SystemDataTestDouble.create(struct {
-    sensor_a: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(i32, .{ .subs = 1 }),
-    sensor_b: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(i32, .{}),
-    output: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u64, .{}),
+    sensor_a: Erd = SystemDataTestDouble.ramErd(i32, .{ .subs = 1 }),
+    sensor_b: Erd = SystemDataTestDouble.ramErd(i32, .{}),
+    output: Erd = SystemDataTestDouble.ramErd(u64, .{}),
 });
 const OtherSD = OtherSystem.SystemData;
 
@@ -41,38 +41,38 @@ const OtherSD = OtherSystem.SystemData;
 // System C: many ERDs (32) to stress comptime dispatch and offset computation
 // ---------------------------------------------------------------------------
 const ManyErdsSystem = SystemDataTestDouble.create(struct {
-    e00: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u8, .{}),
-    e01: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u16, .{}),
-    e02: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u32, .{}),
-    e03: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u64, .{}),
-    e04: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u8, .{}),
-    e05: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u16, .{}),
-    e06: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u32, .{}),
-    e07: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u64, .{}),
-    e08: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u8, .{ .subs = 1 }),
-    e09: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u16, .{}),
-    e10: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u32, .{}),
-    e11: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u64, .{}),
-    e12: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u8, .{}),
-    e13: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u16, .{}),
-    e14: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u32, .{}),
-    e15: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u64, .{}),
-    e16: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u8, .{}),
-    e17: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u16, .{}),
-    e18: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u32, .{}),
-    e19: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u64, .{}),
-    e20: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u8, .{}),
-    e21: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u16, .{}),
-    e22: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u32, .{}),
-    e23: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u64, .{}),
-    e24: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u8, .{}),
-    e25: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u16, .{}),
-    e26: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u32, .{}),
-    e27: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u64, .{}),
-    e28: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u8, .{}),
-    e29: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u16, .{}),
-    e30: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u32, .{}),
-    e31: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u64, .{ .subs = 3 }),
+    e00: Erd = SystemDataTestDouble.ramErd(u8, .{}),
+    e01: Erd = SystemDataTestDouble.ramErd(u16, .{}),
+    e02: Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    e03: Erd = SystemDataTestDouble.ramErd(u64, .{}),
+    e04: Erd = SystemDataTestDouble.ramErd(u8, .{}),
+    e05: Erd = SystemDataTestDouble.ramErd(u16, .{}),
+    e06: Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    e07: Erd = SystemDataTestDouble.ramErd(u64, .{}),
+    e08: Erd = SystemDataTestDouble.ramErd(u8, .{ .subs = 1 }),
+    e09: Erd = SystemDataTestDouble.ramErd(u16, .{}),
+    e10: Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    e11: Erd = SystemDataTestDouble.ramErd(u64, .{}),
+    e12: Erd = SystemDataTestDouble.ramErd(u8, .{}),
+    e13: Erd = SystemDataTestDouble.ramErd(u16, .{}),
+    e14: Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    e15: Erd = SystemDataTestDouble.ramErd(u64, .{}),
+    e16: Erd = SystemDataTestDouble.ramErd(u8, .{}),
+    e17: Erd = SystemDataTestDouble.ramErd(u16, .{}),
+    e18: Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    e19: Erd = SystemDataTestDouble.ramErd(u64, .{}),
+    e20: Erd = SystemDataTestDouble.ramErd(u8, .{}),
+    e21: Erd = SystemDataTestDouble.ramErd(u16, .{}),
+    e22: Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    e23: Erd = SystemDataTestDouble.ramErd(u64, .{}),
+    e24: Erd = SystemDataTestDouble.ramErd(u8, .{}),
+    e25: Erd = SystemDataTestDouble.ramErd(u16, .{}),
+    e26: Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    e27: Erd = SystemDataTestDouble.ramErd(u64, .{}),
+    e28: Erd = SystemDataTestDouble.ramErd(u8, .{}),
+    e29: Erd = SystemDataTestDouble.ramErd(u16, .{}),
+    e30: Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    e31: Erd = SystemDataTestDouble.ramErd(u64, .{ .subs = 3 }),
 });
 const ManySD = ManyErdsSystem.SystemData;
 
@@ -93,9 +93,9 @@ const MediumStruct = extern struct {
 };
 
 const HugeSystem = SystemDataTestDouble.create(struct {
-    big: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(BigStruct, .{}),
-    medium: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(MediumStruct, .{ .subs = 1 }),
-    small_after_big: SystemDataTestDouble.Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    big: Erd = SystemDataTestDouble.ramErd(BigStruct, .{}),
+    medium: Erd = SystemDataTestDouble.ramErd(MediumStruct, .{ .subs = 1 }),
+    small_after_big: Erd = SystemDataTestDouble.ramErd(u32, .{}),
 });
 const HugeSD = HugeSystem.SystemData;
 

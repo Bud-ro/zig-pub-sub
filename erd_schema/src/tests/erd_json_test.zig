@@ -18,7 +18,7 @@ test "generates JSON for ERDs with erd_numbers, skipping null" {
     var out: std.io.Writer.Allocating = .init(std.testing.allocator);
     defer out.deinit();
 
-    try erd_json.generate(TestErds, test_erds, &out.writer, .{ .namespace = "test" });
+    try erd_json.generate(test_erds, &out.writer, .{ .namespace = "test" });
 
     const expected =
         \\{
@@ -52,7 +52,7 @@ test "empty ERD definitions produce empty erds array" {
     var out: std.io.Writer.Allocating = .init(std.testing.allocator);
     defer out.deinit();
 
-    try erd_json.generate(EmptyErds, .{}, &out.writer, .{});
+    try erd_json.generate(@as(EmptyErds, .{}), &out.writer, .{});
 
     const expected =
         \\{

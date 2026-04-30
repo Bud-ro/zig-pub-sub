@@ -7,31 +7,34 @@ const Erd = @import("erd.zig");
 const Subscription = @import("subscription.zig");
 const DataComponentSubscription = @import("data_component_subscription.zig");
 
-pub fn IndirectDataComponent(comptime erds: []const Erd) type {
+pub const Mapping = struct {
+    erd: Erd,
+    fn_ptr: *const anyopaque,
+
+    pub fn map(comptime erd: Erd, func: *const fn (*erd.T) void) Mapping {
+        return .{ .erd = erd, .fn_ptr = func };
+    }
+};
+
+pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: [erds.len]Mapping) type {
     return struct {
         const Self = @This();
 
         pub const supports_write = false;
 
-        read_functions: [erds.len](*const anyopaque) = undefined,
+        read_functions: [erds.len]*const anyopaque = init_functions(),
         subs: DataComponentSubscription.Unsupported = .{},
 
-        pub const IndirectErdMapping = struct {
-            erd: Erd,
-            fn_ptr: *const anyopaque,
-
-            pub fn map(comptime erd: Erd, func: *const fn (*erd.T) void) IndirectErdMapping {
-                return .{ .erd = erd, .fn_ptr = func };
+        fn init_functions() [erds.len]*const anyopaque {
+            var fns: [erds.len]*const anyopaque = undefined;
+            for (erd_mappings) |mapping| {
+                fns[mapping.erd.data_component_idx] = mapping.fn_ptr;
             }
-        };
+            return fns;
+        }
 
-        pub fn init(erdMappings: [erds.len]IndirectErdMapping) Self {
-            var self = Self{};
-
-            inline for (erdMappings) |mapping| {
-                self.read_functions[mapping.erd.data_component_idx] = mapping.fn_ptr;
-            }
-            return self;
+        pub fn init() Self {
+            return .{};
         }
 
         pub fn read(self: Self, erd: Erd) erd.T {
