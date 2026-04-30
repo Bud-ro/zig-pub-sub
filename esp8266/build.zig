@@ -63,30 +63,38 @@ pub fn build(b: *std.Build) void {
     link.step.dependOn(&compile_c.step);
     link.step.dependOn(&compile_stubs.step);
 
-    const objcopy = b.addSystemCommand(&.{
-        "xtensa-lx106-elf-objcopy",
-        "-O",
-        "binary",
+    const elf2image = b.addSystemCommand(&.{
+        "esptool",
+        "--chip",
+        "esp8266",
+        "elf2image",
+        "--version",
+        "1",
+        "--flash_mode",
+        "dout",
+        "--flash_size",
+        "4MB",
         "zig-out/blinky.elf",
-        "zig-out/blinky.bin",
+        "-o",
+        "zig-out/blinky_",
     });
-    objcopy.setCwd(b.path("."));
-    objcopy.step.dependOn(&link.step);
+    elf2image.setCwd(b.path("."));
+    elf2image.step.dependOn(&link.step);
 
-    b.getInstallStep().dependOn(&objcopy.step);
+    b.getInstallStep().dependOn(&elf2image.step);
 
     const flash_step = b.step("flash", "Flash blinky to ESP8266 via esptool");
     const flash_cmd = b.addSystemCommand(&.{
-        "esptool.py",
+        "esptool",
         "--port",
         "/dev/ttyUSB0",
         "--baud",
         "115200",
         "write_flash",
         "0x0",
-        "zig-out/blinky.bin",
+        "zig-out/blinky_0x00000.bin",
     });
     flash_cmd.setCwd(b.path("."));
-    flash_cmd.step.dependOn(&objcopy.step);
+    flash_cmd.step.dependOn(&elf2image.step);
     flash_step.dependOn(&flash_cmd.step);
 }
