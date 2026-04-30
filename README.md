@@ -6,9 +6,9 @@ A typed publish-subscribe data system for embedded/real-time Zig applications. U
 
 | Package | Description |
 |---------|-------------|
-| [`erd_core`](erd_core/) | Core framework — data components, system data, subscriptions, timer |
-| [`erd_schema`](erd_schema/) | ERD serialization — transforms ERD definitions into JSON (and future formats) |
-| [`data_gen`](data_gen/) | Constraint-based data generation for property-based testing |
+| [`erd_core`](erd_core/) | Core framework - data components, system data, subscriptions, timer |
+| [`erd_schema`](erd_schema/) | ERD serialization - transforms ERD definitions into JSON |
+| [`data_gen`](data_gen/) | Constraint-based data generation |
 | [`app`](app/) | Demo application wiring ERD definitions to concrete components |
 
 ## Quick Start
@@ -33,7 +33,7 @@ cd app && zig build run
 
 - Fast, lightweight data storage abstraction for systems using primarily static memory
 - Event-driven programming via fixed-size subscription arrays per ERD
-- Extensive use of `comptime` elides lookups where possible — comptime reads compile to direct loads, writes to direct stores
+- Extensive use of `comptime` elides lookups where possible - comptime reads compile to direct loads, writes to direct stores
 - Runtime read/write paths use constant-time dispatch to the correct data component
 
 ## Using as a Library

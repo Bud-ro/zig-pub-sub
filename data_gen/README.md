@@ -1,8 +1,9 @@
 # data_gen
 
-Constraint-based data generation framework for property-based testing in Zig.
+Constraint-based data generation framework.
 
-Provides composable constraints (`in_range`, `array_len`, `array_elements`, `null_ptr`, `anded`, `ored`) that can validate whether data matches specified rules. No external dependencies — uses only the Zig standard library.
+Provides composable constraints that can validate whether data matches
+specified rules. Uses no external dependencies.
 
 ## Usage
 

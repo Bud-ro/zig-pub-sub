@@ -100,7 +100,7 @@ const HugeSystem = SystemDataTestDouble.create(struct {
 const HugeSD = HugeSystem.SystemData;
 
 // ===========================================================================
-// Comptime reads — small system
+// Comptime reads - small system
 // ===========================================================================
 
 export fn codegen_read_u32(sd: *SmallSD) u32 {
@@ -116,7 +116,7 @@ export fn codegen_read_u16_unaligned(sd: *SmallSD) u16 {
 }
 
 // ===========================================================================
-// Comptime writes — small system
+// Comptime writes - small system
 // ===========================================================================
 
 export fn codegen_write_u32_no_subs(sd: *SmallSD) void {
@@ -136,7 +136,7 @@ export fn codegen_write_u16_with_subs(sd: *SmallSD, val: u16) void {
 }
 
 // ===========================================================================
-// Runtime read/write — small system
+// Runtime read/write - small system
 // ===========================================================================
 
 export fn codegen_runtime_read(sd: *SmallSD, idx: u16, out: *anyopaque) void {
@@ -182,7 +182,7 @@ export fn codegen_dual_write(sd_a: *SmallSD, sd_b: *OtherSD) void {
 }
 
 // ===========================================================================
-// Many ERDs — first, middle, last access patterns
+// Many ERDs - first, middle, last access patterns
 // ===========================================================================
 
 export fn codegen_many_read_first(sd: *ManySD) u8 {
@@ -206,7 +206,7 @@ export fn codegen_many_write_middle_no_subs(sd: *ManySD, val: u32) void {
 }
 
 // ===========================================================================
-// Huge ERD types — read, write, read-modify-write
+// Huge ERD types - read, write, read-modify-write
 // ===========================================================================
 
 export fn codegen_read_big_struct(sd: *HugeSD) BigStruct {
@@ -242,7 +242,7 @@ export fn codegen_read_modify_write_big(sd: *HugeSD) void {
 }
 
 // ===========================================================================
-// Timer callback context — read/write inside a timer callback
+// Timer callback context - read/write inside a timer callback
 // ===========================================================================
 
 fn timer_callback_read_write(ctx: ?*anyopaque, _: *timer.TimerModule, _: *timer.Timer) void {
@@ -261,7 +261,7 @@ comptime {
 }
 
 // ===========================================================================
-// Redundant read elimination — does LLVM CSE through the abstraction?
+// Redundant read elimination - does LLVM CSE through the abstraction?
 // ===========================================================================
 
 export fn codegen_triple_read_same_erd(sd: *SmallSD) u32 {
@@ -328,7 +328,7 @@ comptime {
 }
 
 // ===========================================================================
-// Loop-like patterns — repeated writes, conditional accumulation
+// Loop-like patterns - repeated writes, conditional accumulation
 // ===========================================================================
 
 export fn codegen_increment_n_times(sd: *SmallSD, n: u32) void {
@@ -348,7 +348,7 @@ export fn codegen_conditional_write_chain(sd: *SmallSD) void {
 }
 
 // ===========================================================================
-// Cross-ERD dependency — read one, compute, write another
+// Cross-ERD dependency - read one, compute, write another
 // ===========================================================================
 
 export fn codegen_cross_erd_compute(sd: *SmallSD) void {
@@ -358,7 +358,7 @@ export fn codegen_cross_erd_compute(sd: *SmallSD) void {
 }
 
 // ===========================================================================
-// Cross-system reads — two different SystemData types in one function
+// Cross-system reads - two different SystemData types in one function
 // ===========================================================================
 
 export fn codegen_cross_system_read_add(sd_a: *SmallSD, sd_b: *OtherSD) i64 {
@@ -382,7 +382,7 @@ export fn codegen_cross_system_swap(sd_a: *SmallSD, sd_b: *OtherSD) void {
 }
 
 // ===========================================================================
-// Multi-write patterns — verify LLVM eliminates redundant checks
+// Multi-write patterns - verify LLVM eliminates redundant checks
 // ===========================================================================
 
 // Writing the same value twice: second write should be eliminated or at

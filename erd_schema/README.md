@@ -1,8 +1,8 @@
 # erd_schema
 
-Generic ERD serialization. Transforms Zig ERD definition types into machine-readable output formats.
+Generic ERD serialization with type info. Transforms Zig ERD definition types into machine-readable output formats.
 
-Currently supports JSON. Designed to grow into a general-purpose tool for converting compile-time Zig type information into consumable formats that other software can parse — enabling external tools to interpret raw bytes as human-readable data.
+WIP
 
 ## Usage
 

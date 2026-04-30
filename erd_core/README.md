@@ -4,16 +4,16 @@ Core framework for a typed publish-subscribe data system targeting embedded/real
 
 ## What's in here
 
-- **ERD** (`erd.zig`) — Entity-Reference-Descriptor type: a named, typed data field with a 16-bit handle
-- **RamDataComponent** — Packed byte-array storage with comptime-optimized reads/writes and on-change subscriptions
-- **IndirectDataComponent** — Read-only computed values via function pointers
-- **ConvertedDataComponent** — Derived data computed from other ERDs via mappings
-- **SystemData** — Top-level aggregator binding multiple data components into one namespace with `read`/`write`/`subscribe`/`publish` APIs
-- **Subscription** — Fixed-size callback arrays per ERD, identity by function pointer
-- **Timer** — Lightweight software scheduler (periodic/one-shot) for tick-based run-to-completion loops
-- **testing** — Test double infrastructure (`SystemDataTestDouble`) for creating standalone test ERD systems
+- **ERD** (`erd.zig`) : Entity-Reference-Designator type: a named, typed data field with a 16-bit handle
+- **SystemData** : Top-level aggregator binding multiple data components into one namespace with `read`/`write`/`subscribe`/`publish` APIs
+  - **RamDataComponent** : Packed byte-array storage with comptime-optimized reads/writes and on-change subscriptions
+  - **IndirectDataComponent** : Read-only computed values via function pointers
+  - **ConvertedDataComponent** : Derived data computed from other ERDs via mappings
+- **Subscription** : Fixed-size callback arrays per ERD, identity by function pointer
+- **Timer** : Lightweight software scheduler (periodic/one-shot) for tick-based run-to-completion loops
+- **testing** : Test double infrastructure (`SystemDataTestDouble`) for creating standalone test ERD systems
 
-Utilities in `common/`: `erd_logic`, `stopwatch`, `timer_stats`.
+A number of utility modules are available in `common/`.
 
 ## Usage
 

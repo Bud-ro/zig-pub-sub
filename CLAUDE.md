@@ -8,10 +8,10 @@ This is a **multi-package monorepo** with four Zig packages:
 
 | Package | Path | Description |
 |---------|------|-------------|
-| **erd_core** | `erd_core/` | Core ERD/pub-sub framework — generic data components, system data, timer, subscriptions |
-| **erd_schema** | `erd_schema/` | ERD serialization (JSON, future formats) — transforms Zig ERD types into consumable output |
+| **erd_core** | `erd_core/` | Core ERD/pub-sub framework - generic data components, system data, timer, subscriptions |
+| **erd_schema** | `erd_schema/` | ERD serialization (JSON, future formats) - transforms Zig ERD types into consumable output |
 | **data_gen** | `data_gen/` | Constraint-based data generation for property-based testing |
-| **app** | `app/` | Demo application — wires ERD definitions to concrete components |
+| **app** | `app/` | Demo application - wires ERD definitions to concrete components |
 
 ## Build & Test Commands
 
