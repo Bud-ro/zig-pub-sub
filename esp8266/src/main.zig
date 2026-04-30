@@ -21,7 +21,7 @@ var app: application.Application = undefined;
 
 fn on_system_ready() callconv(sdk.cc) void {
     uart_puts("System ready\r\n");
-    wifi.init();
+    wifi.init(&app);
     http_server.init(&app);
     application.start(&app);
     uart_puts("HTTP server on port 80\r\n");

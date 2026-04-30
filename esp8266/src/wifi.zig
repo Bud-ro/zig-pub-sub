@@ -1,5 +1,6 @@
 const std = @import("std");
 const sdk = @import("sdk.zig");
+const application = @import("application.zig");
 
 const UART0_FIFO: *volatile u32 = @ptrFromInt(0x60000000);
 const UART0_STATUS: *volatile u32 = @ptrFromInt(0x60000004);
@@ -41,13 +42,13 @@ fn uart_ip(addr: u32) void {
     uart_dec((addr >> 24) & 0xFF);
 }
 
-pub fn init() void {
+pub fn init(app: *application.Application) void {
     var ap_config: sdk.SoftApConfig = std.mem.zeroes(sdk.SoftApConfig);
     const ssid = "ZigPubSub";
     @memcpy(ap_config.ssid[0..ssid.len], ssid);
     ap_config.ssid_len = ssid.len;
     ap_config.channel = 6;
-    ap_config.authmode = 0; // AUTH_OPEN
+    ap_config.authmode = 0;
     ap_config.max_connection = 4;
     ap_config.beacon_interval = 100;
 
@@ -59,5 +60,6 @@ pub fn init() void {
         uart_puts("WiFi AP: ZigPubSub @ ");
         uart_ip(ip_info.ip.addr);
         uart_puts("\r\n");
+        app.system_data.write(.erd_wifi_ip_addr, ip_info.ip.addr);
     }
 }

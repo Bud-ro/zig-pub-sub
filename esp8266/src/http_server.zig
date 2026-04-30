@@ -8,6 +8,7 @@ var server_conn: sdk.Espconn = undefined;
 var server_tcp: sdk.EspTcp = undefined;
 var app_ref: *application.Application = undefined;
 
+var body_buf: [1536]u8 = undefined;
 var response_buf: [2048]u8 = undefined;
 
 pub fn init(app: *application.Application) void {
@@ -36,9 +37,8 @@ fn on_receive(arg: ?*anyopaque, data: [*]u8, len: u16) callconv(sdk.cc) void {
     const request = data[0..len];
     const path = parse_path(request);
 
-    var count = app_ref.system_data.read(.erd_http_request_count);
-    count +%= 1;
-    app_ref.system_data.write(.erd_http_request_count, count);
+    const count = app_ref.system_data.read(.erd_http_request_count);
+    app_ref.system_data.write(.erd_http_request_count, count +% 1);
 
     if (std.mem.startsWith(u8, path, "/erd/")) {
         const erd_name = path[5..];
@@ -46,19 +46,19 @@ fn on_receive(arg: ?*anyopaque, data: [*]u8, len: u16) callconv(sdk.cc) void {
             if (erd_write_dispatch(erd_name, get_body(request))) {
                 send_response(conn, "200 OK", "application/json", "{\"ok\":true}");
             } else {
-                send_response(conn, "404 Not Found", "application/json", "{\"error\":\"unknown ERD\"}");
+                send_response(conn, "404 Not Found", "application/json", "{\"error\":\"unknown\"}");
             }
         } else {
             const json_len = erd_read_dispatch(erd_name);
             if (json_len > 0) {
-                send_response(conn, "200 OK", "application/json", response_buf[0..json_len]);
+                send_response(conn, "200 OK", "application/json", body_buf[0..json_len]);
             } else {
-                send_response(conn, "404 Not Found", "application/json", "{\"error\":\"unknown ERD\"}");
+                send_response(conn, "404 Not Found", "application/json", "{\"error\":\"unknown\"}");
             }
         }
     } else {
         const html_len = build_dashboard();
-        send_response(conn, "200 OK", "text/html", response_buf[0..html_len]);
+        send_response(conn, "200 OK", "text/html", body_buf[0..html_len]);
     }
 }
 
@@ -130,7 +130,7 @@ fn make_read_fn(comptime name: []const u8) ErdReadFn() {
             const val = app_ref.system_data.read(erd_enum);
             var len: usize = 0;
             len += buf_copy(len, "{\"name\":\"" ++ name ++ "\",\"value\":");
-            len += format_val(T, &val, response_buf[len..]);
+            len += format_val(T, &val, body_buf[len..]);
             len += buf_copy(len, "}");
             return len;
         }
@@ -159,7 +159,7 @@ fn make_row_fn(comptime name: []const u8) ErdRowFn() {
             const val = app_ref.system_data.read(erd_enum);
             var len: usize = 0;
             len += buf_copy(base + len, "<tr><td>" ++ name ++ "</td><td>");
-            len += format_val(T, &val, response_buf[base + len ..]);
+            len += format_val(T, &val, body_buf[base + len ..]);
             len += buf_copy(base + len, "</td></tr>");
             return len;
         }
@@ -194,8 +194,8 @@ fn build_dashboard() usize {
 }
 
 fn buf_copy(offset: usize, s: []const u8) usize {
-    if (offset + s.len > response_buf.len) return 0;
-    @memcpy(response_buf[offset..][0..s.len], s);
+    if (offset + s.len > body_buf.len) return 0;
+    @memcpy(body_buf[offset..][0..s.len], s);
     return s.len;
 }
 
@@ -207,14 +207,7 @@ fn format_val(comptime T: type, val: *const T, buf: []u8) usize {
     } else if (T == u32) {
         return fmt_u32(val.*, buf);
     } else if (@typeInfo(T) == .@"enum") {
-        const s = @tagName(val.*);
-        const quoted_len = s.len + 2;
-        if (quoted_len <= buf.len) {
-            buf[0] = '"';
-            @memcpy(buf[1..][0..s.len], s);
-            buf[s.len + 1] = '"';
-        }
-        return quoted_len;
+        return fmt_u32(@intFromEnum(val.*), buf);
     } else {
         const s = "\"?\"";
         if (s.len <= buf.len) @memcpy(buf[0..s.len], s);
@@ -259,11 +252,20 @@ fn parse_value(comptime T: type, body: []const u8) ?T {
 
 fn send_response(conn: *sdk.Espconn, status: []const u8, content_type: []const u8, body: []const u8) void {
     var len: usize = 0;
-    len += buf_copy(len, "HTTP/1.1 ");
-    len += buf_copy(len, status);
-    len += buf_copy(len, "\r\nContent-Type: ");
-    len += buf_copy(len, content_type);
-    len += buf_copy(len, "\r\nConnection: close\r\n\r\n");
+
+    const h1 = "HTTP/1.1 ";
+    @memcpy(response_buf[len..][0..h1.len], h1);
+    len += h1.len;
+    @memcpy(response_buf[len..][0..status.len], status);
+    len += status.len;
+    const h2 = "\r\nContent-Type: ";
+    @memcpy(response_buf[len..][0..h2.len], h2);
+    len += h2.len;
+    @memcpy(response_buf[len..][0..content_type.len], content_type);
+    len += content_type.len;
+    const h3 = "\r\nConnection: close\r\n\r\n";
+    @memcpy(response_buf[len..][0..h3.len], h3);
+    len += h3.len;
 
     if (len + body.len <= response_buf.len) {
         @memcpy(response_buf[len..][0..body.len], body);
