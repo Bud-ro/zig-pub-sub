@@ -22,8 +22,9 @@ var app: application.Application = undefined;
 fn on_system_ready() callconv(sdk.cc) void {
     uart_puts("System ready\r\n");
     wifi.init();
+    http_server.init(&app);
     application.start(&app);
-    uart_puts("Timers started\r\n");
+    uart_puts("HTTP server on port 80\r\n");
 }
 
 export fn user_rf_cal_sector_set() u32 {

@@ -17,9 +17,9 @@ pub fn init(app: *application.Application) void {
     server_tcp.local_port = 80;
 
     server_conn = std.mem.zeroes(sdk.Espconn);
-    server_conn.type = sdk.ESPCONN_TCP;
+    server_conn.type = @as(u32, sdk.ESPCONN_TCP);
     server_conn.state = 0;
-    server_conn.tcp = &server_tcp;
+    server_conn.proto = &server_tcp;
 
     _ = sdk.espconn_regist_connectcb(&server_conn, on_connect);
     _ = sdk.espconn_accept(&server_conn);

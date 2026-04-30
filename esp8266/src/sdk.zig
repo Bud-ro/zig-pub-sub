@@ -118,12 +118,13 @@ pub const EspTcp = extern struct {
 pub const ESPCONN_TCP: u8 = 0x10;
 
 pub const Espconn = extern struct {
-    type: u8,
-    state: u8,
-    tcp: ?*EspTcp,
+    type: u32, // enum espconn_type
+    state: u32, // enum espconn_state
+    proto: ?*EspTcp, // union { esp_tcp*, esp_udp* } - same size
     recv_callback: ?RecvCallback,
     sent_callback: ?SentCallback,
     link_cnt: u8,
+    _pad: [3]u8 = .{ 0, 0, 0 },
     reverse: ?*anyopaque,
 };
 
