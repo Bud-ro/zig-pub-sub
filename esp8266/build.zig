@@ -13,12 +13,30 @@ pub fn build(b: *std.Build) void {
         "-ofmt=c",
         "-OReleaseSmall",
         "-femit-bin=zig-out/firmware.c",
-        "src/main.zig",
+        "--dep",
+        "erd_core",
+        "-Mroot=src/main.zig",
+        "--dep",
+        "sometimes",
+        "--dep",
+        "erd_core",
+        "-Merd_core=/home/carson/git/zig-pub-sub/erd_core/src/root.zig",
+        "--dep",
+        "sometimes_config",
+        "-Msometimes=/home/carson/.cache/zig/p/assert_sometimes-0.0.2-q4tpTJRFAABMCj5_i4s3UfAXwzfi9QRraC0S6isCstRI/src/sometimes.zig",
+        "-Msometimes_config=src/sometimes_config.zig",
         "--zig-lib-dir",
         zig_lib_path,
     });
     emit_c.setCwd(b.path("."));
     emit_c.step.dependOn(&mkdir.step);
+
+    const fix_void = b.addSystemCommand(&.{
+        "sed",                                        "-i",
+        "s/^static void const /static char const /g", "zig-out/firmware.c",
+    });
+    fix_void.setCwd(b.path("."));
+    fix_void.step.dependOn(&emit_c.step);
 
     const zig_h_include = std.fmt.allocPrint(b.allocator, "-I{s}", .{zig_lib_path}) catch @panic("OOM");
 
@@ -29,6 +47,7 @@ pub fn build(b: *std.Build) void {
         "-ffunction-sections",
         "-fdata-sections",
         "-mlongcalls",
+        "-Wno-error",
         zig_h_include,
         "-Isdk/include",
         "zig-out/firmware.c",
@@ -36,7 +55,7 @@ pub fn build(b: *std.Build) void {
         "zig-out/firmware.o",
     });
     compile_c.setCwd(b.path("."));
-    compile_c.step.dependOn(&emit_c.step);
+    compile_c.step.dependOn(&fix_void.step);
 
     const compile_stubs = b.addSystemCommand(&.{
         "xtensa-lx106-elf-gcc",
