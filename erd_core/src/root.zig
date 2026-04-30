@@ -20,9 +20,7 @@ pub const data_component = struct {
 
 pub const timer = @import("timer.zig");
 
-pub const testing = struct {
-    pub const SystemDataTestDouble = @import("testing.zig");
-};
+pub const testing = @import("testing.zig");
 
 pub const common = struct {
     pub const erd_logic = @import("common/erd_logic.zig");

@@ -65,7 +65,7 @@ pub const Application = struct {
 pub fn init() Application {
     var app = Application{ .system_data = SystemData.init(.{
         .ram = RamDataComponent.init(),
-        .indirect = IndirectDataComponent.init(),
+        .indirect = .{},
         .converted = ConvertedDataComponent.init(),
     }) };
     app.system_data.components.converted.post_system_data_init(&app.system_data);

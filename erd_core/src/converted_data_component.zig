@@ -9,9 +9,10 @@
 //! subscriptions. Public APIs assert that `post_system_data_init` has been called.
 
 const std = @import("std");
-const Erd = @import("erd.zig");
-const Subscription = @import("subscription.zig");
-const DataComponentSubscription = @import("data_component_subscription.zig").DataComponentSubscription;
+const erd_core = @import("erd_core");
+const Erd = erd_core.Erd;
+const Subscription = erd_core.Subscription;
+const DataComponentSubscription = erd_core.data_component.subscription_mixin.DataComponentSubscription;
 
 /// Binds a converted ERD to its compute function and dependency list.
 pub const Mapping = struct {

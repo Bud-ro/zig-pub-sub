@@ -10,7 +10,7 @@
 //! `maximum_latency` = 1
 
 const std = @import("std");
-const timer = @import("../timer.zig");
+const timer = @import("erd_core").timer;
 const Timer = timer.Timer;
 const TimerModule = timer.TimerModule;
 
@@ -125,11 +125,12 @@ pub fn TimerModuleStats(comptime SystemDataType: type) type {
     };
 }
 
-const SystemDataTestDouble = @import("erd_core").testing.SystemDataTestDouble;
+const erd_core_test = @import("erd_core");
+const SystemDataTestDouble = erd_core_test.testing.SystemDataTestDouble;
 
 const TestSystem = SystemDataTestDouble.create(struct {
-    enable: @import("erd_core").Erd = SystemDataTestDouble.ramErd(bool, .{ .subs = 1 }),
-    stats: @import("erd_core").Erd = SystemDataTestDouble.ramErd(StatMeasurement, .{}),
+    enable: erd_core_test.Erd = SystemDataTestDouble.ramErd(bool, .{ .subs = 1 }),
+    stats: erd_core_test.Erd = SystemDataTestDouble.ramErd(StatMeasurement, .{}),
 });
 const TestSystemData = TestSystem.SystemData;
 const TestTimerModuleStats = TimerModuleStats(TestSystemData);

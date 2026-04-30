@@ -87,12 +87,14 @@ pub fn ErdLogic(comptime SystemDataType: type, comptime operator: ErdLogicOperat
     };
 }
 
-const SystemDataTestDouble = @import("erd_core").testing.SystemDataTestDouble;
+const erd_core_test = @import("erd_core");
+const Erd = erd_core_test.Erd;
+const SystemDataTestDouble = erd_core_test.testing.SystemDataTestDouble;
 
 const TestSystem = SystemDataTestDouble.create(struct {
-    input_a: @import("erd_core").Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
-    input_b: @import("erd_core").Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
-    output: @import("erd_core").Erd = SystemDataTestDouble.ramErd(u16, .{}),
+    input_a: Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
+    input_b: Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
+    output: Erd = SystemDataTestDouble.ramErd(u16, .{}),
 });
 const SystemData = TestSystem.SystemData;
 const ErdEnum = SystemData.ErdEnumType;

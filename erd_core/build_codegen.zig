@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, sometimes_disabled_mod: *std.Build.Module) void {
+pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, sometimes_disabled_mod: *std.Build.Module, core_mod: *std.Build.Module) void {
     const strip_asm = b.addExecutable(.{
         .name = "strip_asm",
         .root_module = b.createModule(.{
@@ -36,6 +36,7 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
                 .enable_sometimes = false,
             });
             codegen_mod.addImport("sometimes", sometimes_dep.module("sometimes"));
+            codegen_mod.addImport("erd_core", core_mod);
 
             const codegen_obj = b.addObject(.{
                 .name = b.fmt("codegen_{s}", .{mode_name}),
@@ -91,6 +92,7 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
         .optimize = emit_optimize,
     });
     codegen_mod.addImport("sometimes", sometimes_disabled_mod);
+    codegen_mod.addImport("erd_core", core_mod);
     const codegen_obj = b.addObject(.{
         .name = "codegen_harness",
         .root_module = codegen_mod,

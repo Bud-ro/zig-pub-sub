@@ -6,8 +6,9 @@
 //! comptime and you want to ensure direct accesses to underlying function calls
 
 const std = @import("std");
-const Erd = @import("erd.zig");
-const Subscription = @import("subscription.zig");
+const erd_core = @import("erd_core");
+const Erd = erd_core.Erd;
+const Subscription = erd_core.Subscription;
 
 pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_instance: ErdDefs, comptime Components: type) type {
     // Validate ErdEnum matches ErdDefs fields
@@ -28,7 +29,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
     const SystemErdsLength: usize = std.meta.fields(ErdDefs).len;
 
     comptime {
-        @import("data_component_subscription.zig").validateComponents(Components);
+        erd_core.data_component.subscription_mixin.validateComponents(Components);
     }
 
     return struct {

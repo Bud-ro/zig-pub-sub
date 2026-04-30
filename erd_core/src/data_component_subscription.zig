@@ -12,8 +12,9 @@
 //! ```
 
 const std = @import("std");
-const Erd = @import("erd.zig");
-const Subscription = @import("subscription.zig");
+const erd_core = @import("erd_core");
+const Erd = erd_core.Erd;
+const Subscription = erd_core.Subscription;
 
 /// Validates that every component in `Components` has a `subs` field.
 pub fn validateComponents(comptime Components: type) void {

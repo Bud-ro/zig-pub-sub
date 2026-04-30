@@ -17,6 +17,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     core_mod.addImport("sometimes", sometimes_disabled_mod);
+    core_mod.addImport("erd_core", core_mod);
 
     const assert_sometimes_enabled = b.dependency("assert_sometimes", .{
         .target = target,
@@ -61,5 +62,5 @@ pub fn build(b: *std.Build) void {
     const test_no_run_step = b.step("test_no_run", "Build core tests but don't run them");
     test_no_run_step.dependOn(&tests_install.step);
 
-    @import("build_codegen.zig").setup(b, target, optimize, sometimes_disabled_mod);
+    @import("build_codegen.zig").setup(b, target, optimize, sometimes_disabled_mod, core_mod);
 }

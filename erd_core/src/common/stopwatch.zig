@@ -3,7 +3,7 @@
 //! (ex: start() -> 51 days -> elapsed() = ~1 day)
 
 const std = @import("std");
-const timer = @import("../timer.zig");
+const timer = @import("erd_core").timer;
 const TimerModule = timer.TimerModule;
 
 const StopWatch = @This();

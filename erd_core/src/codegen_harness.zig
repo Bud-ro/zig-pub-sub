@@ -12,9 +12,10 @@
 //! and `zig build codegen-check` to verify snapshots haven't regressed.
 
 const std = @import("std");
-const SystemDataTestDouble = @import("testing.zig");
-const Erd = @import("erd.zig");
-const timer = @import("timer.zig");
+const erd_core = @import("erd_core");
+const SystemDataTestDouble = erd_core.testing.SystemDataTestDouble;
+const Erd = erd_core.Erd;
+const timer = erd_core.timer;
 
 // ---------------------------------------------------------------------------
 // System A: small system (4 ERDs, one with subs)

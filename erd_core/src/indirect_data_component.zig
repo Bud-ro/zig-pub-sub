@@ -3,9 +3,10 @@
 //! If you want code to run on write, then you should use an ERD subscription or the converted data component
 
 const std = @import("std");
-const Erd = @import("erd.zig");
-const Subscription = @import("subscription.zig");
-const DataComponentSubscription = @import("data_component_subscription.zig");
+const erd_core = @import("erd_core");
+const Erd = erd_core.Erd;
+const Subscription = erd_core.Subscription;
+const subscription_mixin = erd_core.data_component.subscription_mixin;
 
 pub const Mapping = struct {
     erd: Erd,
@@ -23,7 +24,7 @@ pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: 
         pub const supports_write = false;
 
         read_functions: [erds.len]*const anyopaque = init_functions(),
-        subs: DataComponentSubscription.Unsupported = .{},
+        subs: subscription_mixin.Unsupported = .{},
 
         fn init_functions() [erds.len]*const anyopaque {
             var fns: [erds.len]*const anyopaque = undefined;
@@ -31,10 +32,6 @@ pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: 
                 fns[mapping.erd.data_component_idx] = mapping.fn_ptr;
             }
             return fns;
-        }
-
-        pub fn init() Self {
-            return .{};
         }
 
         pub fn read(self: Self, erd: Erd) erd.T {

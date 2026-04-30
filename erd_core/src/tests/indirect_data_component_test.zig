@@ -30,7 +30,7 @@ const mappings = [_]IndirectMapping{
 const IndirectDataComponent = erd_core.data_component.Indirect(&erds, mappings);
 
 test "indirect data component read" {
-    var indirect_data = IndirectDataComponent.init();
+    var indirect_data = IndirectDataComponent{};
 
     try std.testing.expectEqual(42, indirect_data.read(erd_always_42));
     try std.testing.expectEqual(42 + 1, indirect_data.read(erd_plus_one));
@@ -39,12 +39,12 @@ test "indirect data component read" {
 test "indirect data component write" {
     return error.SkipZigTest; // Test for compile error
 
-    // var indirect_data = IndirectDataComponent.init();
+    // var indirect_data = IndirectDataComponent{};
     // _ = indirect_data.write(erd_always_42, 41);
 }
 
 test "indirect data component runtime read" {
-    var indirect_data = IndirectDataComponent.init();
+    var indirect_data = IndirectDataComponent{};
 
     var should_be_42: u16 = undefined;
     var should_be_43: u16 = undefined;
@@ -59,6 +59,6 @@ test "indirect data component runtime read" {
 test "indirect data component runtime write" {
     return error.SkipZigTest; // Test for compile error
 
-    // var indirect_data = IndirectDataComponent.init();
+    // var indirect_data = IndirectDataComponent{};
     // _ = indirect_data.runtime_write(erd_always_42.data_component_idx, &41);
 }
