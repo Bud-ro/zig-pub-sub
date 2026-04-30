@@ -1,14 +1,15 @@
 const std = @import("std");
 const erd_core = @import("erd_core");
+const Erd = erd_core.Erd;
 const SystemDataTestDouble = erd_core.testing.SystemDataTestDouble;
 const Subscription = erd_core.Subscription;
 
 const TestSystem = SystemDataTestDouble.create(struct {
-    application_version: erd_core.Erd = SystemDataTestDouble.ramErd(u32, .{}),
-    some_bool: erd_core.Erd = SystemDataTestDouble.ramErd(bool, .{ .subs = 3 }),
-    unaligned_u16: erd_core.Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
-    cool_u16: erd_core.Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
-    best_u16: erd_core.Erd = SystemDataTestDouble.ramErd(u16, .{}),
+    application_version: Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    some_bool: Erd = SystemDataTestDouble.ramErd(bool, .{ .subs = 3 }),
+    unaligned_u16: Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
+    cool_u16: Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
+    best_u16: Erd = SystemDataTestDouble.ramErd(u16, .{}),
 });
 const SystemData = TestSystem.SystemData;
 
