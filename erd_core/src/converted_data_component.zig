@@ -38,17 +38,17 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         pub const supports_write = false;
         const Subs = DataComponentSubscription(erds);
 
-        read_functions: [erds.len]*const anyopaque = undefined,
+        read_functions: [erds.len]*const anyopaque = init_functions(),
         subs: Subs = .{},
         system_data_ref: *anyopaque = undefined,
         is_fully_initialized: bool = false,
 
-        pub fn init() Self {
-            var self = Self{};
-            inline for (erd_mappings) |mapping| {
-                self.read_functions[mapping.erd.data_component_idx] = mapping.fn_ptr;
+        fn init_functions() [erds.len]*const anyopaque {
+            var fns: [erds.len]*const anyopaque = undefined;
+            for (erd_mappings) |mapping| {
+                fns[mapping.erd.data_component_idx] = mapping.fn_ptr;
             }
-            return self;
+            return fns;
         }
 
         /// Wire up the SystemData back-pointer and subscribe to all dependency ERDs.

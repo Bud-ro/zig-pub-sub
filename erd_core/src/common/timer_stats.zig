@@ -125,12 +125,12 @@ pub fn TimerModuleStats(comptime SystemDataType: type) type {
     };
 }
 
-const erd_core_test = @import("erd_core");
-const SystemDataTestDouble = erd_core_test.testing.SystemDataTestDouble;
+const erd_core = @import("erd_core");
+const SystemDataTestDouble = erd_core.testing.SystemDataTestDouble;
 
 const TestSystem = SystemDataTestDouble.create(struct {
-    enable: erd_core_test.Erd = SystemDataTestDouble.ramErd(bool, .{ .subs = 1 }),
-    stats: erd_core_test.Erd = SystemDataTestDouble.ramErd(StatMeasurement, .{}),
+    enable: erd_core.Erd = SystemDataTestDouble.ramErd(bool, .{ .subs = 1 }),
+    stats: erd_core.Erd = SystemDataTestDouble.ramErd(StatMeasurement, .{}),
 });
 const TestSystemData = TestSystem.SystemData;
 const TestTimerModuleStats = TimerModuleStats(TestSystemData);

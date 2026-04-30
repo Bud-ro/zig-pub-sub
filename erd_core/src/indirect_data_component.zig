@@ -5,7 +5,6 @@
 const std = @import("std");
 const erd_core = @import("erd_core");
 const Erd = erd_core.Erd;
-const Subscription = erd_core.Subscription;
 const subscription_mixin = erd_core.data_component.subscription_mixin;
 
 pub const Mapping = struct {

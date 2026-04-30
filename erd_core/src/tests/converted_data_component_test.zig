@@ -95,7 +95,7 @@ const SystemData = SystemDataFn(ErdDefs, ErdEnum, erd_instance, Components);
 fn setup_system(sd: *SystemData) void {
     sd.* = SystemData.init(.{
         .ram = RamComponent.init(),
-        .converted = ConvertedComponent.init(),
+        .converted = .{},
     });
     sd.components.converted.post_system_data_init(sd);
 }

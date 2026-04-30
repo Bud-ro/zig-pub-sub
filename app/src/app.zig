@@ -66,7 +66,7 @@ pub fn init() Application {
     var app = Application{ .system_data = SystemData.init(.{
         .ram = RamDataComponent.init(),
         .indirect = .{},
-        .converted = ConvertedDataComponent.init(),
+        .converted = .{},
     }) };
     app.system_data.components.converted.post_system_data_init(&app.system_data);
     return app;
