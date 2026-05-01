@@ -134,7 +134,7 @@ pub fn build(b: *std.Build) void {
         "zig-out/MEMORY_REPORT.txt",
         "RAM:3FFE8000:14000",
         "IRAM:40100000:8000",
-        "FLASH:40210000:5C000",
+        "FLASH (irom0):40210000:5C000",
     });
     mem_report.step.dependOn(&link.step);
 
