@@ -127,7 +127,19 @@ pub fn build(b: *std.Build) void {
     elf2image.setCwd(b.path("."));
     elf2image.step.dependOn(&link.step);
 
+    // Memory usage summary (printed to stdout and written to zig-out/MEMORY_REPORT.txt)
+    const mem_report = b.addSystemCommand(&.{
+        "sh", "-c",
+        "ELF=zig-out/firmware.elf; " ++
+            "TOOL=../elf_size/zig-out/bin/elf-size; " ++
+            "[ -x $TOOL ] || (cd ../elf_size && zig build); " ++
+            "$TOOL $ELF RAM:3FFE8000:14000 IRAM:40100000:8000 FLASH:40210000:5C000 | tee zig-out/MEMORY_REPORT.txt",
+    });
+    mem_report.setCwd(b.path("."));
+    mem_report.step.dependOn(&link.step);
+
     b.getInstallStep().dependOn(&elf2image.step);
+    b.getInstallStep().dependOn(&mem_report.step);
 
     const flash_step = b.step("flash", "Flash firmware to ESP8266 via esptool");
     const flash_cmd = b.addSystemCommand(&.{
