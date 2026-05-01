@@ -74,7 +74,7 @@ const System = struct {
     }
 };
 
-const embedded_system = contracts.validated(System, .{
+const embedded_system = contracts.validated(System, System{
     .name_id = 0,
     .power_budget_mw = 25000,
     .subsystems = .{

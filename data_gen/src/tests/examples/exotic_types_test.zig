@@ -31,7 +31,7 @@ const StatusRegister = packed struct {
 
 test "packed status register valid idle state" {
     comptime {
-        data_testing.expectValid(StatusRegister, .{
+        data_testing.expectValid(StatusRegister, StatusRegister{
             .busy = 0,
             .error_code = 0,
             .channel = 3,
@@ -44,7 +44,7 @@ test "packed status register valid idle state" {
 
 test "packed status register valid busy state" {
     comptime {
-        data_testing.expectValid(StatusRegister, .{
+        data_testing.expectValid(StatusRegister, StatusRegister{
             .busy = 1,
             .error_code = 0,
             .channel = 0,
@@ -85,7 +85,7 @@ const DacControl = packed struct {
 
 test "DAC control word normal output" {
     comptime {
-        data_testing.expectValid(DacControl, .{
+        data_testing.expectValid(DacControl, DacControl{
             .channel_select = 0,
             .power_down_mode = 0,
             .output_gain = 0,
@@ -98,7 +98,7 @@ test "DAC control word normal output" {
 
 test "DAC control word 2x gain limited range" {
     comptime {
-        data_testing.expectValid(DacControl, .{
+        data_testing.expectValid(DacControl, DacControl{
             .channel_select = 1,
             .power_down_mode = 0,
             .output_gain = 1,
@@ -148,7 +148,7 @@ const SensorReading = extern struct {
 
 test "extern sensor reading valid" {
     comptime {
-        data_testing.expectValid(SensorReading, .{
+        data_testing.expectValid(SensorReading, SensorReading{
             .timestamp_ms = 1000,
             .channel_id = 3,
             .value_raw = 512,
@@ -319,7 +319,7 @@ const GainTable = struct {
     }
 };
 
-const gain_config = contracts.validated(GainTable, .{
+const gain_config = contracts.validated(GainTable, GainTable{
     .row_labels = .{ 10, 20, 50, 100 },
     .col_labels = .{ 1, 2, 3, 4, 5, 6, 7, 8 },
     .values = .{

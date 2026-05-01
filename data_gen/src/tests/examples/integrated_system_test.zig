@@ -234,8 +234,8 @@ const SystemConfig = struct {
     }
 };
 
-const my_system = contracts.validated(SystemConfig, .{
-    .clock = .{
+const my_system = contracts.validated(SystemConfig, SystemConfig{
+    .clock = ClockConfig{
         .source = .pll,
         .hse_freq_hz = 8_000_000,
         .pll_multiplier = 9,
@@ -244,35 +244,35 @@ const my_system = contracts.validated(SystemConfig, .{
         .apb2_divider = 1,
     },
     .memory = .{
-        .{ .name_id = 0, .base = 0x08000000, .size = 0x40000, .writable = false, .executable = true },
-        .{ .name_id = 1, .base = 0x20000000, .size = 0x10000, .writable = true, .executable = false },
-        .{ .name_id = 2, .base = 0x40000000, .size = 0x1000, .writable = true, .executable = false },
+        MemRegion{ .name_id = 0, .base = 0x08000000, .size = 0x40000, .writable = false, .executable = true },
+        MemRegion{ .name_id = 1, .base = 0x20000000, .size = 0x10000, .writable = true, .executable = false },
+        MemRegion{ .name_id = 2, .base = 0x40000000, .size = 0x1000, .writable = true, .executable = false },
     },
-    .uart = .{
+    .uart = UartConfig{
         .baud_rate = 115200,
         .data_bits = 8,
         .stop_bits = 1,
         .parity = false,
         .dma_enabled = true,
     },
-    .spi = .{
+    .spi = SpiConfig{
         .max_clock_hz = 18_000_000,
         .mode = 0,
         .bit_order = .msb_first,
         .dma_enabled = true,
     },
-    .adc = .{
+    .adc = AdcConfig{
         .resolution_bits = 12,
         .sample_rate_hz = 100_000,
         .channels = 4,
         .dma_circular = true,
     },
     .tasks = .{
-        .{ .id = 0, .period_us = 100, .wcet_us = 20, .stack_bytes = 512, .uses_uart = false, .uses_spi = false, .uses_adc = true },
-        .{ .id = 1, .period_us = 1000, .wcet_us = 100, .stack_bytes = 1024, .uses_uart = false, .uses_spi = true, .uses_adc = false },
-        .{ .id = 2, .period_us = 10000, .wcet_us = 500, .stack_bytes = 1024, .uses_uart = true, .uses_spi = false, .uses_adc = false },
-        .{ .id = 3, .period_us = 50000, .wcet_us = 2000, .stack_bytes = 2048, .uses_uart = false, .uses_spi = false, .uses_adc = false },
-        .{ .id = 4, .period_us = 100000, .wcet_us = 5000, .stack_bytes = 4096, .uses_uart = false, .uses_spi = false, .uses_adc = false },
+        TaskConfig{ .id = 0, .period_us = 100, .wcet_us = 20, .stack_bytes = 512, .uses_uart = false, .uses_spi = false, .uses_adc = true },
+        TaskConfig{ .id = 1, .period_us = 1000, .wcet_us = 100, .stack_bytes = 1024, .uses_uart = false, .uses_spi = true, .uses_adc = false },
+        TaskConfig{ .id = 2, .period_us = 10000, .wcet_us = 500, .stack_bytes = 1024, .uses_uart = true, .uses_spi = false, .uses_adc = false },
+        TaskConfig{ .id = 3, .period_us = 50000, .wcet_us = 2000, .stack_bytes = 2048, .uses_uart = false, .uses_spi = false, .uses_adc = false },
+        TaskConfig{ .id = 4, .period_us = 100000, .wcet_us = 5000, .stack_bytes = 4096, .uses_uart = false, .uses_spi = false, .uses_adc = false },
     },
 });
 

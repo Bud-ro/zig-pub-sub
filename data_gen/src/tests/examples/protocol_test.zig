@@ -236,7 +236,7 @@ const BaudConfig = struct {
 
 test "baud config standard 115200 8N1" {
     comptime {
-        contracts.assertValid(BaudConfig, .{
+        contracts.assertValid(BaudConfig, BaudConfig{
             .baud_rate = 115200,
             .data_bits = 8,
             .stop_bits = 1,
@@ -248,7 +248,7 @@ test "baud config standard 115200 8N1" {
 
 test "baud config high speed with flow control" {
     comptime {
-        contracts.assertValid(BaudConfig, .{
+        contracts.assertValid(BaudConfig, BaudConfig{
             .baud_rate = 921600,
             .data_bits = 8,
             .stop_bits = 1,
@@ -260,7 +260,7 @@ test "baud config high speed with flow control" {
 
 test "baud config 7-bit with parity" {
     comptime {
-        contracts.assertValid(BaudConfig, .{
+        contracts.assertValid(BaudConfig, BaudConfig{
             .baud_rate = 9600,
             .data_bits = 7,
             .stop_bits = 2,

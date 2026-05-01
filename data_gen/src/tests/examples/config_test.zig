@@ -14,8 +14,7 @@ const AppVersion = struct {
         constraints.inRange(u8, 0, 99, self.minor);
     }
 
-    pub fn generate(comptime major: u8, comptime minor: u8, comptime patch: u16) AppVersion {
-        const self = AppVersion{ .major = major, .minor = minor, .patch = patch };
+    pub fn generate(comptime self: AppVersion) AppVersion {
         self.validate();
         return self;
     }
@@ -29,15 +28,15 @@ const AppVersion = struct {
 
 test "application version packs into u32" {
     comptime {
-        const v = AppVersion.generate(1, 2, 345);
+        const v = AppVersion.generate(.{ .major = 1, .minor = 2, .patch = 345 });
         try std.testing.expectEqual(@as(u32, 0x01020159), v.toU32());
     }
 }
 
 test "application version boundary values" {
     comptime {
-        _ = AppVersion.generate(0, 0, 0);
-        _ = AppVersion.generate(99, 99, 65535);
+        _ = AppVersion.generate(.{ .major = 0, .minor = 0, .patch = 0 });
+        _ = AppVersion.generate(.{ .major = 99, .minor = 99, .patch = 65535 });
     }
 }
 
@@ -58,18 +57,7 @@ const NetworkConfig = struct {
         constraints.inRange(u16, 1, 3600, self.keepalive_seconds);
     }
 
-    pub fn generate(
-        comptime port: u16,
-        comptime mtu: u16,
-        comptime max_conn: u16,
-        comptime keepalive: u16,
-    ) NetworkConfig {
-        const self = NetworkConfig{
-            .port = port,
-            .mtu = mtu,
-            .max_connections = max_conn,
-            .keepalive_seconds = keepalive,
-        };
+    pub fn generate(comptime self: NetworkConfig) NetworkConfig {
         self.validate();
         return self;
     }
@@ -77,7 +65,7 @@ const NetworkConfig = struct {
 
 test "network config with power-of-two MTU" {
     comptime {
-        const cfg = NetworkConfig.generate(8080, 1024, 128, 30);
+        const cfg = NetworkConfig.generate(.{ .port = 8080, .mtu = 1024, .max_connections = 128, .keepalive_seconds = 30 });
         try std.testing.expectEqual(8080, cfg.port);
         try std.testing.expectEqual(1024, cfg.mtu);
     }
@@ -85,12 +73,12 @@ test "network config with power-of-two MTU" {
 
 test "network config various valid MTU sizes" {
     comptime {
-        _ = NetworkConfig.generate(80, 64, 1, 1);
-        _ = NetworkConfig.generate(443, 128, 512, 3600);
-        _ = NetworkConfig.generate(9999, 256, 1024, 60);
-        _ = NetworkConfig.generate(1234, 512, 100, 120);
-        _ = NetworkConfig.generate(5000, 4096, 50, 300);
-        _ = NetworkConfig.generate(6000, 8192, 10, 900);
+        _ = NetworkConfig.generate(.{ .port = 80, .mtu = 64, .max_connections = 1, .keepalive_seconds = 1 });
+        _ = NetworkConfig.generate(.{ .port = 443, .mtu = 128, .max_connections = 512, .keepalive_seconds = 3600 });
+        _ = NetworkConfig.generate(.{ .port = 9999, .mtu = 256, .max_connections = 1024, .keepalive_seconds = 60 });
+        _ = NetworkConfig.generate(.{ .port = 1234, .mtu = 512, .max_connections = 100, .keepalive_seconds = 120 });
+        _ = NetworkConfig.generate(.{ .port = 5000, .mtu = 4096, .max_connections = 50, .keepalive_seconds = 300 });
+        _ = NetworkConfig.generate(.{ .port = 6000, .mtu = 8192, .max_connections = 10, .keepalive_seconds = 900 });
     }
 }
 
@@ -114,7 +102,7 @@ const FeatureFlags = struct {
 
 test "feature flags debug configuration" {
     comptime {
-        contracts.assertValid(FeatureFlags, .{
+        contracts.assertValid(FeatureFlags, FeatureFlags{
             .debug_logging = true,
             .release_optimized = false,
             .profiling = true,
@@ -125,7 +113,7 @@ test "feature flags debug configuration" {
 
 test "feature flags release configuration" {
     comptime {
-        contracts.assertValid(FeatureFlags, .{
+        contracts.assertValid(FeatureFlags, FeatureFlags{
             .debug_logging = false,
             .release_optimized = true,
             .profiling = false,
@@ -136,7 +124,7 @@ test "feature flags release configuration" {
 
 test "feature flags minimal configuration" {
     comptime {
-        contracts.assertValid(FeatureFlags, .{
+        contracts.assertValid(FeatureFlags, FeatureFlags{
             .debug_logging = false,
             .release_optimized = false,
             .profiling = false,
@@ -164,7 +152,7 @@ const SensorThresholds = struct {
 
 test "sensor thresholds with ordered bands" {
     comptime {
-        contracts.assertValid(SensorThresholds, .{
+        contracts.assertValid(SensorThresholds, SensorThresholds{
             .critical_low = -40,
             .warning_low = -10,
             .warning_high = 80,
@@ -175,7 +163,7 @@ test "sensor thresholds with ordered bands" {
 
 test "sensor thresholds negative-only range" {
     comptime {
-        contracts.assertValid(SensorThresholds, .{
+        contracts.assertValid(SensorThresholds, SensorThresholds{
             .critical_low = -200,
             .warning_low = -150,
             .warning_high = -50,
@@ -205,16 +193,16 @@ const SystemConfig = struct {
 
 test "full system config composition" {
     comptime {
-        contracts.assertValid(SystemConfig, .{
-            .version = AppVersion.generate(2, 1, 0),
-            .network = NetworkConfig.generate(8080, 1024, 64, 30),
-            .flags = .{
+        contracts.assertValid(SystemConfig, SystemConfig{
+            .version = AppVersion.generate(.{ .major = 2, .minor = 1, .patch = 0 }),
+            .network = NetworkConfig.generate(.{ .port = 8080, .mtu = 1024, .max_connections = 64, .keepalive_seconds = 30 }),
+            .flags = FeatureFlags{
                 .debug_logging = true,
                 .release_optimized = false,
                 .profiling = true,
                 .assertions_enabled = true,
             },
-            .thresholds = .{
+            .thresholds = SensorThresholds{
                 .critical_low = -40,
                 .warning_low = -10,
                 .warning_high = 80,

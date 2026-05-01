@@ -115,22 +115,7 @@ const ScalingConfig = struct {
             @compileError("scale factor produces output range that differs from declared output range by more than 2x");
     }
 
-    pub fn generate(
-        comptime imin: i16,
-        comptime imax: i16,
-        comptime omin: i16,
-        comptime omax: i16,
-        comptime num: u16,
-        comptime den: u16,
-    ) ScalingConfig {
-        const self = ScalingConfig{
-            .input_min = imin,
-            .input_max = imax,
-            .output_min = omin,
-            .output_max = omax,
-            .scale_numerator = num,
-            .scale_denominator = den,
-        };
+    pub fn generate(comptime self: ScalingConfig) ScalingConfig {
         self.validate();
         return self;
     }
@@ -138,19 +123,40 @@ const ScalingConfig = struct {
 
 test "scaling config 1:1 mapping" {
     comptime {
-        _ = ScalingConfig.generate(0, 100, 0, 100, 1, 1);
+        _ = ScalingConfig.generate(.{
+            .input_min = 0,
+            .input_max = 100,
+            .output_min = 0,
+            .output_max = 100,
+            .scale_numerator = 1,
+            .scale_denominator = 1,
+        });
     }
 }
 
 test "scaling config 2:1 mapping" {
     comptime {
-        _ = ScalingConfig.generate(0, 200, 0, 200, 1, 1);
+        _ = ScalingConfig.generate(.{
+            .input_min = 0,
+            .input_max = 200,
+            .output_min = 0,
+            .output_max = 200,
+            .scale_numerator = 1,
+            .scale_denominator = 1,
+        });
     }
 }
 
 test "scaling config with offset" {
     comptime {
-        _ = ScalingConfig.generate(-100, 100, 0, 200, 1, 1);
+        _ = ScalingConfig.generate(.{
+            .input_min = -100,
+            .input_max = 100,
+            .output_min = 0,
+            .output_max = 200,
+            .scale_numerator = 1,
+            .scale_denominator = 1,
+        });
     }
 }
 
@@ -216,10 +222,10 @@ const AdcCalibration = struct {
 test "ADC calibration for 4 channels" {
     comptime {
         const channels = [_]AdcCalibration{
-            contracts.validated(AdcCalibration, .{ .channel = 0, .gain = 1024, .offset = -12, .reference_mv = 3300 }),
-            contracts.validated(AdcCalibration, .{ .channel = 1, .gain = 1024, .offset = 5, .reference_mv = 3300 }),
-            contracts.validated(AdcCalibration, .{ .channel = 2, .gain = 2048, .offset = -3, .reference_mv = 5000 }),
-            contracts.validated(AdcCalibration, .{ .channel = 3, .gain = 512, .offset = 100, .reference_mv = 1100 }),
+            contracts.validated(AdcCalibration, AdcCalibration{ .channel = 0, .gain = 1024, .offset = -12, .reference_mv = 3300 }),
+            contracts.validated(AdcCalibration, AdcCalibration{ .channel = 1, .gain = 1024, .offset = 5, .reference_mv = 3300 }),
+            contracts.validated(AdcCalibration, AdcCalibration{ .channel = 2, .gain = 2048, .offset = -3, .reference_mv = 5000 }),
+            contracts.validated(AdcCalibration, AdcCalibration{ .channel = 3, .gain = 512, .offset = 100, .reference_mv = 1100 }),
         };
 
         const chan_ids = [_]u8{

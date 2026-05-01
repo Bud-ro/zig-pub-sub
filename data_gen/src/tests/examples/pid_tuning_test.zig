@@ -27,18 +27,14 @@ const PidConfig = struct {
 
         constraints.lessThan(i16, self.output_min, self.output_max);
 
-        // Derivative filter coefficient [0..255] where 0 = no filtering, 255 = maximum smoothing
-        // High derivative gain with no filtering is unstable
         const kd_x100: u32 = @as(u32, self.kd_num) * 100 / self.kd_den;
         if (kd_x100 > 500 and self.derivative_filter_coeff < 50)
             @compileError("high derivative gain (Kd > 5.0) requires derivative_filter_coeff >= 50 for stability");
 
-        // Anti-windup: integral limit must be less than output range
         const output_range: u32 = @intCast(@as(i32, self.output_max) - self.output_min);
         if (self.integral_limit > output_range)
             @compileError("integral_limit exceeds output range — anti-windup is ineffective");
 
-        // Ki should not dominate: Ki * sample_period should be reasonable relative to Kp
         const ki_x1000: u32 = @as(u32, self.ki_num) * 1000 / self.ki_den;
         const kp_x1000: u32 = @as(u32, self.kp_num) * 1000 / self.kp_den;
         const ki_contribution = ki_x1000 * self.sample_period_ms / 1000;
@@ -48,28 +44,7 @@ const PidConfig = struct {
         constraints.inRange(u16, 1, 10000, self.sample_period_ms);
     }
 
-    pub fn generate(
-        comptime kp: [2]u16,
-        comptime ki: [2]u16,
-        comptime kd: [2]u16,
-        comptime out_range: [2]i16,
-        comptime ilimit: u16,
-        comptime df: u8,
-        comptime period: u16,
-    ) PidConfig {
-        const self = PidConfig{
-            .kp_num = kp[0],
-            .kp_den = kp[1],
-            .ki_num = ki[0],
-            .ki_den = ki[1],
-            .kd_num = kd[0],
-            .kd_den = kd[1],
-            .output_min = out_range[0],
-            .output_max = out_range[1],
-            .integral_limit = ilimit,
-            .derivative_filter_coeff = df,
-            .sample_period_ms = period,
-        };
+    pub fn generate(comptime self: PidConfig) PidConfig {
         self.validate();
         return self;
     }
@@ -77,64 +52,78 @@ const PidConfig = struct {
 
 test "PID conservative tuning" {
     comptime {
-        const cfg = PidConfig.generate(
-            .{ 10, 10 }, // Kp = 1.0
-            .{ 1, 10 }, // Ki = 0.1
-            .{ 5, 10 }, // Kd = 0.5
-            .{ -1000, 1000 },
-            500,
-            100,
-            10, // 10ms
-        );
+        const cfg = PidConfig.generate(.{
+            .kp_num = 10,
+            .kp_den = 10,
+            .ki_num = 1,
+            .ki_den = 10,
+            .kd_num = 5,
+            .kd_den = 10,
+            .output_min = -1000,
+            .output_max = 1000,
+            .integral_limit = 500,
+            .derivative_filter_coeff = 100,
+            .sample_period_ms = 10,
+        });
         try std.testing.expectEqual(10, cfg.sample_period_ms);
     }
 }
 
 test "PID aggressive proportional" {
     comptime {
-        _ = PidConfig.generate(
-            .{ 50, 1 }, // Kp = 50
-            .{ 1, 100 }, // Ki = 0.01
-            .{ 1, 1 }, // Kd = 1.0
-            .{ -32000, 32000 },
-            10000,
-            80,
-            100,
-        );
+        _ = PidConfig.generate(.{
+            .kp_num = 50,
+            .kp_den = 1,
+            .ki_num = 1,
+            .ki_den = 100,
+            .kd_num = 1,
+            .kd_den = 1,
+            .output_min = -32000,
+            .output_max = 32000,
+            .integral_limit = 10000,
+            .derivative_filter_coeff = 80,
+            .sample_period_ms = 100,
+        });
     }
 }
 
 test "PID P-only controller" {
     comptime {
-        _ = PidConfig.generate(
-            .{ 20, 1 }, // Kp = 20
-            .{ 0, 1 }, // Ki = 0
-            .{ 0, 1 }, // Kd = 0
-            .{ -500, 500 },
-            100,
-            0,
-            50,
-        );
+        _ = PidConfig.generate(.{
+            .kp_num = 20,
+            .kp_den = 1,
+            .ki_num = 0,
+            .ki_den = 1,
+            .kd_num = 0,
+            .kd_den = 1,
+            .output_min = -500,
+            .output_max = 500,
+            .integral_limit = 100,
+            .derivative_filter_coeff = 0,
+            .sample_period_ms = 50,
+        });
     }
 }
 
 test "PID PI controller (no derivative)" {
     comptime {
-        _ = PidConfig.generate(
-            .{ 5, 1 }, // Kp = 5
-            .{ 1, 2 }, // Ki = 0.5
-            .{ 0, 1 }, // Kd = 0
-            .{ -1000, 1000 },
-            500,
-            0,
-            20,
-        );
+        _ = PidConfig.generate(.{
+            .kp_num = 5,
+            .kp_den = 1,
+            .ki_num = 1,
+            .ki_den = 2,
+            .kd_num = 0,
+            .kd_den = 1,
+            .output_min = -1000,
+            .output_max = 1000,
+            .integral_limit = 500,
+            .derivative_filter_coeff = 0,
+            .sample_period_ms = 20,
+        });
     }
 }
 
 // --- Cascaded PID: Inner/Outer Loop ---
-// The outer loop must run slower than the inner loop.
-// The outer loop's output range must fit within the inner loop's setpoint range.
 
 const CascadedPid = struct {
     inner: PidConfig,
@@ -162,25 +151,33 @@ const CascadedPid = struct {
 
 test "cascaded PID: speed/current control" {
     comptime {
-        contracts.assertValid(CascadedPid, .{
-            .inner = PidConfig.generate(
-                .{ 10, 1 },
-                .{ 2, 1 },
-                .{ 0, 1 },
-                .{ -1000, 1000 },
-                500,
-                0,
-                1, // 1ms inner loop
-            ),
-            .outer = PidConfig.generate(
-                .{ 5, 1 },
-                .{ 1, 2 },
-                .{ 1, 1 },
-                .{ -500, 500 },
-                300,
-                50,
-                10, // 10ms outer loop
-            ),
+        contracts.assertValid(CascadedPid, CascadedPid{
+            .inner = PidConfig.generate(.{
+                .kp_num = 10,
+                .kp_den = 1,
+                .ki_num = 2,
+                .ki_den = 1,
+                .kd_num = 0,
+                .kd_den = 1,
+                .output_min = -1000,
+                .output_max = 1000,
+                .integral_limit = 500,
+                .derivative_filter_coeff = 0,
+                .sample_period_ms = 1,
+            }),
+            .outer = PidConfig.generate(.{
+                .kp_num = 5,
+                .kp_den = 1,
+                .ki_num = 1,
+                .ki_den = 2,
+                .kd_num = 1,
+                .kd_den = 1,
+                .output_min = -500,
+                .output_max = 500,
+                .integral_limit = 300,
+                .derivative_filter_coeff = 50,
+                .sample_period_ms = 10,
+            }),
             .inner_setpoint_min = -1000,
             .inner_setpoint_max = 1000,
         });
@@ -213,7 +210,6 @@ fn validateMultiZone(comptime zones: []const ZoneConfig) void {
     }
     constraints.noDuplicates(u8, &ids);
 
-    // All zones must share the same sample period for synchronous control
     for (1..zones.len) |i| {
         if (zones[i].pid.sample_period_ms != zones[0].pid.sample_period_ms)
             @compileError("all zones must use the same sample period");
@@ -222,15 +218,19 @@ fn validateMultiZone(comptime zones: []const ZoneConfig) void {
 
 test "multi-zone temperature control" {
     comptime {
-        const base_pid = PidConfig.generate(
-            .{ 8, 1 },
-            .{ 1, 4 },
-            .{ 2, 1 },
-            .{ -500, 500 },
-            200,
-            60,
-            100,
-        );
+        const base_pid = PidConfig.generate(.{
+            .kp_num = 8,
+            .kp_den = 1,
+            .ki_num = 1,
+            .ki_den = 4,
+            .kd_num = 2,
+            .kd_den = 1,
+            .output_min = -500,
+            .output_max = 500,
+            .integral_limit = 200,
+            .derivative_filter_coeff = 60,
+            .sample_period_ms = 100,
+        });
 
         validateMultiZone(&.{
             .{ .zone_id = 0, .pid = base_pid, .setpoint = 220, .deadband = 5 },

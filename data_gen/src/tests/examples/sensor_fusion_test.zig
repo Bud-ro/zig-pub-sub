@@ -127,7 +127,7 @@ const FilterStage = struct {
 
 test "expectValid accepts well-configured filter" {
     comptime {
-        data_testing.expectValid(FilterStage, .{
+        data_testing.expectValid(FilterStage, FilterStage{
             .order = 4,
             .cutoff_hz = 1000,
             .sample_rate_hz = 8000,
@@ -138,7 +138,7 @@ test "expectValid accepts well-configured filter" {
 
 test "expectValid accepts high-order filter with low cutoff" {
     comptime {
-        data_testing.expectValid(FilterStage, .{
+        data_testing.expectValid(FilterStage, FilterStage{
             .order = 8,
             .cutoff_hz = 500,
             .sample_rate_hz = 8000,

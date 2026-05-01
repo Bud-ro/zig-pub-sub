@@ -88,7 +88,7 @@ const ServoConfig = struct {
     }
 };
 
-const drone_motor = contracts.validated(SmallBldcConfig, .{
+const drone_motor = contracts.validated(SmallBldcConfig, SmallBldcConfig{
     .base = .{
         .rated_voltage_mv = 14800,
         .max_current_ma = 20000,
@@ -101,7 +101,7 @@ const drone_motor = contracts.validated(SmallBldcConfig, .{
     .max_throttle_pct = 100,
 });
 
-const cnc_servo = contracts.validated(ServoConfig, .{
+const cnc_servo = contracts.validated(ServoConfig, ServoConfig{
     .base = .{
         .rated_voltage_mv = 48000,
         .max_current_ma = 5000,

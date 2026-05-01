@@ -18,16 +18,7 @@ const SampleRateConfig = struct {
             @compileError("averaging window cannot exceed sample rate");
     }
 
-    pub fn generate(
-        comptime rate: u32,
-        comptime oversample: u8,
-        comptime window: u16,
-    ) SampleRateConfig {
-        const self = SampleRateConfig{
-            .rate_hz = rate,
-            .oversample_factor = oversample,
-            .averaging_window = window,
-        };
+    pub fn generate(comptime self: SampleRateConfig) SampleRateConfig {
         self.validate();
         return self;
     }
@@ -40,7 +31,7 @@ const SampleRateConfig = struct {
 
 test "sample rate 1kHz with 4x oversample" {
     comptime {
-        const cfg = SampleRateConfig.generate(1000, 4, 100);
+        const cfg = SampleRateConfig.generate(.{ .rate_hz = 1000, .oversample_factor = 4, .averaging_window = 100 });
         try std.testing.expectEqual(4000, cfg.effectiveRate());
     }
 }
@@ -49,7 +40,7 @@ test "sample rate all standard rates valid" {
     comptime {
         const rates = [_]u32{ 100, 200, 500, 1000, 2000, 5000, 10000 };
         for (rates) |rate| {
-            _ = SampleRateConfig.generate(rate, 1, 1);
+            _ = SampleRateConfig.generate(.{ .rate_hz = rate, .oversample_factor = 1, .averaging_window = 1 });
         }
     }
 }
@@ -82,20 +73,7 @@ const TimingConfig = struct {
         }
     }
 
-    pub fn generate(
-        comptime timeout: u32,
-        comptime debounce: u16,
-        comptime interval: u32,
-        comptime retry_delay: u16,
-        comptime max_retries: u8,
-    ) TimingConfig {
-        const self = TimingConfig{
-            .timeout_ms = timeout,
-            .debounce_ms = debounce,
-            .periodic_interval_ms = interval,
-            .retry_delay_ms = retry_delay,
-            .max_retries = max_retries,
-        };
+    pub fn generate(comptime self: TimingConfig) TimingConfig {
         self.validate();
         return self;
     }
@@ -103,7 +81,13 @@ const TimingConfig = struct {
 
 test "timing config standard polling" {
     comptime {
-        const cfg = TimingConfig.generate(5000, 50, 200, 500, 3);
+        const cfg = TimingConfig.generate(.{
+            .timeout_ms = 5000,
+            .debounce_ms = 50,
+            .periodic_interval_ms = 200,
+            .retry_delay_ms = 500,
+            .max_retries = 3,
+        });
         try std.testing.expectEqual(5000, cfg.timeout_ms);
         try std.testing.expectEqual(50, cfg.debounce_ms);
     }
@@ -111,13 +95,25 @@ test "timing config standard polling" {
 
 test "timing config no retries" {
     comptime {
-        _ = TimingConfig.generate(1000, 10, 100, 100, 0);
+        _ = TimingConfig.generate(.{
+            .timeout_ms = 1000,
+            .debounce_ms = 10,
+            .periodic_interval_ms = 100,
+            .retry_delay_ms = 100,
+            .max_retries = 0,
+        });
     }
 }
 
 test "timing config aggressive debounce" {
     comptime {
-        _ = TimingConfig.generate(10000, 500, 1000, 1000, 5);
+        _ = TimingConfig.generate(.{
+            .timeout_ms = 10000,
+            .debounce_ms = 500,
+            .periodic_interval_ms = 1000,
+            .retry_delay_ms = 1000,
+            .max_retries = 5,
+        });
     }
 }
 
@@ -134,8 +130,7 @@ const TickConfig = struct {
             @compileError("tick_period_us * ticks_per_ms must equal 1000 (1ms)");
     }
 
-    pub fn generate(comptime period_us: u32, comptime ticks: u32) TickConfig {
-        const self = TickConfig{ .tick_period_us = period_us, .ticks_per_ms = ticks };
+    pub fn generate(comptime self: TickConfig) TickConfig {
         self.validate();
         return self;
     }
@@ -143,25 +138,25 @@ const TickConfig = struct {
 
 test "tick config 1ms tick" {
     comptime {
-        _ = TickConfig.generate(1000, 1);
+        _ = TickConfig.generate(.{ .tick_period_us = 1000, .ticks_per_ms = 1 });
     }
 }
 
 test "tick config 500us tick" {
     comptime {
-        _ = TickConfig.generate(500, 2);
+        _ = TickConfig.generate(.{ .tick_period_us = 500, .ticks_per_ms = 2 });
     }
 }
 
 test "tick config 250us tick" {
     comptime {
-        _ = TickConfig.generate(250, 4);
+        _ = TickConfig.generate(.{ .tick_period_us = 250, .ticks_per_ms = 4 });
     }
 }
 
 test "tick config 125us tick" {
     comptime {
-        _ = TickConfig.generate(125, 8);
+        _ = TickConfig.generate(.{ .tick_period_us = 125, .ticks_per_ms = 8 });
     }
 }
 
@@ -184,8 +179,7 @@ const PwmConfig = struct {
             @compileError("dead time is smaller than one PWM step — it would have no effect");
     }
 
-    pub fn generate(comptime freq: u32, comptime bits: u8, comptime dead: u16) PwmConfig {
-        const self = PwmConfig{ .frequency_hz = freq, .resolution_bits = bits, .dead_time_ns = dead };
+    pub fn generate(comptime self: PwmConfig) PwmConfig {
         self.validate();
         return self;
     }
@@ -193,14 +187,14 @@ const PwmConfig = struct {
 
 test "PWM config 20kHz 10-bit" {
     comptime {
-        const cfg = PwmConfig.generate(20_000, 10, 500);
+        const cfg = PwmConfig.generate(.{ .frequency_hz = 20_000, .resolution_bits = 10, .dead_time_ns = 500 });
         try std.testing.expectEqual(20_000, cfg.frequency_hz);
     }
 }
 
 test "PWM config 1MHz 8-bit no dead time" {
     comptime {
-        _ = PwmConfig.generate(1_000_000, 8, 0);
+        _ = PwmConfig.generate(.{ .frequency_hz = 1_000_000, .resolution_bits = 8, .dead_time_ns = 0 });
     }
 }
 
@@ -225,11 +219,17 @@ const TimingProfile = struct {
 
 test "timing profile with aligned intervals" {
     comptime {
-        contracts.assertValid(TimingProfile, .{
+        contracts.assertValid(TimingProfile, TimingProfile{
             .name_id = 1,
-            .sample_rate = SampleRateConfig.generate(1000, 1, 50),
-            .timing = TimingConfig.generate(5000, 50, 200, 500, 3),
-            .tick = TickConfig.generate(1000, 1),
+            .sample_rate = SampleRateConfig.generate(.{ .rate_hz = 1000, .oversample_factor = 1, .averaging_window = 50 }),
+            .timing = TimingConfig.generate(.{
+                .timeout_ms = 5000,
+                .debounce_ms = 50,
+                .periodic_interval_ms = 200,
+                .retry_delay_ms = 500,
+                .max_retries = 3,
+            }),
+            .tick = TickConfig.generate(.{ .tick_period_us = 1000, .ticks_per_ms = 1 }),
         });
     }
 }
