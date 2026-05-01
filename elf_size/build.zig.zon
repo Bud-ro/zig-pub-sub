@@ -1,0 +1,12 @@
+.{
+    .name = .elf_size,
+    .version = "0.0.0",
+    .fingerprint = 0x355180c60adf4c9,
+    .minimum_zig_version = "0.15.1",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
