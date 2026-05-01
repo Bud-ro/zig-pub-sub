@@ -1,18 +1,26 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    const zig_lib_path = b.graph.zig_lib_directory.path orelse ".";
+    // Resolve dependency modules through the build system
+    const xtensa_c_target = b.resolveTargetQuery(.{
+        .cpu_arch = .xtensa,
+        .os_tag = .freestanding,
+        .abi = .none,
+        .ofmt = .c,
+    });
 
-    // Resolve dependency paths through the build system
-    const erd_core_dep = b.dependency("erd_core", .{});
-    const erd_core_root = erd_core_dep.path("src/root.zig").getPath(b);
+    const erd_core_dep = b.dependency("erd_core", .{
+        .target = xtensa_c_target,
+        .optimize = .ReleaseSmall,
+    });
+    const erd_core_mod = erd_core_dep.module("erd_core");
 
-    const sometimes_dep = erd_core_dep.builder.dependency("assert_sometimes", .{});
-    const sometimes_root = sometimes_dep.path("src/sometimes.zig").getPath(b);
-
-    // Build elf-size tool for the host (used for memory reports)
+    // Build elf-size tool for the host
     const elf_size_dep = b.dependency("elf_size", .{});
     const elf_size_exe = elf_size_dep.artifact("elf-size");
+
+    const mkdir = b.addSystemCommand(&.{ "mkdir", "-p", "zig-out" });
+    mkdir.setCwd(b.path("."));
 
     // --- SDK fetch ---
     const fetch_sdk = b.addSystemCommand(&.{
@@ -21,45 +29,27 @@ pub fn build(b: *std.Build) void {
     });
     fetch_sdk.setCwd(b.path("."));
 
-    // --- Zig -> C backend ---
-    const mkdir = b.addSystemCommand(&.{ "mkdir", "-p", "zig-out" });
+    // --- Zig -> C backend via build system ---
+    const obj = b.addObject(.{
+        .name = "firmware",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = xtensa_c_target,
+            .optimize = .ReleaseSmall,
+        }),
+    });
+    obj.root_module.addImport("erd_core", erd_core_mod);
 
-    const emit_c = b.addSystemCommand(&.{
-        b.graph.zig_exe,
-        "build-obj",
-        "-target",
-        "xtensa-freestanding-none",
-        "-ofmt=c",
-        "-OReleaseSmall",
-        "-femit-bin=zig-out/firmware.c",
-        "--dep",
-        "erd_core",
-        "-Mroot=src/main.zig",
-        "--dep",
-        "sometimes",
-        "--dep",
-        "erd_core",
-    });
-    emit_c.addPrefixedFileArg("-Merd_core=", .{ .cwd_relative = erd_core_root });
-    emit_c.addArgs(&.{ "--dep", "sometimes_config" });
-    emit_c.addPrefixedFileArg("-Msometimes=", .{ .cwd_relative = sometimes_root });
-    emit_c.addArgs(&.{
-        "-Msometimes_config=src/sometimes_config.zig",
-        "--zig-lib-dir",
-        zig_lib_path,
-    });
-    emit_c.setCwd(b.path("."));
-    emit_c.step.dependOn(&mkdir.step);
+    const c_output = obj.getEmittedBin();
 
     // --- Fix C backend void const issue ---
     const fix_void = b.addSystemCommand(&.{
-        "sed",                                        "-i",
-        "s/^static void const /static char const /g", "zig-out/firmware.c",
+        "sed", "-i", "s/^static void const /static char const /g",
     });
-    fix_void.setCwd(b.path("."));
-    fix_void.step.dependOn(&emit_c.step);
+    fix_void.addFileArg(c_output);
 
     // --- Compile C ---
+    const zig_lib_path = b.graph.zig_lib_directory.path orelse ".";
     const zig_h_include = std.fmt.allocPrint(b.allocator, "-I{s}", .{zig_lib_path}) catch @panic("OOM");
 
     const compile_c = b.addSystemCommand(&.{
@@ -72,13 +62,13 @@ pub fn build(b: *std.Build) void {
         "-Wno-error",
         zig_h_include,
         "-Isdk/include",
-        "zig-out/firmware.c",
-        "-o",
-        "zig-out/firmware.o",
     });
+    compile_c.addFileArg(c_output);
+    compile_c.addArgs(&.{ "-o", "zig-out/firmware.o" });
     compile_c.setCwd(b.path("."));
     compile_c.step.dependOn(&fix_void.step);
     compile_c.step.dependOn(&fetch_sdk.step);
+    compile_c.step.dependOn(&mkdir.step);
 
     const compile_stubs = b.addSystemCommand(&.{
         "xtensa-lx106-elf-gcc",
