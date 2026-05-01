@@ -1,18 +1,30 @@
 const std = @import("std");
 const constraints = @import("data_gen").constraints;
 const contracts = @import("data_gen").contracts;
+const transforms = @import("data_gen").transforms;
 
 // --- PID Controller Tuning ---
-// Coefficients with stability constraints: anti-windup limits,
-// output clamping, derivative filtering, and gain relationships.
+// Users specify gains as floating-point values. The library transforms
+// them to Q8.8 fixed-point for the embedded implementation. If a value
+// isn't exactly representable, the user gets a compile error suggesting
+// the nearest representable values.
+
+const PidGains = struct {
+    kp: u16,
+    ki: u16,
+    kd: u16,
+
+    pub fn fromFloats(comptime kp: comptime_float, comptime ki: comptime_float, comptime kd: comptime_float) PidGains {
+        return .{
+            .kp = transforms.fixedPoint(u16, 8, kp),
+            .ki = transforms.fixedPoint(u16, 8, ki),
+            .kd = transforms.fixedPoint(u16, 8, kd),
+        };
+    }
+};
 
 const PidConfig = struct {
-    kp_num: u16,
-    kp_den: u16,
-    ki_num: u16,
-    ki_den: u16,
-    kd_num: u16,
-    kd_den: u16,
+    gains: PidGains,
     output_min: i16,
     output_max: i16,
     integral_limit: u16,
@@ -20,14 +32,10 @@ const PidConfig = struct {
     sample_period_ms: u16,
 
     pub fn validate(comptime self: PidConfig) void {
-        constraints.nonZero(u16, self.kp_den);
-        constraints.nonZero(u16, self.ki_den);
-        constraints.nonZero(u16, self.kd_den);
         constraints.nonZero(u16, self.sample_period_ms);
-
         constraints.lessThan(i16, self.output_min, self.output_max);
 
-        const kd_x100: u32 = @as(u32, self.kd_num) * 100 / self.kd_den;
+        const kd_x100: u32 = @as(u32, self.gains.kd) * 100 / 256;
         if (kd_x100 > 500 and self.derivative_filter_coeff < 50)
             @compileError("high derivative gain (Kd > 5.0) requires derivative_filter_coeff >= 50 for stability");
 
@@ -35,49 +43,63 @@ const PidConfig = struct {
         if (self.integral_limit > output_range)
             @compileError("integral_limit exceeds output range — anti-windup is ineffective");
 
-        const ki_x1000: u32 = @as(u32, self.ki_num) * 1000 / self.ki_den;
-        const kp_x1000: u32 = @as(u32, self.kp_num) * 1000 / self.kp_den;
-        const ki_contribution = ki_x1000 * self.sample_period_ms / 1000;
-        if (kp_x1000 > 0 and ki_contribution > kp_x1000 * 10)
+        const ki_contribution = @as(u32, self.gains.ki) * self.sample_period_ms / 256000;
+        const kp_normalized = @as(u32, self.gains.kp) * 1000 / 256;
+        if (kp_normalized > 0 and ki_contribution > kp_normalized * 10)
             @compileError("Ki contribution per sample exceeds 10x Kp — likely unstable");
 
         constraints.inRange(u16, 1, 10000, self.sample_period_ms);
     }
 
-    pub fn generate(comptime self: PidConfig) PidConfig {
+    pub const Params = struct {
+        kp: comptime_float,
+        ki: comptime_float,
+        kd: comptime_float,
+        output_min: i16,
+        output_max: i16,
+        integral_limit: u16,
+        derivative_filter_coeff: u8 = 0,
+        sample_period_ms: u16,
+    };
+
+    pub fn init(comptime p: Params) PidConfig {
+        const self = PidConfig{
+            .gains = PidGains.fromFloats(p.kp, p.ki, p.kd),
+            .output_min = p.output_min,
+            .output_max = p.output_max,
+            .integral_limit = p.integral_limit,
+            .derivative_filter_coeff = p.derivative_filter_coeff,
+            .sample_period_ms = p.sample_period_ms,
+        };
         self.validate();
         return self;
     }
 };
 
-test "PID conservative tuning" {
+test "PID conservative tuning — gains as floats" {
     comptime {
-        const cfg = PidConfig.generate(.{
-            .kp_num = 10,
-            .kp_den = 10,
-            .ki_num = 1,
-            .ki_den = 10,
-            .kd_num = 5,
-            .kd_den = 10,
+        const cfg = PidConfig.init(.{
+            .kp = 1.0,
+            .ki = 0.25,
+            .kd = 0.5,
             .output_min = -1000,
             .output_max = 1000,
             .integral_limit = 500,
             .derivative_filter_coeff = 100,
             .sample_period_ms = 10,
         });
-        try std.testing.expectEqual(10, cfg.sample_period_ms);
+        try std.testing.expectEqual(256, cfg.gains.kp);
+        try std.testing.expectEqual(64, cfg.gains.ki);
+        try std.testing.expectEqual(128, cfg.gains.kd);
     }
 }
 
 test "PID aggressive proportional" {
     comptime {
-        _ = PidConfig.generate(.{
-            .kp_num = 50,
-            .kp_den = 1,
-            .ki_num = 1,
-            .ki_den = 100,
-            .kd_num = 1,
-            .kd_den = 1,
+        _ = PidConfig.init(.{
+            .kp = 50.0,
+            .ki = 0.0,
+            .kd = 1.0,
             .output_min = -32000,
             .output_max = 32000,
             .integral_limit = 10000,
@@ -89,37 +111,32 @@ test "PID aggressive proportional" {
 
 test "PID P-only controller" {
     comptime {
-        _ = PidConfig.generate(.{
-            .kp_num = 20,
-            .kp_den = 1,
-            .ki_num = 0,
-            .ki_den = 1,
-            .kd_num = 0,
-            .kd_den = 1,
+        _ = PidConfig.init(.{
+            .kp = 20.0,
+            .ki = 0.0,
+            .kd = 0.0,
             .output_min = -500,
             .output_max = 500,
             .integral_limit = 100,
-            .derivative_filter_coeff = 0,
             .sample_period_ms = 50,
         });
     }
 }
 
-test "PID PI controller (no derivative)" {
+test "PID fractional gains (representable in Q8.8)" {
     comptime {
-        _ = PidConfig.generate(.{
-            .kp_num = 5,
-            .kp_den = 1,
-            .ki_num = 1,
-            .ki_den = 2,
-            .kd_num = 0,
-            .kd_den = 1,
+        const cfg = PidConfig.init(.{
+            .kp = 0.5,
+            .ki = 0.125,
+            .kd = 0.0625,
             .output_min = -1000,
             .output_max = 1000,
             .integral_limit = 500,
-            .derivative_filter_coeff = 0,
             .sample_period_ms = 20,
         });
+        try std.testing.expectEqual(128, cfg.gains.kp);
+        try std.testing.expectEqual(32, cfg.gains.ki);
+        try std.testing.expectEqual(16, cfg.gains.kd);
     }
 }
 
@@ -152,26 +169,19 @@ const CascadedPid = struct {
 test "cascaded PID: speed/current control" {
     comptime {
         contracts.assertValid(CascadedPid, CascadedPid{
-            .inner = PidConfig.generate(.{
-                .kp_num = 10,
-                .kp_den = 1,
-                .ki_num = 2,
-                .ki_den = 1,
-                .kd_num = 0,
-                .kd_den = 1,
+            .inner = PidConfig.init(.{
+                .kp = 10.0,
+                .ki = 2.0,
+                .kd = 0.0,
                 .output_min = -1000,
                 .output_max = 1000,
                 .integral_limit = 500,
-                .derivative_filter_coeff = 0,
                 .sample_period_ms = 1,
             }),
-            .outer = PidConfig.generate(.{
-                .kp_num = 5,
-                .kp_den = 1,
-                .ki_num = 1,
-                .ki_den = 2,
-                .kd_num = 1,
-                .kd_den = 1,
+            .outer = PidConfig.init(.{
+                .kp = 5.0,
+                .ki = 0.5,
+                .kd = 1.0,
                 .output_min = -500,
                 .output_max = 500,
                 .integral_limit = 300,
@@ -218,13 +228,10 @@ fn validateMultiZone(comptime zones: []const ZoneConfig) void {
 
 test "multi-zone temperature control" {
     comptime {
-        const base_pid = PidConfig.generate(.{
-            .kp_num = 8,
-            .kp_den = 1,
-            .ki_num = 1,
-            .ki_den = 4,
-            .kd_num = 2,
-            .kd_den = 1,
+        const base_pid = PidConfig.init(.{
+            .kp = 8.0,
+            .ki = 0.25,
+            .kd = 2.0,
             .output_min = -500,
             .output_max = 500,
             .integral_limit = 200,

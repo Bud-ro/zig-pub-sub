@@ -2,16 +2,19 @@ pub const constraints = @import("constraints.zig");
 pub const contracts = @import("contracts.zig");
 pub const generators = @import("generators.zig");
 pub const testing = @import("testing.zig");
+pub const transforms = @import("transforms.zig");
 
 test {
     _ = constraints;
     _ = contracts;
     _ = generators;
     _ = testing;
+    _ = transforms;
 
     _ = @import("tests/constraint_test.zig");
     _ = @import("tests/contract_test.zig");
     _ = @import("tests/generator_test.zig");
+    _ = @import("tests/transform_test.zig");
     _ = @import("tests/examples/config_test.zig");
     _ = @import("tests/examples/timing_test.zig");
     _ = @import("tests/examples/recipe_test.zig");
@@ -39,4 +42,5 @@ test {
     _ = @import("tests/examples/variant_config_test.zig");
     _ = @import("tests/examples/integrated_system_test.zig");
     _ = @import("tests/examples/exotic_types_test.zig");
+    _ = @import("tests/examples/transforms_test.zig");
 }
