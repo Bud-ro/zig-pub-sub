@@ -35,14 +35,25 @@ FLASH:
 
 ### As a build step
 
-Add a post-link step in your `build.zig` to print the report and save it to `zig-out/MEMORY_REPORT.txt`:
+Declare `elf_size` as a dependency in your `build.zig.zon`, then add a post-link step in `build.zig`:
 
 ```zig
-const mem_report = b.addSystemCommand(&.{
-    "sh", "-c",
-    "TOOL=../elf_size/zig-out/bin/elf-size; " ++
-        "[ -x $TOOL ] || (cd ../elf_size && zig build); " ++
-        "$TOOL zig-out/firmware.elf RAM:3FFE8000:14000 IRAM:40100000:8000 | tee zig-out/MEMORY_REPORT.txt",
+// build.zig.zon
+.dependencies = .{
+    .elf_size = .{ .path = "../elf_size" },
+},
+
+// build.zig
+const elf_size_dep = b.dependency("elf_size", .{});
+const elf_size_exe = elf_size_dep.artifact("elf-size");
+
+const mem_report = b.addRunArtifact(elf_size_exe);
+mem_report.setCwd(b.path("."));
+mem_report.addArgs(&.{
+    "zig-out/firmware.elf",
+    "--output", "zig-out/MEMORY_REPORT.txt",
+    "RAM:3FFE8000:14000",
+    "IRAM:40100000:8000",
 });
 mem_report.step.dependOn(&link.step);
 b.getInstallStep().dependOn(&mem_report.step);

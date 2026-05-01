@@ -30,7 +30,7 @@ The Zig compiler emits C code for the xtensa-freestanding target. A `sed` post-p
 # Xtensa cross-compiler and flash tool
 sudo apt install gcc-xtensa-lx106 binutils-xtensa-lx106 esptool
 
-# ESP8266 NonOS SDK (gitignored, must be cloned locally)
+# ESP8266 NonOS SDK (auto-fetched by `zig build` if missing, or clone manually)
 cd esp8266
 git clone --depth 1 --branch v2.2.1 https://github.com/espressif/ESP8266_NONOS_SDK.git sdk
 

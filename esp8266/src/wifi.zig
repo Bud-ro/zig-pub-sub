@@ -5,7 +5,6 @@
 const std = @import("std");
 const sdk = @import("sdk.zig");
 const uart = @import("uart.zig");
-const application = @import("application.zig");
 
 /// Initialize WiFi in station mode and kick off the first scan.
 pub fn init() void {
