@@ -2,6 +2,8 @@
 //! Writes directly to the UART0 FIFO register at 74880 baud (the rate
 //! the ROM bootloader leaves UART0 configured at on boot).
 
+const std = @import("std");
+
 const UART0_FIFO: *volatile u32 = @ptrFromInt(0x60000000);
 const UART0_STATUS: *volatile u32 = @ptrFromInt(0x60000004);
 
@@ -37,6 +39,10 @@ pub fn dec(val: u32) void {
 
 /// Write a signed 32-bit integer as decimal.
 pub fn sdec(val: i32) void {
+    if (val == std.math.minInt(i32)) {
+        puts("-2147483648");
+        return;
+    }
     if (val < 0) {
         putc('-');
         dec(@intCast(-val));

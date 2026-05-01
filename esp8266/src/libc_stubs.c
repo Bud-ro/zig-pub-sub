@@ -1,14 +1,13 @@
-typedef unsigned int size_t;
+/* ROM provides ets_memcpy/ets_memset — alias them as standard libc symbols
+   so the C backend output links without pulling in a full libc. */
 
-void *memcpy(void *dest, const void *src, size_t n) {
-    unsigned char *d = dest;
-    const unsigned char *s = src;
-    while (n--) *d++ = *s++;
-    return dest;
+extern void *ets_memcpy(void *dest, const void *src, unsigned int n);
+extern void *ets_memset(void *s, int c, unsigned int n);
+
+void *memcpy(void *dest, const void *src, unsigned int n) {
+    return ets_memcpy(dest, src, n);
 }
 
-void *memset(void *s, int c, size_t n) {
-    unsigned char *p = s;
-    while (n--) *p++ = (unsigned char)c;
-    return s;
+void *memset(void *s, int c, unsigned int n) {
+    return ets_memset(s, c, n);
 }

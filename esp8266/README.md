@@ -93,12 +93,11 @@ Uses **NonOS SDK 2.2.1** (not 3.0+). Key reasons:
 | `wifi.zig` | WiFi scanner with periodic scan and UART output |
 | `sdk.zig` | ESP8266 NonOS SDK extern declarations and struct layouts |
 | `gpio.zig` | Register-level GPIO with pin mux configuration |
-| `sometimes_config.zig` | Disables assert_sometimes for embedded target |
+| `uart.zig` | Minimal UART0 driver for debug output |
 | `libc_stubs.c` | Minimal memcpy/memset for C backend output |
 
 ## Known Limitations
 
 - The `sed` fixup for `static void const` is fragile — depends on exact C backend output format
-- `erd_core` module paths in `build.zig` reference absolute paths (needs portability fix)
 - WiFi scan output can interleave with SDK's own `scandone` print
 - BssInfo struct padding may be slightly off for some AP entries

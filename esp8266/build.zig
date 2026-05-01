@@ -95,6 +95,7 @@ pub fn build(b: *std.Build) void {
         "zig-out/firmware.o",
         "zig-out/libc_stubs.o",
         "-Lsdk/lib",
+        "-Wl,--start-group",
         "-lmain",
         "-lwpa",
         "-lcrypto",
@@ -105,10 +106,7 @@ pub fn build(b: *std.Build) void {
         "-ldriver",
         "-lc",
         "-lgcc",
-        "-lmain",
-        "-lwpa",
-        "-lcrypto",
-        "-lnet80211",
+        "-Wl,--end-group",
     });
     link.setCwd(b.path("."));
     link.step.dependOn(&compile_c.step);

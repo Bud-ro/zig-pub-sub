@@ -48,7 +48,7 @@ fn on_scan_done(arg: ?*anyopaque, status: u32) callconv(sdk.cc) void {
         uart.puts("dBm  ");
 
         const auth_names = [_][]const u8{ "OPEN", "WEP ", "WPA ", "WPA2", "WPAX", "MAX " };
-        const am: usize = @intCast(e.authmode);
+        const am = std.math.cast(usize, e.authmode) orelse auth_names.len;
         if (am < auth_names.len) {
             uart.puts(auth_names[am]);
         } else {

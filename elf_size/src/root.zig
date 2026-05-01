@@ -63,6 +63,7 @@ pub fn format_summary(elf_path: []const u8, regions: []const MemoryRegion, out: 
     const ehdr_read = try file.read(ehdr_bytes);
     if (ehdr_read < @sizeOf(Elf32_Ehdr)) return error.InvalidElf;
     if (!std.mem.eql(u8, ehdr.e_ident[0..4], ELF_MAGIC)) return error.InvalidElf;
+    if (ehdr.e_ident[4] != 1) return error.Not32BitElf;
 
     const shstrtab_offset = blk: {
         const shstr_pos = ehdr.e_shoff + @as(u32, ehdr.e_shstrndx) * @as(u32, ehdr.e_shentsize);

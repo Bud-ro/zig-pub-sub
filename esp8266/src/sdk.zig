@@ -156,24 +156,3 @@ pub const BssInfo = extern struct {
 pub extern fn spi_flash_read(src_addr: u32, des_addr: *anyopaque, size: u32) u32;
 pub extern fn spi_flash_write(des_addr: u32, src_addr: *const anyopaque, size: u32) u32;
 pub extern fn spi_flash_erase_sector(sector: u16) u32;
-
-// ---- Partition table (user_interface.h, SDK 3.0+ only) ----
-
-pub const SYSTEM_PARTITION_BOOTLOADER: u32 = 1;
-pub const SYSTEM_PARTITION_OTA_1: u32 = 2;
-pub const SYSTEM_PARTITION_OTA_2: u32 = 3;
-pub const SYSTEM_PARTITION_RF_CAL: u32 = 4;
-pub const SYSTEM_PARTITION_PHY_DATA: u32 = 5;
-pub const SYSTEM_PARTITION_SYSTEM_PARAMETER: u32 = 6;
-
-pub const SPI_FLASH_SIZE_MAP_4MB: u32 = 6;
-
-pub const PartitionItem = extern struct {
-    type: u32,
-    addr: u32,
-    size: u32,
-};
-
-/// Register the flash partition table. Required by SDK 3.0+ in `user_pre_init()`.
-/// Not used with SDK 2.2.1 (we use `user_rf_cal_sector_set` instead).
-pub extern fn system_partition_table_regist(partition_table: [*]const PartitionItem, partition_num: u32, map: u32) bool;
