@@ -1,3 +1,5 @@
+//! ERD definitions for the ESP8266 application
+
 const std = @import("std");
 const erd_core = @import("erd_core");
 const Erd = erd_core.Erd;

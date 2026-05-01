@@ -5,6 +5,13 @@ pub fn build(b: *std.Build) void {
 
     const mkdir = b.addSystemCommand(&.{ "mkdir", "-p", "zig-out" });
 
+    // Auto-fetch the ESP8266 NonOS SDK if not present
+    const fetch_sdk = b.addSystemCommand(&.{
+        "sh",                                                                                                           "-c",
+        "[ -d sdk/lib ] || git clone --depth 1 --branch v2.2.1 https://github.com/espressif/ESP8266_NONOS_SDK.git sdk",
+    });
+    fetch_sdk.setCwd(b.path("."));
+
     const emit_c = b.addSystemCommand(&.{
         b.graph.zig_exe,
         "build-obj",
@@ -56,6 +63,7 @@ pub fn build(b: *std.Build) void {
     });
     compile_c.setCwd(b.path("."));
     compile_c.step.dependOn(&fix_void.step);
+    compile_c.step.dependOn(&fetch_sdk.step);
 
     const compile_stubs = b.addSystemCommand(&.{
         "xtensa-lx106-elf-gcc",
@@ -99,6 +107,7 @@ pub fn build(b: *std.Build) void {
     link.setCwd(b.path("."));
     link.step.dependOn(&compile_c.step);
     link.step.dependOn(&compile_stubs.step);
+    link.step.dependOn(&fetch_sdk.step);
 
     const elf2image = b.addSystemCommand(&.{
         "esptool",

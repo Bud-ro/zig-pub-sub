@@ -1,3 +1,8 @@
+//! Register-level GPIO driver for ESP8266.
+//! Handles pin mux configuration (function select + pullup) and basic
+//! digital I/O. Pin mux addresses and function numbers vary per pin —
+//! see ESP8266 Technical Reference, Chapter 5.
+
 const GPIO_OUT: *volatile u32 = @ptrFromInt(0x60000300);
 const GPIO_OUT_W1TS: *volatile u32 = @ptrFromInt(0x60000304);
 const GPIO_OUT_W1TC: *volatile u32 = @ptrFromInt(0x60000308);
@@ -41,6 +46,10 @@ const gpio_funcs = [16]u32{
     3, // GPIO15: func 3
 };
 
+/// Configure a pin's mux register to GPIO function with pullup enabled.
+/// Each ESP8266 pin has a different function number for GPIO mode;
+/// the mapping is encoded in `gpio_funcs`. FUNC select bits: bit 4 (low),
+/// bits 8-9 (high). Bit 7 enables the internal pullup.
 pub fn set_gpio_func(pin: u5) void {
     if (pin >= 16) return;
     const mux: *volatile u32 = @ptrFromInt(mux_addrs[pin]);

@@ -1,36 +1,30 @@
-const std = @import("std");
+//! ESP8266 firmware entry point.
+//! The SDK calls `user_init` after ROM and RF calibration. We split init into
+//! Hardware (GPIO, peripherals) and Application (erd_core wiring, timers),
+//! then register `on_system_ready` for post-SDK-init work like WiFi.
+
 const sdk = @import("sdk.zig");
 const hardware = @import("hardware.zig");
 const application = @import("application.zig");
 const wifi = @import("wifi.zig");
-
-const UART0_FIFO: *volatile u32 = @ptrFromInt(0x60000000);
-const UART0_STATUS: *volatile u32 = @ptrFromInt(0x60000004);
-
-fn uart_putc(c: u8) void {
-    while ((UART0_STATUS.* >> 16) & 0xFF >= 126) {}
-    UART0_FIFO.* = c;
-}
-
-fn uart_puts(s: []const u8) void {
-    for (s) |c| uart_putc(c);
-}
+const uart = @import("uart.zig");
 
 var app: application.Application = undefined;
 
 fn on_system_ready() callconv(sdk.cc) void {
-    uart_puts("System ready\r\n");
-    wifi.init(&app);
-    application.start(&app);
+    wifi.init();
+    application.init(&app);
+    uart.puts("System ready\r\n");
 }
 
+/// SDK 2.2.1 entry point: returns the flash sector used for RF calibration data.
+/// Sector 0x3FB = byte offset 0x3FB000, near end of 4MB flash.
 export fn user_rf_cal_sector_set() u32 {
     return 0x3FB;
 }
 
 export fn user_init() void {
     hardware.init();
-    app = application.init();
-    uart_puts("Hardware + Application initialized\r\n");
+    uart.puts("Hardware initialized\r\n");
     sdk.system_init_done_cb(on_system_ready);
 }

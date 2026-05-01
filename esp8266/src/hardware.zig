@@ -1,29 +1,19 @@
-const sdk = @import("sdk.zig");
+//! Hardware abstraction layer for the ESP8266 board.
+//! Owns GPIO pin assignments and provides a board-specific LED interface.
+
 const gpio = @import("gpio.zig");
 
-const WDT_CTL: *volatile u32 = @ptrFromInt(0x60000900);
-
+/// GPIO2 — built-in blue LED on most ESP-12F modules (active-low).
 const LED_PIN: u5 = 2;
 
-var tick_timer: sdk.ETSTimer = undefined;
-
+/// Configure GPIO pins and set initial peripheral state.
 pub fn init() void {
     gpio.set_gpio_func(LED_PIN);
     gpio.set_output(LED_PIN);
     gpio.set_pin(LED_PIN);
 }
 
-pub fn start_tick_timer(comptime callback: fn () void) void {
-    const wrapper = struct {
-        fn f(_: ?*anyopaque) callconv(sdk.cc) void {
-            callback();
-        }
-    };
-    tick_timer = std.mem.zeroes(sdk.ETSTimer);
-    sdk.ets_timer_setfn(&tick_timer, wrapper.f, null);
-    sdk.timer_arm_ms(&tick_timer, 1, true);
-}
-
+/// Drive the onboard LED. The LED is active-low: clear pin = on, set pin = off.
 pub fn set_led(on: bool) void {
     if (on) {
         gpio.clear_pin(LED_PIN);
@@ -31,5 +21,3 @@ pub fn set_led(on: bool) void {
         gpio.set_pin(LED_PIN);
     }
 }
-
-const std = @import("std");
