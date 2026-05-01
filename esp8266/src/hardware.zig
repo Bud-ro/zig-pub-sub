@@ -8,8 +8,6 @@ const LED_PIN: u5 = 2;
 var tick_timer: sdk.ETSTimer = undefined;
 
 pub fn init() void {
-    WDT_CTL.* = 0;
-
     gpio.set_gpio_func(LED_PIN);
     gpio.set_output(LED_PIN);
     gpio.set_pin(LED_PIN);

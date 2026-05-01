@@ -69,6 +69,22 @@ pub fn build(b: *std.Build) void {
     compile_stubs.setCwd(b.path("."));
     compile_stubs.step.dependOn(&mkdir.step);
 
+    const compile_http = b.addSystemCommand(&.{
+        "xtensa-lx106-elf-gcc",
+        "-c",
+        "-Os",
+        "-mlongcalls",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-Isdk/include",
+        "-Isdk/third_party/include",
+        "src/http_server.c",
+        "-o",
+        "zig-out/http_server.o",
+    });
+    compile_http.setCwd(b.path("."));
+    compile_http.step.dependOn(&mkdir.step);
+
     const link = b.addSystemCommand(&.{
         "xtensa-lx106-elf-gcc",
         "-nostdlib",
@@ -80,6 +96,7 @@ pub fn build(b: *std.Build) void {
         "zig-out/firmware.elf",
         "zig-out/firmware.o",
         "zig-out/libc_stubs.o",
+        "zig-out/http_server.o",
         "-Lsdk/lib",
         "-lmain",
         "-lwpa",
@@ -99,6 +116,7 @@ pub fn build(b: *std.Build) void {
     link.setCwd(b.path("."));
     link.step.dependOn(&compile_c.step);
     link.step.dependOn(&compile_stubs.step);
+    link.step.dependOn(&compile_http.step);
 
     const elf2image = b.addSystemCommand(&.{
         "esptool",

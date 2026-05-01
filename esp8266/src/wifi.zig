@@ -32,34 +32,95 @@ fn uart_dec(val: u32) void {
     }
 }
 
-fn uart_ip(addr: u32) void {
-    uart_dec(addr & 0xFF);
-    uart_putc('.');
-    uart_dec((addr >> 8) & 0xFF);
-    uart_putc('.');
-    uart_dec((addr >> 16) & 0xFF);
-    uart_putc('.');
-    uart_dec((addr >> 24) & 0xFF);
+fn uart_sdec(val: i32) void {
+    if (val < 0) {
+        uart_putc('-');
+        uart_dec(@intCast(-val));
+    } else {
+        uart_dec(@intCast(val));
+    }
 }
 
 pub fn init(app: *application.Application) void {
-    var ap_config: sdk.SoftApConfig = std.mem.zeroes(sdk.SoftApConfig);
-    const ssid = "ZigPubSub";
-    @memcpy(ap_config.ssid[0..ssid.len], ssid);
-    ap_config.ssid_len = ssid.len;
-    ap_config.channel = 6;
-    ap_config.authmode = 0;
-    ap_config.max_connection = 4;
-    ap_config.beacon_interval = 100;
+    _ = app;
 
-    _ = sdk.wifi_set_opmode_current(sdk.SOFTAP_MODE);
-    _ = sdk.wifi_softap_set_config_current(&ap_config);
+    _ = sdk.wifi_set_opmode_current(sdk.STATION_MODE);
 
-    var ip_info: sdk.IpInfo = undefined;
-    if (sdk.wifi_get_ip_info(sdk.SOFTAP_IF, &ip_info)) {
-        uart_puts("WiFi AP: ZigPubSub @ ");
-        uart_ip(ip_info.ip.addr);
-        uart_puts("\r\n");
-        app.system_data.write(.erd_wifi_ip_addr, ip_info.ip.addr);
+    uart_puts("WiFi station mode - starting scan\r\n");
+    start_scan();
+}
+
+fn start_scan() void {
+    _ = sdk.wifi_station_scan(null, on_scan_done);
+}
+
+fn on_scan_done(arg: ?*anyopaque, status: u32) callconv(sdk.cc) void {
+    if (status != 0 or arg == null) {
+        uart_puts("Scan failed\r\n");
+        schedule_next_scan();
+        return;
     }
+
+    uart_puts("\r\n--- WiFi Scan Results ---\r\n");
+
+    var entry: ?*sdk.BssInfo = @ptrCast(@alignCast(arg));
+    // Skip the first entry (it's a list head with no data)
+    if (entry) |e| entry = e.next;
+
+    var count: u32 = 0;
+    while (entry) |e| {
+        count += 1;
+
+        // SSID
+        var ssid_len: usize = 0;
+        while (ssid_len < 32 and e.ssid[ssid_len] != 0) : (ssid_len += 1) {}
+
+        // Channel
+        uart_puts("  ch");
+        if (e.channel < 10) uart_putc(' ');
+        uart_dec(e.channel);
+
+        // RSSI
+        uart_puts("  ");
+        uart_sdec(e.rssi);
+        uart_puts("dBm  ");
+
+        // Auth mode
+        const auth_names = [_][]const u8{ "OPEN", "WEP ", "WPA ", "WPA2", "WPAX", "MAX " };
+        const am: usize = @intCast(e.authmode);
+        if (am < auth_names.len) {
+            uart_puts(auth_names[am]);
+        } else {
+            uart_putc('?');
+        }
+
+        // SSID
+        uart_puts("  ");
+        if (ssid_len > 0) {
+            uart_puts(e.ssid[0..ssid_len]);
+        } else {
+            uart_puts("(hidden)");
+        }
+
+        uart_puts("\r\n");
+        entry = e.next;
+    }
+
+    uart_puts("Found ");
+    uart_dec(count);
+    uart_puts(" networks\r\n");
+
+    schedule_next_scan();
+}
+
+var scan_timer: sdk.ETSTimer = std.mem.zeroes(sdk.ETSTimer);
+
+fn schedule_next_scan() void {
+    sdk.ets_timer_disarm(&scan_timer);
+    sdk.ets_timer_setfn(&scan_timer, do_scan_timer, null);
+    sdk.timer_arm_ms(&scan_timer, 10000, false);
+}
+
+fn do_scan_timer(_: ?*anyopaque) callconv(sdk.cc) void {
+    start_scan();
 }

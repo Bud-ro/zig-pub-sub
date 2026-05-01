@@ -74,6 +74,26 @@ pub extern fn wifi_softap_set_config(config: *SoftApConfig) bool;
 pub extern fn wifi_softap_set_config_current(config: *SoftApConfig) bool;
 pub extern fn wifi_get_ip_info(if_index: u8, info: *IpInfo) bool;
 
+pub const ScanDoneCb = *const fn (?*anyopaque, u32) callconv(cc) void;
+pub extern fn wifi_station_scan(config: ?*anyopaque, cb: ScanDoneCb) bool;
+
+pub const BssInfo = extern struct {
+    next: ?*BssInfo,
+    bssid: [6]u8,
+    ssid: [32]u8,
+    ssid_len: u8,
+    channel: u8,
+    rssi: i8,
+    _pad0: u8 = 0,
+    authmode: u32, // AUTH_MODE is C enum = 4 bytes
+    is_hidden: u8,
+    _pad1: u8 = 0,
+    freq_offset: i16,
+    freqcal_val: i16,
+    _pad2: [2]u8 = .{ 0, 0 },
+    esp_mesh_ie: ?*anyopaque,
+};
+
 pub extern fn spi_flash_read(src_addr: u32, des_addr: *anyopaque, size: u32) u32;
 pub extern fn spi_flash_write(des_addr: u32, src_addr: *const anyopaque, size: u32) u32;
 pub extern fn spi_flash_erase_sector(sector: u16) u32;
@@ -99,7 +119,49 @@ pub const PartitionItem = extern struct {
 
 pub extern fn system_partition_table_regist(partition_table: [*]const PartitionItem, partition_num: u32, map: u32) bool;
 
-// TCP/espconn
+// lwIP raw TCP API
+pub const TcpPcb = opaque {};
+pub const Pbuf = extern struct {
+    next: ?*Pbuf,
+    payload: ?*anyopaque,
+    tot_len: u16,
+    len: u16,
+    type: u8,
+    flags: u8,
+    ref_count: u16,
+    eb: ?*anyopaque,
+};
+
+pub const LwipErr = i8;
+pub const ERR_OK: LwipErr = 0;
+pub const ERR_MEM: LwipErr = -1;
+pub const ERR_ABRT: LwipErr = -8;
+pub const ERR_CLSD: LwipErr = -10;
+
+pub const TcpAcceptFn = *const fn (?*anyopaque, ?*TcpPcb, LwipErr) callconv(cc) LwipErr;
+pub const TcpRecvFn = *const fn (?*anyopaque, ?*TcpPcb, ?*Pbuf, LwipErr) callconv(cc) LwipErr;
+pub const TcpSentFn = *const fn (?*anyopaque, ?*TcpPcb, u16) callconv(cc) LwipErr;
+pub const TcpErrFn = *const fn (?*anyopaque, LwipErr) callconv(cc) void;
+
+pub extern fn tcp_new() ?*TcpPcb;
+pub extern fn tcp_bind(pcb: *TcpPcb, ipaddr: ?*anyopaque, port: u16) LwipErr;
+pub extern fn tcp_listen_with_backlog(pcb: *TcpPcb, backlog: u8) ?*TcpPcb;
+pub extern fn tcp_accept(pcb: *TcpPcb, accept_fn: TcpAcceptFn) void;
+pub extern fn tcp_recv(pcb: *TcpPcb, recv_fn: TcpRecvFn) void;
+pub extern fn tcp_sent(pcb: *TcpPcb, sent_fn: TcpSentFn) void;
+pub extern fn tcp_err(pcb: *TcpPcb, err_fn: TcpErrFn) void;
+pub extern fn tcp_arg(pcb: *TcpPcb, arg: ?*anyopaque) void;
+pub extern fn tcp_write(pcb: *TcpPcb, data: [*]const u8, len: u16, flags: u8) LwipErr;
+pub extern fn tcp_output(pcb: *TcpPcb) LwipErr;
+pub extern fn tcp_close(pcb: *TcpPcb) LwipErr;
+pub extern fn tcp_abort(pcb: *TcpPcb) void;
+pub extern fn tcp_recved(pcb: *TcpPcb, len: u16) void;
+pub extern fn pbuf_free(p: *Pbuf) u8;
+pub extern fn pbuf_copy_partial(p: *Pbuf, dataptr: [*]u8, len: u16, offset: u16) u16;
+
+pub const TCP_WRITE_FLAG_COPY: u8 = 0x01;
+
+// TCP/espconn (legacy)
 pub const ConnectCallback = *const fn (?*anyopaque) callconv(cc) void;
 pub const RecvCallback = *const fn (?*anyopaque, [*]u8, u16) callconv(cc) void;
 pub const SentCallback = *const fn (?*anyopaque) callconv(cc) void;
@@ -134,4 +196,6 @@ pub extern fn espconn_regist_recvcb(conn: *Espconn, cb: RecvCallback) i8;
 pub extern fn espconn_regist_sentcb(conn: *Espconn, cb: SentCallback) i8;
 pub extern fn espconn_send(conn: *Espconn, data: [*]const u8, len: u16) i8;
 pub extern fn espconn_disconnect(conn: *Espconn) i8;
+pub extern fn espconn_regist_disconcb(conn: *Espconn, cb: ConnectCallback) i8;
+pub extern fn espconn_regist_reconcb(conn: *Espconn, cb: ConnectCallback) i8;
 pub extern fn espconn_regist_time(conn: *Espconn, interval: u32, type_flag: u8) i8;

@@ -1,65 +1,69 @@
 const std = @import("std");
-const sdk = @import("sdk.zig");
 const application = @import("application.zig");
 const SystemErds = @import("system_erds.zig");
-const erd_core = @import("erd_core");
 
-var server_conn: sdk.Espconn = undefined;
-var server_tcp: sdk.EspTcp = undefined;
 var app_ref: *application.Application = undefined;
-
 var body_buf: [1536]u8 = undefined;
-var response_buf: [2048]u8 = undefined;
 
 pub fn init(app: *application.Application) void {
     app_ref = app;
-
-    server_tcp = std.mem.zeroes(sdk.EspTcp);
-    server_tcp.local_port = 80;
-
-    server_conn = std.mem.zeroes(sdk.Espconn);
-    server_conn.type = @as(u32, sdk.ESPCONN_TCP);
-    server_conn.state = 0;
-    server_conn.proto = &server_tcp;
-
-    _ = sdk.espconn_regist_connectcb(&server_conn, on_connect);
-    _ = sdk.espconn_accept(&server_conn);
-    _ = sdk.espconn_regist_time(&server_conn, 30, 0);
+    http_server_init_c();
 }
 
-fn on_connect(arg: ?*anyopaque) callconv(sdk.cc) void {
-    const conn: *sdk.Espconn = @ptrCast(@alignCast(arg orelse return));
-    _ = sdk.espconn_regist_recvcb(conn, on_receive);
-}
+extern fn http_server_init_c() void;
 
-fn on_receive(arg: ?*anyopaque, data: [*]u8, len: u16) callconv(sdk.cc) void {
-    const conn: *sdk.Espconn = @ptrCast(@alignCast(arg orelse return));
-    const request = data[0..len];
-    const path = parse_path(request);
+export fn zig_http_handle(request: [*]const u8, req_len: u32, response: [*]u8, resp_capacity: u32) u32 {
+    const req = request[0..req_len];
+    const path = parse_path(req);
 
     const count = app_ref.system_data.read(.erd_http_request_count);
     app_ref.system_data.write(.erd_http_request_count, count +% 1);
 
+    var body_len: usize = 0;
+    var status: []const u8 = "200 OK";
+    var ctype: []const u8 = "text/html";
+
     if (std.mem.startsWith(u8, path, "/erd/")) {
+        ctype = "application/json";
         const erd_name = path[5..];
-        if (is_post(request)) {
-            if (erd_write_dispatch(erd_name, get_body(request))) {
-                send_response(conn, "200 OK", "application/json", "{\"ok\":true}");
+        if (is_post(req)) {
+            if (erd_write_dispatch(erd_name, get_body(req))) {
+                body_len = buf_copy(0, "{\"ok\":true}");
             } else {
-                send_response(conn, "404 Not Found", "application/json", "{\"error\":\"unknown\"}");
+                status = "404 Not Found";
+                body_len = buf_copy(0, "{\"error\":\"unknown\"}");
             }
         } else {
-            const json_len = erd_read_dispatch(erd_name);
-            if (json_len > 0) {
-                send_response(conn, "200 OK", "application/json", body_buf[0..json_len]);
-            } else {
-                send_response(conn, "404 Not Found", "application/json", "{\"error\":\"unknown\"}");
+            body_len = erd_read_dispatch(erd_name);
+            if (body_len == 0) {
+                status = "404 Not Found";
+                body_len = buf_copy(0, "{\"error\":\"unknown\"}");
             }
         }
     } else {
-        const html_len = build_dashboard();
-        send_response(conn, "200 OK", "text/html", body_buf[0..html_len]);
+        body_len = build_dashboard();
     }
+
+    // Assemble into response buffer
+    var len: usize = 0;
+    const resp = response[0..resp_capacity];
+    len += r_copy(resp, len, "HTTP/1.1 ");
+    len += r_copy(resp, len, status);
+    len += r_copy(resp, len, "\r\nContent-Type: ");
+    len += r_copy(resp, len, ctype);
+    len += r_copy(resp, len, "\r\nConnection: close\r\n\r\n");
+    if (len + body_len <= resp_capacity) {
+        @memcpy(resp[len..][0..body_len], body_buf[0..body_len]);
+        len += body_len;
+    }
+
+    return @truncate(len);
+}
+
+fn r_copy(resp: []u8, offset: usize, s: []const u8) usize {
+    if (offset + s.len > resp.len) return 0;
+    @memcpy(resp[offset..][0..s.len], s);
+    return s.len;
 }
 
 fn parse_path(request: []const u8) []const u8 {
@@ -85,7 +89,6 @@ fn get_body(request: []const u8) []const u8 {
     return "";
 }
 
-// Comptime-generated dispatch: runtime ERD name → comptime read/write
 const erd_names = std.meta.fieldNames(SystemErds.ErdDefinitions);
 
 fn ErdReadFn() type {
@@ -94,31 +97,16 @@ fn ErdReadFn() type {
 fn ErdWriteFn() type {
     return *const fn ([]const u8) bool;
 }
-fn ErdRowFn() type {
-    return *const fn (usize) usize;
-}
 
 const read_fns = blk: {
     var fns: [erd_names.len]ErdReadFn() = undefined;
-    for (erd_names, 0..) |name, i| {
-        fns[i] = make_read_fn(name);
-    }
+    for (erd_names, 0..) |name, i| fns[i] = make_read_fn(name);
     break :blk fns;
 };
 
 const write_fns = blk: {
     var fns: [erd_names.len]ErdWriteFn() = undefined;
-    for (erd_names, 0..) |name, i| {
-        fns[i] = make_write_fn(name);
-    }
-    break :blk fns;
-};
-
-const row_fns = blk: {
-    var fns: [erd_names.len]ErdRowFn() = undefined;
-    for (erd_names, 0..) |name, i| {
-        fns[i] = make_row_fn(name);
-    }
+    for (erd_names, 0..) |name, i| fns[i] = make_write_fn(name);
     break :blk fns;
 };
 
@@ -151,21 +139,6 @@ fn make_write_fn(comptime name: []const u8) ErdWriteFn() {
     }.f;
 }
 
-fn make_row_fn(comptime name: []const u8) ErdRowFn() {
-    return struct {
-        fn f(base: usize) usize {
-            const erd_enum = @field(SystemErds.ErdEnum, name);
-            const T = @field(SystemErds.erd, name).T;
-            const val = app_ref.system_data.read(erd_enum);
-            var len: usize = 0;
-            len += buf_copy(base + len, "<tr><td>" ++ name ++ "</td><td>");
-            len += format_val(T, &val, body_buf[base + len ..]);
-            len += buf_copy(base + len, "</td></tr>");
-            return len;
-        }
-    }.f;
-}
-
 fn erd_read_dispatch(erd_name: []const u8) usize {
     for (erd_names, 0..) |name, i| {
         if (std.mem.eql(u8, erd_name, name)) return read_fns[i]();
@@ -182,14 +155,34 @@ fn erd_write_dispatch(erd_name: []const u8, body: []const u8) bool {
 
 fn build_dashboard() usize {
     var len: usize = 0;
-    len += buf_copy(len, "<html><head><title>ZigPubSub</title>");
-    len += buf_copy(len, "<meta name=viewport content='width=device-width'>");
-    len += buf_copy(len, "<style>body{font-family:monospace;margin:20px}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:6px}th{background:#f0f0f0}</style>");
-    len += buf_copy(len, "</head><body><h2>ZigPubSub ERD Dashboard</h2><table><tr><th>ERD</th><th>Value</th></tr>");
-    for (row_fns) |row_fn| {
-        len += row_fn(len);
-    }
-    len += buf_copy(len, "</table><br><small>Zig + ESP8266 + erd_core</small></body></html>");
+    len += buf_copy(len, "<h2>ZigPubSub</h2><pre>");
+
+    const uptime = app_ref.system_data.read(.erd_uptime_seconds);
+    len += buf_copy(len, "uptime: ");
+    len += fmt_u32(uptime, body_buf[len..]);
+
+    const led = app_ref.system_data.read(.erd_led_state);
+    len += buf_copy(len, "\nled:    ");
+    len += buf_copy(len, if (led) "ON" else "OFF");
+
+    const reqs = app_ref.system_data.read(.erd_http_request_count);
+    len += buf_copy(len, "\nreqs:   ");
+    len += fmt_u32(reqs, body_buf[len..]);
+
+    const ip = app_ref.system_data.read(.erd_wifi_ip_addr);
+    len += buf_copy(len, "\nip:     ");
+    len += fmt_u32(ip & 0xFF, body_buf[len..]);
+    body_buf[len] = '.';
+    len += 1;
+    len += fmt_u32((ip >> 8) & 0xFF, body_buf[len..]);
+    body_buf[len] = '.';
+    len += 1;
+    len += fmt_u32((ip >> 16) & 0xFF, body_buf[len..]);
+    body_buf[len] = '.';
+    len += 1;
+    len += fmt_u32((ip >> 24) & 0xFF, body_buf[len..]);
+
+    len += buf_copy(len, "</pre>");
     return len;
 }
 
@@ -248,29 +241,4 @@ fn parse_value(comptime T: type, body: []const u8) ?T {
         return result;
     }
     return null;
-}
-
-fn send_response(conn: *sdk.Espconn, status: []const u8, content_type: []const u8, body: []const u8) void {
-    var len: usize = 0;
-
-    const h1 = "HTTP/1.1 ";
-    @memcpy(response_buf[len..][0..h1.len], h1);
-    len += h1.len;
-    @memcpy(response_buf[len..][0..status.len], status);
-    len += status.len;
-    const h2 = "\r\nContent-Type: ";
-    @memcpy(response_buf[len..][0..h2.len], h2);
-    len += h2.len;
-    @memcpy(response_buf[len..][0..content_type.len], content_type);
-    len += content_type.len;
-    const h3 = "\r\nConnection: close\r\n\r\n";
-    @memcpy(response_buf[len..][0..h3.len], h3);
-    len += h3.len;
-
-    if (len + body.len <= response_buf.len) {
-        @memcpy(response_buf[len..][0..body.len], body);
-        len += body.len;
-    }
-
-    _ = sdk.espconn_send(conn, &response_buf, @truncate(len));
 }
