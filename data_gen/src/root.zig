@@ -1,14 +1,42 @@
-const std = @import("std");
-
-// --- Types ---
-pub const Constraint = constraint_mod.Constraint;
-pub const ConstraintType = constraint_mod.ConstraintType;
-pub const Range = constraint_mod.Range;
-pub const StructConstraint = constraint_mod.StructConstraint;
-
-const constraint_mod = @import("data_gen.zig");
+pub const constraints = @import("constraints.zig");
+pub const contracts = @import("contracts.zig");
+pub const generators = @import("generators.zig");
+pub const testing = @import("testing.zig");
 
 test {
-    std.testing.refAllDecls(@This());
-    _ = @import("tests/data_gen_test.zig");
+    _ = constraints;
+    _ = contracts;
+    _ = generators;
+    _ = testing;
+
+    _ = @import("tests/constraint_test.zig");
+    _ = @import("tests/contract_test.zig");
+    _ = @import("tests/generator_test.zig");
+    _ = @import("tests/examples/config_test.zig");
+    _ = @import("tests/examples/timing_test.zig");
+    _ = @import("tests/examples/recipe_test.zig");
+    _ = @import("tests/examples/calibration_test.zig");
+    _ = @import("tests/examples/state_machine_test.zig");
+    _ = @import("tests/examples/lookup_table_test.zig");
+    _ = @import("tests/examples/deep_linking_test.zig");
+    _ = @import("tests/examples/repetitious_test.zig");
+    _ = @import("tests/examples/register_map_test.zig");
+    _ = @import("tests/examples/pid_tuning_test.zig");
+    _ = @import("tests/examples/protocol_test.zig");
+    _ = @import("tests/examples/scheduling_test.zig");
+    _ = @import("tests/examples/signal_routing_test.zig");
+    _ = @import("tests/examples/power_sequencing_test.zig");
+    _ = @import("tests/examples/pipeline_test.zig");
+    _ = @import("tests/examples/pin_mux_test.zig");
+    _ = @import("tests/examples/can_bus_test.zig");
+    _ = @import("tests/examples/encoding_test.zig");
+    _ = @import("tests/examples/resource_budget_test.zig");
+    _ = @import("tests/examples/firmware_image_test.zig");
+    _ = @import("tests/examples/network_topology_test.zig");
+    _ = @import("tests/examples/error_correction_test.zig");
+    _ = @import("tests/examples/scheduler_test.zig");
+    _ = @import("tests/examples/sensor_fusion_test.zig");
+    _ = @import("tests/examples/variant_config_test.zig");
+    _ = @import("tests/examples/integrated_system_test.zig");
+    _ = @import("tests/examples/exotic_types_test.zig");
 }

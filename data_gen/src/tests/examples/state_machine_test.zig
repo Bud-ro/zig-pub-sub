@@ -1,0 +1,187 @@
+const std = @import("std");
+const constraints = @import("data_gen").constraints;
+const contracts = @import("data_gen").contracts;
+
+// --- WiFi State Machine ---
+
+const WifiState = enum(u8) { disconnected, scanning, connecting, connected, error_state };
+const WifiEvent = enum(u8) { scan_request, network_found, auth_success, auth_failure, timeout, disconnect, reset };
+
+const Transition = struct {
+    from: WifiState,
+    event: WifiEvent,
+    to: WifiState,
+    timeout_ms: u32,
+};
+
+fn validateTransitionTable(comptime table: []const Transition) void {
+    if (table.len == 0)
+        @compileError("transition table cannot be empty");
+
+    for (table) |t| {
+        constraints.inRange(u32, 0, 60_000, t.timeout_ms);
+
+        if (t.from == t.to and t.event != .reset)
+            @compileError("self-transitions only allowed on reset events");
+    }
+
+    for (0..table.len) |i| {
+        for (i + 1..table.len) |j| {
+            if (table[i].from == table[j].from and table[i].event == table[j].event)
+                @compileError("duplicate (from, event) pair — transition must be deterministic");
+        }
+    }
+
+    const all_states = [_]WifiState{ .disconnected, .scanning, .connecting, .connected, .error_state };
+    for (all_states) |state| {
+        if (state == .disconnected) continue;
+        var reachable = false;
+        for (table) |t| {
+            if (t.to == state) {
+                reachable = true;
+                break;
+            }
+        }
+        if (!reachable)
+            @compileError(std.fmt.comptimePrint("state {} is unreachable", .{@intFromEnum(state)}));
+    }
+}
+
+const wifi_transitions = blk: {
+    const table = [_]Transition{
+        .{ .from = .disconnected, .event = .scan_request, .to = .scanning, .timeout_ms = 0 },
+        .{ .from = .scanning, .event = .network_found, .to = .connecting, .timeout_ms = 10000 },
+        .{ .from = .scanning, .event = .timeout, .to = .disconnected, .timeout_ms = 0 },
+        .{ .from = .connecting, .event = .auth_success, .to = .connected, .timeout_ms = 5000 },
+        .{ .from = .connecting, .event = .auth_failure, .to = .error_state, .timeout_ms = 0 },
+        .{ .from = .connecting, .event = .timeout, .to = .disconnected, .timeout_ms = 0 },
+        .{ .from = .connected, .event = .disconnect, .to = .disconnected, .timeout_ms = 0 },
+        .{ .from = .error_state, .event = .reset, .to = .disconnected, .timeout_ms = 1000 },
+    };
+    validateTransitionTable(&table);
+    break :blk table;
+};
+
+test "wifi transition table is deterministic" {
+    comptime {
+        try std.testing.expectEqual(8, wifi_transitions.len);
+    }
+}
+
+test "wifi transition table starts from disconnected" {
+    comptime {
+        try std.testing.expectEqual(WifiState.disconnected, wifi_transitions[0].from);
+    }
+}
+
+// --- Motor Control State Machine ---
+
+const MotorState = enum(u8) { idle, starting, running, braking, fault };
+const MotorEvent = enum(u8) { start_cmd, running_speed_reached, stop_cmd, overcurrent, fault_cleared };
+
+const MotorTransition = struct {
+    from: MotorState,
+    event: MotorEvent,
+    to: MotorState,
+    action_code: u8,
+};
+
+fn validateMotorFSM(comptime table: []const MotorTransition) void {
+    for (0..table.len) |i| {
+        for (i + 1..table.len) |j| {
+            if (table[i].from == table[j].from and table[i].event == table[j].event)
+                @compileError("non-deterministic motor FSM");
+        }
+    }
+
+    for (table) |t| {
+        if (t.from == .fault and t.event != .fault_cleared)
+            @compileError("fault state can only transition on fault_cleared");
+    }
+}
+
+const motor_fsm = blk: {
+    const table = [_]MotorTransition{
+        .{ .from = .idle, .event = .start_cmd, .to = .starting, .action_code = 0x01 },
+        .{ .from = .starting, .event = .running_speed_reached, .to = .running, .action_code = 0x02 },
+        .{ .from = .starting, .event = .overcurrent, .to = .fault, .action_code = 0xF0 },
+        .{ .from = .running, .event = .stop_cmd, .to = .braking, .action_code = 0x03 },
+        .{ .from = .running, .event = .overcurrent, .to = .fault, .action_code = 0xF0 },
+        .{ .from = .braking, .event = .running_speed_reached, .to = .idle, .action_code = 0x04 },
+        .{ .from = .braking, .event = .overcurrent, .to = .fault, .action_code = 0xF0 },
+        .{ .from = .fault, .event = .fault_cleared, .to = .idle, .action_code = 0xFF },
+    };
+    validateMotorFSM(&table);
+    break :blk table;
+};
+
+test "motor FSM has 8 transitions" {
+    comptime {
+        try std.testing.expectEqual(8, motor_fsm.len);
+    }
+}
+
+test "motor FSM fault state only transitions on fault_cleared" {
+    comptime {
+        for (motor_fsm) |t| {
+            if (t.from == .fault) {
+                try std.testing.expectEqual(MotorEvent.fault_cleared, t.event);
+            }
+        }
+    }
+}
+
+// --- State Machine with Timed Phases ---
+
+const PhaseState = enum(u8) { init, warmup, active, cooldown, shutdown };
+
+const PhaseTiming = struct {
+    state: PhaseState,
+    min_duration_ms: u32,
+    max_duration_ms: u32,
+    next_state: PhaseState,
+
+    pub fn validate(comptime self: PhaseTiming) void {
+        constraints.lessThan(u32, self.min_duration_ms, self.max_duration_ms);
+        if (self.state == self.next_state)
+            @compileError("phase must transition to a different state");
+    }
+};
+
+fn validatePhaseSequence(comptime phases: []const PhaseTiming) void {
+    if (phases[0].state != .init)
+        @compileError("must start with init phase");
+
+    if (phases[phases.len - 1].next_state != .shutdown)
+        @compileError("must end transitioning to shutdown");
+
+    for (phases) |p| p.validate();
+
+    for (1..phases.len) |i| {
+        if (phases[i].state != phases[i - 1].next_state)
+            @compileError("phase chain is broken — next_state doesn't match next phase's state");
+    }
+}
+
+const operation_phases = blk: {
+    const phases = [_]PhaseTiming{
+        .{ .state = .init, .min_duration_ms = 100, .max_duration_ms = 500, .next_state = .warmup },
+        .{ .state = .warmup, .min_duration_ms = 1000, .max_duration_ms = 5000, .next_state = .active },
+        .{ .state = .active, .min_duration_ms = 5000, .max_duration_ms = 60000, .next_state = .cooldown },
+        .{ .state = .cooldown, .min_duration_ms = 2000, .max_duration_ms = 10000, .next_state = .shutdown },
+    };
+    validatePhaseSequence(&phases);
+    break :blk phases;
+};
+
+test "operation phases form a valid chain" {
+    comptime {
+        try std.testing.expectEqual(4, operation_phases.len);
+        try std.testing.expectEqual(PhaseState.init, operation_phases[0].state);
+        try std.testing.expectEqual(PhaseState.shutdown, operation_phases[operation_phases.len - 1].next_state);
+
+        for (1..operation_phases.len) |i| {
+            try std.testing.expectEqual(operation_phases[i].state, operation_phases[i - 1].next_state);
+        }
+    }
+}
