@@ -3,7 +3,6 @@ const sdk = @import("sdk.zig");
 const hardware = @import("hardware.zig");
 const application = @import("application.zig");
 const wifi = @import("wifi.zig");
-const http_server = @import("http_server.zig");
 
 const UART0_FIFO: *volatile u32 = @ptrFromInt(0x60000000);
 const UART0_STATUS: *volatile u32 = @ptrFromInt(0x60000004);
