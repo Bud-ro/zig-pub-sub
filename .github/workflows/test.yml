@@ -49,3 +49,31 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.optimize == 'ReleaseFast'
         run: zig build codegen-check
         working-directory: zig-pub-sub
+
+  embedded:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: zig-pub-sub
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Install ESP8266 toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc-xtensa-lx106 binutils-xtensa-lx106 esptool
+
+      - name: Build ESP8266 firmware
+        run: zig build
+        working-directory: zig-pub-sub/esp8266
+
+      - name: Memory report
+        run: cat zig-out/MEMORY_REPORT.txt
+        working-directory: zig-pub-sub/esp8266
+
+      - name: Upload memory report
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp8266-memory-report
+          path: zig-pub-sub/esp8266/zig-out/MEMORY_REPORT.txt

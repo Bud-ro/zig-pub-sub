@@ -3,14 +3,26 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const zig_lib_path = b.graph.zig_lib_directory.path orelse ".";
 
-    const mkdir = b.addSystemCommand(&.{ "mkdir", "-p", "zig-out" });
+    // Resolve dependency paths through the build system
+    const erd_core_dep = b.dependency("erd_core", .{});
+    const erd_core_root = erd_core_dep.path("src/root.zig").getPath(b);
 
-    // Auto-fetch the ESP8266 NonOS SDK if not present
+    const sometimes_dep = erd_core_dep.builder.dependency("assert_sometimes", .{});
+    const sometimes_root = sometimes_dep.path("src/sometimes.zig").getPath(b);
+
+    // Build elf-size tool for the host (used for memory reports)
+    const elf_size_dep = b.dependency("elf_size", .{});
+    const elf_size_exe = elf_size_dep.artifact("elf-size");
+
+    // --- SDK fetch ---
     const fetch_sdk = b.addSystemCommand(&.{
         "sh",                                                                                                           "-c",
         "[ -d sdk/lib ] || git clone --depth 1 --branch v2.2.1 https://github.com/espressif/ESP8266_NONOS_SDK.git sdk",
     });
     fetch_sdk.setCwd(b.path("."));
+
+    // --- Zig -> C backend ---
+    const mkdir = b.addSystemCommand(&.{ "mkdir", "-p", "zig-out" });
 
     const emit_c = b.addSystemCommand(&.{
         b.graph.zig_exe,
@@ -27,10 +39,11 @@ pub fn build(b: *std.Build) void {
         "sometimes",
         "--dep",
         "erd_core",
-        "-Merd_core=/home/carson/git/zig-pub-sub/erd_core/src/root.zig",
-        "--dep",
-        "sometimes_config",
-        "-Msometimes=/home/carson/.cache/zig/p/assert_sometimes-0.0.2-q4tpTJRFAABMCj5_i4s3UfAXwzfi9QRraC0S6isCstRI/src/sometimes.zig",
+    });
+    emit_c.addPrefixedFileArg("-Merd_core=", .{ .cwd_relative = erd_core_root });
+    emit_c.addArgs(&.{ "--dep", "sometimes_config" });
+    emit_c.addPrefixedFileArg("-Msometimes=", .{ .cwd_relative = sometimes_root });
+    emit_c.addArgs(&.{
         "-Msometimes_config=src/sometimes_config.zig",
         "--zig-lib-dir",
         zig_lib_path,
@@ -38,6 +51,7 @@ pub fn build(b: *std.Build) void {
     emit_c.setCwd(b.path("."));
     emit_c.step.dependOn(&mkdir.step);
 
+    // --- Fix C backend void const issue ---
     const fix_void = b.addSystemCommand(&.{
         "sed",                                        "-i",
         "s/^static void const /static char const /g", "zig-out/firmware.c",
@@ -45,6 +59,7 @@ pub fn build(b: *std.Build) void {
     fix_void.setCwd(b.path("."));
     fix_void.step.dependOn(&emit_c.step);
 
+    // --- Compile C ---
     const zig_h_include = std.fmt.allocPrint(b.allocator, "-I{s}", .{zig_lib_path}) catch @panic("OOM");
 
     const compile_c = b.addSystemCommand(&.{
@@ -77,6 +92,7 @@ pub fn build(b: *std.Build) void {
     compile_stubs.setCwd(b.path("."));
     compile_stubs.step.dependOn(&mkdir.step);
 
+    // --- Link ---
     const link = b.addSystemCommand(&.{
         "xtensa-lx106-elf-gcc",
         "-nostdlib",
@@ -109,6 +125,20 @@ pub fn build(b: *std.Build) void {
     link.step.dependOn(&compile_stubs.step);
     link.step.dependOn(&fetch_sdk.step);
 
+    // --- Memory report ---
+    const mem_report = b.addRunArtifact(elf_size_exe);
+    mem_report.setCwd(b.path("."));
+    mem_report.addArgs(&.{
+        "zig-out/firmware.elf",
+        "--output",
+        "zig-out/MEMORY_REPORT.txt",
+        "RAM:3FFE8000:14000",
+        "IRAM:40100000:8000",
+        "FLASH:40210000:5C000",
+    });
+    mem_report.step.dependOn(&link.step);
+
+    // --- ELF to flash image ---
     const elf2image = b.addSystemCommand(&.{
         "esptool",
         "--chip",
@@ -127,20 +157,10 @@ pub fn build(b: *std.Build) void {
     elf2image.setCwd(b.path("."));
     elf2image.step.dependOn(&link.step);
 
-    // Memory usage summary (printed to stdout and written to zig-out/MEMORY_REPORT.txt)
-    const mem_report = b.addSystemCommand(&.{
-        "sh", "-c",
-        "ELF=zig-out/firmware.elf; " ++
-            "TOOL=../elf_size/zig-out/bin/elf-size; " ++
-            "[ -x $TOOL ] || (cd ../elf_size && zig build); " ++
-            "$TOOL $ELF RAM:3FFE8000:14000 IRAM:40100000:8000 FLASH:40210000:5C000 | tee zig-out/MEMORY_REPORT.txt",
-    });
-    mem_report.setCwd(b.path("."));
-    mem_report.step.dependOn(&link.step);
-
     b.getInstallStep().dependOn(&elf2image.step);
     b.getInstallStep().dependOn(&mem_report.step);
 
+    // --- Flash step ---
     const flash_step = b.step("flash", "Flash firmware to ESP8266 via esptool");
     const flash_cmd = b.addSystemCommand(&.{
         "esptool",

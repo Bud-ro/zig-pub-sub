@@ -1,7 +1,7 @@
 //! CLI tool: parses an ELF file and prints memory usage per region.
-//! Usage: elf-size <elf-file> <region-spec> [<region-spec> ...]
+//! Usage: elf-size <elf-file> [--output <file>] <region-spec> [<region-spec> ...]
 //! Region spec: name:origin:length (hex, no 0x prefix)
-//! Example: elf-size firmware.elf RAM:3FFE8000:14000 IRAM:40100000:8000 FLASH:40210000:5C000
+//! Example: elf-size firmware.elf RAM:3FFE8000:14000 IRAM:40100000:8000
 
 const std = @import("std");
 const elf_size = @import("root.zig");
@@ -16,16 +16,21 @@ pub fn main() !void {
     _ = args.next();
 
     const elf_path = args.next() orelse {
-        writeAll("Usage: elf-size <elf-file> <name:origin:length> ...\n");
+        writeAll("Usage: elf-size <elf-file> [--output <file>] <name:origin:length> ...\n");
         return;
     };
 
+    var output_path: ?[]const u8 = null;
     var regions: [16]elf_size.MemoryRegion = undefined;
     var count: usize = 0;
 
-    while (args.next()) |spec| {
+    while (args.next()) |arg| {
+        if (std.mem.eql(u8, arg, "--output")) {
+            output_path = args.next();
+            continue;
+        }
         if (count >= 16) break;
-        regions[count] = parse_region(spec) orelse {
+        regions[count] = parse_region(arg) orelse {
             writeAll("Invalid region spec\n");
             return;
         };
@@ -37,9 +42,16 @@ pub fn main() !void {
         return;
     }
 
-    var output_buf: [4096]u8 = undefined;
-    const len = try elf_size.format_summary(elf_path, regions[0..count], &output_buf);
-    writeAll(output_buf[0..len]);
+    var buf: [4096]u8 = undefined;
+    const len = try elf_size.format_summary(elf_path, regions[0..count], &buf);
+
+    writeAll(buf[0..len]);
+
+    if (output_path) |path| {
+        const file = try std.fs.cwd().createFile(path, .{});
+        defer file.close();
+        try file.writeAll(buf[0..len]);
+    }
 }
 
 fn parse_region(spec: []const u8) ?elf_size.MemoryRegion {
