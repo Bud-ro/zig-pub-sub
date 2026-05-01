@@ -1,8 +1,13 @@
+/* Physical flash is 4MB, but only irom0_0_seg is mapped into the CPU's
+   address space for code execution. The SDK defaults to 376KB (0x5C000)
+   to reserve space for OTA dual-image layouts. Since we don't use OTA,
+   this could safely be increased up to ~0x3EB000 (~4012KB) by expanding
+   this segment and adjusting the linker script accordingly. */
 MEMORY {
     dport0_0_seg : org = 0x3FF00000, len = 0x10
-    dram0_0_seg  : org = 0x3FFE8000, len = 0x14000
-    iram1_0_seg  : org = 0x40100000, len = 0x8000
-    irom0_0_seg  : org = 0x40210000, len = 0x5C000
+    dram0_0_seg  : org = 0x3FFE8000, len = 0x14000   /* 80KB data RAM */
+    iram1_0_seg  : org = 0x40100000, len = 0x8000    /* 32KB instruction RAM */
+    irom0_0_seg  : org = 0x40210000, len = 0x5C000   /* 376KB flash-mapped code */
 }
 
 PHDRS {
