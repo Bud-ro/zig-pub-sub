@@ -32,8 +32,8 @@ const PidConfig = struct {
     sample_period_ms: u16,
 
     pub fn validate(comptime self: PidConfig) void {
-        constraints.nonZero(u16, self.sample_period_ms);
-        constraints.lessThan(i16, self.output_min, self.output_max);
+        constraints.nonZero(self.sample_period_ms);
+        constraints.lessThan(self.output_min, self.output_max);
 
         const kd_x100: u32 = @as(u32, self.gains.kd) * 100 / 256;
         if (kd_x100 > 500 and self.derivative_filter_coeff < 50)
@@ -48,7 +48,7 @@ const PidConfig = struct {
         if (kp_normalized > 0 and ki_contribution > kp_normalized * 10)
             @compileError("Ki contribution per sample exceeds 10x Kp — likely unstable");
 
-        constraints.inRange(u16, 1, 10000, self.sample_period_ms);
+        constraints.inRange(1, 10000, self.sample_period_ms);
     }
 
     pub const Params = struct {
@@ -162,7 +162,7 @@ const CascadedPid = struct {
             self.outer.output_max > self.inner_setpoint_max)
             @compileError("outer loop output range must fit within inner loop setpoint range");
 
-        constraints.lessThan(i16, self.inner_setpoint_min, self.inner_setpoint_max);
+        constraints.lessThan(self.inner_setpoint_min, self.inner_setpoint_max);
     }
 };
 
@@ -210,7 +210,7 @@ fn validateMultiZone(comptime zones: []const ZoneConfig) void {
     for (zones, 0..) |zone, i| {
         zone.pid.validate();
         ids[i] = zone.zone_id;
-        constraints.nonZero(u16, zone.deadband);
+        constraints.nonZero(zone.deadband);
 
         if (zone.setpoint < zone.pid.output_min or zone.setpoint > zone.pid.output_max)
             @compileError(std.fmt.comptimePrint(

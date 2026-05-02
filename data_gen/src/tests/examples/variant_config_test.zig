@@ -18,12 +18,12 @@ const BaseMotorConfig = struct {
     max_rpm: u16,
 
     pub fn validate(comptime self: BaseMotorConfig) void {
-        constraints.inRange(u16, 3000, 48000, self.rated_voltage_mv);
-        constraints.inRange(u16, 100, 50000, self.max_current_ma);
-        constraints.inRange(u32, 1000, 100000, self.pwm_frequency_hz);
-        constraints.inRange(u16, 0, 5000, self.dead_time_ns);
-        constraints.oneOf(u8, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, self.pole_pairs);
-        constraints.inRange(u16, 100, 30000, self.max_rpm);
+        constraints.inRange(3000, 48000, self.rated_voltage_mv);
+        constraints.inRange(100, 50000, self.max_current_ma);
+        constraints.inRange(1000, 100000, self.pwm_frequency_hz);
+        constraints.inRange(0, 5000, self.dead_time_ns);
+        constraints.oneOf(&.{ 1, 2, 3, 4, 5, 6, 7, 8 }, self.pole_pairs);
+        constraints.inRange(100, 30000, self.max_rpm);
 
         // Dead time must be meaningful relative to PWM period
         const period_ns: u32 = 1_000_000_000 / self.pwm_frequency_hz;
@@ -41,12 +41,12 @@ const SmallBldcConfig = struct {
     pub fn validate(comptime self: SmallBldcConfig) void {
         self.base.validate();
 
-        constraints.inRange(u16, 11000, 25200, self.base.rated_voltage_mv);
-        constraints.inRange(u16, 100, 30000, self.base.max_current_ma);
-        constraints.inRange(u16, 5000, 30000, self.base.max_rpm);
+        constraints.inRange(11000, 25200, self.base.rated_voltage_mv);
+        constraints.inRange(100, 30000, self.base.max_current_ma);
+        constraints.inRange(5000, 30000, self.base.max_rpm);
 
-        constraints.inRange(u16, 100, 3000, self.kv_rating);
-        constraints.inRange(u8, 50, 100, self.max_throttle_pct);
+        constraints.inRange(100, 3000, self.kv_rating);
+        constraints.inRange(50, 100, self.max_throttle_pct);
 
         // KV * voltage should approximate max RPM
         const estimated_rpm = @as(u32, self.kv_rating) * self.base.rated_voltage_mv / 1000;
@@ -72,11 +72,11 @@ const ServoConfig = struct {
     pub fn validate(comptime self: ServoConfig) void {
         self.base.validate();
 
-        constraints.inRange(u16, 24000, 48000, self.base.rated_voltage_mv);
-        constraints.inRange(u16, 100, 10000, self.base.max_rpm);
+        constraints.inRange(24000, 48000, self.base.rated_voltage_mv);
+        constraints.inRange(100, 10000, self.base.max_rpm);
         constraints.isPowerOfTwo(self.encoder_ppr);
-        constraints.inRange(u16, 256, 16384, self.encoder_ppr);
-        constraints.inRange(u16, 1000, 20000, self.position_loop_hz);
+        constraints.inRange(256, 16384, self.encoder_ppr);
+        constraints.inRange(1000, 20000, self.position_loop_hz);
 
         // Position loop must run fast enough relative to max RPM
         // At max RPM, encoder produces ppr * rpm/60 pulses/sec
@@ -230,7 +230,7 @@ fn validateProductLine(comptime variants: []const ProductVariant) void {
         skus[i] = v.sku_id;
         v.motor.validate();
         constraints.lenInRange(0, 6, v.features.len);
-        constraints.nonZero(u32, v.price_cents);
+        constraints.nonZero(v.price_cents);
 
         // No duplicate features within a variant
         for (0..v.features.len) |fi| {

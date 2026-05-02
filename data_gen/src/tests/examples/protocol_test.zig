@@ -30,7 +30,7 @@ fn validateFrameDefinition(comptime fields: []const FrameField) void {
     var length_offset: u8 = 0;
 
     for (fields) |field| {
-        constraints.nonZero(u8, field.size);
+        constraints.nonZero(field.size);
 
         if (field.field_type == .payload) {
             has_payload = true;
@@ -105,8 +105,8 @@ fn validateMessageRegistry(comptime msgs: []const MessageDef) void {
     var ids: [msgs.len]u8 = undefined;
     for (msgs, 0..) |msg, i| {
         ids[i] = msg.type_id;
-        constraints.inRange(u8, 0, 128, msg.payload_size);
-        constraints.inRange(u8, 0, 7, msg.priority);
+        constraints.inRange(0, 128, msg.payload_size);
+        constraints.inRange(0, 7, msg.priority);
 
         if (msg.is_broadcast and msg.response_type_id != null)
             @compileError(std.fmt.comptimePrint(
@@ -222,9 +222,9 @@ const BaudConfig = struct {
     hw_flow_control: bool,
 
     pub fn validate(comptime self: BaudConfig) void {
-        constraints.oneOf(u32, &.{ 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600 }, self.baud_rate);
-        constraints.oneOf(u8, &.{ 7, 8 }, self.data_bits);
-        constraints.oneOf(u8, &.{ 1, 2 }, self.stop_bits);
+        constraints.oneOf(&.{ 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600 }, self.baud_rate);
+        constraints.oneOf(&.{ 7, 8 }, self.data_bits);
+        constraints.oneOf(&.{ 1, 2 }, self.stop_bits);
 
         if (self.data_bits == 7 and self.parity == .none)
             @compileError("7-bit data requires parity for frame synchronization");

@@ -11,8 +11,8 @@ const Component = struct {
     active: bool,
 
     pub fn validate(comptime self: Component) void {
-        constraints.inRange(u32, 0, 5000, self.power_mw);
-        constraints.oneOf(u16, &.{ 1800, 3300, 5000, 12000 }, self.voltage_mv);
+        constraints.inRange(0, 5000, self.power_mw);
+        constraints.oneOf(&.{ 1800, 3300, 5000, 12000 }, self.voltage_mv);
         if (!self.active and self.power_mw != 0)
             @compileError("inactive component must have zero power");
     }
@@ -25,7 +25,7 @@ const Subsystem = struct {
     voltage_mv: u16,
 
     pub fn validate(comptime self: Subsystem) void {
-        constraints.inRange(u32, 0, 15000, self.max_power_mw);
+        constraints.inRange(0, 15000, self.max_power_mw);
 
         var total_power: u32 = 0;
         var comp_ids: [4]u8 = undefined;
@@ -54,7 +54,7 @@ const System = struct {
     name_id: u8,
 
     pub fn validate(comptime self: System) void {
-        constraints.inRange(u32, 0, 50000, self.power_budget_mw);
+        constraints.inRange(0, 50000, self.power_budget_mw);
 
         var total_power: u32 = 0;
         var sub_ids: [3]u8 = undefined;
@@ -151,8 +151,8 @@ fn validateTaskGraph(comptime tasks: []const Task) void {
     var ids: [tasks.len]u8 = undefined;
     for (tasks, 0..) |task, i| {
         ids[i] = task.id;
-        constraints.nonZero(u8, task.duration_hours);
-        constraints.inRange(u8, 1, 100, task.duration_hours);
+        constraints.nonZero(task.duration_hours);
+        constraints.inRange(1, 100, task.duration_hours);
 
         if (task.dependency_idx) |dep_idx| {
             if (dep_idx >= tasks.len)
@@ -229,7 +229,7 @@ fn validateErdRegistry(comptime specs: []const ErdSpec) void {
         if (spec.erd_type != .struct_type and spec.size_bytes != expected_size)
             @compileError("size_bytes doesn't match type");
 
-        constraints.inRange(u8, 0, 16, spec.max_subs);
+        constraints.inRange(0, 16, spec.max_subs);
     }
     constraints.noDuplicates(u16, &numbers);
 }

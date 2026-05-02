@@ -16,8 +16,8 @@ fn validateLinearization(comptime table: []const LinPoint) void {
     var inputs: [table.len]i16 = undefined;
     for (table, 0..) |pt, i| {
         inputs[i] = pt.input;
-        constraints.inRange(i16, -1000, 1000, pt.input);
-        constraints.inRange(i16, -1000, 1000, pt.output);
+        constraints.inRange(-1000, 1000, pt.input);
+        constraints.inRange(-1000, 1000, pt.output);
     }
     constraints.isSorted(i16, &inputs);
     constraints.noDuplicates(i16, &inputs);
@@ -60,9 +60,9 @@ const PolyCoeffs = struct {
     c: i32,
 
     pub fn validate(comptime self: PolyCoeffs) void {
-        constraints.inRange(i32, -10000, 10000, self.a);
-        constraints.inRange(i32, -10000, 10000, self.b);
-        constraints.inRange(i32, -10000, 10000, self.c);
+        constraints.inRange(-10000, 10000, self.a);
+        constraints.inRange(-10000, 10000, self.b);
+        constraints.inRange(-10000, 10000, self.c);
     }
 
     pub fn eval(comptime self: PolyCoeffs, comptime x: i32) i32 {
@@ -104,9 +104,9 @@ const ScalingConfig = struct {
     scale_denominator: u16,
 
     pub fn validate(comptime self: ScalingConfig) void {
-        constraints.lessThan(i16, self.input_min, self.input_max);
-        constraints.lessThan(i16, self.output_min, self.output_max);
-        constraints.nonZero(u16, self.scale_denominator);
+        constraints.lessThan(self.input_min, self.input_max);
+        constraints.lessThan(self.output_min, self.output_max);
+        constraints.nonZero(self.scale_denominator);
 
         const input_range = self.input_max - self.input_min;
         const output_range = self.output_max - self.output_min;
@@ -175,8 +175,8 @@ const cal_table = blk: {
     const table = generators.generateArray(CalEntry, 64, gen_fn);
 
     for (table) |entry| {
-        constraints.inRange(u16, 0, 4095, entry.raw);
-        constraints.inRange(u16, 0, 4095, entry.calibrated);
+        constraints.inRange(0, 4095, entry.raw);
+        constraints.inRange(0, 4095, entry.calibrated);
     }
 
     for (1..table.len) |i| {
@@ -212,10 +212,10 @@ const AdcCalibration = struct {
     reference_mv: u16,
 
     pub fn validate(comptime self: AdcCalibration) void {
-        constraints.inRange(u8, 0, 15, self.channel);
-        constraints.inRange(u16, 512, 2048, self.gain);
-        constraints.inRange(i16, -500, 500, self.offset);
-        constraints.oneOf(u16, &.{ 1100, 2500, 3300, 5000 }, self.reference_mv);
+        constraints.inRange(0, 15, self.channel);
+        constraints.inRange(512, 2048, self.gain);
+        constraints.inRange(-500, 500, self.offset);
+        constraints.oneOf(&.{ 1100, 2500, 3300, 5000 }, self.reference_mv);
     }
 };
 

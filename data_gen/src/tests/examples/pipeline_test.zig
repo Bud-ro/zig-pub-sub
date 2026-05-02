@@ -54,7 +54,7 @@ fn validatePipeline(
     var stage_ids: [stages.len]u8 = undefined;
     for (stages, 0..) |stage, i| {
         stage_ids[i] = stage.id;
-        constraints.nonZero(u16, stage.processing_budget_us);
+        constraints.nonZero(stage.processing_budget_us);
 
         if (stage.kind == .source and stage.input_types.len != 0)
             @compileError(std.fmt.comptimePrint(

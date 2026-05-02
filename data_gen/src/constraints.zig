@@ -6,7 +6,7 @@
 const std = @import("std");
 
 /// Asserts value is within [min, max] inclusive. Compile error on failure.
-pub fn inRange(comptime T: type, comptime min: T, comptime max: T, comptime value: T) void {
+pub fn inRange(comptime min: anytype, comptime max: anytype, comptime value: anytype) void {
     if (value < min or value > max) {
         @compileError(std.fmt.comptimePrint(
             "value {} is outside range [{}, {}]",
@@ -16,13 +16,13 @@ pub fn inRange(comptime T: type, comptime min: T, comptime max: T, comptime valu
 }
 
 /// Returns true if value is in [min, max] inclusive.
-pub fn isInRange(comptime T: type, comptime min: T, comptime max: T, comptime value: T) bool {
+pub fn isInRange(comptime min: anytype, comptime max: anytype, comptime value: anytype) bool {
     return value >= min and value <= max;
 }
 
 /// Asserts value equals one of the allowed values. Compile error on failure.
-pub fn oneOf(comptime T: type, comptime allowed: anytype, comptime value: T) void {
-    if (!isOneOf(T, allowed, value)) {
+pub fn oneOf(comptime allowed: anytype, comptime value: anytype) void {
+    if (!isOneOf(allowed, value)) {
         var set_str: []const u8 = "";
         for (allowed, 0..) |a, i| {
             if (i > 0) set_str = set_str ++ ", ";
@@ -36,7 +36,7 @@ pub fn oneOf(comptime T: type, comptime allowed: anytype, comptime value: T) voi
 }
 
 /// Returns true if value equals one of the allowed values.
-pub fn isOneOf(comptime T: type, comptime allowed: anytype, comptime value: T) bool {
+pub fn isOneOf(comptime allowed: anytype, comptime value: anytype) bool {
     for (allowed) |a| {
         if (value == a) return true;
     }
@@ -64,14 +64,9 @@ pub fn lenInRange(comptime min: usize, comptime max: usize, comptime actual: usi
 }
 
 /// Asserts every element of a comptime array satisfies a check function.
-/// The check function must take `(comptime T) void` and @compileError on failure.
-pub fn allElements(
-    comptime T: type,
-    comptime arr: []const T,
-    comptime check: fn (comptime T) void,
-) void {
+pub fn allElements(comptime T: type, comptime arr: []const T, comptime check: fn (comptime T) void) void {
     for (arr) |elem| {
-        @call(.auto, check, .{elem});
+        check(elem);
     }
 }
 
@@ -126,7 +121,7 @@ pub fn isMultipleOf(comptime divisor: anytype, comptime value: anytype) void {
 }
 
 /// Asserts value is not zero. Compile error on failure.
-pub fn nonZero(comptime T: type, comptime value: T) void {
+pub fn nonZero(comptime value: anytype) void {
     if (value == 0) {
         @compileError("value must not be zero");
     }
@@ -142,7 +137,7 @@ pub fn anyOf(comptime checks: []const bool) void {
 }
 
 /// Asserts that a comptime value is strictly less than another.
-pub fn lessThan(comptime T: type, comptime a: T, comptime b: T) void {
+pub fn lessThan(comptime a: anytype, comptime b: anytype) void {
     if (a >= b) {
         @compileError(std.fmt.comptimePrint(
             "expected {} < {}, but it is not",
@@ -152,7 +147,7 @@ pub fn lessThan(comptime T: type, comptime a: T, comptime b: T) void {
 }
 
 /// Asserts that a comptime value is strictly greater than another.
-pub fn greaterThan(comptime T: type, comptime a: T, comptime b: T) void {
+pub fn greaterThan(comptime a: anytype, comptime b: anytype) void {
     if (a <= b) {
         @compileError(std.fmt.comptimePrint(
             "expected {} > {}, but it is not",

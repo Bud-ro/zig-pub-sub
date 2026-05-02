@@ -27,8 +27,8 @@ fn validatePowerSequence(comptime rails: []const RailSpec) void {
     var ids: [rails.len]u8 = undefined;
     for (rails, 0..) |rail, i| {
         ids[i] = @intFromEnum(rail.rail);
-        constraints.nonZero(u16, rail.voltage_mv);
-        constraints.nonZero(u16, rail.max_current_ma);
+        constraints.nonZero(rail.voltage_mv);
+        constraints.nonZero(rail.max_current_ma);
     }
     constraints.noDuplicates(u8, &ids);
 

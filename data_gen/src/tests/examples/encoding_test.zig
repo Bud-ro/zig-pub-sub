@@ -20,7 +20,7 @@ fn validatePrefixFree(comptime codes: []const CodeEntry) void {
     var symbols: [codes.len]u8 = undefined;
     for (codes, 0..) |entry, i| {
         symbols[i] = entry.symbol;
-        constraints.inRange(u4, 1, 15, entry.length);
+        constraints.inRange(1, 15, entry.length);
 
         // Code must fit within declared length
         const max_val: u16 = (@as(u16, 1) << entry.length) - 1;
@@ -158,7 +158,7 @@ fn validateInstructionSet(comptime instrs: []const InstrDef) void {
     const opcode_bits: u8 = 8;
 
     for (instrs) |instr| {
-        constraints.nonZero(u8, instr.cycles);
+        constraints.nonZero(instr.cycles);
 
         const total_bits = opcode_bits +
             @as(u8, instr.operand_count) * instr.operand_bits +

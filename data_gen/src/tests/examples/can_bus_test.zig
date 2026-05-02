@@ -18,11 +18,11 @@ const CanBitTiming = struct {
     sjw: u8,
 
     pub fn validate(comptime self: CanBitTiming) void {
-        constraints.inRange(u16, 1, 1024, self.prescaler);
-        constraints.inRange(u8, 1, 8, self.prop_seg);
-        constraints.inRange(u8, 1, 8, self.phase_seg1);
-        constraints.inRange(u8, 1, 8, self.phase_seg2);
-        constraints.inRange(u8, 1, 4, self.sjw);
+        constraints.inRange(1, 1024, self.prescaler);
+        constraints.inRange(1, 8, self.prop_seg);
+        constraints.inRange(1, 8, self.phase_seg1);
+        constraints.inRange(1, 8, self.phase_seg2);
+        constraints.inRange(1, 4, self.sjw);
 
         if (self.sjw > self.phase_seg1 or self.sjw > self.phase_seg2)
             @compileError("SJW must not exceed the smaller of phase_seg1 and phase_seg2");
@@ -54,13 +54,13 @@ const CanNodeConfig = struct {
 
     pub fn validate(comptime self: CanNodeConfig) void {
         self.timing.validate();
-        constraints.nonZero(u32, self.clock_hz);
+        constraints.nonZero(self.clock_hz);
 
         const baud = self.timing.baudRate(self.clock_hz);
-        constraints.oneOf(u32, &.{ 125_000, 250_000, 500_000, 1_000_000 }, baud);
+        constraints.oneOf(&.{ 125_000, 250_000, 500_000, 1_000_000 }, baud);
 
         const sp = self.timing.samplePointPct();
-        constraints.inRange(u8, 75, 90, sp);
+        constraints.inRange(75, 90, sp);
 
         if (self.silent_mode and self.loopback)
             @compileError("silent mode and loopback are mutually exclusive");

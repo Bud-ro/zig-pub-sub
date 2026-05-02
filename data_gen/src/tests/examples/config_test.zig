@@ -10,8 +10,8 @@ const AppVersion = struct {
     patch: u16,
 
     pub fn validate(comptime self: AppVersion) void {
-        constraints.inRange(u8, 0, 99, self.major);
-        constraints.inRange(u8, 0, 99, self.minor);
+        constraints.inRange(0, 99, self.major);
+        constraints.inRange(0, 99, self.minor);
     }
 
     pub fn generate(comptime self: AppVersion) AppVersion {
@@ -49,12 +49,12 @@ const NetworkConfig = struct {
     keepalive_seconds: u16,
 
     pub fn validate(comptime self: NetworkConfig) void {
-        constraints.inRange(u16, 1, 65535, self.port);
+        constraints.inRange(1, 65535, self.port);
         constraints.isPowerOfTwo(self.mtu);
-        constraints.inRange(u16, 64, 9000, self.mtu);
-        constraints.inRange(u16, 1, 1024, self.max_connections);
-        constraints.nonZero(u16, self.keepalive_seconds);
-        constraints.inRange(u16, 1, 3600, self.keepalive_seconds);
+        constraints.inRange(64, 9000, self.mtu);
+        constraints.inRange(1, 1024, self.max_connections);
+        constraints.nonZero(self.keepalive_seconds);
+        constraints.inRange(1, 3600, self.keepalive_seconds);
     }
 
     pub fn generate(comptime self: NetworkConfig) NetworkConfig {
@@ -142,11 +142,11 @@ const SensorThresholds = struct {
     critical_high: i16,
 
     pub fn validate(comptime self: SensorThresholds) void {
-        constraints.lessThan(i16, self.critical_low, self.warning_low);
-        constraints.lessThan(i16, self.warning_low, self.warning_high);
-        constraints.lessThan(i16, self.warning_high, self.critical_high);
-        constraints.inRange(i16, -200, 200, self.critical_low);
-        constraints.inRange(i16, -200, 200, self.critical_high);
+        constraints.lessThan(self.critical_low, self.warning_low);
+        constraints.lessThan(self.warning_low, self.warning_high);
+        constraints.lessThan(self.warning_high, self.critical_high);
+        constraints.inRange(-200, 200, self.critical_low);
+        constraints.inRange(-200, 200, self.critical_high);
     }
 };
 

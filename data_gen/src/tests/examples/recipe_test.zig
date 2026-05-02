@@ -15,34 +15,34 @@ const WashStep = struct {
     water_liters: u8,
 
     pub fn validate(comptime self: WashStep) void {
-        constraints.inRange(u16, 1, 3600, self.duration_seconds);
+        constraints.inRange(1, 3600, self.duration_seconds);
 
         switch (self.phase) {
             .fill => {
                 if (self.drum_rpm != 0)
                     @compileError("drum must be stopped during fill");
-                constraints.inRange(u8, 10, 60, self.water_temp_c);
-                constraints.nonZero(u8, self.water_liters);
+                constraints.inRange(10, 60, self.water_temp_c);
+                constraints.nonZero(self.water_liters);
             },
             .heat => {
                 if (self.drum_rpm != 0)
                     @compileError("drum must be stopped during heat");
-                constraints.inRange(u8, 30, 95, self.water_temp_c);
+                constraints.inRange(30, 95, self.water_temp_c);
                 if (self.water_liters != 0)
                     @compileError("no water added during heat");
             },
             .wash => {
-                constraints.inRange(u16, 20, 80, self.drum_rpm);
-                constraints.inRange(u8, 20, 95, self.water_temp_c);
+                constraints.inRange(20, 80, self.drum_rpm);
+                constraints.inRange(20, 95, self.water_temp_c);
             },
             .rinse => {
-                constraints.inRange(u16, 20, 60, self.drum_rpm);
-                constraints.inRange(u8, 10, 30, self.water_temp_c);
+                constraints.inRange(20, 60, self.drum_rpm);
+                constraints.inRange(10, 30, self.water_temp_c);
             },
             .spin => {
                 if (self.water_temp_c != 0)
                     @compileError("no heating during spin");
-                constraints.inRange(u16, 400, 1400, self.drum_rpm);
+                constraints.inRange(400, 1400, self.drum_rpm);
                 if (self.water_liters != 0)
                     @compileError("no water during spin");
             },
@@ -202,14 +202,14 @@ fn validateBeverageRecipe(comptime recipe: []const Ingredient) void {
     var total_ml: u32 = 0;
     var ids: [recipe.len]u8 = undefined;
     for (recipe, 0..) |ing, i| {
-        constraints.inRange(u16, 1, 500, ing.amount_ml);
-        constraints.inRange(u8, 4, 100, ing.temp_c);
-        constraints.nonZero(u16, ing.dispense_time_ms);
+        constraints.inRange(1, 500, ing.amount_ml);
+        constraints.inRange(4, 100, ing.temp_c);
+        constraints.nonZero(ing.dispense_time_ms);
         total_ml += ing.amount_ml;
         ids[i] = ing.id;
     }
     constraints.noDuplicates(u8, &ids);
-    constraints.inRange(u32, 100, 1000, @intCast(total_ml));
+    constraints.inRange(100, 1000, total_ml);
 }
 
 const espresso = blk: {

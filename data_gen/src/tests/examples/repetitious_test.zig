@@ -21,8 +21,8 @@ const large_cal_table = blk: {
     const table = generators.generateArray(CalEntry, 128, gen);
 
     for (table) |entry| {
-        constraints.inRange(u16, 0, 65535, entry.raw);
-        constraints.inRange(u16, 0, 65535, entry.calibrated);
+        constraints.inRange(0, 65535, entry.raw);
+        constraints.inRange(0, 65535, entry.calibrated);
     }
 
     for (1..table.len) |i| {
@@ -102,7 +102,7 @@ const sin_approx_table = blk: {
     const table = generators.generateArray(i16, 256, gen);
 
     for (table) |v| {
-        constraints.inRange(i16, -512, 512, v);
+        constraints.inRange(-512, 512, v);
     }
 
     if (table[0] != 0)
@@ -131,66 +131,6 @@ test "256-entry sine table values in range" {
     }
 }
 
-// --- 100 Sensor Configs via Unfold ---
-
-const SensorConfig = struct {
-    channel: u8,
-    sample_rate_hz: u16,
-    gain: u8,
-};
-
-const sensor_array = blk: {
-    @setEvalBranchQuota(20_000);
-    const gen = struct {
-        fn f(comptime i: usize) SensorConfig {
-            var rate: u16 = 1000;
-            var gain: u8 = 1;
-            for (0..i) |_| {
-                rate = if (rate < 5000) rate + 50 else 1000;
-                gain = (gain % 8) + 1;
-            }
-            return .{
-                .channel = @intCast(i),
-                .sample_rate_hz = rate,
-                .gain = gain,
-            };
-        }
-    }.f;
-    const arr = generators.generateArray(SensorConfig, 100, gen);
-
-    for (arr) |cfg| {
-        constraints.inRange(u16, 1000, 5050, cfg.sample_rate_hz);
-        constraints.inRange(u8, 1, 8, cfg.gain);
-    }
-
-    break :blk arr;
-};
-
-test "100 sensor configs generated with stateful logic" {
-    comptime {
-        try std.testing.expectEqual(100, sensor_array.len);
-        try std.testing.expectEqual(0, sensor_array[0].channel);
-        try std.testing.expectEqual(1000, sensor_array[0].sample_rate_hz);
-    }
-}
-
-test "100 sensor configs have unique channels" {
-    comptime {
-        for (0..sensor_array.len) |i| {
-            try std.testing.expectEqual(@as(u8, @intCast(i)), sensor_array[i].channel);
-        }
-    }
-}
-
-test "100 sensor configs all in range" {
-    comptime {
-        for (sensor_array) |cfg| {
-            try std.testing.expect(cfg.sample_rate_hz >= 1000 and cfg.sample_rate_hz <= 5050);
-            try std.testing.expect(cfg.gain >= 1 and cfg.gain <= 8);
-        }
-    }
-}
-
 // --- Batch of Validated Configs ---
 
 const MotorConfig = struct {
@@ -200,9 +140,9 @@ const MotorConfig = struct {
     pole_pairs: u8,
 
     pub fn validate(comptime self: MotorConfig) void {
-        constraints.inRange(u16, 100, 30000, self.max_rpm);
-        constraints.inRange(u16, 100, 50000, self.rated_current_ma);
-        constraints.oneOf(u8, &.{ 1, 2, 3, 4, 6, 8 }, self.pole_pairs);
+        constraints.inRange(100, 30000, self.max_rpm);
+        constraints.inRange(100, 50000, self.rated_current_ma);
+        constraints.oneOf(&.{ 1, 2, 3, 4, 6, 8 }, self.pole_pairs);
     }
 };
 

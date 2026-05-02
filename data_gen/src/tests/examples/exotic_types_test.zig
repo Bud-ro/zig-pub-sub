@@ -19,12 +19,12 @@ const StatusRegister = packed struct {
         if (self.busy == 1 and self.error_code != 0)
             @compileError("cannot be busy with an active error");
 
-        constraints.inRange(u4, 0, 7, self.channel);
+        constraints.inRange(0, 7, self.channel);
 
         if (self.mode == 3)
             @compileError("mode 3 is reserved");
 
-        constraints.inRange(u5, 1, 16, self.gain);
+        constraints.inRange(1, 16, self.gain);
     }
 };
 
@@ -78,7 +78,7 @@ const DacControl = packed struct {
         if (self.output_gain == 1 and self.data > 2048)
             @compileError("2x gain mode limits data to 0-2048 to avoid clipping");
 
-        constraints.inRange(u12, 0, 4095, self.data);
+        constraints.inRange(0, 4095, self.data);
     }
 };
 
@@ -128,8 +128,8 @@ const SensorReading = extern struct {
     _pad2: [2]u8 = .{ 0, 0 },
 
     pub fn validate(comptime self: SensorReading) void {
-        constraints.inRange(u8, 0, 15, self.channel_id);
-        constraints.nonZero(u32, self.timestamp_ms);
+        constraints.inRange(0, 15, self.channel_id);
+        constraints.nonZero(self.timestamp_ms);
 
         // Scaled value must be a plausible transformation of raw
         // (within 10x factor)
@@ -202,20 +202,20 @@ const Command = union(CommandTag) {
 fn validateCommand(comptime cmd: Command) void {
     switch (cmd) {
         .set_output => |data| {
-            constraints.inRange(u8, 0, 7, data.channel);
-            constraints.inRange(u16, 0, 4095, data.value);
+            constraints.inRange(0, 7, data.channel);
+            constraints.inRange(0, 4095, data.value);
         },
         .read_input => |channel| {
-            constraints.inRange(u8, 0, 15, channel);
+            constraints.inRange(0, 15, channel);
         },
         .configure => |data| {
-            constraints.inRange(u16, 0, 255, data.parameter_id);
+            constraints.inRange(0, 255, data.parameter_id);
         },
         .reset => {},
         .calibrate => |data| {
-            constraints.inRange(u8, 0, 7, data.channel);
-            constraints.inRange(i16, -1000, 1000, data.reference_value);
-            constraints.oneOf(u8, &.{ 1, 4, 8, 16, 32, 64 }, data.num_samples);
+            constraints.inRange(0, 7, data.channel);
+            constraints.inRange(-1000, 1000, data.reference_value);
+            constraints.oneOf(&.{ 1, 4, 8, 16, 32, 64 }, data.num_samples);
         },
     }
 }
@@ -312,7 +312,7 @@ const GainTable = struct {
         // All values in valid range
         for (self.values) |row| {
             for (row) |v| {
-                constraints.inRange(u8, 0, 64, v);
+                constraints.inRange(0, 64, v);
             }
         }
     }

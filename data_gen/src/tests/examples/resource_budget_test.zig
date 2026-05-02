@@ -49,7 +49,7 @@ fn validateResourceBudget(
         total_flash += m.resources.flash_bytes;
         total_power += m.resources.power_uw;
 
-        constraints.inRange(u16, 0, 1000, m.resources.cpu_pct_x10);
+        constraints.inRange(0, 1000, m.resources.cpu_pct_x10);
     }
     constraints.noDuplicates(u8, &ids);
 
@@ -214,8 +214,8 @@ fn validateTiling(comptime rects: []const Rect, comptime screen_w: u16, comptime
 
     // All rects within screen bounds
     for (rects) |r| {
-        constraints.nonZero(u16, r.w);
-        constraints.nonZero(u16, r.h);
+        constraints.nonZero(r.w);
+        constraints.nonZero(r.h);
         if (r.x + r.w > screen_w)
             @compileError(std.fmt.comptimePrint(
                 "rect at ({},{}) with size {}x{} exceeds screen width {}",

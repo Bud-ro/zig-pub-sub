@@ -26,8 +26,8 @@ fn validateFusionWeights(comptime sensors: []const SensorWeight) void {
     // Weights must sum to 1024 (representing 1.0)
     var weight_sum: u32 = 0;
     for (sensors) |s| {
-        constraints.nonZero(u16, s.weight_per1024);
-        constraints.nonZero(u16, s.update_rate_hz);
+        constraints.nonZero(s.weight_per1024);
+        constraints.nonZero(s.update_rate_hz);
         weight_sum += s.weight_per1024;
     }
     if (weight_sum != 1024)
@@ -105,9 +105,9 @@ const FilterStage = struct {
     gain_x100: u16,
 
     pub fn validate(comptime self: FilterStage) void {
-        constraints.inRange(u8, 1, 8, self.order);
-        constraints.nonZero(u16, self.cutoff_hz);
-        constraints.nonZero(u16, self.sample_rate_hz);
+        constraints.inRange(1, 8, self.order);
+        constraints.nonZero(self.cutoff_hz);
+        constraints.nonZero(self.sample_rate_hz);
 
         // Nyquist: cutoff must be less than half the sample rate
         if (self.cutoff_hz >= self.sample_rate_hz / 2)
@@ -120,7 +120,7 @@ const FilterStage = struct {
         if (self.order > 4 and self.cutoff_hz > self.sample_rate_hz / 4)
             @compileError("high-order filters (>4) need cutoff < fs/4 for stability");
 
-        constraints.inRange(u16, 50, 200, self.gain_x100);
+        constraints.inRange(50, 200, self.gain_x100);
     }
 };
 
@@ -146,8 +146,6 @@ test "high-order filter with low cutoff passes validation" {
     }
 }
 
-// --- Using validatedSequence with complex domain logic ---
-
 const MeasurementPhase = enum(u8) { zero_cal, span_cal, warmup, measure, cooldown };
 
 const MeasurementStep = struct {
@@ -158,8 +156,8 @@ const MeasurementStep = struct {
 };
 
 fn validateMeasurementStep(comptime step: MeasurementStep, comptime idx: usize) void {
-    constraints.nonZero(u16, step.duration_ms);
-    constraints.inRange(u8, 1, 50, step.tolerance_pct);
+    constraints.nonZero(step.duration_ms);
+    constraints.inRange(1, 50, step.tolerance_pct);
 
     if (idx == 0 and step.phase != .zero_cal)
         @compileError("measurement sequence must start with zero calibration");
@@ -169,18 +167,10 @@ fn validateMeasurementStep(comptime step: MeasurementStep, comptime idx: usize) 
             if (step.target_value != 0)
                 @compileError("zero calibration target must be 0");
         },
-        .span_cal => {
-            constraints.nonZero(i16, step.target_value);
-        },
-        .warmup => {
-            constraints.inRange(u16, 1000, 30000, step.duration_ms);
-        },
-        .measure => {
-            constraints.inRange(u8, 1, 10, step.tolerance_pct);
-        },
-        .cooldown => {
-            constraints.inRange(u16, 500, 10000, step.duration_ms);
-        },
+        .span_cal => constraints.nonZero(step.target_value),
+        .warmup => constraints.inRange(1000, 30000, step.duration_ms),
+        .measure => constraints.inRange(1, 10, step.tolerance_pct),
+        .cooldown => constraints.inRange(500, 10000, step.duration_ms),
     }
 }
 

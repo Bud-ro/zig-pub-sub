@@ -73,8 +73,8 @@ fn validatePriorityMap(comptime map: []const PriorityConfig) void {
     }
 
     for (map) |entry| {
-        constraints.nonZero(u16, entry.weight);
-        constraints.nonZero(u8, entry.max_queue_depth);
+        constraints.nonZero(entry.weight);
+        constraints.nonZero(entry.max_queue_depth);
     }
 }
 
@@ -118,7 +118,7 @@ fn validateInterpTable(comptime table: []const InterpPoint) void {
     var xs: [table.len]i32 = undefined;
     for (table, 0..) |pt, i| {
         xs[i] = pt.x;
-        constraints.inRange(i32, -10000, 10000, pt.y);
+        constraints.inRange(-10000, 10000, pt.y);
     }
     constraints.isSorted(i32, &xs);
     constraints.noDuplicates(i32, &xs);
@@ -186,7 +186,7 @@ fn validatePiecewise(comptime segments: []const Segment) void {
         @compileError("piecewise map needs at least one segment");
 
     for (segments) |seg| {
-        constraints.lessThan(i16, seg.start_x, seg.end_x);
+        constraints.lessThan(seg.start_x, seg.end_x);
     }
 
     for (1..segments.len) |i| {

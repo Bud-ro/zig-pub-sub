@@ -19,7 +19,7 @@ fn validateTransitionTable(comptime table: []const Transition) void {
         @compileError("transition table cannot be empty");
 
     for (table) |t| {
-        constraints.inRange(u32, 0, 60_000, t.timeout_ms);
+        constraints.inRange(0, 60_000, t.timeout_ms);
 
         if (t.from == t.to and t.event != .reset)
             @compileError("self-transitions only allowed on reset events");
@@ -142,7 +142,7 @@ const PhaseTiming = struct {
     next_state: PhaseState,
 
     pub fn validate(comptime self: PhaseTiming) void {
-        constraints.lessThan(u32, self.min_duration_ms, self.max_duration_ms);
+        constraints.lessThan(self.min_duration_ms, self.max_duration_ms);
         if (self.state == self.next_state)
             @compileError("phase must transition to a different state");
     }

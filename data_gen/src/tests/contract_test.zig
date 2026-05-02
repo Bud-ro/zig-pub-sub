@@ -7,9 +7,9 @@ const BoundedPair = struct {
     high: u16,
 
     pub fn validate(comptime self: BoundedPair) void {
-        constraints.inRange(u16, 0, 1000, self.low);
-        constraints.inRange(u16, 0, 1000, self.high);
-        constraints.lessThan(u16, self.low, self.high);
+        constraints.inRange(0, 1000, self.low);
+        constraints.inRange(0, 1000, self.high);
+        constraints.lessThan(self.low, self.high);
     }
 
     pub fn generate(comptime low: u16, comptime high: u16) BoundedPair {

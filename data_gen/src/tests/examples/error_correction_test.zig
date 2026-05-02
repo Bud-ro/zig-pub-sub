@@ -150,7 +150,7 @@ const CrcConfig = struct {
     reflect_out: bool,
 
     pub fn validate(comptime self: CrcConfig) void {
-        constraints.oneOf(u8, &.{ 8, 16, 32 }, self.width);
+        constraints.oneOf(&.{ 8, 16, 32 }, self.width);
 
         // Values must fit within width (standard representation omits the implicit x^n MSB)
         const mask: u32 = if (self.width == 32) 0xFFFFFFFF else (@as(u32, 1) << @intCast(self.width)) - 1;
@@ -161,7 +161,7 @@ const CrcConfig = struct {
         if (self.xor_out & ~mask != 0)
             @compileError("xor_out value exceeds declared width");
 
-        constraints.nonZero(u32, self.poly);
+        constraints.nonZero(self.poly);
 
         // LSB must be set (polynomial must be odd for single-bit error detection)
         if (self.poly & 1 == 0)

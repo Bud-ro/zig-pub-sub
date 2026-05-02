@@ -38,9 +38,9 @@ const FirmwareHeader = struct {
         if (self.magic != 0xDEAD_BEEF)
             @compileError("invalid magic number");
 
-        constraints.inRange(u8, 0, 99, self.version_major);
-        constraints.inRange(u8, 0, 99, self.version_minor);
-        constraints.nonZero(u32, self.image_size);
+        constraints.inRange(0, 99, self.version_major);
+        constraints.inRange(0, 99, self.version_minor);
+        constraints.nonZero(self.image_size);
         if (self.entry_point < self.load_address)
             @compileError("entry point must be within the loaded image (>= load_address)");
 

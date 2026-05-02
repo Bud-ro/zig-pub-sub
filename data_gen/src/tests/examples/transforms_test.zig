@@ -205,8 +205,8 @@ const SensorConfig = struct {
     filter_beta: u16,
 
     pub fn validate(comptime self: SensorConfig) void {
-        constraints.lessThan(u16, self.alarm_low_counts, self.alarm_high_counts);
-        constraints.nonZero(u16, self.sample_ticks);
+        constraints.lessThan(self.alarm_low_counts, self.alarm_high_counts);
+        constraints.nonZero(self.sample_ticks);
         const sum = @as(u32, self.filter_alpha) + self.filter_beta;
         if (sum != 65536)
             @compileError(std.fmt.comptimePrint(

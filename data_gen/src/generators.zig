@@ -12,7 +12,7 @@ pub fn generateArray(
 ) [n]T {
     var result: [n]T = undefined;
     for (0..n) |i| {
-        result[i] = @call(.auto, func, .{i});
+        result[i] = func(i);
     }
     return result;
 }

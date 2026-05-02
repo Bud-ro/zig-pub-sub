@@ -14,9 +14,9 @@ const BitField = struct {
     bit_width: u8,
 
     pub fn validate(comptime self: BitField) void {
-        constraints.nonZero(u8, self.bit_width);
-        constraints.inRange(u8, 0, 31, self.bit_offset);
-        constraints.inRange(u8, 1, 32, self.bit_width);
+        constraints.nonZero(self.bit_width);
+        constraints.inRange(0, 31, self.bit_offset);
+        constraints.inRange(1, 32, self.bit_width);
         if (self.bit_offset + self.bit_width > 32)
             @compileError("bit field extends beyond 32-bit register width");
     }
@@ -32,8 +32,8 @@ const Register = struct {
     fields: []const BitField,
 
     pub fn validate(comptime self: Register) void {
-        constraints.oneOf(u8, &.{ 1, 2, 4 }, self.width_bytes);
-        constraints.inRange(u16, 0, 0xFFFF, self.address);
+        constraints.oneOf(&.{ 1, 2, 4 }, self.width_bytes);
+        constraints.inRange(0, 0xFFFF, self.address);
 
         if (self.address % self.width_bytes != 0)
             @compileError(std.fmt.comptimePrint(

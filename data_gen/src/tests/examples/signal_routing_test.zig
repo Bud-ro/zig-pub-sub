@@ -72,7 +72,7 @@ fn validateRoutingMatrix(comptime routes: []const RouteEntry) void {
 
     // Attenuation sanity
     for (routes) |route| {
-        constraints.inRange(u8, 0, 60, route.attenuation_db);
+        constraints.inRange(0, 60, route.attenuation_db);
     }
 }
 
@@ -155,7 +155,7 @@ fn validateCrossbar(comptime N: u4, comptime entries: []const CrossbarEntry) voi
             @compileError("input channel out of range");
         if (e.output_channel >= N)
             @compileError("output channel out of range");
-        constraints.inRange(u8, 1, 100, e.gain_x10);
+        constraints.inRange(1, 100, e.gain_x10);
     }
 }
 
@@ -208,7 +208,7 @@ fn validateDmaAssignments(comptime assignments: []const DmaAssignment) void {
     for (assignments, 0..) |a, i| {
         channels[i] = a.channel;
         periphs[i] = @intFromEnum(a.peripheral);
-        constraints.inRange(u8, 0, 15, a.channel);
+        constraints.inRange(0, 15, a.channel);
     }
     constraints.noDuplicates(u8, &channels);
     constraints.noDuplicates(u8, &periphs);

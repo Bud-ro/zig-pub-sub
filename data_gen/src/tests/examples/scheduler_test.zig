@@ -52,7 +52,7 @@ fn validateSchedule(
     constraints.lenInRange(1, 64, slots.len);
 
     for (slots) |slot| {
-        constraints.nonZero(u32, slot.duration_us);
+        constraints.nonZero(slot.duration_us);
         if (slot.end() > cycle_length_us)
             @compileError(std.fmt.comptimePrint(
                 "slot on channel {} at {}us extends past cycle boundary {}us",
@@ -225,8 +225,8 @@ fn validatePeriodicSchedule(
     @setEvalBranchQuota(100_000);
 
     for (tasks) |task| {
-        constraints.nonZero(u32, task.period_us);
-        constraints.nonZero(u32, task.duration_us);
+        constraints.nonZero(task.period_us);
+        constraints.nonZero(task.duration_us);
         if (task.duration_us >= task.period_us)
             @compileError("task duration must be less than period");
         if (task.offset_us + task.duration_us > task.period_us)

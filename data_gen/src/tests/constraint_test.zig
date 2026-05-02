@@ -3,36 +3,36 @@ const constraints = @import("data_gen").constraints;
 
 test "inRange accepts values within bounds" {
     comptime {
-        constraints.inRange(u32, 10, 100, 10);
-        constraints.inRange(u32, 10, 100, 50);
-        constraints.inRange(u32, 10, 100, 100);
-        constraints.inRange(i16, -100, 100, -100);
-        constraints.inRange(i16, -100, 100, 0);
-        constraints.inRange(i16, -100, 100, 100);
+        constraints.inRange(10, 100, 10);
+        constraints.inRange(10, 100, 50);
+        constraints.inRange(10, 100, 100);
+        constraints.inRange(-100, 100, -100);
+        constraints.inRange(-100, 100, 0);
+        constraints.inRange(-100, 100, 100);
     }
 }
 
 test "isInRange returns correct bool" {
     comptime {
-        try std.testing.expect(constraints.isInRange(u32, 0, 10, 5));
-        try std.testing.expect(constraints.isInRange(u32, 0, 10, 0));
-        try std.testing.expect(constraints.isInRange(u32, 0, 10, 10));
-        try std.testing.expect(!constraints.isInRange(u32, 0, 10, 11));
-        try std.testing.expect(!constraints.isInRange(i8, -5, 5, -6));
+        try std.testing.expect(constraints.isInRange(0, 10, 5));
+        try std.testing.expect(constraints.isInRange(0, 10, 0));
+        try std.testing.expect(constraints.isInRange(0, 10, 10));
+        try std.testing.expect(!constraints.isInRange(0, 10, 11));
+        try std.testing.expect(!constraints.isInRange(-5, 5, -6));
     }
 }
 
 test "oneOf accepts allowed values" {
     comptime {
-        constraints.oneOf(u32, &.{ 100, 200, 500, 1000 }, 200);
-        constraints.oneOf(u32, &.{ 100, 200, 500, 1000 }, 1000);
+        constraints.oneOf(&.{ 100, 200, 500, 1000 }, 200);
+        constraints.oneOf(&.{ 100, 200, 500, 1000 }, 1000);
     }
 }
 
 test "isOneOf returns correct bool" {
     comptime {
-        try std.testing.expect(constraints.isOneOf(u8, &.{ 1, 2, 3 }, 2));
-        try std.testing.expect(!constraints.isOneOf(u8, &.{ 1, 2, 3 }, 4));
+        try std.testing.expect(constraints.isOneOf(&.{ 1, 2, 3 }, 2));
+        try std.testing.expect(!constraints.isOneOf(&.{ 1, 2, 3 }, 4));
     }
 }
 
@@ -91,9 +91,9 @@ test "isMultipleOf passes on valid multiples" {
 
 test "nonZero passes on non-zero values" {
     comptime {
-        constraints.nonZero(u32, 1);
-        constraints.nonZero(u32, 42);
-        constraints.nonZero(i8, -1);
+        constraints.nonZero(1);
+        constraints.nonZero(42);
+        constraints.nonZero(-1);
     }
 }
 
@@ -107,15 +107,15 @@ test "anyOf passes when at least one is true" {
 
 test "lessThan passes for strictly less values" {
     comptime {
-        constraints.lessThan(u32, 5, 10);
-        constraints.lessThan(i16, -10, 0);
+        constraints.lessThan(5, 10);
+        constraints.lessThan(-10, 0);
     }
 }
 
 test "greaterThan passes for strictly greater values" {
     comptime {
-        constraints.greaterThan(u32, 10, 5);
-        constraints.greaterThan(i16, 0, -10);
+        constraints.greaterThan(10, 5);
+        constraints.greaterThan(0, -10);
     }
 }
 
@@ -150,8 +150,8 @@ test "anyOf with isInRange for OR composition" {
     comptime {
         const value: u32 = 95;
         constraints.anyOf(&.{
-            constraints.isInRange(u32, 0, 10, value),
-            constraints.isInRange(u32, 90, 100, value),
+            constraints.isInRange(0, 10, value),
+            constraints.isInRange(90, 100, value),
         });
     }
 }

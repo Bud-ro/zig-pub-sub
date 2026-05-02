@@ -44,17 +44,17 @@ const ClockConfig = struct {
 
     pub fn validate(comptime self: ClockConfig) void {
         if (self.source == .hse or self.source == .pll)
-            constraints.inRange(u32, 4_000_000, 25_000_000, self.hse_freq_hz);
+            constraints.inRange(4_000_000, 25_000_000, self.hse_freq_hz);
 
-        constraints.oneOf(u8, &.{ 2, 3, 4, 6, 8, 9, 12 }, self.pll_multiplier);
-        constraints.oneOf(u8, &.{ 1, 2, 4, 8 }, self.ahb_divider);
-        constraints.oneOf(u8, &.{ 1, 2, 4 }, self.apb1_divider);
-        constraints.oneOf(u8, &.{ 1, 2, 4 }, self.apb2_divider);
+        constraints.oneOf(&.{ 2, 3, 4, 6, 8, 9, 12 }, self.pll_multiplier);
+        constraints.oneOf(&.{ 1, 2, 4, 8 }, self.ahb_divider);
+        constraints.oneOf(&.{ 1, 2, 4 }, self.apb1_divider);
+        constraints.oneOf(&.{ 1, 2, 4 }, self.apb2_divider);
 
-        constraints.inRange(u32, 1_000_000, 168_000_000, self.sysClockHz());
-        constraints.inRange(u32, 1_000_000, 168_000_000, self.ahbHz());
-        constraints.inRange(u32, 1_000_000, 42_000_000, self.apb1Hz());
-        constraints.inRange(u32, 1_000_000, 84_000_000, self.apb2Hz());
+        constraints.inRange(1_000_000, 168_000_000, self.sysClockHz());
+        constraints.inRange(1_000_000, 168_000_000, self.ahbHz());
+        constraints.inRange(1_000_000, 42_000_000, self.apb1Hz());
+        constraints.inRange(1_000_000, 84_000_000, self.apb2Hz());
     }
 };
 
@@ -70,7 +70,7 @@ const MemRegion = struct {
 
 fn validateMemLayout(comptime regions: []const MemRegion) void {
     for (regions) |r| {
-        constraints.nonZero(u32, r.size);
+        constraints.nonZero(r.size);
         constraints.isPowerOfTwo(r.size);
         if (r.writable and r.executable)
             @compileError("W^X violation");
@@ -95,9 +95,9 @@ const UartConfig = struct {
     dma_enabled: bool,
 
     pub fn validate(comptime self: UartConfig, comptime apb_hz: u32) void {
-        constraints.oneOf(u32, &.{ 9600, 19200, 57600, 115200, 460800, 921600 }, self.baud_rate);
-        constraints.oneOf(u8, &.{ 7, 8 }, self.data_bits);
-        constraints.oneOf(u8, &.{ 1, 2 }, self.stop_bits);
+        constraints.oneOf(&.{ 9600, 19200, 57600, 115200, 460800, 921600 }, self.baud_rate);
+        constraints.oneOf(&.{ 7, 8 }, self.data_bits);
+        constraints.oneOf(&.{ 1, 2 }, self.stop_bits);
 
         // Baud rate must be achievable from APB clock with < 2% error
         // UART divider = apb_hz / (16 * baud_rate)
@@ -126,7 +126,7 @@ const SpiConfig = struct {
     dma_enabled: bool,
 
     pub fn validate(comptime self: SpiConfig, comptime apb_hz: u32) void {
-        constraints.nonZero(u32, self.max_clock_hz);
+        constraints.nonZero(self.max_clock_hz);
         if (self.max_clock_hz > apb_hz / 2)
             @compileError("SPI clock cannot exceed APB/2");
     }
@@ -141,9 +141,9 @@ const AdcConfig = struct {
     dma_circular: bool,
 
     pub fn validate(comptime self: AdcConfig, comptime apb_hz: u32) void {
-        constraints.oneOf(u8, &.{ 8, 10, 12 }, self.resolution_bits);
-        constraints.inRange(u32, 100, 1_000_000, self.sample_rate_hz);
-        constraints.inRange(u8, 1, 16, self.channels);
+        constraints.oneOf(&.{ 8, 10, 12 }, self.resolution_bits);
+        constraints.inRange(100, 1_000_000, self.sample_rate_hz);
+        constraints.inRange(1, 16, self.channels);
 
         const total_sample_rate = self.sample_rate_hz * self.channels;
         const max_rate = apb_hz / (self.resolution_bits + 12);
@@ -170,8 +170,8 @@ fn validateTasks(comptime tasks: []const TaskConfig, comptime ram_bytes: u32) vo
     var total_stack: u32 = 0;
     var total_util_x1000: u32 = 0;
     for (tasks) |t| {
-        constraints.nonZero(u32, t.period_us);
-        constraints.nonZero(u32, t.wcet_us);
+        constraints.nonZero(t.period_us);
+        constraints.nonZero(t.wcet_us);
         constraints.isPowerOfTwo(t.stack_bytes);
         if (t.wcet_us >= t.period_us)
             @compileError("WCET exceeds period");

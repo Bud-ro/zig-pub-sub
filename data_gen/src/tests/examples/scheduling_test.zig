@@ -24,10 +24,10 @@ fn validateRateMonotonic(comptime tasks: []const TaskDef) void {
     for (tasks, 0..) |task, i| {
         ids[i] = task.id;
         priorities[i] = task.priority;
-        constraints.nonZero(u16, task.period_ms);
-        constraints.nonZero(u32, task.wcet_us);
+        constraints.nonZero(task.period_ms);
+        constraints.nonZero(task.wcet_us);
         constraints.isPowerOfTwo(task.stack_size);
-        constraints.inRange(u16, 64, 8192, task.stack_size);
+        constraints.inRange(64, 8192, task.stack_size);
 
         if (task.wcet_us >= @as(u32, task.period_ms) * 1000)
             @compileError(std.fmt.comptimePrint(
@@ -135,7 +135,7 @@ fn validateMemoryMap(comptime regions: []const MemRegion) void {
     var ids: [regions.len]u8 = undefined;
     for (regions, 0..) |region, i| {
         ids[i] = region.name_id;
-        constraints.nonZero(u32, region.size);
+        constraints.nonZero(region.size);
         constraints.isPowerOfTwo(region.size);
 
         if (region.start_addr % region.size != 0)
@@ -229,7 +229,7 @@ fn validateIrqTable(comptime entries: []const IrqEntry, comptime task_set_ref: [
     var vectors: [entries.len]u8 = undefined;
     for (entries, 0..) |entry, i| {
         vectors[i] = entry.vector;
-        constraints.inRange(u8, 0, 15, entry.priority);
+        constraints.inRange(0, 15, entry.priority);
 
         if (entry.preempts_below_priority > entry.priority)
             @compileError("preemption threshold cannot exceed own priority");

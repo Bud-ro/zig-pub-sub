@@ -10,10 +10,10 @@ const SampleRateConfig = struct {
     averaging_window: u16,
 
     pub fn validate(comptime self: SampleRateConfig) void {
-        constraints.oneOf(u32, &.{ 100, 200, 500, 1000, 2000, 5000, 10000 }, self.rate_hz);
+        constraints.oneOf(&.{ 100, 200, 500, 1000, 2000, 5000, 10000 }, self.rate_hz);
         constraints.isPowerOfTwo(self.oversample_factor);
-        constraints.inRange(u8, 1, 64, self.oversample_factor);
-        constraints.inRange(u16, 1, 1024, self.averaging_window);
+        constraints.inRange(1, 64, self.oversample_factor);
+        constraints.inRange(1, 1024, self.averaging_window);
         if (self.averaging_window > self.rate_hz)
             @compileError("averaging window cannot exceed sample rate");
     }
@@ -55,13 +55,13 @@ const TimingConfig = struct {
     max_retries: u8,
 
     pub fn validate(comptime self: TimingConfig) void {
-        constraints.inRange(u32, 10, 30_000, self.timeout_ms);
-        constraints.inRange(u16, 1, 500, self.debounce_ms);
-        constraints.inRange(u32, 1, 60_000, self.periodic_interval_ms);
-        constraints.inRange(u16, 10, 5000, self.retry_delay_ms);
-        constraints.inRange(u8, 0, 10, self.max_retries);
+        constraints.inRange(10, 30_000, self.timeout_ms);
+        constraints.inRange(1, 500, self.debounce_ms);
+        constraints.inRange(1, 60_000, self.periodic_interval_ms);
+        constraints.inRange(10, 5000, self.retry_delay_ms);
+        constraints.inRange(0, 10, self.max_retries);
 
-        constraints.greaterThan(u32, self.timeout_ms, self.debounce_ms);
+        constraints.greaterThan(self.timeout_ms, self.debounce_ms);
 
         if (self.periodic_interval_ms < 2 * @as(u32, self.debounce_ms))
             @compileError("periodic_interval_ms must be at least 2x debounce_ms");
@@ -124,8 +124,8 @@ const TickConfig = struct {
     ticks_per_ms: u32,
 
     pub fn validate(comptime self: TickConfig) void {
-        constraints.nonZero(u32, self.tick_period_us);
-        constraints.nonZero(u32, self.ticks_per_ms);
+        constraints.nonZero(self.tick_period_us);
+        constraints.nonZero(self.ticks_per_ms);
         if (self.tick_period_us * self.ticks_per_ms != 1000)
             @compileError("tick_period_us * ticks_per_ms must equal 1000 (1ms)");
     }
@@ -168,9 +168,9 @@ const PwmConfig = struct {
     dead_time_ns: u16,
 
     pub fn validate(comptime self: PwmConfig) void {
-        constraints.inRange(u32, 1_000, 1_000_000, self.frequency_hz);
-        constraints.inRange(u8, 8, 16, self.resolution_bits);
-        constraints.inRange(u16, 0, 5000, self.dead_time_ns);
+        constraints.inRange(1_000, 1_000_000, self.frequency_hz);
+        constraints.inRange(8, 16, self.resolution_bits);
+        constraints.inRange(0, 5000, self.dead_time_ns);
 
         const max_count: u32 = @as(u32, 1) << self.resolution_bits;
         const period_ns: u32 = 1_000_000_000 / self.frequency_hz;
