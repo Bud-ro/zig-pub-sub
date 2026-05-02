@@ -2,7 +2,6 @@ const std = @import("std");
 const constraints = @import("data_gen").constraints;
 const contracts = @import("data_gen").contracts;
 const generators = @import("data_gen").generators;
-const data_testing = @import("data_gen").testing;
 
 // --- Packed Structs with Sub-Byte Fields ---
 // Mirrors PackedFr from the app: bitfields that pack into exactly
@@ -31,7 +30,7 @@ const StatusRegister = packed struct {
 
 test "packed status register valid idle state" {
     comptime {
-        data_testing.expectValid(StatusRegister, StatusRegister{
+        contracts.assertValid(StatusRegister, StatusRegister{
             .busy = 0,
             .error_code = 0,
             .channel = 3,
@@ -44,7 +43,7 @@ test "packed status register valid idle state" {
 
 test "packed status register valid busy state" {
     comptime {
-        data_testing.expectValid(StatusRegister, StatusRegister{
+        contracts.assertValid(StatusRegister, StatusRegister{
             .busy = 1,
             .error_code = 0,
             .channel = 0,
@@ -85,7 +84,7 @@ const DacControl = packed struct {
 
 test "DAC control word normal output" {
     comptime {
-        data_testing.expectValid(DacControl, DacControl{
+        contracts.assertValid(DacControl, DacControl{
             .channel_select = 0,
             .power_down_mode = 0,
             .output_gain = 0,
@@ -98,7 +97,7 @@ test "DAC control word normal output" {
 
 test "DAC control word 2x gain limited range" {
     comptime {
-        data_testing.expectValid(DacControl, DacControl{
+        contracts.assertValid(DacControl, DacControl{
             .channel_select = 1,
             .power_down_mode = 0,
             .output_gain = 1,
@@ -148,7 +147,7 @@ const SensorReading = extern struct {
 
 test "extern sensor reading valid" {
     comptime {
-        data_testing.expectValid(SensorReading, SensorReading{
+        contracts.assertValid(SensorReading, SensorReading{
             .timestamp_ms = 1000,
             .channel_id = 3,
             .value_raw = 512,

@@ -2,7 +2,6 @@ const std = @import("std");
 const constraints = @import("data_gen").constraints;
 const contracts = @import("data_gen").contracts;
 const generators = @import("data_gen").generators;
-const data_testing = @import("data_gen").testing;
 
 // --- Variant Configurations with Tightening Constraints ---
 // A base hardware config defines broad acceptable ranges.
@@ -116,22 +115,15 @@ const cnc_servo = contracts.validated(ServoConfig, ServoConfig{
 
 test "drone motor passes both base and variant validation" {
     comptime {
-        data_testing.expectValid(SmallBldcConfig, drone_motor);
-        data_testing.expectValid(BaseMotorConfig, drone_motor.base);
+        contracts.assertValid(SmallBldcConfig, drone_motor);
+        contracts.assertValid(BaseMotorConfig, drone_motor.base);
     }
 }
 
 test "cnc servo passes both base and variant validation" {
     comptime {
-        data_testing.expectValid(ServoConfig, cnc_servo);
-        data_testing.expectValid(BaseMotorConfig, cnc_servo.base);
-    }
-}
-
-test "structDiff shows difference between motor configs" {
-    comptime {
-        const diff = data_testing.structDiff(BaseMotorConfig, drone_motor.base, cnc_servo.base);
-        try std.testing.expect(!std.mem.eql(u8, diff, "(identical)"));
+        contracts.assertValid(ServoConfig, cnc_servo);
+        contracts.assertValid(BaseMotorConfig, cnc_servo.base);
     }
 }
 

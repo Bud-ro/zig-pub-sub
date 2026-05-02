@@ -1,3 +1,8 @@
+//! Primitive comptime constraint functions. Each takes a value and either
+//! returns void (assertion passed) or triggers @compileError with a message
+//! describing the violation. "Soft" variants (isInRange, isOneOf) return bool
+//! for use in OR-composition via anyOf.
+
 const std = @import("std");
 
 /// Asserts value is within [min, max] inclusive. Compile error on failure.
@@ -134,18 +139,6 @@ pub fn anyOf(comptime checks: []const bool) void {
         if (check) return;
     }
     @compileError("none of the constraint alternatives were satisfied");
-}
-
-/// Asserts all bool checks are true.
-pub fn allOf(comptime checks: []const bool) void {
-    for (checks, 0..) |check, i| {
-        if (!check) {
-            @compileError(std.fmt.comptimePrint(
-                "constraint {} of {} failed",
-                .{ i + 1, checks.len },
-            ));
-        }
-    }
 }
 
 /// Asserts that a comptime value is strictly less than another.

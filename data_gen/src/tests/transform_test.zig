@@ -43,34 +43,11 @@ test "scaledNearest rounds correctly" {
     }
 }
 
-test "fraction to fixed-point" {
-    comptime {
-        try std.testing.expectEqual(@as(u16, 128), transforms.fraction(u16, 8, 1, 2));
-        try std.testing.expectEqual(@as(u16, 64), transforms.fraction(u16, 8, 1, 4));
-        try std.testing.expectEqual(@as(u16, 192), transforms.fraction(u16, 8, 3, 4));
-    }
-}
-
-test "percent to fixed-point" {
-    comptime {
-        try std.testing.expectEqual(@as(u16, 128), transforms.percent(u16, 8, 50.0));
-        try std.testing.expectEqual(@as(u16, 64), transforms.percent(u16, 8, 25.0));
-        try std.testing.expectEqual(@as(u16, 256), transforms.percent(u16, 8, 100.0));
-    }
-}
-
 test "percentOf with rounding" {
     comptime {
         try std.testing.expectEqual(@as(u8, 128), transforms.percentOf(u8, 255, 50.0));
         try std.testing.expectEqual(@as(u8, 255), transforms.percentOf(u8, 255, 100.0));
         try std.testing.expectEqual(@as(u8, 0), transforms.percentOf(u8, 255, 0.0));
-    }
-}
-
-test "convert units" {
-    comptime {
-        try std.testing.expectEqual(@as(u16, 3300), transforms.unitConvert(u16, 3.3, 1000.0));
-        try std.testing.expectEqual(@as(u32, 48000000), transforms.unitConvert(u32, 48.0, 1000000.0));
     }
 }
 

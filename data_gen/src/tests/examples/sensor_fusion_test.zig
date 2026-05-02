@@ -2,7 +2,6 @@ const std = @import("std");
 const constraints = @import("data_gen").constraints;
 const contracts = @import("data_gen").contracts;
 const generators = @import("data_gen").generators;
-const data_testing = @import("data_gen").testing;
 
 // --- Sensor Fusion Pipeline ---
 // Multiple sensors feed into a fusion algorithm. Each sensor has
@@ -97,7 +96,7 @@ test "fusion has 5 unique sensor types" {
     }
 }
 
-// --- Using expectValid from the testing module ---
+// --- Filter Stage Validation ---
 
 const FilterStage = struct {
     order: u8,
@@ -125,9 +124,9 @@ const FilterStage = struct {
     }
 };
 
-test "expectValid accepts well-configured filter" {
+test "well-configured filter passes validation" {
     comptime {
-        data_testing.expectValid(FilterStage, FilterStage{
+        contracts.assertValid(FilterStage, FilterStage{
             .order = 4,
             .cutoff_hz = 1000,
             .sample_rate_hz = 8000,
@@ -136,41 +135,14 @@ test "expectValid accepts well-configured filter" {
     }
 }
 
-test "expectValid accepts high-order filter with low cutoff" {
+test "high-order filter with low cutoff passes validation" {
     comptime {
-        data_testing.expectValid(FilterStage, FilterStage{
+        contracts.assertValid(FilterStage, FilterStage{
             .order = 8,
             .cutoff_hz = 500,
             .sample_rate_hz = 8000,
             .gain_x100 = 100,
         });
-    }
-}
-
-// --- Using structDiff from the testing module ---
-
-const SensorConfig = struct {
-    channel: u8,
-    gain: u8,
-    offset: i8,
-    enabled: bool,
-};
-
-test "structDiff shows identical structs" {
-    comptime {
-        const a = SensorConfig{ .channel = 0, .gain = 4, .offset = -2, .enabled = true };
-        const diff = data_testing.structDiff(SensorConfig, a, a);
-        try std.testing.expect(std.mem.eql(u8, diff, "(identical)"));
-    }
-}
-
-test "structDiff shows field differences" {
-    comptime {
-        const a = SensorConfig{ .channel = 0, .gain = 4, .offset = -2, .enabled = true };
-        const b = SensorConfig{ .channel = 0, .gain = 8, .offset = -2, .enabled = false };
-        const diff = data_testing.structDiff(SensorConfig, a, b);
-        try std.testing.expect(diff.len > 0);
-        try std.testing.expect(!std.mem.eql(u8, diff, "(identical)"));
     }
 }
 

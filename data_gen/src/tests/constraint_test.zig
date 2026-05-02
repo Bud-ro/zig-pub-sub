@@ -105,13 +105,6 @@ test "anyOf passes when at least one is true" {
     }
 }
 
-test "allOf passes when all are true" {
-    comptime {
-        constraints.allOf(&.{ true, true, true });
-        constraints.allOf(&.{true});
-    }
-}
-
 test "lessThan passes for strictly less values" {
     comptime {
         constraints.lessThan(u32, 5, 10);

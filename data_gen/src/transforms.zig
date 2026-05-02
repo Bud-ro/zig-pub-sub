@@ -1,3 +1,8 @@
+//! Value transforms: convert human-readable units (floats, frequencies,
+//! percentages) into machine representations (fixed-point, scaled integers,
+//! tick counts). If a value isn't exactly representable, the error message
+//! suggests the two nearest values the user can write instead.
+
 const std = @import("std");
 
 /// Converts a comptime float to fixed-point representation.
@@ -57,20 +62,6 @@ pub fn scaledNearest(comptime T: type, comptime scale: comptime_int, comptime va
     return @intCast(rounded);
 }
 
-/// Converts a fraction (numerator/denominator) to fixed-point.
-/// Compile error if not exactly representable.
-pub fn fraction(comptime T: type, comptime frac_bits: comptime_int, comptime num: comptime_int, comptime den: comptime_int) T {
-    if (den == 0) @compileError("division by zero in fraction");
-    const value: comptime_float = @as(comptime_float, @floatFromInt(num)) / @as(comptime_float, @floatFromInt(den));
-    return fixedPoint(T, frac_bits, value);
-}
-
-/// Converts a percentage (0-100) to a fixed-point fraction (0.0-1.0).
-/// Compile error if not exactly representable.
-pub fn percent(comptime T: type, comptime frac_bits: comptime_int, comptime pct: comptime_float) T {
-    return fixedPoint(T, frac_bits, pct / 100.0);
-}
-
 /// Converts a percentage (0-100) to a fraction of a given max value.
 /// Example: percentOf(u8, 255, 50.0) = 127 (50% of 255, nearest).
 pub fn percentOf(comptime T: type, comptime max: comptime_int, comptime pct: comptime_float) T {
@@ -83,21 +74,6 @@ pub fn percentOf(comptime T: type, comptime max: comptime_int, comptime pct: com
         ));
     }
     return @intCast(rounded);
-}
-
-/// Converts a value in one unit to another unit via a conversion factor.
-/// Example: unitConvert(u16, 3.3, 1000) converts 3.3V to 3300mV.
-/// Compile error if not exactly representable.
-pub fn unitConvert(comptime T: type, comptime value: comptime_float, comptime factor: comptime_float) T {
-    const result = value * factor;
-    const truncated = @as(comptime_int, @intFromFloat(result));
-    if (@as(comptime_float, @floatFromInt(truncated)) != result) {
-        @compileError(std.fmt.comptimePrint(
-            "{d} * {d} = {d} which is not an integer",
-            .{ value, factor, result },
-        ));
-    }
-    return @intCast(truncated);
 }
 
 /// Converts a frequency in Hz to a period in the given time unit.

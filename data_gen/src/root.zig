@@ -1,14 +1,16 @@
+//! Comptime constraint-based data generation for embedded system configurations.
+//! Users define types with validate/generate functions. Constraints produce
+//! @compileError on violation and fall away to zero cost at runtime.
+
 pub const constraints = @import("constraints.zig");
 pub const contracts = @import("contracts.zig");
 pub const generators = @import("generators.zig");
-pub const testing = @import("testing.zig");
 pub const transforms = @import("transforms.zig");
 
 test {
     _ = constraints;
     _ = contracts;
     _ = generators;
-    _ = testing;
     _ = transforms;
 
     _ = @import("tests/constraint_test.zig");

@@ -2,7 +2,6 @@ const std = @import("std");
 const constraints = @import("data_gen").constraints;
 const contracts = @import("data_gen").contracts;
 const generators = @import("data_gen").generators;
-const data_testing = @import("data_gen").testing;
 
 // --- Integrated Embedded System Configuration ---
 // A complete system definition that composes pin mux, clock tree,
@@ -322,15 +321,6 @@ test "system task stacks fit in RAM" {
 
 test "full system passes integrated validation" {
     comptime {
-        data_testing.expectValid(SystemConfig, my_system);
-    }
-}
-
-test "system structDiff against modified config" {
-    comptime {
-        var modified = my_system.clock;
-        modified.pll_multiplier = 6;
-        const diff = data_testing.structDiff(ClockConfig, my_system.clock, modified);
-        try std.testing.expect(!std.mem.eql(u8, diff, "(identical)"));
+        contracts.assertValid(SystemConfig, my_system);
     }
 }

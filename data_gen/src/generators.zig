@@ -1,3 +1,7 @@
+//! Comptime array and table generators. Each function produces a fixed-size
+//! array ([N]T) that lives in .rodata — no heap, no runtime allocation.
+//! Use these to build lookup tables, calibration arrays, and repeated configs.
+
 const std = @import("std");
 
 /// Generates an array of N values by mapping each index through a comptime function.

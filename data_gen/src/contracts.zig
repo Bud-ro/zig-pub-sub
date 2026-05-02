@@ -1,3 +1,8 @@
+//! Protocol for types that carry their own validation logic. Types opt in
+//! by declaring `pub fn validate(comptime self: T) void`. The helpers here
+//! detect and invoke that declaration via @hasDecl, providing a uniform
+//! entry point for validated construction.
+
 /// Checks if a type has a comptime validate declaration.
 pub fn hasValidate(comptime T: type) bool {
     return @hasDecl(T, "validate");
