@@ -101,15 +101,17 @@ const FilterCoeffs = struct {
     one_minus_alpha: u16,
 };
 
-fn iirCoeffsFromCutoff(
-    comptime cutoff_hz: comptime_float,
-    comptime sample_hz: comptime_float,
-) FilterCoeffs {
-    if (cutoff_hz >= sample_hz / 2.0)
+const IirParams = struct {
+    cutoff_hz: comptime_float,
+    sample_hz: comptime_float,
+};
+
+fn iirCoeffsFromCutoff(comptime p: IirParams) FilterCoeffs {
+    if (p.cutoff_hz >= p.sample_hz / 2.0)
         @compileError("cutoff must be below Nyquist (sample_rate / 2)");
 
-    const dt = 1.0 / sample_hz;
-    const rc = 1.0 / (2.0 * 3.14159265358979 * cutoff_hz);
+    const dt = 1.0 / p.sample_hz;
+    const rc = 1.0 / (2.0 * 3.14159265358979 * p.cutoff_hz);
     const alpha_f = dt / (rc + dt);
 
     const alpha = transforms.scaledNearest(u16, 65536, alpha_f);
@@ -123,7 +125,7 @@ fn iirCoeffsFromCutoff(
 
 test "IIR filter coefficients from cutoff frequency" {
     comptime {
-        const coeffs = iirCoeffsFromCutoff(100.0, 1000.0);
+        const coeffs = iirCoeffsFromCutoff(.{ .cutoff_hz = 100.0, .sample_hz = 1000.0 });
         try std.testing.expect(coeffs.alpha > 0);
         try std.testing.expect(coeffs.one_minus_alpha > 0);
         try std.testing.expectEqual(65536, @as(u32, coeffs.alpha) + coeffs.one_minus_alpha);
@@ -132,8 +134,8 @@ test "IIR filter coefficients from cutoff frequency" {
 
 test "lower cutoff gives smaller alpha" {
     comptime {
-        const low = iirCoeffsFromCutoff(10.0, 1000.0);
-        const high = iirCoeffsFromCutoff(100.0, 1000.0);
+        const low = iirCoeffsFromCutoff(.{ .cutoff_hz = 10.0, .sample_hz = 1000.0 });
+        const high = iirCoeffsFromCutoff(.{ .cutoff_hz = 100.0, .sample_hz = 1000.0 });
         try std.testing.expect(low.alpha < high.alpha);
     }
 }
@@ -214,18 +216,21 @@ const SensorConfig = struct {
     }
 };
 
-fn makeSensorConfig(
-    comptime alarm_low_v: comptime_float,
-    comptime alarm_high_v: comptime_float,
-    comptime sample_rate_hz: comptime_float,
-    comptime filter_cutoff_hz: comptime_float,
-) SensorConfig {
+const SensorParams = struct {
+    alarm_low_v: comptime_float,
+    alarm_high_v: comptime_float,
+    sample_rate_hz: comptime_float,
+    filter_cutoff_hz: comptime_float,
+    tick_hz: comptime_float = 100_000.0,
+};
+
+fn makeSensorConfig(comptime p: SensorParams) SensorConfig {
     const adc = adc_12bit_3v3;
-    const coeffs = iirCoeffsFromCutoff(filter_cutoff_hz, sample_rate_hz);
+    const coeffs = iirCoeffsFromCutoff(.{ .cutoff_hz = p.filter_cutoff_hz, .sample_hz = p.sample_rate_hz });
     const config = SensorConfig{
-        .alarm_low_counts = adc.voltsToCount(alarm_low_v),
-        .alarm_high_counts = adc.voltsToCount(alarm_high_v),
-        .sample_ticks = transforms.freqToTicks(u16, sample_rate_hz, 100_000.0),
+        .alarm_low_counts = adc.voltsToCount(p.alarm_low_v),
+        .alarm_high_counts = adc.voltsToCount(p.alarm_high_v),
+        .sample_ticks = transforms.freqToTicks(u16, p.sample_rate_hz, p.tick_hz),
         .filter_alpha = coeffs.alpha,
         .filter_beta = coeffs.one_minus_alpha,
     };
@@ -235,7 +240,12 @@ fn makeSensorConfig(
 
 test "full sensor config from human-readable units" {
     comptime {
-        const cfg = makeSensorConfig(0.5, 2.5, 1000.0, 50.0);
+        const cfg = makeSensorConfig(.{
+            .alarm_low_v = 0.5,
+            .alarm_high_v = 2.5,
+            .sample_rate_hz = 1000.0,
+            .filter_cutoff_hz = 50.0,
+        });
         try std.testing.expect(cfg.alarm_low_counts < cfg.alarm_high_counts);
         try std.testing.expectEqual(100, cfg.sample_ticks);
         try std.testing.expectEqual(65536, @as(u32, cfg.filter_alpha) + cfg.filter_beta);

@@ -9,7 +9,8 @@ const contracts = @import("data_gen").contracts;
 // and the triangle inequality must hold:
 // cost[i][j] <= cost[i][k] + cost[k][j] for all i,j,k.
 
-fn validateCostMatrix(comptime N: usize, comptime matrix: [N][N]u16) void {
+fn validateCostMatrix(comptime matrix: anytype) void {
+    const N = matrix.len;
     @setEvalBranchQuota(10_000);
 
     // Diagonal must be zero
@@ -69,7 +70,7 @@ const latency_matrix = blk: {
         .{ 25, 20, 10, 0, 8 },
         .{ 30, 25, 15, 8, 0 },
     };
-    validateCostMatrix(5, m);
+    validateCostMatrix(m);
     break :blk m;
 };
 
@@ -174,7 +175,8 @@ const network_tree = blk: {
         .{ .a = 2, .b = 3, .cost = 10 },
         .{ .a = 3, .b = 4, .cost = 8 },
     };
-    validateSpanningTree(5, &edges);
+    const node_count = 5;
+    validateSpanningTree(node_count, &edges);
     break :blk edges;
 };
 
@@ -197,8 +199,7 @@ test "spanning tree total cost" {
 // every edge in the tree must exist in the full graph (cost matches).
 
 fn validateTreeMatchesGraph(
-    comptime N: usize,
-    comptime matrix: [N][N]u16,
+    comptime matrix: anytype,
     comptime tree: []const Edge,
 ) void {
     for (tree) |e| {
@@ -212,7 +213,7 @@ fn validateTreeMatchesGraph(
 
 test "spanning tree edges match latency matrix" {
     comptime {
-        validateTreeMatchesGraph(5, latency_matrix, &network_tree);
+        validateTreeMatchesGraph(latency_matrix, &network_tree);
     }
 }
 

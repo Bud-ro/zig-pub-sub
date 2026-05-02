@@ -36,12 +36,18 @@ const ResourceSharing = struct {
     b: Channel,
 };
 
+const ScheduleParams = struct {
+    min_gap_us: u32,
+    cycle_length_us: u32,
+};
+
 fn validateSchedule(
     comptime slots: []const TimeSlot,
-    comptime min_gap_us: u32,
+    comptime params: ScheduleParams,
     comptime shared_resources: []const ResourceSharing,
-    comptime cycle_length_us: u32,
 ) void {
+    const min_gap_us = params.min_gap_us;
+    const cycle_length_us = params.cycle_length_us;
     @setEvalBranchQuota(10_000);
     constraints.lenInRange(1, 64, slots.len);
 
@@ -141,7 +147,7 @@ const cycle_schedule = blk: {
         // Idle task fills remaining time
         .{ .channel = .idle_task, .start_us = 920, .duration_us = 80, .priority = 7 },
     };
-    validateSchedule(&slots, 10, &shared_hw, 1000);
+    validateSchedule(&slots, .{ .min_gap_us = 10, .cycle_length_us = 1000 }, &shared_hw);
     break :blk slots;
 };
 
@@ -275,7 +281,8 @@ const periodic_tasks = blk: {
         .{ .channel = .spi_transfer, .period_us = 2000, .duration_us = 300, .offset_us = 1000 },
         .{ .channel = .i2c_transfer, .period_us = 2000, .duration_us = 200, .offset_us = 1500 },
     };
-    validatePeriodicSchedule(&tasks, &shared_hw, 10000);
+    const validation_horizon_us = 10000;
+    validatePeriodicSchedule(&tasks, &shared_hw, validation_horizon_us);
     break :blk tasks;
 };
 
