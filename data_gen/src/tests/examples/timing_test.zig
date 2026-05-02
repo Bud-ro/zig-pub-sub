@@ -9,17 +9,21 @@ const SampleRateConfig = struct {
     oversample_factor: u8,
     averaging_window: u16,
 
-    pub fn validate(comptime self: SampleRateConfig) void {
-        constraints.oneOf(&.{ 100, 200, 500, 1000, 2000, 5000, 10000 }, self.rate_hz);
-        constraints.isPowerOfTwo(self.oversample_factor);
-        constraints.inRange(1, 64, self.oversample_factor);
-        constraints.inRange(1, 1024, self.averaging_window);
+    pub fn validate(comptime self: SampleRateConfig) ?[]const u8 {
+        if (self.rate_hz != 100 and self.rate_hz != 200 and self.rate_hz != 500 and
+            self.rate_hz != 1000 and self.rate_hz != 2000 and self.rate_hz != 5000 and self.rate_hz != 10000)
+            return "rate_hz must be one of 100, 200, 500, 1000, 2000, 5000, 10000";
+        if (self.oversample_factor == 0 or (self.oversample_factor & (self.oversample_factor - 1)) != 0)
+            return "oversample_factor must be a power of two";
+        if (self.oversample_factor < 1 or self.oversample_factor > 64) return "oversample_factor out of range [1, 64]";
+        if (self.averaging_window < 1 or self.averaging_window > 1024) return "averaging_window out of range [1, 1024]";
         if (self.averaging_window > self.rate_hz)
-            @compileError("averaging window cannot exceed sample rate");
+            return "averaging window cannot exceed sample rate";
+        return null;
     }
 
     pub fn generate(comptime self: SampleRateConfig) SampleRateConfig {
-        self.validate();
+        contracts.assertValid(self);
         return self;
     }
 
@@ -54,27 +58,28 @@ const TimingConfig = struct {
     retry_delay_ms: u16,
     max_retries: u8,
 
-    pub fn validate(comptime self: TimingConfig) void {
-        constraints.inRange(10, 30_000, self.timeout_ms);
-        constraints.inRange(1, 500, self.debounce_ms);
-        constraints.inRange(1, 60_000, self.periodic_interval_ms);
-        constraints.inRange(10, 5000, self.retry_delay_ms);
-        constraints.inRange(0, 10, self.max_retries);
+    pub fn validate(comptime self: TimingConfig) ?[]const u8 {
+        if (self.timeout_ms < 10 or self.timeout_ms > 30_000) return "timeout_ms out of range [10, 30000]";
+        if (self.debounce_ms < 1 or self.debounce_ms > 500) return "debounce_ms out of range [1, 500]";
+        if (self.periodic_interval_ms < 1 or self.periodic_interval_ms > 60_000) return "periodic_interval_ms out of range [1, 60000]";
+        if (self.retry_delay_ms < 10 or self.retry_delay_ms > 5000) return "retry_delay_ms out of range [10, 5000]";
+        if (self.max_retries > 10) return "max_retries out of range [0, 10]";
 
-        constraints.greaterThan(self.timeout_ms, self.debounce_ms);
+        if (self.timeout_ms <= self.debounce_ms) return "timeout_ms must be greater than debounce_ms";
 
         if (self.periodic_interval_ms < 2 * @as(u32, self.debounce_ms))
-            @compileError("periodic_interval_ms must be at least 2x debounce_ms");
+            return "periodic_interval_ms must be at least 2x debounce_ms";
 
         if (self.max_retries > 0) {
             const total_retry_time = @as(u32, self.retry_delay_ms) * self.max_retries;
             if (total_retry_time > self.timeout_ms)
-                @compileError("total retry time exceeds timeout");
+                return "total retry time exceeds timeout";
         }
+        return null;
     }
 
     pub fn generate(comptime self: TimingConfig) TimingConfig {
-        self.validate();
+        contracts.assertValid(self);
         return self;
     }
 };
@@ -123,15 +128,16 @@ const TickConfig = struct {
     tick_period_us: u32,
     ticks_per_ms: u32,
 
-    pub fn validate(comptime self: TickConfig) void {
-        constraints.nonZero(self.tick_period_us);
-        constraints.nonZero(self.ticks_per_ms);
+    pub fn validate(comptime self: TickConfig) ?[]const u8 {
+        if (self.tick_period_us == 0) return "tick_period_us must not be zero";
+        if (self.ticks_per_ms == 0) return "ticks_per_ms must not be zero";
         if (self.tick_period_us * self.ticks_per_ms != 1000)
-            @compileError("tick_period_us * ticks_per_ms must equal 1000 (1ms)");
+            return "tick_period_us * ticks_per_ms must equal 1000 (1ms)";
+        return null;
     }
 
     pub fn generate(comptime self: TickConfig) TickConfig {
-        self.validate();
+        contracts.assertValid(self);
         return self;
     }
 };
@@ -167,20 +173,21 @@ const PwmConfig = struct {
     resolution_bits: u8,
     dead_time_ns: u16,
 
-    pub fn validate(comptime self: PwmConfig) void {
-        constraints.inRange(1_000, 1_000_000, self.frequency_hz);
-        constraints.inRange(8, 16, self.resolution_bits);
-        constraints.inRange(0, 5000, self.dead_time_ns);
+    pub fn validate(comptime self: PwmConfig) ?[]const u8 {
+        if (self.frequency_hz < 1_000 or self.frequency_hz > 1_000_000) return "frequency_hz out of range [1000, 1000000]";
+        if (self.resolution_bits < 8 or self.resolution_bits > 16) return "resolution_bits out of range [8, 16]";
+        if (self.dead_time_ns > 5000) return "dead_time_ns out of range [0, 5000]";
 
         const max_count: u32 = @as(u32, 1) << self.resolution_bits;
         const period_ns: u32 = 1_000_000_000 / self.frequency_hz;
         const step_ns = period_ns / max_count;
         if (self.dead_time_ns > 0 and self.dead_time_ns < step_ns)
-            @compileError("dead time is smaller than one PWM step — it would have no effect");
+            return "dead time is smaller than one PWM step — it would have no effect";
+        return null;
     }
 
     pub fn generate(comptime self: PwmConfig) PwmConfig {
-        self.validate();
+        contracts.assertValid(self);
         return self;
     }
 };
@@ -206,20 +213,17 @@ const TimingProfile = struct {
     timing: TimingConfig,
     tick: TickConfig,
 
-    pub fn validate(comptime self: TimingProfile) void {
-        self.sample_rate.validate();
-        self.timing.validate();
-        self.tick.validate();
-
+    pub fn validate(comptime self: TimingProfile) ?[]const u8 {
         const sample_period_ms = 1000 / self.sample_rate.rate_hz;
         if (self.timing.periodic_interval_ms % sample_period_ms != 0)
-            @compileError("periodic interval must be aligned to sample period");
+            return "periodic interval must be aligned to sample period";
+        return null;
     }
 };
 
 test "timing profile with aligned intervals" {
     comptime {
-        contracts.assertValid(TimingProfile, TimingProfile{
+        contracts.assertValid(TimingProfile{
             .name_id = 1,
             .sample_rate = SampleRateConfig.generate(.{ .rate_hz = 1000, .oversample_factor = 1, .averaging_window = 50 }),
             .timing = TimingConfig.generate(.{

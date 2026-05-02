@@ -13,12 +13,13 @@ const BitField = struct {
     bit_offset: u8,
     bit_width: u8,
 
-    pub fn validate(comptime self: BitField) void {
-        constraints.nonZero(self.bit_width);
-        constraints.inRange(0, 31, self.bit_offset);
-        constraints.inRange(1, 32, self.bit_width);
+    pub fn validate(comptime self: BitField) ?[]const u8 {
+        if (self.bit_width == 0) return "bit_width must not be zero";
+        if (self.bit_offset > 31) return "bit_offset out of range [0, 31]";
+        if (self.bit_width < 1 or self.bit_width > 32) return "bit_width out of range [1, 32]";
         if (self.bit_offset + self.bit_width > 32)
-            @compileError("bit field extends beyond 32-bit register width");
+            return "bit field extends beyond 32-bit register width";
+        return null;
     }
 };
 
@@ -31,22 +32,22 @@ const Register = struct {
     access: Access,
     fields: []const BitField,
 
-    pub fn validate(comptime self: Register) void {
-        constraints.oneOf(&.{ 1, 2, 4 }, self.width_bytes);
-        constraints.inRange(0, 0xFFFF, self.address);
+    pub fn validate(comptime self: Register) ?[]const u8 {
+        if (self.width_bytes != 1 and self.width_bytes != 2 and self.width_bytes != 4)
+            return "width_bytes must be one of 1, 2, 4";
+        if (self.address > 0xFFFF) return "address out of range [0, 0xFFFF]";
 
         if (self.address % self.width_bytes != 0)
-            @compileError(std.fmt.comptimePrint(
+            return std.fmt.comptimePrint(
                 "register at 0x{x:0>4} is not aligned to its width ({})",
                 .{ self.address, self.width_bytes },
-            ));
+            );
 
         const total_bits: u8 = @as(u8, self.width_bytes) * 8;
 
         for (self.fields) |field| {
-            field.validate();
             if (field.bit_offset + field.bit_width > total_bits)
-                @compileError("bit field extends beyond register width");
+                return "bit field extends beyond register width";
         }
 
         // Fields must not overlap
@@ -57,12 +58,13 @@ const Register = struct {
                 const a_end = a.bit_offset + a.bit_width;
                 const b_end = b.bit_offset + b.bit_width;
                 if (a.bit_offset < b_end and b.bit_offset < a_end)
-                    @compileError(std.fmt.comptimePrint(
+                    return std.fmt.comptimePrint(
                         "bit fields {} and {} overlap",
                         .{ a.name_id, b.name_id },
-                    ));
+                    );
             }
         }
+        return null;
     }
 };
 
@@ -71,7 +73,7 @@ fn validateRegisterMap(comptime regs: []const Register) void {
 
     var ids: [regs.len]u8 = undefined;
     for (regs, 0..) |reg, i| {
-        reg.validate();
+        contracts.assertValid(reg);
         ids[i] = reg.name_id;
     }
     constraints.noDuplicates(u8, &ids);

@@ -1,5 +1,6 @@
 const std = @import("std");
 const constraints = @import("data_gen").constraints;
+const contracts = @import("data_gen").contracts;
 const generators = @import("data_gen").generators;
 
 // --- Hamming(7,4) Code Table ---
@@ -149,23 +150,25 @@ const CrcConfig = struct {
     reflect_in: bool,
     reflect_out: bool,
 
-    pub fn validate(comptime self: CrcConfig) void {
-        constraints.oneOf(&.{ 8, 16, 32 }, self.width);
+    pub fn validate(comptime self: CrcConfig) ?[]const u8 {
+        if (self.width != 8 and self.width != 16 and self.width != 32)
+            return "width must be one of 8, 16, 32";
 
         // Values must fit within width (standard representation omits the implicit x^n MSB)
         const mask: u32 = if (self.width == 32) 0xFFFFFFFF else (@as(u32, 1) << @intCast(self.width)) - 1;
         if (self.poly & ~mask != 0)
-            @compileError("polynomial exceeds declared width");
+            return "polynomial exceeds declared width";
         if (self.init & ~mask != 0)
-            @compileError("init value exceeds declared width");
+            return "init value exceeds declared width";
         if (self.xor_out & ~mask != 0)
-            @compileError("xor_out value exceeds declared width");
+            return "xor_out value exceeds declared width";
 
-        constraints.nonZero(self.poly);
+        if (self.poly == 0) return "poly must not be zero";
 
         // LSB must be set (polynomial must be odd for single-bit error detection)
         if (self.poly & 1 == 0)
-            @compileError("CRC polynomial must be odd (LSB set) for single-bit error detection");
+            return "CRC polynomial must be odd (LSB set) for single-bit error detection";
+        return null;
     }
 };
 
@@ -179,7 +182,7 @@ test "CRC-8 CCITT config" {
             .reflect_in = false,
             .reflect_out = false,
         };
-        crc8.validate();
+        contracts.assertValid(crc8);
         try std.testing.expectEqual(8, crc8.width);
     }
 }
@@ -194,7 +197,7 @@ test "CRC-16 CCITT config" {
             .reflect_in = false,
             .reflect_out = false,
         };
-        crc16.validate();
+        contracts.assertValid(crc16);
     }
 }
 
@@ -208,6 +211,6 @@ test "CRC-32 IEEE config" {
             .reflect_in = true,
             .reflect_out = true,
         };
-        crc32.validate();
+        contracts.assertValid(crc32);
     }
 }

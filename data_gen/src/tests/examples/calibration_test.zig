@@ -59,10 +59,11 @@ const PolyCoeffs = struct {
     b: i32,
     c: i32,
 
-    pub fn validate(comptime self: PolyCoeffs) void {
-        constraints.inRange(-10000, 10000, self.a);
-        constraints.inRange(-10000, 10000, self.b);
-        constraints.inRange(-10000, 10000, self.c);
+    pub fn validate(comptime self: PolyCoeffs) ?[]const u8 {
+        if (self.a < -10000 or self.a > 10000) return "a out of range [-10000, 10000]";
+        if (self.b < -10000 or self.b > 10000) return "b out of range [-10000, 10000]";
+        if (self.c < -10000 or self.c > 10000) return "c out of range [-10000, 10000]";
+        return null;
     }
 
     pub fn eval(comptime self: PolyCoeffs, comptime x: i32) i32 {
@@ -71,7 +72,7 @@ const PolyCoeffs = struct {
 };
 
 fn validatePolyAtBoundaries(comptime p: PolyCoeffs, comptime min_out: i32, comptime max_out: i32) void {
-    p.validate();
+    contracts.assertValid(p);
     const boundary_inputs = [_]i32{ -100, -10, 0, 10, 100 };
     for (boundary_inputs) |x| {
         const y = p.eval(x);
@@ -103,20 +104,21 @@ const ScalingConfig = struct {
     scale_numerator: u16,
     scale_denominator: u16,
 
-    pub fn validate(comptime self: ScalingConfig) void {
-        constraints.lessThan(self.input_min, self.input_max);
-        constraints.lessThan(self.output_min, self.output_max);
-        constraints.nonZero(self.scale_denominator);
+    pub fn validate(comptime self: ScalingConfig) ?[]const u8 {
+        if (self.input_min >= self.input_max) return "input_min must be less than input_max";
+        if (self.output_min >= self.output_max) return "output_min must be less than output_max";
+        if (self.scale_denominator == 0) return "scale_denominator must not be zero";
 
         const input_range = self.input_max - self.input_min;
         const output_range = self.output_max - self.output_min;
         const scaled_input = @as(i32, input_range) * self.scale_numerator / self.scale_denominator;
         if (scaled_input > output_range * 2 or scaled_input < @divTrunc(output_range, 2))
-            @compileError("scale factor produces output range that differs from declared output range by more than 2x");
+            return "scale factor produces output range that differs from declared output range by more than 2x";
+        return null;
     }
 
     pub fn generate(comptime self: ScalingConfig) ScalingConfig {
-        self.validate();
+        contracts.assertValid(self);
         return self;
     }
 };
@@ -211,21 +213,23 @@ const AdcCalibration = struct {
     offset: i16,
     reference_mv: u16,
 
-    pub fn validate(comptime self: AdcCalibration) void {
-        constraints.inRange(0, 15, self.channel);
-        constraints.inRange(512, 2048, self.gain);
-        constraints.inRange(-500, 500, self.offset);
-        constraints.oneOf(&.{ 1100, 2500, 3300, 5000 }, self.reference_mv);
+    pub fn validate(comptime self: AdcCalibration) ?[]const u8 {
+        if (self.channel < 0 or self.channel > 15) return "channel out of range [0, 15]";
+        if (self.gain < 512 or self.gain > 2048) return "gain out of range [512, 2048]";
+        if (self.offset < -500 or self.offset > 500) return "offset out of range [-500, 500]";
+        if (self.reference_mv != 1100 and self.reference_mv != 2500 and self.reference_mv != 3300 and self.reference_mv != 5000)
+            return "reference_mv must be one of 1100, 2500, 3300, 5000";
+        return null;
     }
 };
 
 test "ADC calibration for 4 channels" {
     comptime {
         const channels = [_]AdcCalibration{
-            contracts.validated(AdcCalibration, AdcCalibration{ .channel = 0, .gain = 1024, .offset = -12, .reference_mv = 3300 }),
-            contracts.validated(AdcCalibration, AdcCalibration{ .channel = 1, .gain = 1024, .offset = 5, .reference_mv = 3300 }),
-            contracts.validated(AdcCalibration, AdcCalibration{ .channel = 2, .gain = 2048, .offset = -3, .reference_mv = 5000 }),
-            contracts.validated(AdcCalibration, AdcCalibration{ .channel = 3, .gain = 512, .offset = 100, .reference_mv = 1100 }),
+            contracts.validated(AdcCalibration{ .channel = 0, .gain = 1024, .offset = -12, .reference_mv = 3300 }),
+            contracts.validated(AdcCalibration{ .channel = 1, .gain = 1024, .offset = 5, .reference_mv = 3300 }),
+            contracts.validated(AdcCalibration{ .channel = 2, .gain = 2048, .offset = -3, .reference_mv = 5000 }),
+            contracts.validated(AdcCalibration{ .channel = 3, .gain = 512, .offset = 100, .reference_mv = 1100 }),
         };
 
         const chan_ids = [_]u8{

@@ -141,10 +141,11 @@ const PhaseTiming = struct {
     max_duration_ms: u32,
     next_state: PhaseState,
 
-    pub fn validate(comptime self: PhaseTiming) void {
-        constraints.lessThan(self.min_duration_ms, self.max_duration_ms);
+    pub fn validate(comptime self: PhaseTiming) ?[]const u8 {
+        if (self.min_duration_ms >= self.max_duration_ms) return "min_duration_ms must be less than max_duration_ms";
         if (self.state == self.next_state)
-            @compileError("phase must transition to a different state");
+            return "phase must transition to a different state";
+        return null;
     }
 };
 
@@ -155,7 +156,7 @@ fn validatePhaseSequence(comptime phases: []const PhaseTiming) void {
     if (phases[phases.len - 1].next_state != .shutdown)
         @compileError("must end transitioning to shutdown");
 
-    for (phases) |p| p.validate();
+    for (phases) |p| contracts.assertValid(p);
 
     for (1..phases.len) |i| {
         if (phases[i].state != phases[i - 1].next_state)

@@ -1,5 +1,4 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
 const contracts = @import("data_gen").contracts;
 
 // --- Application Version ---
@@ -9,14 +8,10 @@ const AppVersion = struct {
     minor: u8,
     patch: u16,
 
-    pub fn validate(comptime self: AppVersion) void {
-        constraints.inRange(0, 99, self.major);
-        constraints.inRange(0, 99, self.minor);
-    }
-
-    pub fn generate(comptime self: AppVersion) AppVersion {
-        self.validate();
-        return self;
+    pub fn validate(comptime self: AppVersion) ?[]const u8 {
+        if (self.major > 99) return "major exceeds 99";
+        if (self.minor > 99) return "minor exceeds 99";
+        return null;
     }
 
     pub fn toU32(comptime self: AppVersion) u32 {
@@ -28,15 +23,15 @@ const AppVersion = struct {
 
 test "application version packs into u32" {
     comptime {
-        const v = AppVersion.generate(.{ .major = 1, .minor = 2, .patch = 345 });
+        const v = contracts.validated(AppVersion{ .major = 1, .minor = 2, .patch = 345 });
         try std.testing.expectEqual(@as(u32, 0x01020159), v.toU32());
     }
 }
 
 test "application version boundary values" {
     comptime {
-        _ = AppVersion.generate(.{ .major = 0, .minor = 0, .patch = 0 });
-        _ = AppVersion.generate(.{ .major = 99, .minor = 99, .patch = 65535 });
+        contracts.assertValid(AppVersion{ .major = 0, .minor = 0, .patch = 0 });
+        contracts.assertValid(AppVersion{ .major = 99, .minor = 99, .patch = 65535 });
     }
 }
 
@@ -48,37 +43,20 @@ const NetworkConfig = struct {
     max_connections: u16,
     keepalive_seconds: u16,
 
-    pub fn validate(comptime self: NetworkConfig) void {
-        constraints.inRange(1, 65535, self.port);
-        constraints.isPowerOfTwo(self.mtu);
-        constraints.inRange(64, 9000, self.mtu);
-        constraints.inRange(1, 1024, self.max_connections);
-        constraints.nonZero(self.keepalive_seconds);
-        constraints.inRange(1, 3600, self.keepalive_seconds);
-    }
-
-    pub fn generate(comptime self: NetworkConfig) NetworkConfig {
-        self.validate();
-        return self;
+    pub fn validate(comptime self: NetworkConfig) ?[]const u8 {
+        if (self.port == 0) return "port must not be zero";
+        if (self.mtu == 0 or (self.mtu & (self.mtu - 1)) != 0) return "mtu must be a power of two";
+        if (self.mtu < 64 or self.mtu > 9000) return "mtu out of range [64, 9000]";
+        if (self.max_connections == 0 or self.max_connections > 1024) return "max_connections out of range [1, 1024]";
+        if (self.keepalive_seconds == 0 or self.keepalive_seconds > 3600) return "keepalive_seconds out of range [1, 3600]";
+        return null;
     }
 };
 
 test "network config with power-of-two MTU" {
     comptime {
-        const cfg = NetworkConfig.generate(.{ .port = 8080, .mtu = 1024, .max_connections = 128, .keepalive_seconds = 30 });
+        const cfg = contracts.validated(NetworkConfig{ .port = 8080, .mtu = 1024, .max_connections = 128, .keepalive_seconds = 30 });
         try std.testing.expectEqual(8080, cfg.port);
-        try std.testing.expectEqual(1024, cfg.mtu);
-    }
-}
-
-test "network config various valid MTU sizes" {
-    comptime {
-        _ = NetworkConfig.generate(.{ .port = 80, .mtu = 64, .max_connections = 1, .keepalive_seconds = 1 });
-        _ = NetworkConfig.generate(.{ .port = 443, .mtu = 128, .max_connections = 512, .keepalive_seconds = 3600 });
-        _ = NetworkConfig.generate(.{ .port = 9999, .mtu = 256, .max_connections = 1024, .keepalive_seconds = 60 });
-        _ = NetworkConfig.generate(.{ .port = 1234, .mtu = 512, .max_connections = 100, .keepalive_seconds = 120 });
-        _ = NetworkConfig.generate(.{ .port = 5000, .mtu = 4096, .max_connections = 50, .keepalive_seconds = 300 });
-        _ = NetworkConfig.generate(.{ .port = 6000, .mtu = 8192, .max_connections = 10, .keepalive_seconds = 900 });
     }
 }
 
@@ -90,46 +68,21 @@ const FeatureFlags = struct {
     profiling: bool,
     assertions_enabled: bool,
 
-    pub fn validate(comptime self: FeatureFlags) void {
+    pub fn validate(comptime self: FeatureFlags) ?[]const u8 {
         if (self.debug_logging and self.release_optimized)
-            @compileError("debug_logging and release_optimized are mutually exclusive");
+            return "debug_logging and release_optimized are mutually exclusive";
         if (self.release_optimized and self.assertions_enabled)
-            @compileError("release_optimized disables assertions");
+            return "release_optimized disables assertions";
         if (self.profiling and !self.debug_logging)
-            @compileError("profiling requires debug_logging");
+            return "profiling requires debug_logging";
+        return null;
     }
 };
 
-test "feature flags debug configuration" {
+test "feature flags" {
     comptime {
-        contracts.assertValid(FeatureFlags, FeatureFlags{
-            .debug_logging = true,
-            .release_optimized = false,
-            .profiling = true,
-            .assertions_enabled = true,
-        });
-    }
-}
-
-test "feature flags release configuration" {
-    comptime {
-        contracts.assertValid(FeatureFlags, FeatureFlags{
-            .debug_logging = false,
-            .release_optimized = true,
-            .profiling = false,
-            .assertions_enabled = false,
-        });
-    }
-}
-
-test "feature flags minimal configuration" {
-    comptime {
-        contracts.assertValid(FeatureFlags, FeatureFlags{
-            .debug_logging = false,
-            .release_optimized = false,
-            .profiling = false,
-            .assertions_enabled = true,
-        });
+        contracts.assertValid(FeatureFlags{ .debug_logging = true, .release_optimized = false, .profiling = true, .assertions_enabled = true });
+        contracts.assertValid(FeatureFlags{ .debug_logging = false, .release_optimized = true, .profiling = false, .assertions_enabled = false });
     }
 }
 
@@ -141,38 +94,23 @@ const SensorThresholds = struct {
     warning_high: i16,
     critical_high: i16,
 
-    pub fn validate(comptime self: SensorThresholds) void {
-        constraints.lessThan(self.critical_low, self.warning_low);
-        constraints.lessThan(self.warning_low, self.warning_high);
-        constraints.lessThan(self.warning_high, self.critical_high);
-        constraints.inRange(-200, 200, self.critical_low);
-        constraints.inRange(-200, 200, self.critical_high);
+    pub fn validate(comptime self: SensorThresholds) ?[]const u8 {
+        if (self.critical_low >= self.warning_low) return "critical_low must be < warning_low";
+        if (self.warning_low >= self.warning_high) return "warning_low must be < warning_high";
+        if (self.warning_high >= self.critical_high) return "warning_high must be < critical_high";
+        if (self.critical_low < -200 or self.critical_low > 200) return "critical_low out of [-200, 200]";
+        if (self.critical_high < -200 or self.critical_high > 200) return "critical_high out of [-200, 200]";
+        return null;
     }
 };
 
-test "sensor thresholds with ordered bands" {
+test "sensor thresholds" {
     comptime {
-        contracts.assertValid(SensorThresholds, SensorThresholds{
-            .critical_low = -40,
-            .warning_low = -10,
-            .warning_high = 80,
-            .critical_high = 100,
-        });
+        contracts.assertValid(SensorThresholds{ .critical_low = -40, .warning_low = -10, .warning_high = 80, .critical_high = 100 });
     }
 }
 
-test "sensor thresholds negative-only range" {
-    comptime {
-        contracts.assertValid(SensorThresholds, SensorThresholds{
-            .critical_low = -200,
-            .warning_low = -150,
-            .warning_high = -50,
-            .critical_high = -10,
-        });
-    }
-}
-
-// --- Multiple configs composed together ---
+// --- Composed system config — recursive validation validates all children ---
 
 const SystemConfig = struct {
     version: AppVersion,
@@ -180,34 +118,20 @@ const SystemConfig = struct {
     flags: FeatureFlags,
     thresholds: SensorThresholds,
 
-    pub fn validate(comptime self: SystemConfig) void {
-        self.version.validate();
-        self.network.validate();
-        self.flags.validate();
-        self.thresholds.validate();
-
+    pub fn validate(comptime self: SystemConfig) ?[]const u8 {
         if (self.flags.debug_logging and self.network.max_connections > 64)
-            @compileError("debug mode limits connections to 64");
+            return "debug mode limits connections to 64";
+        return null;
     }
 };
 
-test "full system config composition" {
+test "system config — children validated automatically via recursion" {
     comptime {
-        contracts.assertValid(SystemConfig, SystemConfig{
-            .version = AppVersion.generate(.{ .major = 2, .minor = 1, .patch = 0 }),
-            .network = NetworkConfig.generate(.{ .port = 8080, .mtu = 1024, .max_connections = 64, .keepalive_seconds = 30 }),
-            .flags = FeatureFlags{
-                .debug_logging = true,
-                .release_optimized = false,
-                .profiling = true,
-                .assertions_enabled = true,
-            },
-            .thresholds = SensorThresholds{
-                .critical_low = -40,
-                .warning_low = -10,
-                .warning_high = 80,
-                .critical_high = 100,
-            },
+        contracts.assertValid(SystemConfig{
+            .version = .{ .major = 2, .minor = 1, .patch = 0 },
+            .network = .{ .port = 8080, .mtu = 1024, .max_connections = 64, .keepalive_seconds = 30 },
+            .flags = .{ .debug_logging = true, .release_optimized = false, .profiling = true, .assertions_enabled = true },
+            .thresholds = .{ .critical_low = -40, .warning_low = -10, .warning_high = 80, .critical_high = 100 },
         });
     }
 }

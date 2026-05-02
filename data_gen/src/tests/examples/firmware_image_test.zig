@@ -34,39 +34,40 @@ const FirmwareHeader = struct {
             (@as(u32, self.min_hw_rev) << 24 | @as(u32, self.flags) << 16 | @as(u32, self.reserved));
     }
 
-    pub fn validate(comptime self: FirmwareHeader) void {
+    pub fn validate(comptime self: FirmwareHeader) ?[]const u8 {
         if (self.magic != 0xDEAD_BEEF)
-            @compileError("invalid magic number");
+            return "invalid magic number";
 
-        constraints.inRange(0, 99, self.version_major);
-        constraints.inRange(0, 99, self.version_minor);
-        constraints.nonZero(self.image_size);
+        if (self.version_major < 0 or self.version_major > 99) return "version_major out of range [0, 99]";
+        if (self.version_minor < 0 or self.version_minor > 99) return "version_minor out of range [0, 99]";
+        if (self.image_size == 0) return "image_size must not be zero";
         if (self.entry_point < self.load_address)
-            @compileError("entry point must be within the loaded image (>= load_address)");
+            return "entry point must be within the loaded image (>= load_address)";
 
         if (self.entry_point >= self.load_address + self.image_size)
-            @compileError("entry point must be within the loaded image (< load_address + image_size)");
+            return "entry point must be within the loaded image (< load_address + image_size)";
 
         if (self.image_type == .bootloader and self.load_address != 0x00000000)
-            @compileError("bootloader must load at address 0x00000000");
+            return "bootloader must load at address 0x00000000";
 
         if (self.image_type == .application and self.load_address < 0x00008000)
-            @compileError("application must load above bootloader (>= 0x8000)");
+            return "application must load above bootloader (>= 0x8000)";
 
         // Integrity: checksum must match computed value
         const expected = self.computeChecksum();
         if (self.checksum != expected)
-            @compileError(std.fmt.comptimePrint(
+            return std.fmt.comptimePrint(
                 "checksum 0x{x:0>8} does not match computed 0x{x:0>8}",
                 .{ self.checksum, expected },
-            ));
+            );
+        return null;
     }
 
     /// Construct a header with the checksum auto-computed.
     pub fn generate(comptime partial: FirmwareHeader) FirmwareHeader {
         var result = partial;
         result.checksum = partial.computeChecksum();
-        result.validate();
+        contracts.assertValid(result);
         return result;
     }
 };

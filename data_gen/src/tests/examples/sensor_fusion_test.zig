@@ -104,29 +104,30 @@ const FilterStage = struct {
     sample_rate_hz: u16,
     gain_x100: u16,
 
-    pub fn validate(comptime self: FilterStage) void {
-        constraints.inRange(1, 8, self.order);
-        constraints.nonZero(self.cutoff_hz);
-        constraints.nonZero(self.sample_rate_hz);
+    pub fn validate(comptime self: FilterStage) ?[]const u8 {
+        if (self.order < 1 or self.order > 8) return "order out of range [1, 8]";
+        if (self.cutoff_hz == 0) return "cutoff_hz must not be zero";
+        if (self.sample_rate_hz == 0) return "sample_rate_hz must not be zero";
 
         // Nyquist: cutoff must be less than half the sample rate
         if (self.cutoff_hz >= self.sample_rate_hz / 2)
-            @compileError(std.fmt.comptimePrint(
+            return std.fmt.comptimePrint(
                 "cutoff {}Hz violates Nyquist for sample rate {}Hz",
                 .{ self.cutoff_hz, self.sample_rate_hz },
-            ));
+            );
 
         // Higher order filters need more headroom
         if (self.order > 4 and self.cutoff_hz > self.sample_rate_hz / 4)
-            @compileError("high-order filters (>4) need cutoff < fs/4 for stability");
+            return "high-order filters (>4) need cutoff < fs/4 for stability";
 
-        constraints.inRange(50, 200, self.gain_x100);
+        if (self.gain_x100 < 50 or self.gain_x100 > 200) return "gain_x100 out of range [50, 200]";
+        return null;
     }
 };
 
 test "well-configured filter passes validation" {
     comptime {
-        contracts.assertValid(FilterStage, FilterStage{
+        contracts.assertValid(FilterStage{
             .order = 4,
             .cutoff_hz = 1000,
             .sample_rate_hz = 8000,
@@ -137,7 +138,7 @@ test "well-configured filter passes validation" {
 
 test "high-order filter with low cutoff passes validation" {
     comptime {
-        contracts.assertValid(FilterStage, FilterStage{
+        contracts.assertValid(FilterStage{
             .order = 8,
             .cutoff_hz = 500,
             .sample_rate_hz = 8000,

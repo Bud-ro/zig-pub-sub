@@ -221,22 +221,26 @@ const BaudConfig = struct {
     parity: enum(u8) { none, even, odd },
     hw_flow_control: bool,
 
-    pub fn validate(comptime self: BaudConfig) void {
-        constraints.oneOf(&.{ 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600 }, self.baud_rate);
-        constraints.oneOf(&.{ 7, 8 }, self.data_bits);
-        constraints.oneOf(&.{ 1, 2 }, self.stop_bits);
+    pub fn validate(comptime self: BaudConfig) ?[]const u8 {
+        if (self.baud_rate != 9600 and self.baud_rate != 19200 and self.baud_rate != 38400 and
+            self.baud_rate != 57600 and self.baud_rate != 115200 and self.baud_rate != 230400 and
+            self.baud_rate != 460800 and self.baud_rate != 921600)
+            return "baud_rate must be one of 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600";
+        if (self.data_bits != 7 and self.data_bits != 8) return "data_bits must be one of 7, 8";
+        if (self.stop_bits != 1 and self.stop_bits != 2) return "stop_bits must be one of 1, 2";
 
         if (self.data_bits == 7 and self.parity == .none)
-            @compileError("7-bit data requires parity for frame synchronization");
+            return "7-bit data requires parity for frame synchronization";
 
         if (self.baud_rate > 115200 and !self.hw_flow_control)
-            @compileError("baud rates above 115200 require hardware flow control");
+            return "baud rates above 115200 require hardware flow control";
+        return null;
     }
 };
 
 test "baud config standard 115200 8N1" {
     comptime {
-        contracts.assertValid(BaudConfig, BaudConfig{
+        contracts.assertValid(BaudConfig{
             .baud_rate = 115200,
             .data_bits = 8,
             .stop_bits = 1,
@@ -248,7 +252,7 @@ test "baud config standard 115200 8N1" {
 
 test "baud config high speed with flow control" {
     comptime {
-        contracts.assertValid(BaudConfig, BaudConfig{
+        contracts.assertValid(BaudConfig{
             .baud_rate = 921600,
             .data_bits = 8,
             .stop_bits = 1,
@@ -260,7 +264,7 @@ test "baud config high speed with flow control" {
 
 test "baud config 7-bit with parity" {
     comptime {
-        contracts.assertValid(BaudConfig, BaudConfig{
+        contracts.assertValid(BaudConfig{
             .baud_rate = 9600,
             .data_bits = 7,
             .stop_bits = 2,

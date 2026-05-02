@@ -139,10 +139,13 @@ const MotorConfig = struct {
     rated_current_ma: u16,
     pole_pairs: u8,
 
-    pub fn validate(comptime self: MotorConfig) void {
-        constraints.inRange(100, 30000, self.max_rpm);
-        constraints.inRange(100, 50000, self.rated_current_ma);
-        constraints.oneOf(&.{ 1, 2, 3, 4, 6, 8 }, self.pole_pairs);
+    pub fn validate(comptime self: MotorConfig) ?[]const u8 {
+        if (self.max_rpm < 100 or self.max_rpm > 30000) return "max_rpm out of range [100, 30000]";
+        if (self.rated_current_ma < 100 or self.rated_current_ma > 50000) return "rated_current_ma out of range [100, 50000]";
+        if (self.pole_pairs != 1 and self.pole_pairs != 2 and self.pole_pairs != 3 and
+            self.pole_pairs != 4 and self.pole_pairs != 6 and self.pole_pairs != 8)
+            return "pole_pairs must be one of 1, 2, 3, 4, 6, 8";
+        return null;
     }
 };
 
@@ -158,7 +161,7 @@ const motor_fleet = blk: {
                     break :blk pairs[i % 16];
                 },
             };
-            cfg.validate();
+            contracts.assertValid(cfg);
             return cfg;
         }
     }.f;

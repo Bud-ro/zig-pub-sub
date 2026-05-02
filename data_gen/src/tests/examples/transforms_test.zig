@@ -204,15 +204,16 @@ const SensorConfig = struct {
     filter_alpha: u16,
     filter_beta: u16,
 
-    pub fn validate(comptime self: SensorConfig) void {
-        constraints.lessThan(self.alarm_low_counts, self.alarm_high_counts);
-        constraints.nonZero(self.sample_ticks);
+    pub fn validate(comptime self: SensorConfig) ?[]const u8 {
+        if (self.alarm_low_counts >= self.alarm_high_counts) return "alarm_low_counts must be less than alarm_high_counts";
+        if (self.sample_ticks == 0) return "sample_ticks must not be zero";
         const sum = @as(u32, self.filter_alpha) + self.filter_beta;
         if (sum != 65536)
-            @compileError(std.fmt.comptimePrint(
+            return std.fmt.comptimePrint(
                 "filter coefficients must sum to 65536, got {}",
                 .{sum},
-            ));
+            );
+        return null;
     }
 };
 
@@ -234,7 +235,7 @@ fn makeSensorConfig(comptime p: SensorParams) SensorConfig {
         .filter_alpha = coeffs.alpha,
         .filter_beta = coeffs.one_minus_alpha,
     };
-    config.validate();
+    contracts.assertValid(config);
     return config;
 }
 

@@ -14,47 +14,48 @@ const WashStep = struct {
     drum_rpm: u16,
     water_liters: u8,
 
-    pub fn validate(comptime self: WashStep) void {
-        constraints.inRange(1, 3600, self.duration_seconds);
+    pub fn validate(comptime self: WashStep) ?[]const u8 {
+        if (self.duration_seconds < 1 or self.duration_seconds > 3600) return "duration_seconds out of range [1, 3600]";
 
         switch (self.phase) {
             .fill => {
                 if (self.drum_rpm != 0)
-                    @compileError("drum must be stopped during fill");
-                constraints.inRange(10, 60, self.water_temp_c);
-                constraints.nonZero(self.water_liters);
+                    return "drum must be stopped during fill";
+                if (self.water_temp_c < 10 or self.water_temp_c > 60) return "water_temp_c out of range [10, 60] for fill";
+                if (self.water_liters == 0) return "water_liters must not be zero for fill";
             },
             .heat => {
                 if (self.drum_rpm != 0)
-                    @compileError("drum must be stopped during heat");
-                constraints.inRange(30, 95, self.water_temp_c);
+                    return "drum must be stopped during heat";
+                if (self.water_temp_c < 30 or self.water_temp_c > 95) return "water_temp_c out of range [30, 95] for heat";
                 if (self.water_liters != 0)
-                    @compileError("no water added during heat");
+                    return "no water added during heat";
             },
             .wash => {
-                constraints.inRange(20, 80, self.drum_rpm);
-                constraints.inRange(20, 95, self.water_temp_c);
+                if (self.drum_rpm < 20 or self.drum_rpm > 80) return "drum_rpm out of range [20, 80] for wash";
+                if (self.water_temp_c < 20 or self.water_temp_c > 95) return "water_temp_c out of range [20, 95] for wash";
             },
             .rinse => {
-                constraints.inRange(20, 60, self.drum_rpm);
-                constraints.inRange(10, 30, self.water_temp_c);
+                if (self.drum_rpm < 20 or self.drum_rpm > 60) return "drum_rpm out of range [20, 60] for rinse";
+                if (self.water_temp_c < 10 or self.water_temp_c > 30) return "water_temp_c out of range [10, 30] for rinse";
             },
             .spin => {
                 if (self.water_temp_c != 0)
-                    @compileError("no heating during spin");
-                constraints.inRange(400, 1400, self.drum_rpm);
+                    return "no heating during spin";
+                if (self.drum_rpm < 400 or self.drum_rpm > 1400) return "drum_rpm out of range [400, 1400] for spin";
                 if (self.water_liters != 0)
-                    @compileError("no water during spin");
+                    return "no water during spin";
             },
             .drain => {
                 if (self.drum_rpm != 0)
-                    @compileError("drum must be stopped during drain");
+                    return "drum must be stopped during drain";
                 if (self.water_temp_c != 0)
-                    @compileError("no heating during drain");
+                    return "no heating during drain";
                 if (self.water_liters != 0)
-                    @compileError("no water added during drain");
+                    return "no water added during drain";
             },
         }
+        return null;
     }
 };
 
@@ -71,7 +72,7 @@ fn validateWashCycle(comptime cycle: []const WashStep) void {
     var total_water: u32 = 0;
     var has_wash = false;
     for (cycle) |step| {
-        step.validate();
+        contracts.assertValid(step);
         total_water += step.water_liters;
         if (step.phase == .wash) has_wash = true;
     }

@@ -1,21 +1,15 @@
 const std = @import("std");
 const contracts = @import("data_gen").contracts;
-const constraints = @import("data_gen").constraints;
 
 const BoundedPair = struct {
     low: u16,
     high: u16,
 
-    pub fn validate(comptime self: BoundedPair) void {
-        constraints.inRange(0, 1000, self.low);
-        constraints.inRange(0, 1000, self.high);
-        constraints.lessThan(self.low, self.high);
-    }
-
-    pub fn generate(comptime low: u16, comptime high: u16) BoundedPair {
-        const self = BoundedPair{ .low = low, .high = high };
-        self.validate();
-        return self;
+    pub fn validate(comptime self: BoundedPair) ?[]const u8 {
+        if (self.low >= self.high) return "low must be less than high";
+        if (self.low > 1000) return "low exceeds 1000";
+        if (self.high > 1000) return "high exceeds 1000";
+        return null;
     }
 };
 
@@ -24,47 +18,73 @@ const PlainStruct = struct {
     y: u32,
 };
 
-test "hasValidate detects validate declaration" {
+const Nested = struct {
+    pair: BoundedPair,
+    name_id: u8,
+
+    pub fn validate(comptime self: Nested) ?[]const u8 {
+        if (self.name_id == 0) return "name_id must not be zero";
+        return null;
+    }
+};
+
+test "assertValid passes valid BoundedPair" {
     comptime {
-        try std.testing.expect(contracts.hasValidate(BoundedPair));
-        try std.testing.expect(!contracts.hasValidate(PlainStruct));
+        contracts.assertValid(BoundedPair{ .low = 10, .high = 100 });
     }
 }
 
-test "hasGenerate detects generate declaration" {
+test "assertValid passes plain struct (no validate)" {
     comptime {
-        try std.testing.expect(contracts.hasGenerate(BoundedPair));
-        try std.testing.expect(!contracts.hasGenerate(PlainStruct));
+        contracts.assertValid(PlainStruct{ .x = 42, .y = 99 });
     }
 }
 
-test "validated calls validate and returns value" {
+test "validated returns value unchanged" {
     comptime {
-        const pair = contracts.validated(BoundedPair, .{ .low = 10, .high = 100 });
-        try std.testing.expectEqual(10, pair.low);
-        try std.testing.expectEqual(100, pair.high);
+        const pair = contracts.validated(BoundedPair{ .low = 5, .high = 500 });
+        try std.testing.expectEqual(5, pair.low);
+        try std.testing.expectEqual(500, pair.high);
     }
 }
 
-test "validated passes through plain structs unchanged" {
+test "recursive validation through nested structs" {
     comptime {
-        const plain = contracts.validated(PlainStruct, .{ .x = 42, .y = 99 });
-        try std.testing.expectEqual(42, plain.x);
-        try std.testing.expectEqual(99, plain.y);
+        contracts.assertValid(Nested{
+            .pair = .{ .low = 10, .high = 100 },
+            .name_id = 1,
+        });
     }
 }
 
-test "assertValid does not compile-error on valid data" {
+test "recursive validation through arrays of structs" {
+    const Config = struct {
+        items: [3]BoundedPair,
+    };
+
     comptime {
-        contracts.assertValid(BoundedPair, .{ .low = 5, .high = 500 });
-        contracts.assertValid(PlainStruct, .{ .x = 0, .y = 0 });
+        contracts.assertValid(Config{
+            .items = .{
+                .{ .low = 1, .high = 10 },
+                .{ .low = 20, .high = 30 },
+                .{ .low = 100, .high = 200 },
+            },
+        });
     }
 }
 
-test "generate produces validated instance" {
+test "check returns null for valid value" {
     comptime {
-        const pair = BoundedPair.generate(10, 200);
-        try std.testing.expectEqual(10, pair.low);
-        try std.testing.expectEqual(200, pair.high);
+        try std.testing.expectEqual(
+            @as(?[]const u8, null),
+            contracts.check(BoundedPair{ .low = 1, .high = 2 }, ""),
+        );
+    }
+}
+
+test "check returns error message for invalid value" {
+    comptime {
+        const err = contracts.check(BoundedPair{ .low = 50, .high = 10 }, "");
+        try std.testing.expect(err != null);
     }
 }

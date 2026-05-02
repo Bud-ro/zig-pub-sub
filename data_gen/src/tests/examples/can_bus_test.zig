@@ -17,18 +17,19 @@ const CanBitTiming = struct {
     phase_seg2: u8,
     sjw: u8,
 
-    pub fn validate(comptime self: CanBitTiming) void {
-        constraints.inRange(1, 1024, self.prescaler);
-        constraints.inRange(1, 8, self.prop_seg);
-        constraints.inRange(1, 8, self.phase_seg1);
-        constraints.inRange(1, 8, self.phase_seg2);
-        constraints.inRange(1, 4, self.sjw);
+    pub fn validate(comptime self: CanBitTiming) ?[]const u8 {
+        if (self.prescaler < 1 or self.prescaler > 1024) return "prescaler out of range [1, 1024]";
+        if (self.prop_seg < 1 or self.prop_seg > 8) return "prop_seg out of range [1, 8]";
+        if (self.phase_seg1 < 1 or self.phase_seg1 > 8) return "phase_seg1 out of range [1, 8]";
+        if (self.phase_seg2 < 1 or self.phase_seg2 > 8) return "phase_seg2 out of range [1, 8]";
+        if (self.sjw < 1 or self.sjw > 4) return "sjw out of range [1, 4]";
 
         if (self.sjw > self.phase_seg1 or self.sjw > self.phase_seg2)
-            @compileError("SJW must not exceed the smaller of phase_seg1 and phase_seg2");
+            return "SJW must not exceed the smaller of phase_seg1 and phase_seg2";
 
         if (self.phase_seg2 < self.sjw)
-            @compileError("phase_seg2 must be >= SJW for proper resynchronization");
+            return "phase_seg2 must be >= SJW for proper resynchronization";
+        return null;
     }
 
     pub fn bitTime(comptime self: CanBitTiming) u16 {
@@ -52,18 +53,19 @@ const CanNodeConfig = struct {
     silent_mode: bool,
     loopback: bool,
 
-    pub fn validate(comptime self: CanNodeConfig) void {
-        self.timing.validate();
-        constraints.nonZero(self.clock_hz);
+    pub fn validate(comptime self: CanNodeConfig) ?[]const u8 {
+        if (self.clock_hz == 0) return "clock_hz must not be zero";
 
         const baud = self.timing.baudRate(self.clock_hz);
-        constraints.oneOf(&.{ 125_000, 250_000, 500_000, 1_000_000 }, baud);
+        if (baud != 125_000 and baud != 250_000 and baud != 500_000 and baud != 1_000_000)
+            return "baud rate must be one of 125000, 250000, 500000, 1000000";
 
         const sp = self.timing.samplePointPct();
-        constraints.inRange(75, 90, sp);
+        if (sp < 75 or sp > 90) return "sample point out of range [75, 90]";
 
         if (self.silent_mode and self.loopback)
-            @compileError("silent mode and loopback are mutually exclusive");
+            return "silent mode and loopback are mutually exclusive";
+        return null;
     }
 };
 
@@ -72,7 +74,7 @@ fn validateCanNetwork(comptime nodes: []const CanNodeConfig) void {
 
     var ids: [nodes.len]u8 = undefined;
     for (nodes, 0..) |node, i| {
-        node.validate();
+        contracts.assertValid(node);
         ids[i] = node.node_id;
     }
     constraints.noDuplicates(u8, &ids);

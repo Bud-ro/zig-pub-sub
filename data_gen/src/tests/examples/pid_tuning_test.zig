@@ -31,24 +31,25 @@ const PidConfig = struct {
     derivative_filter_coeff: u8,
     sample_period_ms: u16,
 
-    pub fn validate(comptime self: PidConfig) void {
-        constraints.nonZero(self.sample_period_ms);
-        constraints.lessThan(self.output_min, self.output_max);
+    pub fn validate(comptime self: PidConfig) ?[]const u8 {
+        if (self.sample_period_ms == 0) return "sample_period_ms must not be zero";
+        if (self.output_min >= self.output_max) return "output_min must be less than output_max";
 
         const kd_x100: u32 = @as(u32, self.gains.kd) * 100 / 256;
         if (kd_x100 > 500 and self.derivative_filter_coeff < 50)
-            @compileError("high derivative gain (Kd > 5.0) requires derivative_filter_coeff >= 50 for stability");
+            return "high derivative gain (Kd > 5.0) requires derivative_filter_coeff >= 50 for stability";
 
         const output_range: u32 = @intCast(@as(i32, self.output_max) - self.output_min);
         if (self.integral_limit > output_range)
-            @compileError("integral_limit exceeds output range — anti-windup is ineffective");
+            return "integral_limit exceeds output range — anti-windup is ineffective";
 
         const ki_contribution = @as(u32, self.gains.ki) * self.sample_period_ms / 256000;
         const kp_normalized = @as(u32, self.gains.kp) * 1000 / 256;
         if (kp_normalized > 0 and ki_contribution > kp_normalized * 10)
-            @compileError("Ki contribution per sample exceeds 10x Kp — likely unstable");
+            return "Ki contribution per sample exceeds 10x Kp — likely unstable";
 
-        constraints.inRange(1, 10000, self.sample_period_ms);
+        if (self.sample_period_ms < 1 or self.sample_period_ms > 10000) return "sample_period_ms out of range [1, 10000]";
+        return null;
     }
 
     pub const Params = struct {
@@ -71,7 +72,7 @@ const PidConfig = struct {
             .derivative_filter_coeff = p.derivative_filter_coeff,
             .sample_period_ms = p.sample_period_ms,
         };
-        self.validate();
+        contracts.assertValid(self);
         return self;
     }
 };
@@ -148,27 +149,25 @@ const CascadedPid = struct {
     inner_setpoint_min: i16,
     inner_setpoint_max: i16,
 
-    pub fn validate(comptime self: CascadedPid) void {
-        self.inner.validate();
-        self.outer.validate();
-
+    pub fn validate(comptime self: CascadedPid) ?[]const u8 {
         if (self.outer.sample_period_ms <= self.inner.sample_period_ms)
-            @compileError("outer loop must run slower than inner loop");
+            return "outer loop must run slower than inner loop";
 
         if (self.outer.sample_period_ms % self.inner.sample_period_ms != 0)
-            @compileError("outer loop period must be a multiple of inner loop period");
+            return "outer loop period must be a multiple of inner loop period";
 
         if (self.outer.output_min < self.inner_setpoint_min or
             self.outer.output_max > self.inner_setpoint_max)
-            @compileError("outer loop output range must fit within inner loop setpoint range");
+            return "outer loop output range must fit within inner loop setpoint range";
 
-        constraints.lessThan(self.inner_setpoint_min, self.inner_setpoint_max);
+        if (self.inner_setpoint_min >= self.inner_setpoint_max) return "inner_setpoint_min must be less than inner_setpoint_max";
+        return null;
     }
 };
 
 test "cascaded PID: speed/current control" {
     comptime {
-        contracts.assertValid(CascadedPid, CascadedPid{
+        contracts.assertValid(CascadedPid{
             .inner = PidConfig.init(.{
                 .kp = 10.0,
                 .ki = 2.0,
@@ -208,7 +207,7 @@ fn validateMultiZone(comptime zones: []const ZoneConfig) void {
 
     var ids: [zones.len]u8 = undefined;
     for (zones, 0..) |zone, i| {
-        zone.pid.validate();
+        contracts.assertValid(zone.pid);
         ids[i] = zone.zone_id;
         constraints.nonZero(zone.deadband);
 

@@ -15,22 +15,23 @@ const StatusRegister = packed struct {
     gain: u5,
     reserved: u1,
 
-    pub fn validate(comptime self: StatusRegister) void {
+    pub fn validate(comptime self: StatusRegister) ?[]const u8 {
         if (self.busy == 1 and self.error_code != 0)
-            @compileError("cannot be busy with an active error");
+            return "cannot be busy with an active error";
 
-        constraints.inRange(0, 7, self.channel);
+        if (self.channel < 0 or self.channel > 7) return "channel out of range [0, 7]";
 
         if (self.mode == 3)
-            @compileError("mode 3 is reserved");
+            return "mode 3 is reserved";
 
-        constraints.inRange(1, 16, self.gain);
+        if (self.gain < 1 or self.gain > 16) return "gain out of range [1, 16]";
+        return null;
     }
 };
 
 test "packed status register valid idle state" {
     comptime {
-        contracts.assertValid(StatusRegister, StatusRegister{
+        contracts.assertValid(StatusRegister{
             .busy = 0,
             .error_code = 0,
             .channel = 3,
@@ -43,7 +44,7 @@ test "packed status register valid idle state" {
 
 test "packed status register valid busy state" {
     comptime {
-        contracts.assertValid(StatusRegister, StatusRegister{
+        contracts.assertValid(StatusRegister{
             .busy = 1,
             .error_code = 0,
             .channel = 0,
@@ -71,20 +72,21 @@ const DacControl = packed struct {
     update_trigger: u1,
     _reserved2: u3 = 0,
 
-    pub fn validate(comptime self: DacControl) void {
+    pub fn validate(comptime self: DacControl) ?[]const u8 {
         if (self.power_down_mode != 0 and self.update_trigger == 1)
-            @compileError("cannot trigger update while powered down");
+            return "cannot trigger update while powered down";
 
         if (self.output_gain == 1 and self.data > 2048)
-            @compileError("2x gain mode limits data to 0-2048 to avoid clipping");
+            return "2x gain mode limits data to 0-2048 to avoid clipping";
 
-        constraints.inRange(0, 4095, self.data);
+        if (self.data < 0 or self.data > 4095) return "data out of range [0, 4095]";
+        return null;
     }
 };
 
 test "DAC control word normal output" {
     comptime {
-        contracts.assertValid(DacControl, DacControl{
+        contracts.assertValid(DacControl{
             .channel_select = 0,
             .power_down_mode = 0,
             .output_gain = 0,
@@ -97,7 +99,7 @@ test "DAC control word normal output" {
 
 test "DAC control word 2x gain limited range" {
     comptime {
-        contracts.assertValid(DacControl, DacControl{
+        contracts.assertValid(DacControl{
             .channel_select = 1,
             .power_down_mode = 0,
             .output_gain = 1,
@@ -127,27 +129,28 @@ const SensorReading = extern struct {
     status_flags: u16,
     _pad2: [2]u8 = .{ 0, 0 },
 
-    pub fn validate(comptime self: SensorReading) void {
-        constraints.inRange(0, 15, self.channel_id);
-        constraints.nonZero(self.timestamp_ms);
+    pub fn validate(comptime self: SensorReading) ?[]const u8 {
+        if (self.channel_id < 0 or self.channel_id > 15) return "channel_id out of range [0, 15]";
+        if (self.timestamp_ms == 0) return "timestamp_ms must not be zero";
 
         // Scaled value must be a plausible transformation of raw
         // (within 10x factor)
         const abs_raw = if (self.value_raw < 0) -self.value_raw else self.value_raw;
         const abs_scaled = if (self.value_scaled < 0) -self.value_scaled else self.value_scaled;
         if (abs_raw > 0 and abs_scaled > abs_raw * 10)
-            @compileError("scaled value is implausibly large relative to raw");
+            return "scaled value is implausibly large relative to raw";
 
         // Status flags: bit 0 = valid, bit 1 = overflow, bit 2 = underflow
         // Valid and overflow/underflow are contradictory
         if (self.status_flags & 1 == 1 and self.status_flags & 6 != 0)
-            @compileError("valid reading cannot have overflow or underflow flags");
+            return "valid reading cannot have overflow or underflow flags";
+        return null;
     }
 };
 
 test "extern sensor reading valid" {
     comptime {
-        contracts.assertValid(SensorReading, SensorReading{
+        contracts.assertValid(SensorReading{
             .timestamp_ms = 1000,
             .channel_id = 3,
             .value_raw = 512,
@@ -287,7 +290,7 @@ const GainTable = struct {
     row_labels: [4]u8,
     col_labels: [8]u8,
 
-    pub fn validate(comptime self: GainTable) void {
+    pub fn validate(comptime self: GainTable) ?[]const u8 {
         constraints.isSorted(u8, &self.row_labels);
         constraints.noDuplicates(u8, &self.row_labels);
         constraints.isSorted(u8, &self.col_labels);
@@ -297,7 +300,7 @@ const GainTable = struct {
         for (self.values) |row| {
             for (1..row.len) |j| {
                 if (row[j] < row[j - 1])
-                    @compileError("gain table rows must be non-decreasing");
+                    return "gain table rows must be non-decreasing";
             }
         }
 
@@ -305,20 +308,21 @@ const GainTable = struct {
         for (0..8) |col| {
             for (1..4) |row| {
                 if (self.values[row][col] < self.values[row - 1][col])
-                    @compileError("gain table columns must be non-decreasing");
+                    return "gain table columns must be non-decreasing";
             }
         }
 
         // All values in valid range
         for (self.values) |row| {
             for (row) |v| {
-                constraints.inRange(0, 64, v);
+                if (v < 0 or v > 64) return "gain table value out of range [0, 64]";
             }
         }
+        return null;
     }
 };
 
-const gain_config = contracts.validated(GainTable, GainTable{
+const gain_config = contracts.validated(GainTable{
     .row_labels = .{ 10, 20, 50, 100 },
     .col_labels = .{ 1, 2, 3, 4, 5, 6, 7, 8 },
     .values = .{

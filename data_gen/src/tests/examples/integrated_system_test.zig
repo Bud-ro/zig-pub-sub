@@ -42,19 +42,32 @@ const ClockConfig = struct {
         return self.ahbHz() / self.apb2_divider;
     }
 
-    pub fn validate(comptime self: ClockConfig) void {
-        if (self.source == .hse or self.source == .pll)
-            constraints.inRange(4_000_000, 25_000_000, self.hse_freq_hz);
+    pub fn validate(comptime self: ClockConfig) ?[]const u8 {
+        if (self.source == .hse or self.source == .pll) {
+            if (self.hse_freq_hz < 4_000_000 or self.hse_freq_hz > 25_000_000)
+                return "hse_freq_hz out of range [4000000, 25000000]";
+        }
 
-        constraints.oneOf(&.{ 2, 3, 4, 6, 8, 9, 12 }, self.pll_multiplier);
-        constraints.oneOf(&.{ 1, 2, 4, 8 }, self.ahb_divider);
-        constraints.oneOf(&.{ 1, 2, 4 }, self.apb1_divider);
-        constraints.oneOf(&.{ 1, 2, 4 }, self.apb2_divider);
+        if (self.pll_multiplier != 2 and self.pll_multiplier != 3 and self.pll_multiplier != 4 and
+            self.pll_multiplier != 6 and self.pll_multiplier != 8 and self.pll_multiplier != 9 and
+            self.pll_multiplier != 12)
+            return "pll_multiplier must be one of 2, 3, 4, 6, 8, 9, 12";
+        if (self.ahb_divider != 1 and self.ahb_divider != 2 and self.ahb_divider != 4 and self.ahb_divider != 8)
+            return "ahb_divider must be one of 1, 2, 4, 8";
+        if (self.apb1_divider != 1 and self.apb1_divider != 2 and self.apb1_divider != 4)
+            return "apb1_divider must be one of 1, 2, 4";
+        if (self.apb2_divider != 1 and self.apb2_divider != 2 and self.apb2_divider != 4)
+            return "apb2_divider must be one of 1, 2, 4";
 
-        constraints.inRange(1_000_000, 168_000_000, self.sysClockHz());
-        constraints.inRange(1_000_000, 168_000_000, self.ahbHz());
-        constraints.inRange(1_000_000, 42_000_000, self.apb1Hz());
-        constraints.inRange(1_000_000, 84_000_000, self.apb2Hz());
+        if (self.sysClockHz() < 1_000_000 or self.sysClockHz() > 168_000_000)
+            return "sysClockHz out of range [1000000, 168000000]";
+        if (self.ahbHz() < 1_000_000 or self.ahbHz() > 168_000_000)
+            return "ahbHz out of range [1000000, 168000000]";
+        if (self.apb1Hz() < 1_000_000 or self.apb1Hz() > 42_000_000)
+            return "apb1Hz out of range [1000000, 42000000]";
+        if (self.apb2Hz() < 1_000_000 or self.apb2Hz() > 84_000_000)
+            return "apb2Hz out of range [1000000, 84000000]";
+        return null;
     }
 };
 
@@ -94,7 +107,7 @@ const UartConfig = struct {
     parity: bool,
     dma_enabled: bool,
 
-    pub fn validate(comptime self: UartConfig, comptime apb_hz: u32) void {
+    pub fn validateWith(comptime self: UartConfig, comptime apb_hz: u32) void {
         constraints.oneOf(&.{ 9600, 19200, 57600, 115200, 460800, 921600 }, self.baud_rate);
         constraints.oneOf(&.{ 7, 8 }, self.data_bits);
         constraints.oneOf(&.{ 1, 2 }, self.stop_bits);
@@ -125,7 +138,7 @@ const SpiConfig = struct {
     bit_order: enum(u1) { msb_first, lsb_first },
     dma_enabled: bool,
 
-    pub fn validate(comptime self: SpiConfig, comptime apb_hz: u32) void {
+    pub fn validateWith(comptime self: SpiConfig, comptime apb_hz: u32) void {
         constraints.nonZero(self.max_clock_hz);
         if (self.max_clock_hz > apb_hz / 2)
             @compileError("SPI clock cannot exceed APB/2");
@@ -140,7 +153,7 @@ const AdcConfig = struct {
     channels: u8,
     dma_circular: bool,
 
-    pub fn validate(comptime self: AdcConfig, comptime apb_hz: u32) void {
+    pub fn validateWith(comptime self: AdcConfig, comptime apb_hz: u32) void {
         constraints.oneOf(&.{ 8, 10, 12 }, self.resolution_bits);
         constraints.inRange(100, 1_000_000, self.sample_rate_hz);
         constraints.inRange(1, 16, self.channels);
@@ -202,12 +215,11 @@ const SystemConfig = struct {
     adc: AdcConfig,
     tasks: [5]TaskConfig,
 
-    pub fn validate(comptime self: SystemConfig) void {
-        self.clock.validate();
+    pub fn validate(comptime self: SystemConfig) ?[]const u8 {
         validateMemLayout(&self.memory);
-        self.uart.validate(self.clock.apb1Hz());
-        self.spi.validate(self.clock.apb2Hz());
-        self.adc.validate(self.clock.apb2Hz());
+        self.uart.validateWith(self.clock.apb1Hz());
+        self.spi.validateWith(self.clock.apb2Hz());
+        self.adc.validateWith(self.clock.apb2Hz());
 
         var ram_size: u32 = 0;
         for (self.memory) |region| {
@@ -219,7 +231,7 @@ const SystemConfig = struct {
         // Cross-subsystem: ADC tasks must have the ADC peripheral enabled
         for (self.tasks) |task| {
             if (task.uses_adc and self.adc.channels == 0)
-                @compileError("task uses ADC but no ADC channels configured");
+                return "task uses ADC but no ADC channels configured";
         }
 
         // DMA contention: if both UART and SPI use DMA, warn unless
@@ -227,13 +239,14 @@ const SystemConfig = struct {
         if (self.uart.dma_enabled and self.spi.dma_enabled) {
             for (self.tasks) |task| {
                 if (task.uses_uart and task.uses_spi)
-                    @compileError("task uses both UART and SPI with DMA — potential bus contention");
+                    return "task uses both UART and SPI with DMA — potential bus contention";
             }
         }
+        return null;
     }
 };
 
-const my_system = contracts.validated(SystemConfig, SystemConfig{
+const my_system = contracts.validated(SystemConfig{
     .clock = ClockConfig{
         .source = .pll,
         .hse_freq_hz = 8_000_000,
@@ -321,6 +334,6 @@ test "system task stacks fit in RAM" {
 
 test "full system passes integrated validation" {
     comptime {
-        contracts.assertValid(SystemConfig, my_system);
+        contracts.assertValid(my_system);
     }
 }

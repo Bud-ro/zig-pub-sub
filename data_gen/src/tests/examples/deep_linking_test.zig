@@ -10,11 +10,13 @@ const Component = struct {
     voltage_mv: u16,
     active: bool,
 
-    pub fn validate(comptime self: Component) void {
-        constraints.inRange(0, 5000, self.power_mw);
-        constraints.oneOf(&.{ 1800, 3300, 5000, 12000 }, self.voltage_mv);
+    pub fn validate(comptime self: Component) ?[]const u8 {
+        if (self.power_mw < 0 or self.power_mw > 5000) return "power_mw out of range [0, 5000]";
+        if (self.voltage_mv != 1800 and self.voltage_mv != 3300 and self.voltage_mv != 5000 and self.voltage_mv != 12000)
+            return "voltage_mv must be one of 1800, 3300, 5000, 12000";
         if (!self.active and self.power_mw != 0)
-            @compileError("inactive component must have zero power");
+            return "inactive component must have zero power";
+        return null;
     }
 };
 
@@ -24,27 +26,23 @@ const Subsystem = struct {
     max_power_mw: u32,
     voltage_mv: u16,
 
-    pub fn validate(comptime self: Subsystem) void {
-        constraints.inRange(0, 15000, self.max_power_mw);
+    pub fn validate(comptime self: Subsystem) ?[]const u8 {
+        if (self.max_power_mw < 0 or self.max_power_mw > 15000) return "max_power_mw out of range [0, 15000]";
 
         var total_power: u32 = 0;
-        var comp_ids: [4]u8 = undefined;
-        for (self.components, 0..) |comp, i| {
-            comp.validate();
+        for (self.components) |comp| {
             total_power += comp.power_mw;
-            comp_ids[i] = comp.name_id;
 
             if (comp.voltage_mv > self.voltage_mv)
-                @compileError("component voltage exceeds subsystem supply");
+                return "component voltage exceeds subsystem supply";
         }
 
-        constraints.noDuplicates(u8, &comp_ids);
-
         if (total_power > self.max_power_mw)
-            @compileError(std.fmt.comptimePrint(
+            return std.fmt.comptimePrint(
                 "subsystem component power {} exceeds budget {}",
                 .{ total_power, self.max_power_mw },
-            ));
+            );
+        return null;
     }
 };
 
@@ -53,13 +51,12 @@ const System = struct {
     power_budget_mw: u32,
     name_id: u8,
 
-    pub fn validate(comptime self: System) void {
-        constraints.inRange(0, 50000, self.power_budget_mw);
+    pub fn validate(comptime self: System) ?[]const u8 {
+        if (self.power_budget_mw < 0 or self.power_budget_mw > 50000) return "power_budget_mw out of range [0, 50000]";
 
         var total_power: u32 = 0;
         var sub_ids: [3]u8 = undefined;
         for (self.subsystems, 0..) |sub, i| {
-            sub.validate();
             total_power += sub.max_power_mw;
             sub_ids[i] = sub.name_id;
         }
@@ -67,14 +64,15 @@ const System = struct {
         constraints.noDuplicates(u8, &sub_ids);
 
         if (total_power > self.power_budget_mw)
-            @compileError(std.fmt.comptimePrint(
+            return std.fmt.comptimePrint(
                 "system power {} exceeds budget {}",
                 .{ total_power, self.power_budget_mw },
-            ));
+            );
+        return null;
     }
 };
 
-const embedded_system = contracts.validated(System, System{
+const embedded_system = contracts.validated(System{
     .name_id = 0,
     .power_budget_mw = 25000,
     .subsystems = .{
