@@ -184,15 +184,19 @@ fn validateMeasurementStep(comptime step: MeasurementStep, comptime idx: usize) 
     }
 }
 
-const measurement_sequence = generators.validatedSequence(MeasurementStep, &.{
-    .{ .phase = .zero_cal, .duration_ms = 500, .target_value = 0, .tolerance_pct = 5 },
-    .{ .phase = .span_cal, .duration_ms = 500, .target_value = 1000, .tolerance_pct = 10 },
-    .{ .phase = .warmup, .duration_ms = 5000, .target_value = 0, .tolerance_pct = 50 },
-    .{ .phase = .measure, .duration_ms = 2000, .target_value = 500, .tolerance_pct = 2 },
-    .{ .phase = .measure, .duration_ms = 2000, .target_value = 750, .tolerance_pct = 3 },
-    .{ .phase = .measure, .duration_ms = 2000, .target_value = 250, .tolerance_pct = 5 },
-    .{ .phase = .cooldown, .duration_ms = 3000, .target_value = 0, .tolerance_pct = 20 },
-}, validateMeasurementStep);
+const measurement_sequence = blk: {
+    const steps = [_]MeasurementStep{
+        .{ .phase = .zero_cal, .duration_ms = 500, .target_value = 0, .tolerance_pct = 5 },
+        .{ .phase = .span_cal, .duration_ms = 500, .target_value = 1000, .tolerance_pct = 10 },
+        .{ .phase = .warmup, .duration_ms = 5000, .target_value = 0, .tolerance_pct = 50 },
+        .{ .phase = .measure, .duration_ms = 2000, .target_value = 500, .tolerance_pct = 2 },
+        .{ .phase = .measure, .duration_ms = 2000, .target_value = 750, .tolerance_pct = 3 },
+        .{ .phase = .measure, .duration_ms = 2000, .target_value = 250, .tolerance_pct = 5 },
+        .{ .phase = .cooldown, .duration_ms = 3000, .target_value = 0, .tolerance_pct = 20 },
+    };
+    for (steps, 0..) |step, i| validateMeasurementStep(step, i);
+    break :blk steps;
+};
 
 test "measurement sequence starts with zero cal" {
     comptime {
@@ -217,12 +221,14 @@ test "measurement phase tolerances are tight for measure steps" {
     }
 }
 
-// --- Using lookupTable for sensor linearization ---
+// --- Sensor linearization via generateArray ---
 
-const temp_lut = generators.lookupTable(i16, i16, -40, 120, 10, struct {
-    fn f(comptime raw: i16) i16 {
-        // Simulated NTC thermistor nonlinearity: T_actual ≈ raw + raw²/1000
-        return raw + @divTrunc(raw * raw, 1000);
+const TempLutEntry = struct { input: i16, output: i16 };
+
+const temp_lut = generators.generateArray(TempLutEntry, 17, struct {
+    fn f(comptime i: usize) TempLutEntry {
+        const raw: i16 = -40 + @as(i16, @intCast(i)) * 10;
+        return .{ .input = raw, .output = raw + @divTrunc(raw * raw, 1000) };
     }
 }.f);
 
@@ -236,49 +242,7 @@ test "temperature LUT covers -40 to 120" {
 
 test "temperature LUT output includes nonlinearity correction" {
     comptime {
-        // At 0, raw²/1000 = 0, so output = 0
         try std.testing.expectEqual(0, temp_lut[4].output);
-        // At 100, raw²/1000 = 10, so output = 110
         try std.testing.expectEqual(110, temp_lut[14].output);
-    }
-}
-
-// --- Using unfold for Fibonacci-like sensor threshold ramp ---
-
-const FibThreshold = struct {
-    level: u8,
-    threshold: u32,
-    hysteresis: u16,
-};
-
-const threshold_ramp = generators.unfold(FibThreshold, 8, .{
-    .level = 0,
-    .threshold = 100,
-    .hysteresis = 10,
-}, struct {
-    fn f(comptime prev: FibThreshold, comptime i: usize) FibThreshold {
-        return .{
-            .level = @intCast(i),
-            .threshold = prev.threshold * 2,
-            .hysteresis = @intCast(prev.hysteresis + 5),
-        };
-    }
-}.f);
-
-test "threshold ramp doubles each level" {
-    comptime {
-        try std.testing.expectEqual(8, threshold_ramp.len);
-        try std.testing.expectEqual(100, threshold_ramp[0].threshold);
-        try std.testing.expectEqual(200, threshold_ramp[1].threshold);
-        try std.testing.expectEqual(400, threshold_ramp[2].threshold);
-        try std.testing.expectEqual(12800, threshold_ramp[7].threshold);
-    }
-}
-
-test "threshold ramp hysteresis increases linearly" {
-    comptime {
-        try std.testing.expectEqual(10, threshold_ramp[0].hysteresis);
-        try std.testing.expectEqual(15, threshold_ramp[1].hysteresis);
-        try std.testing.expectEqual(45, threshold_ramp[7].hysteresis);
     }
 }

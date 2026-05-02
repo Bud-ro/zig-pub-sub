@@ -63,11 +63,11 @@ const TimerEntry = struct {
     callback_id: u8,
 };
 
-const timer_defaults = generators.repeated(TimerEntry, .{
+const timer_defaults = [_]TimerEntry{.{
     .period_ms = 100,
     .is_periodic = true,
     .callback_id = 0,
-}, 64);
+}} ** 64;
 
 test "64 repeated timer configs are identical" {
     comptime {
@@ -140,23 +140,23 @@ const SensorConfig = struct {
 };
 
 const sensor_array = blk: {
-    const step = struct {
-        fn f(comptime prev: SensorConfig, comptime i: usize) SensorConfig {
+    @setEvalBranchQuota(20_000);
+    const gen = struct {
+        fn f(comptime i: usize) SensorConfig {
+            var rate: u16 = 1000;
+            var gain: u8 = 1;
+            for (0..i) |_| {
+                rate = if (rate < 5000) rate + 50 else 1000;
+                gain = (gain % 8) + 1;
+            }
             return .{
                 .channel = @intCast(i),
-                .sample_rate_hz = if (prev.sample_rate_hz < 5000)
-                    prev.sample_rate_hz + 50
-                else
-                    1000,
-                .gain = @intCast((prev.gain % 8) + 1),
+                .sample_rate_hz = rate,
+                .gain = gain,
             };
         }
     }.f;
-    const arr = generators.unfold(SensorConfig, 100, .{
-        .channel = 0,
-        .sample_rate_hz = 1000,
-        .gain = 1,
-    }, step);
+    const arr = generators.generateArray(SensorConfig, 100, gen);
 
     for (arr) |cfg| {
         constraints.inRange(u16, 1000, 5050, cfg.sample_rate_hz);
@@ -166,7 +166,7 @@ const sensor_array = blk: {
     break :blk arr;
 };
 
-test "100 sensor configs generated via unfold" {
+test "100 sensor configs generated with stateful logic" {
     comptime {
         try std.testing.expectEqual(100, sensor_array.len);
         try std.testing.expectEqual(0, sensor_array[0].channel);
@@ -244,7 +244,11 @@ test "motor fleet RPM increases with index" {
 
 // --- Linear ramp table ---
 
-const ramp_table = generators.linearMap(i32, 11, 0, 1000);
+const ramp_table = generators.generateArray(i32, 11, struct {
+    fn f(comptime i: usize) i32 {
+        return @intCast(i * 100);
+    }
+}.f);
 
 test "linear ramp table has correct endpoints" {
     comptime {

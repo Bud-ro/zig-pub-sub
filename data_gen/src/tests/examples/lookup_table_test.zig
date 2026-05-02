@@ -151,11 +151,14 @@ test "pressure curve is sorted with unique x values" {
     }
 }
 
-// --- Generated Lookup Table Using lookupTable ---
+// --- Generated Lookup Table ---
 
-const dac_lut = generators.lookupTable(u16, u16, 0, 100, 10, struct {
-    fn f(comptime x: u16) u16 {
-        return x * 40 + 100;
+const DacLutEntry = struct { input: u16, output: u16 };
+
+const dac_lut = generators.generateArray(DacLutEntry, 11, struct {
+    fn f(comptime i: usize) DacLutEntry {
+        const input: u16 = @intCast(i * 10);
+        return .{ .input = input, .output = input * 40 + 100 };
     }
 }.f);
 
