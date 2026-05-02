@@ -50,19 +50,3 @@ test "percentOf with rounding" {
         try std.testing.expectEqual(@as(u8, 0), transforms.percentOf(u8, 255, 0.0));
     }
 }
-
-test "freqToPeriod" {
-    comptime {
-        try std.testing.expectEqual(@as(u32, 1000), transforms.freqToPeriod(u32, 1000.0, .microseconds));
-        try std.testing.expectEqual(@as(u32, 100), transforms.freqToPeriod(u32, 10000.0, .microseconds));
-        try std.testing.expectEqual(@as(u16, 10), transforms.freqToPeriod(u16, 100.0, .milliseconds));
-    }
-}
-
-test "freqToTicks" {
-    comptime {
-        try std.testing.expectEqual(@as(u16, 100), transforms.freqToTicks(u16, 100.0, 10000.0));
-        try std.testing.expectEqual(@as(u16, 10), transforms.freqToTicks(u16, 1000.0, 10000.0));
-        try std.testing.expectEqual(@as(u16, 1), transforms.freqToTicks(u16, 10000.0, 10000.0));
-    }
-}

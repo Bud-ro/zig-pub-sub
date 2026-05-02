@@ -76,49 +76,6 @@ pub fn percentOf(comptime T: type, comptime max: comptime_int, comptime pct: com
     return @intCast(rounded);
 }
 
-/// Converts a frequency in Hz to a period in the given time unit.
-/// Example: freqToPeriod(u32, 1000.0, .microseconds) = 1000
-pub fn freqToPeriod(comptime T: type, comptime freq_hz: comptime_float, comptime unit: TimeUnit) T {
-    if (freq_hz <= 0) @compileError("frequency must be positive");
-    const multiplier: comptime_float = switch (unit) {
-        .seconds => 1.0,
-        .milliseconds => 1_000.0,
-        .microseconds => 1_000_000.0,
-        .nanoseconds => 1_000_000_000.0,
-        .ticks => @compileError("ticks require explicit tick_hz; use freqToTicks instead"),
-    };
-    const period = multiplier / freq_hz;
-    const truncated = @as(comptime_int, @intFromFloat(period));
-    if (@as(comptime_float, @floatFromInt(truncated)) != period) {
-        const lower_freq = multiplier / @as(comptime_float, @floatFromInt(truncated + 1));
-        const upper_freq = multiplier / @as(comptime_float, @floatFromInt(truncated));
-        @compileError(std.fmt.comptimePrint(
-            "{d} Hz does not produce an integer period in {s}. Try {d} Hz (period={}) or {d} Hz (period={})",
-            .{ freq_hz, @tagName(unit), upper_freq, truncated, lower_freq, truncated + 1 },
-        ));
-    }
-    return @intCast(truncated);
-}
-
-/// Converts a frequency to a tick count given a tick rate.
-/// Example: freqToTicks(u16, 100.0, 10000.0) = 100 (100Hz sampled at 10kHz tick)
-pub fn freqToTicks(comptime T: type, comptime freq_hz: comptime_float, comptime tick_hz: comptime_float) T {
-    if (freq_hz <= 0) @compileError("frequency must be positive");
-    if (tick_hz <= 0) @compileError("tick rate must be positive");
-    if (freq_hz > tick_hz) @compileError("frequency exceeds tick rate (Nyquist violation)");
-    const ticks = tick_hz / freq_hz;
-    const truncated = @as(comptime_int, @intFromFloat(ticks));
-    if (@as(comptime_float, @floatFromInt(truncated)) != ticks) {
-        @compileError(std.fmt.comptimePrint(
-            "{d} Hz at {d} Hz tick rate = {d} ticks (not integer). Try {d} Hz or {d} Hz",
-            .{ freq_hz, tick_hz, ticks, tick_hz / @as(comptime_float, @floatFromInt(truncated)), tick_hz / @as(comptime_float, @floatFromInt(truncated + 1)) },
-        ));
-    }
-    return @intCast(truncated);
-}
-
-pub const TimeUnit = enum { seconds, milliseconds, microseconds, nanoseconds, ticks };
-
 fn comptime_pow2(comptime exp: comptime_int) comptime_float {
     var result: comptime_float = 1.0;
     var i: comptime_int = 0;

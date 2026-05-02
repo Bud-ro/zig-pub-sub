@@ -78,7 +78,7 @@ const MotorTimingConfig = struct {
 
     pub fn rpmToTicks(comptime self: MotorTimingConfig, comptime rpm: comptime_float) u16 {
         const electrical_hz = rpm * @as(comptime_float, @floatFromInt(self.poles)) / 120.0;
-        return transforms.freqToTicks(u16, electrical_hz, self.tick_hz);
+        return @intCast(@as(comptime_int, @intFromFloat(self.tick_hz / electrical_hz)));
     }
 };
 
@@ -230,7 +230,7 @@ fn makeSensorConfig(comptime p: SensorParams) SensorConfig {
     const config = SensorConfig{
         .alarm_low_counts = adc.voltsToCount(p.alarm_low_v),
         .alarm_high_counts = adc.voltsToCount(p.alarm_high_v),
-        .sample_ticks = transforms.freqToTicks(u16, p.sample_rate_hz, p.tick_hz),
+        .sample_ticks = @intCast(@as(comptime_int, @intFromFloat(p.tick_hz / p.sample_rate_hz))),
         .filter_alpha = coeffs.alpha,
         .filter_beta = coeffs.one_minus_alpha,
     };
