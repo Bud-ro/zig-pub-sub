@@ -205,26 +205,26 @@ const Command = union(CommandTag) {
 fn validateCommand(comptime cmd: Command) void {
     switch (cmd) {
         .set_output => |data| {
-            constraints.inRange(0, 7, data.channel);
-            constraints.inRange(0, 4095, data.value);
+            constraints.assert(constraints.inRange(0, 7, data.channel));
+            constraints.assert(constraints.inRange(0, 4095, data.value));
         },
         .read_input => |channel| {
-            constraints.inRange(0, 15, channel);
+            constraints.assert(constraints.inRange(0, 15, channel));
         },
         .configure => |data| {
-            constraints.inRange(0, 255, data.parameter_id);
+            constraints.assert(constraints.inRange(0, 255, data.parameter_id));
         },
         .reset => {},
         .calibrate => |data| {
-            constraints.inRange(0, 7, data.channel);
-            constraints.inRange(-1000, 1000, data.reference_value);
-            constraints.oneOf(&.{ 1, 4, 8, 16, 32, 64 }, data.num_samples);
+            constraints.assert(constraints.inRange(0, 7, data.channel));
+            constraints.assert(constraints.inRange(-1000, 1000, data.reference_value));
+            constraints.assert(constraints.oneOf(&.{ 1, 4, 8, 16, 32, 64 }, data.num_samples));
         },
     }
 }
 
 fn validateCommandSequence(comptime cmds: []const Command) void {
-    constraints.lenInRange(1, 32, cmds.len);
+    constraints.assert(constraints.lenInRange(1, 32, cmds.len));
 
     // Reset must be followed by configure (if not last)
     for (0..cmds.len - 1) |i| {
@@ -291,10 +291,10 @@ const GainTable = struct {
     col_labels: [8]u8,
 
     pub fn validate(comptime self: GainTable) ?[]const u8 {
-        constraints.isSorted(u8, &self.row_labels);
-        constraints.noDuplicates(u8, &self.row_labels);
-        constraints.isSorted(u8, &self.col_labels);
-        constraints.noDuplicates(u8, &self.col_labels);
+        constraints.assert(constraints.isSorted(u8, &self.row_labels));
+        constraints.assert(constraints.noDuplicates(u8, &self.row_labels));
+        constraints.assert(constraints.isSorted(u8, &self.col_labels));
+        constraints.assert(constraints.noDuplicates(u8, &self.col_labels));
 
         // Each row must be monotonically non-decreasing
         for (self.values) |row| {
@@ -350,9 +350,9 @@ test "gain table is monotonic in both dimensions" {
 
 test "gain table labels are sorted and unique" {
     comptime {
-        constraints.isSorted(u8, &gain_config.row_labels);
-        constraints.noDuplicates(u8, &gain_config.row_labels);
-        constraints.isSorted(u8, &gain_config.col_labels);
-        constraints.noDuplicates(u8, &gain_config.col_labels);
+        constraints.assert(constraints.isSorted(u8, &gain_config.row_labels));
+        constraints.assert(constraints.noDuplicates(u8, &gain_config.row_labels));
+        constraints.assert(constraints.isSorted(u8, &gain_config.col_labels));
+        constraints.assert(constraints.noDuplicates(u8, &gain_config.col_labels));
     }
 }

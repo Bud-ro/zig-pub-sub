@@ -61,7 +61,7 @@ const System = struct {
             sub_ids[i] = sub.name_id;
         }
 
-        constraints.noDuplicates(u8, &sub_ids);
+        constraints.assert(constraints.noDuplicates(u8, &sub_ids));
 
         if (total_power > self.power_budget_mw)
             return std.fmt.comptimePrint(
@@ -130,7 +130,7 @@ test "embedded system component IDs are unique within subsystems" {
             for (sub.components, 0..) |comp, i| {
                 ids[i] = comp.name_id;
             }
-            constraints.noDuplicates(u8, &ids);
+            constraints.assert(constraints.noDuplicates(u8, &ids));
         }
     }
 }
@@ -144,13 +144,13 @@ const Task = struct {
 };
 
 fn validateTaskGraph(comptime tasks: []const Task) void {
-    constraints.lenInRange(1, 64, tasks.len);
+    constraints.assert(constraints.lenInRange(1, 64, tasks.len));
 
     var ids: [tasks.len]u8 = undefined;
     for (tasks, 0..) |task, i| {
         ids[i] = task.id;
-        constraints.nonZero(task.duration_hours);
-        constraints.inRange(1, 100, task.duration_hours);
+        constraints.assert(constraints.nonZero(task.duration_hours));
+        constraints.assert(constraints.inRange(1, 100, task.duration_hours));
 
         if (task.dependency_idx) |dep_idx| {
             if (dep_idx >= tasks.len)
@@ -162,7 +162,7 @@ fn validateTaskGraph(comptime tasks: []const Task) void {
                 @compileError("dependency must reference an earlier task (no forward or self references)");
         }
     }
-    constraints.noDuplicates(u8, &ids);
+    constraints.assert(constraints.noDuplicates(u8, &ids));
 }
 
 const project_tasks = blk: {
@@ -195,7 +195,7 @@ test "task graph has unique IDs" {
         for (project_tasks, 0..) |task, i| {
             ids[i] = task.id;
         }
-        constraints.noDuplicates(u8, &ids);
+        constraints.assert(constraints.noDuplicates(u8, &ids));
     }
 }
 
@@ -211,7 +211,7 @@ const ErdSpec = struct {
 };
 
 fn validateErdRegistry(comptime specs: []const ErdSpec) void {
-    constraints.lenInRange(1, 256, specs.len);
+    constraints.assert(constraints.lenInRange(1, 256, specs.len));
 
     var numbers: [specs.len]u16 = undefined;
     for (specs, 0..) |spec, i| {
@@ -227,9 +227,9 @@ fn validateErdRegistry(comptime specs: []const ErdSpec) void {
         if (spec.erd_type != .struct_type and spec.size_bytes != expected_size)
             @compileError("size_bytes doesn't match type");
 
-        constraints.inRange(0, 16, spec.max_subs);
+        constraints.assert(constraints.inRange(0, 16, spec.max_subs));
     }
-    constraints.noDuplicates(u16, &numbers);
+    constraints.assert(constraints.noDuplicates(u16, &numbers));
 }
 
 const erd_registry = blk: {
@@ -251,7 +251,7 @@ test "ERD registry has unique numbers" {
         for (erd_registry, 0..) |spec, i| {
             nums[i] = spec.erd_number;
         }
-        constraints.noDuplicates(u16, &nums);
+        constraints.assert(constraints.noDuplicates(u16, &nums));
     }
 }
 

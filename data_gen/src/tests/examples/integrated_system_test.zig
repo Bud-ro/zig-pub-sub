@@ -83,8 +83,8 @@ const MemRegion = struct {
 
 fn validateMemLayout(comptime regions: []const MemRegion) void {
     for (regions) |r| {
-        constraints.nonZero(r.size);
-        constraints.isPowerOfTwo(r.size);
+        constraints.assert(constraints.nonZero(r.size));
+        constraints.assert(constraints.isPowerOfTwo(r.size));
         if (r.writable and r.executable)
             @compileError("W^X violation");
     }
@@ -108,9 +108,9 @@ const UartConfig = struct {
     dma_enabled: bool,
 
     pub fn validateWith(comptime self: UartConfig, comptime apb_hz: u32) void {
-        constraints.oneOf(&.{ 9600, 19200, 57600, 115200, 460800, 921600 }, self.baud_rate);
-        constraints.oneOf(&.{ 7, 8 }, self.data_bits);
-        constraints.oneOf(&.{ 1, 2 }, self.stop_bits);
+        constraints.assert(constraints.oneOf(&.{ 9600, 19200, 57600, 115200, 460800, 921600 }, self.baud_rate));
+        constraints.assert(constraints.oneOf(&.{ 7, 8 }, self.data_bits));
+        constraints.assert(constraints.oneOf(&.{ 1, 2 }, self.stop_bits));
 
         // Baud rate must be achievable from APB clock with < 2% error
         // UART divider = apb_hz / (16 * baud_rate)
@@ -139,7 +139,7 @@ const SpiConfig = struct {
     dma_enabled: bool,
 
     pub fn validateWith(comptime self: SpiConfig, comptime apb_hz: u32) void {
-        constraints.nonZero(self.max_clock_hz);
+        constraints.assert(constraints.nonZero(self.max_clock_hz));
         if (self.max_clock_hz > apb_hz / 2)
             @compileError("SPI clock cannot exceed APB/2");
     }
@@ -154,9 +154,9 @@ const AdcConfig = struct {
     dma_circular: bool,
 
     pub fn validateWith(comptime self: AdcConfig, comptime apb_hz: u32) void {
-        constraints.oneOf(&.{ 8, 10, 12 }, self.resolution_bits);
-        constraints.inRange(100, 1_000_000, self.sample_rate_hz);
-        constraints.inRange(1, 16, self.channels);
+        constraints.assert(constraints.oneOf(&.{ 8, 10, 12 }, self.resolution_bits));
+        constraints.assert(constraints.inRange(100, 1_000_000, self.sample_rate_hz));
+        constraints.assert(constraints.inRange(1, 16, self.channels));
 
         const total_sample_rate = self.sample_rate_hz * self.channels;
         const max_rate = apb_hz / (self.resolution_bits + 12);
@@ -178,14 +178,14 @@ const TaskConfig = struct {
 };
 
 fn validateTasks(comptime tasks: []const TaskConfig, comptime ram_bytes: u32) void {
-    constraints.lenInRange(1, 16, tasks.len);
+    constraints.assert(constraints.lenInRange(1, 16, tasks.len));
 
     var total_stack: u32 = 0;
     var total_util_x1000: u32 = 0;
     for (tasks) |t| {
-        constraints.nonZero(t.period_us);
-        constraints.nonZero(t.wcet_us);
-        constraints.isPowerOfTwo(t.stack_bytes);
+        constraints.assert(constraints.nonZero(t.period_us));
+        constraints.assert(constraints.nonZero(t.wcet_us));
+        constraints.assert(constraints.isPowerOfTwo(t.stack_bytes));
         if (t.wcet_us >= t.period_us)
             @compileError("WCET exceeds period");
         total_stack += t.stack_bytes;

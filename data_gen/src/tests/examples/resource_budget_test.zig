@@ -34,7 +34,7 @@ fn validateResourceBudget(
     comptime budget: SystemBudget,
 ) void {
     @setEvalBranchQuota(5000);
-    constraints.lenInRange(1, 32, modules.len);
+    constraints.assert(constraints.lenInRange(1, 32, modules.len));
 
     var ids: [modules.len]u8 = undefined;
     var total_cpu: u32 = 0;
@@ -49,9 +49,9 @@ fn validateResourceBudget(
         total_flash += m.resources.flash_bytes;
         total_power += m.resources.power_uw;
 
-        constraints.inRange(0, 1000, m.resources.cpu_pct_x10);
+        constraints.assert(constraints.inRange(0, 1000, m.resources.cpu_pct_x10));
     }
-    constraints.noDuplicates(u8, &ids);
+    constraints.assert(constraints.noDuplicates(u8, &ids));
 
     if (total_cpu > budget.max_cpu_pct_x10)
         @compileError(std.fmt.comptimePrint(
@@ -210,12 +210,12 @@ const Rect = struct {
 
 fn validateTiling(comptime rects: []const Rect, comptime screen_w: u16, comptime screen_h: u16) void {
     @setEvalBranchQuota(10_000);
-    constraints.lenInRange(1, 32, rects.len);
+    constraints.assert(constraints.lenInRange(1, 32, rects.len));
 
     // All rects within screen bounds
     for (rects) |r| {
-        constraints.nonZero(r.w);
-        constraints.nonZero(r.h);
+        constraints.assert(constraints.nonZero(r.w));
+        constraints.assert(constraints.nonZero(r.h));
         if (r.x + r.w > screen_w)
             @compileError(std.fmt.comptimePrint(
                 "rect at ({},{}) with size {}x{} exceeds screen width {}",

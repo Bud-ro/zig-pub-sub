@@ -203,13 +203,13 @@ const ZoneConfig = struct {
 };
 
 fn validateMultiZone(comptime zones: []const ZoneConfig) void {
-    constraints.lenInRange(1, 16, zones.len);
+    constraints.assert(constraints.lenInRange(1, 16, zones.len));
 
     var ids: [zones.len]u8 = undefined;
     for (zones, 0..) |zone, i| {
         contracts.assertValid(zone.pid);
         ids[i] = zone.zone_id;
-        constraints.nonZero(zone.deadband);
+        constraints.assert(constraints.nonZero(zone.deadband));
 
         if (zone.setpoint < zone.pid.output_min or zone.setpoint > zone.pid.output_max)
             @compileError(std.fmt.comptimePrint(
@@ -217,7 +217,7 @@ fn validateMultiZone(comptime zones: []const ZoneConfig) void {
                 .{ zone.zone_id, zone.setpoint },
             ));
     }
-    constraints.noDuplicates(u8, &ids);
+    constraints.assert(constraints.noDuplicates(u8, &ids));
 
     for (1..zones.len) |i| {
         if (zones[i].pid.sample_period_ms != zones[0].pid.sample_period_ms)

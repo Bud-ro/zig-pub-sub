@@ -70,14 +70,14 @@ const CanNodeConfig = struct {
 };
 
 fn validateCanNetwork(comptime nodes: []const CanNodeConfig) void {
-    constraints.lenInRange(2, 16, nodes.len);
+    constraints.assert(constraints.lenInRange(2, 16, nodes.len));
 
     var ids: [nodes.len]u8 = undefined;
     for (nodes, 0..) |node, i| {
         contracts.assertValid(node);
         ids[i] = node.node_id;
     }
-    constraints.noDuplicates(u8, &ids);
+    constraints.assert(constraints.noDuplicates(u8, &ids));
 
     // All nodes must operate at the same baud rate
     const reference_baud = nodes[0].timing.baudRate(nodes[0].clock_hz);
@@ -175,7 +175,7 @@ const CanFilter = struct {
 
 fn validateCanFilters(comptime filters: []const CanFilter) void {
     @setEvalBranchQuota(5000);
-    constraints.lenInRange(1, 28, filters.len);
+    constraints.assert(constraints.lenInRange(1, 28, filters.len));
 
     var fids: [filters.len]u8 = undefined;
     for (filters, 0..) |f, i| {
@@ -187,7 +187,7 @@ fn validateCanFilters(comptime filters: []const CanFilter) void {
                 @compileError("standard CAN mask must be <= 0x7FF");
         }
     }
-    constraints.noDuplicates(u8, &fids);
+    constraints.assert(constraints.noDuplicates(u8, &fids));
 
     // Check for fully redundant filters (one filter's acceptance set is a subset of another's)
     for (0..filters.len) |i| {

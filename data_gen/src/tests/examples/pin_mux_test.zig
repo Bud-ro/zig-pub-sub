@@ -61,14 +61,14 @@ fn validatePinMux(
     comptime capabilities: []const PinCapability,
 ) void {
     @setEvalBranchQuota(10_000);
-    constraints.lenInRange(1, 32, assignments.len);
+    constraints.assert(constraints.lenInRange(1, 32, assignments.len));
 
     // Each pin used at most once
     var pins: [assignments.len]u8 = undefined;
     for (assignments, 0..) |a, i| {
         pins[i] = @intFromEnum(a.pin);
     }
-    constraints.noDuplicates(u8, &pins);
+    constraints.assert(constraints.noDuplicates(u8, &pins));
 
     // Each non-GPIO function used at most once
     for (0..assignments.len) |i| {

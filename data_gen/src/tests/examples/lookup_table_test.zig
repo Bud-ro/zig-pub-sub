@@ -73,8 +73,8 @@ fn validatePriorityMap(comptime map: []const PriorityConfig) void {
     }
 
     for (map) |entry| {
-        constraints.nonZero(entry.weight);
-        constraints.nonZero(entry.max_queue_depth);
+        constraints.assert(constraints.nonZero(entry.weight));
+        constraints.assert(constraints.nonZero(entry.max_queue_depth));
     }
 }
 
@@ -113,15 +113,15 @@ const InterpPoint = struct {
 };
 
 fn validateInterpTable(comptime table: []const InterpPoint) void {
-    constraints.lenInRange(3, 128, table.len);
+    constraints.assert(constraints.lenInRange(3, 128, table.len));
 
     var xs: [table.len]i32 = undefined;
     for (table, 0..) |pt, i| {
         xs[i] = pt.x;
-        constraints.inRange(-10000, 10000, pt.y);
+        constraints.assert(constraints.inRange(-10000, 10000, pt.y));
     }
-    constraints.isSorted(i32, &xs);
-    constraints.noDuplicates(i32, &xs);
+    constraints.assert(constraints.isSorted(i32, &xs));
+    constraints.assert(constraints.noDuplicates(i32, &xs));
 }
 
 const pressure_curve = blk: {
@@ -186,7 +186,7 @@ fn validatePiecewise(comptime segments: []const Segment) void {
         @compileError("piecewise map needs at least one segment");
 
     for (segments) |seg| {
-        constraints.lessThan(seg.start_x, seg.end_x);
+        constraints.assert(constraints.lessThan(seg.start_x, seg.end_x));
     }
 
     for (1..segments.len) |i| {

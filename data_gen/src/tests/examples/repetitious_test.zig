@@ -18,11 +18,12 @@ const large_cal_table = blk: {
             return .{ .raw = raw, .calibrated = raw + offset };
         }
     }.f;
+    @setEvalBranchQuota(5000);
     const table = generators.generateArray(CalEntry, 128, gen);
 
     for (table) |entry| {
-        constraints.inRange(0, 65535, entry.raw);
-        constraints.inRange(0, 65535, entry.calibrated);
+        constraints.assert(constraints.inRange(0, 65535, entry.raw));
+        constraints.assert(constraints.inRange(0, 65535, entry.calibrated));
     }
 
     for (1..table.len) |i| {
@@ -102,7 +103,7 @@ const sin_approx_table = blk: {
     const table = generators.generateArray(i16, 256, gen);
 
     for (table) |v| {
-        constraints.inRange(-512, 512, v);
+        constraints.assert(constraints.inRange(-512, 512, v));
     }
 
     if (table[0] != 0)

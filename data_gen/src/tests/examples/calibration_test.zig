@@ -11,16 +11,16 @@ const LinPoint = struct {
 };
 
 fn validateLinearization(comptime table: []const LinPoint) void {
-    constraints.lenInRange(2, 64, table.len);
+    constraints.assert(constraints.lenInRange(2, 64, table.len));
 
     var inputs: [table.len]i16 = undefined;
     for (table, 0..) |pt, i| {
         inputs[i] = pt.input;
-        constraints.inRange(-1000, 1000, pt.input);
-        constraints.inRange(-1000, 1000, pt.output);
+        constraints.assert(constraints.inRange(-1000, 1000, pt.input));
+        constraints.assert(constraints.inRange(-1000, 1000, pt.output));
     }
-    constraints.isSorted(i16, &inputs);
-    constraints.noDuplicates(i16, &inputs);
+    constraints.assert(constraints.isSorted(i16, &inputs));
+    constraints.assert(constraints.noDuplicates(i16, &inputs));
 }
 
 const temp_linearization = blk: {
@@ -177,8 +177,8 @@ const cal_table = blk: {
     const table = generators.generateArray(CalEntry, 64, gen_fn);
 
     for (table) |entry| {
-        constraints.inRange(0, 4095, entry.raw);
-        constraints.inRange(0, 4095, entry.calibrated);
+        constraints.assert(constraints.inRange(0, 4095, entry.raw));
+        constraints.assert(constraints.inRange(0, 4095, entry.calibrated));
     }
 
     for (1..table.len) |i| {
@@ -238,6 +238,6 @@ test "ADC calibration for 4 channels" {
             channels[2].channel,
             channels[3].channel,
         };
-        constraints.noDuplicates(u8, &chan_ids);
+        constraints.assert(constraints.noDuplicates(u8, &chan_ids));
     }
 }

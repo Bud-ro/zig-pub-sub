@@ -30,7 +30,7 @@ fn validateFrameDefinition(comptime fields: []const FrameField) void {
     var length_offset: u8 = 0;
 
     for (fields) |field| {
-        constraints.nonZero(field.size);
+        constraints.assert(constraints.nonZero(field.size));
 
         if (field.field_type == .payload) {
             has_payload = true;
@@ -100,13 +100,13 @@ const MessageDef = struct {
 
 fn validateMessageRegistry(comptime msgs: []const MessageDef) void {
     @setEvalBranchQuota(5000);
-    constraints.lenInRange(1, 64, msgs.len);
+    constraints.assert(constraints.lenInRange(1, 64, msgs.len));
 
     var ids: [msgs.len]u8 = undefined;
     for (msgs, 0..) |msg, i| {
         ids[i] = msg.type_id;
-        constraints.inRange(0, 128, msg.payload_size);
-        constraints.inRange(0, 7, msg.priority);
+        constraints.assert(constraints.inRange(0, 128, msg.payload_size));
+        constraints.assert(constraints.inRange(0, 7, msg.priority));
 
         if (msg.is_broadcast and msg.response_type_id != null)
             @compileError(std.fmt.comptimePrint(
@@ -130,7 +130,7 @@ fn validateMessageRegistry(comptime msgs: []const MessageDef) void {
                 ));
         }
     }
-    constraints.noDuplicates(u8, &ids);
+    constraints.assert(constraints.noDuplicates(u8, &ids));
 
     // Detect response cycles (no message should chain back to itself)
     for (msgs) |start| {
@@ -181,7 +181,7 @@ test "message registry has unique type IDs" {
         try std.testing.expectEqual(9, message_registry.len);
         var ids: [message_registry.len]u8 = undefined;
         for (message_registry, 0..) |msg, i| ids[i] = msg.type_id;
-        constraints.noDuplicates(u8, &ids);
+        constraints.assert(constraints.noDuplicates(u8, &ids));
     }
 }
 

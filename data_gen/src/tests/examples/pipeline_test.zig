@@ -47,14 +47,14 @@ fn validatePipeline(
     comptime connections: []const PipelineConnection,
 ) void {
     @setEvalBranchQuota(10_000);
-    constraints.lenInRange(2, 32, stages.len);
-    constraints.lenInRange(1, 64, connections.len);
+    constraints.assert(constraints.lenInRange(2, 32, stages.len));
+    constraints.assert(constraints.lenInRange(1, 64, connections.len));
 
     // Unique stage IDs
     var stage_ids: [stages.len]u8 = undefined;
     for (stages, 0..) |stage, i| {
         stage_ids[i] = stage.id;
-        constraints.nonZero(stage.processing_budget_us);
+        constraints.assert(constraints.nonZero(stage.processing_budget_us));
 
         if (stage.kind == .source and stage.input_types.len != 0)
             @compileError(std.fmt.comptimePrint(
@@ -74,7 +74,7 @@ fn validatePipeline(
                 .{stage.id},
             ));
     }
-    constraints.noDuplicates(u8, &stage_ids);
+    constraints.assert(constraints.noDuplicates(u8, &stage_ids));
 
     // Validate connections
     for (connections) |conn| {

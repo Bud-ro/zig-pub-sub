@@ -19,7 +19,7 @@ fn validateTransitionTable(comptime table: []const Transition) void {
         @compileError("transition table cannot be empty");
 
     for (table) |t| {
-        constraints.inRange(0, 60_000, t.timeout_ms);
+        constraints.assert(constraints.inRange(0, 60_000, t.timeout_ms));
 
         if (t.from == t.to and t.event != .reset)
             @compileError("self-transitions only allowed on reset events");

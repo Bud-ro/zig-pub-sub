@@ -198,19 +198,19 @@ const Ingredient = struct {
 };
 
 fn validateBeverageRecipe(comptime recipe: []const Ingredient) void {
-    constraints.lenInRange(1, 8, recipe.len);
+    constraints.assert(constraints.lenInRange(1, 8, recipe.len));
 
     var total_ml: u32 = 0;
     var ids: [recipe.len]u8 = undefined;
     for (recipe, 0..) |ing, i| {
-        constraints.inRange(1, 500, ing.amount_ml);
-        constraints.inRange(4, 100, ing.temp_c);
-        constraints.nonZero(ing.dispense_time_ms);
+        constraints.assert(constraints.inRange(1, 500, ing.amount_ml));
+        constraints.assert(constraints.inRange(4, 100, ing.temp_c));
+        constraints.assert(constraints.nonZero(ing.dispense_time_ms));
         total_ml += ing.amount_ml;
         ids[i] = ing.id;
     }
-    constraints.noDuplicates(u8, &ids);
-    constraints.inRange(100, 1000, total_ml);
+    constraints.assert(constraints.noDuplicates(u8, &ids));
+    constraints.assert(constraints.inRange(100, 1000, total_ml));
 }
 
 const espresso = blk: {

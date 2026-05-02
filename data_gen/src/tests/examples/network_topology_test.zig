@@ -128,7 +128,7 @@ fn validateSpanningTree(comptime N: u8, comptime edges: []const Edge) void {
             @compileError("edge references node outside range");
         if (e.a == e.b)
             @compileError("self-loop in spanning tree");
-        constraints.nonZero(e.cost);
+        constraints.assert(constraints.nonZero(e.cost));
     }
 
     // No duplicate edges
@@ -231,7 +231,7 @@ const ClockNode = struct {
 };
 
 fn validateClockTree(comptime nodes: []const ClockNode) void {
-    constraints.lenInRange(1, 16, nodes.len);
+    constraints.assert(constraints.lenInRange(1, 16, nodes.len));
 
     if (nodes[0].parent_idx != null)
         @compileError("root clock must have no parent");
@@ -239,13 +239,13 @@ fn validateClockTree(comptime nodes: []const ClockNode) void {
     var ids: [nodes.len]u8 = undefined;
     for (nodes, 0..) |node, i| {
         ids[i] = node.name_id;
-        constraints.nonZero(node.frequency_hz);
+        constraints.assert(constraints.nonZero(node.frequency_hz));
 
         if (node.parent_idx) |pidx| {
             if (pidx >= i)
                 @compileError("parent must appear before child in clock tree");
 
-            constraints.nonZero(node.divider);
+            constraints.assert(constraints.nonZero(node.divider));
             const parent_freq = nodes[pidx].frequency_hz;
             const expected_freq = parent_freq / node.divider;
 
@@ -262,7 +262,7 @@ fn validateClockTree(comptime nodes: []const ClockNode) void {
                 ));
         }
     }
-    constraints.noDuplicates(u8, &ids);
+    constraints.assert(constraints.noDuplicates(u8, &ids));
 }
 
 const clock_tree = blk: {

@@ -228,14 +228,14 @@ const ProductVariant = struct {
 
 fn validateProductLine(comptime variants: []const ProductVariant) void {
     @setEvalBranchQuota(5000);
-    constraints.lenInRange(2, 16, variants.len);
+    constraints.assert(constraints.lenInRange(2, 16, variants.len));
 
     var skus: [variants.len]u16 = undefined;
     for (variants, 0..) |v, i| {
         skus[i] = v.sku_id;
         contracts.assertValid(v.motor);
-        constraints.lenInRange(0, 6, v.features.len);
-        constraints.nonZero(v.price_cents);
+        constraints.assert(constraints.lenInRange(0, 6, v.features.len));
+        constraints.assert(constraints.nonZero(v.price_cents));
 
         // No duplicate features within a variant
         for (0..v.features.len) |fi| {
@@ -248,7 +248,7 @@ fn validateProductLine(comptime variants: []const ProductVariant) void {
             }
         }
     }
-    constraints.noDuplicates(u16, &skus);
+    constraints.assert(constraints.noDuplicates(u16, &skus));
 
     // No two variants can have identical feature sets
     for (0..variants.len) |i| {

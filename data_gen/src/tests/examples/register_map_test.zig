@@ -69,14 +69,14 @@ const Register = struct {
 };
 
 fn validateRegisterMap(comptime regs: []const Register) void {
-    constraints.lenInRange(1, 128, regs.len);
+    constraints.assert(constraints.lenInRange(1, 128, regs.len));
 
     var ids: [regs.len]u8 = undefined;
     for (regs, 0..) |reg, i| {
         contracts.assertValid(reg);
         ids[i] = reg.name_id;
     }
-    constraints.noDuplicates(u8, &ids);
+    constraints.assert(constraints.noDuplicates(u8, &ids));
 
     // Registers must not overlap in address space
     for (0..regs.len) |i| {

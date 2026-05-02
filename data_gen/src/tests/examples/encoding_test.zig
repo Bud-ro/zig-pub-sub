@@ -15,12 +15,12 @@ const CodeEntry = struct {
 
 fn validatePrefixFree(comptime codes: []const CodeEntry) void {
     @setEvalBranchQuota(10_000);
-    constraints.lenInRange(2, 64, codes.len);
+    constraints.assert(constraints.lenInRange(2, 64, codes.len));
 
     var symbols: [codes.len]u8 = undefined;
     for (codes, 0..) |entry, i| {
         symbols[i] = entry.symbol;
-        constraints.inRange(1, 15, entry.length);
+        constraints.assert(constraints.inRange(1, 15, entry.length));
 
         // Code must fit within declared length
         const max_val: u16 = (@as(u16, 1) << entry.length) - 1;
@@ -30,7 +30,7 @@ fn validatePrefixFree(comptime codes: []const CodeEntry) void {
                 .{ entry.code, entry.length },
             ));
     }
-    constraints.noDuplicates(u8, &symbols);
+    constraints.assert(constraints.noDuplicates(u8, &symbols));
 
     // Prefix-free check: for every pair of codes, neither is a prefix of the other
     for (0..codes.len) |i| {
@@ -123,7 +123,7 @@ test "huffman table has unique symbols" {
     comptime {
         var syms: [huffman_table.len]u8 = undefined;
         for (huffman_table, 0..) |c, i| syms[i] = c.symbol;
-        constraints.noDuplicates(u8, &syms);
+        constraints.assert(constraints.noDuplicates(u8, &syms));
     }
 }
 
@@ -152,13 +152,13 @@ const InstrDef = struct {
 };
 
 fn validateInstructionSet(comptime instrs: []const InstrDef) void {
-    constraints.lenInRange(1, 32, instrs.len);
+    constraints.assert(constraints.lenInRange(1, 32, instrs.len));
 
     const max_instr_bits: u8 = 32;
     const opcode_bits: u8 = 8;
 
     for (instrs) |instr| {
-        constraints.nonZero(instr.cycles);
+        constraints.assert(constraints.nonZero(instr.cycles));
 
         const total_bits = opcode_bits +
             @as(u8, instr.operand_count) * instr.operand_bits +

@@ -37,7 +37,7 @@ const RouteEntry = struct {
 
 fn validateRoutingMatrix(comptime routes: []const RouteEntry) void {
     @setEvalBranchQuota(5000);
-    constraints.lenInRange(1, 64, routes.len);
+    constraints.assert(constraints.lenInRange(1, 64, routes.len));
 
     // Each destination must appear at most once (single driver)
     for (0..routes.len) |i| {
@@ -72,7 +72,7 @@ fn validateRoutingMatrix(comptime routes: []const RouteEntry) void {
 
     // Attenuation sanity
     for (routes) |route| {
-        constraints.inRange(0, 60, route.attenuation_db);
+        constraints.assert(constraints.inRange(0, 60, route.attenuation_db));
     }
 }
 
@@ -155,7 +155,7 @@ fn validateCrossbar(comptime N: u4, comptime entries: []const CrossbarEntry) voi
             @compileError("input channel out of range");
         if (e.output_channel >= N)
             @compileError("output channel out of range");
-        constraints.inRange(1, 100, e.gain_x10);
+        constraints.assert(constraints.inRange(1, 100, e.gain_x10));
     }
 }
 
@@ -200,7 +200,7 @@ const DmaAssignment = struct {
 };
 
 fn validateDmaAssignments(comptime assignments: []const DmaAssignment) void {
-    constraints.lenInRange(1, 16, assignments.len);
+    constraints.assert(constraints.lenInRange(1, 16, assignments.len));
 
     // Each channel used at most once
     var channels: [assignments.len]u8 = undefined;
@@ -208,10 +208,10 @@ fn validateDmaAssignments(comptime assignments: []const DmaAssignment) void {
     for (assignments, 0..) |a, i| {
         channels[i] = a.channel;
         periphs[i] = @intFromEnum(a.peripheral);
-        constraints.inRange(0, 15, a.channel);
+        constraints.assert(constraints.inRange(0, 15, a.channel));
     }
-    constraints.noDuplicates(u8, &channels);
-    constraints.noDuplicates(u8, &periphs);
+    constraints.assert(constraints.noDuplicates(u8, &channels));
+    constraints.assert(constraints.noDuplicates(u8, &periphs));
 
     // TX/RX pairs must use different channels but same priority
     for (assignments) |a| {

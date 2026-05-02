@@ -21,13 +21,13 @@ const SensorWeight = struct {
 };
 
 fn validateFusionWeights(comptime sensors: []const SensorWeight) void {
-    constraints.lenInRange(2, 8, sensors.len);
+    constraints.assert(constraints.lenInRange(2, 8, sensors.len));
 
     // Weights must sum to 1024 (representing 1.0)
     var weight_sum: u32 = 0;
     for (sensors) |s| {
-        constraints.nonZero(s.weight_per1024);
-        constraints.nonZero(s.update_rate_hz);
+        constraints.assert(constraints.nonZero(s.weight_per1024));
+        constraints.assert(constraints.nonZero(s.update_rate_hz));
         weight_sum += s.weight_per1024;
     }
     if (weight_sum != 1024)
@@ -157,8 +157,8 @@ const MeasurementStep = struct {
 };
 
 fn validateMeasurementStep(comptime step: MeasurementStep, comptime idx: usize) void {
-    constraints.nonZero(step.duration_ms);
-    constraints.inRange(1, 50, step.tolerance_pct);
+    constraints.assert(constraints.nonZero(step.duration_ms));
+    constraints.assert(constraints.inRange(1, 50, step.tolerance_pct));
 
     if (idx == 0 and step.phase != .zero_cal)
         @compileError("measurement sequence must start with zero calibration");
@@ -168,10 +168,10 @@ fn validateMeasurementStep(comptime step: MeasurementStep, comptime idx: usize) 
             if (step.target_value != 0)
                 @compileError("zero calibration target must be 0");
         },
-        .span_cal => constraints.nonZero(step.target_value),
-        .warmup => constraints.inRange(1000, 30000, step.duration_ms),
-        .measure => constraints.inRange(1, 10, step.tolerance_pct),
-        .cooldown => constraints.inRange(500, 10000, step.duration_ms),
+        .span_cal => constraints.assert(constraints.nonZero(step.target_value)),
+        .warmup => constraints.assert(constraints.inRange(1000, 30000, step.duration_ms)),
+        .measure => constraints.assert(constraints.inRange(1, 10, step.tolerance_pct)),
+        .cooldown => constraints.assert(constraints.inRange(500, 10000, step.duration_ms)),
     }
 }
 

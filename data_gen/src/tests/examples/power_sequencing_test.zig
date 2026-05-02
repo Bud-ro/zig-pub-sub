@@ -21,16 +21,16 @@ const RailSpec = struct {
 
 fn validatePowerSequence(comptime rails: []const RailSpec) void {
     @setEvalBranchQuota(5000);
-    constraints.lenInRange(2, 16, rails.len);
+    constraints.assert(constraints.lenInRange(2, 16, rails.len));
 
     // Unique rail IDs
     var ids: [rails.len]u8 = undefined;
     for (rails, 0..) |rail, i| {
         ids[i] = @intFromEnum(rail.rail);
-        constraints.nonZero(rail.voltage_mv);
-        constraints.nonZero(rail.max_current_ma);
+        constraints.assert(constraints.nonZero(rail.voltage_mv));
+        constraints.assert(constraints.nonZero(rail.max_current_ma));
     }
-    constraints.noDuplicates(u8, &ids);
+    constraints.assert(constraints.noDuplicates(u8, &ids));
 
     // Dependencies must reference rails that appear earlier in the sequence
     for (rails, 0..) |rail, i| {

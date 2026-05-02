@@ -41,6 +41,8 @@
   - [x] Timer Module memory/speed optimization using pointer alignment abuse
   - [x] Add support for paused timers
 - [x] ~~Timer Module using struct of arrays, and pseudo-linked list~~
+- [ ] Add zlinter
+  - [ ] Add "redundant comptime" rule
 - [ ] Build ELF for Cortex-M
   - [ ] Linker script
   - [ ] Flash just the application

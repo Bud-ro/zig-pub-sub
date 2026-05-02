@@ -49,10 +49,10 @@ fn validateSchedule(
     const min_gap_us = params.min_gap_us;
     const cycle_length_us = params.cycle_length_us;
     @setEvalBranchQuota(10_000);
-    constraints.lenInRange(1, 64, slots.len);
+    constraints.assert(constraints.lenInRange(1, 64, slots.len));
 
     for (slots) |slot| {
-        constraints.nonZero(slot.duration_us);
+        constraints.assert(constraints.nonZero(slot.duration_us));
         if (slot.end() > cycle_length_us)
             @compileError(std.fmt.comptimePrint(
                 "slot on channel {} at {}us extends past cycle boundary {}us",
@@ -225,8 +225,8 @@ fn validatePeriodicSchedule(
     @setEvalBranchQuota(100_000);
 
     for (tasks) |task| {
-        constraints.nonZero(task.period_us);
-        constraints.nonZero(task.duration_us);
+        constraints.assert(constraints.nonZero(task.period_us));
+        constraints.assert(constraints.nonZero(task.duration_us));
         if (task.duration_us >= task.period_us)
             @compileError("task duration must be less than period");
         if (task.offset_us + task.duration_us > task.period_us)

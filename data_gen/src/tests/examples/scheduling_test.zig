@@ -17,17 +17,17 @@ const TaskDef = struct {
 
 fn validateRateMonotonic(comptime tasks: []const TaskDef) void {
     @setEvalBranchQuota(5000);
-    constraints.lenInRange(1, 32, tasks.len);
+    constraints.assert(constraints.lenInRange(1, 32, tasks.len));
 
     var ids: [tasks.len]u8 = undefined;
     var priorities: [tasks.len]u8 = undefined;
     for (tasks, 0..) |task, i| {
         ids[i] = task.id;
         priorities[i] = task.priority;
-        constraints.nonZero(task.period_ms);
-        constraints.nonZero(task.wcet_us);
-        constraints.isPowerOfTwo(task.stack_size);
-        constraints.inRange(64, 8192, task.stack_size);
+        constraints.assert(constraints.nonZero(task.period_ms));
+        constraints.assert(constraints.nonZero(task.wcet_us));
+        constraints.assert(constraints.isPowerOfTwo(task.stack_size));
+        constraints.assert(constraints.inRange(64, 8192, task.stack_size));
 
         if (task.wcet_us >= @as(u32, task.period_ms) * 1000)
             @compileError(std.fmt.comptimePrint(
@@ -35,8 +35,8 @@ fn validateRateMonotonic(comptime tasks: []const TaskDef) void {
                 .{ task.id, task.wcet_us, task.period_ms },
             ));
     }
-    constraints.noDuplicates(u8, &ids);
-    constraints.noDuplicates(u8, &priorities);
+    constraints.assert(constraints.noDuplicates(u8, &ids));
+    constraints.assert(constraints.noDuplicates(u8, &priorities));
 
     // Rate-monotonic: shorter period must have higher priority (lower number)
     for (0..tasks.len) |i| {
@@ -130,13 +130,13 @@ const MemRegion = struct {
 
 fn validateMemoryMap(comptime regions: []const MemRegion) void {
     @setEvalBranchQuota(5000);
-    constraints.lenInRange(1, 32, regions.len);
+    constraints.assert(constraints.lenInRange(1, 32, regions.len));
 
     var ids: [regions.len]u8 = undefined;
     for (regions, 0..) |region, i| {
         ids[i] = region.name_id;
-        constraints.nonZero(region.size);
-        constraints.isPowerOfTwo(region.size);
+        constraints.assert(constraints.nonZero(region.size));
+        constraints.assert(constraints.isPowerOfTwo(region.size));
 
         if (region.start_addr % region.size != 0)
             @compileError(std.fmt.comptimePrint(
@@ -156,7 +156,7 @@ fn validateMemoryMap(comptime regions: []const MemRegion) void {
                 .{region.name_id},
             ));
     }
-    constraints.noDuplicates(u8, &ids);
+    constraints.assert(constraints.noDuplicates(u8, &ids));
 
     for (0..regions.len) |i| {
         for (i + 1..regions.len) |j| {
@@ -224,12 +224,12 @@ const IrqEntry = struct {
 };
 
 fn validateIrqTable(comptime entries: []const IrqEntry, comptime task_set_ref: []const TaskDef) void {
-    constraints.lenInRange(1, 64, entries.len);
+    constraints.assert(constraints.lenInRange(1, 64, entries.len));
 
     var vectors: [entries.len]u8 = undefined;
     for (entries, 0..) |entry, i| {
         vectors[i] = entry.vector;
-        constraints.inRange(0, 15, entry.priority);
+        constraints.assert(constraints.inRange(0, 15, entry.priority));
 
         if (entry.preempts_below_priority > entry.priority)
             @compileError("preemption threshold cannot exceed own priority");
@@ -248,7 +248,7 @@ fn validateIrqTable(comptime entries: []const IrqEntry, comptime task_set_ref: [
                 .{ entry.vector, entry.handler_task_id },
             ));
     }
-    constraints.noDuplicates(u8, &vectors);
+    constraints.assert(constraints.noDuplicates(u8, &vectors));
 }
 
 const irq_table = blk: {
@@ -267,7 +267,7 @@ test "IRQ table has unique vectors" {
         try std.testing.expectEqual(4, irq_table.len);
         var vectors: [irq_table.len]u8 = undefined;
         for (irq_table, 0..) |entry, i| vectors[i] = entry.vector;
-        constraints.noDuplicates(u8, &vectors);
+        constraints.assert(constraints.noDuplicates(u8, &vectors));
     }
 }
 
