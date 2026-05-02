@@ -86,9 +86,9 @@ pub fn percentOf(comptime T: type, comptime max: comptime_int, comptime pct: com
 }
 
 /// Converts a value in one unit to another unit via a conversion factor.
-/// Example: convert(u16, 3.3, 1000) converts 3.3V to 3300mV.
+/// Example: unitConvert(u16, 3.3, 1000) converts 3.3V to 3300mV.
 /// Compile error if not exactly representable.
-pub fn convert(comptime T: type, comptime value: comptime_float, comptime factor: comptime_float) T {
+pub fn unitConvert(comptime T: type, comptime value: comptime_float, comptime factor: comptime_float) T {
     const result = value * factor;
     const truncated = @as(comptime_int, @intFromFloat(result));
     if (@as(comptime_float, @floatFromInt(truncated)) != result) {

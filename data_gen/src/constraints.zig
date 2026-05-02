@@ -18,9 +18,14 @@ pub fn isInRange(comptime T: type, comptime min: T, comptime max: T, comptime va
 /// Asserts value equals one of the allowed values. Compile error on failure.
 pub fn oneOf(comptime T: type, comptime allowed: anytype, comptime value: T) void {
     if (!isOneOf(T, allowed, value)) {
+        var set_str: []const u8 = "";
+        for (allowed, 0..) |a, i| {
+            if (i > 0) set_str = set_str ++ ", ";
+            set_str = set_str ++ std.fmt.comptimePrint("{}", .{a});
+        }
         @compileError(std.fmt.comptimePrint(
-            "value {} is not in the allowed set",
-            .{value},
+            "value {} is not in the allowed set: [{s}]",
+            .{ value, set_str },
         ));
     }
 }

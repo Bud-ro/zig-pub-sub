@@ -1,10 +1,19 @@
 const std = @import("std");
+const contracts = @import("contracts.zig");
 
 /// Asserts that a type's validate function accepts the given value (comptime).
-/// If the type has no validate, this is a no-op.
-pub fn expectValid(comptime T: type, comptime value: T) void {
-    if (@hasDecl(T, "validate")) {
-        T.validate(value);
+/// Equivalent to contracts.assertValid — provided for semantic clarity in test code.
+pub const expectValid = contracts.assertValid;
+
+/// Asserts two struct values are field-by-field equal at comptime.
+/// On mismatch, produces a @compileError listing which fields differ.
+pub fn expectStructEql(comptime T: type, comptime expected: T, comptime actual: T) void {
+    const diff = structDiff(T, expected, actual);
+    if (!std.mem.eql(u8, diff, "(identical)")) {
+        @compileError(std.fmt.comptimePrint(
+            "struct values differ:\n{s}",
+            .{diff},
+        ));
     }
 }
 

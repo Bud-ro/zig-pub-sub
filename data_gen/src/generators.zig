@@ -1,3 +1,5 @@
+const std = @import("std");
+
 /// Generates an array of N values by mapping each index through a comptime function.
 pub fn generateArray(
     comptime T: type,
@@ -76,9 +78,17 @@ pub fn validatedSequence(
 /// Generates N linearly spaced integer values from start to end (inclusive).
 pub fn linearMap(comptime T: type, comptime n: usize, comptime start: T, comptime end: T) [n]T {
     if (n < 2) @compileError("linearMap requires at least 2 points");
+    const range = end - start;
+    const steps: T = @intCast(n - 1);
+    if (@rem(range, steps) != 0)
+        @compileError(std.fmt.comptimePrint(
+            "linearMap: range ({} - {} = {}) is not evenly divisible by (n-1 = {})",
+            .{ end, start, range, steps },
+        ));
+    const step_size = @divExact(range, steps);
     var result: [n]T = undefined;
     for (0..n) |i| {
-        result[i] = start + @as(T, @intCast(i)) * @divExact(end - start, @as(T, @intCast(n - 1)));
+        result[i] = start + @as(T, @intCast(i)) * step_size;
     }
     return result;
 }

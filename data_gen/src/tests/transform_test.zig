@@ -69,8 +69,8 @@ test "percentOf with rounding" {
 
 test "convert units" {
     comptime {
-        try std.testing.expectEqual(@as(u16, 3300), transforms.convert(u16, 3.3, 1000.0));
-        try std.testing.expectEqual(@as(u32, 48000000), transforms.convert(u32, 48.0, 1000000.0));
+        try std.testing.expectEqual(@as(u16, 3300), transforms.unitConvert(u16, 3.3, 1000.0));
+        try std.testing.expectEqual(@as(u32, 48000000), transforms.unitConvert(u32, 48.0, 1000000.0));
     }
 }
 
