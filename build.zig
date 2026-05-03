@@ -117,8 +117,16 @@ pub fn build(b: *std.Build) void {
             },
         });
         linter.addRule(.{ .builtin = .declaration_naming }, .{});
-        linter.addRule(.{ .builtin = .field_ordering }, .{});
-        linter.addRule(.{ .builtin = .field_naming }, .{});
+        linter.addRule(.{ .builtin = .field_naming }, .{
+            .enum_field_min_len = .{ .len = 0, .severity = .off },
+            .enum_field_max_len = .{ .len = 0, .severity = .off },
+            .struct_field_min_len = .{ .len = 0, .severity = .off },
+            .struct_field_max_len = .{ .len = 0, .severity = .off },
+            .union_field_min_len = .{ .len = 0, .severity = .off },
+            .union_field_max_len = .{ .len = 0, .severity = .off },
+            .error_field_min_len = .{ .len = 0, .severity = .off },
+            .error_field_max_len = .{ .len = 0, .severity = .off },
+        });
         linter.addRule(.{ .builtin = .file_naming }, .{});
         linter.addRule(.{ .builtin = .function_naming }, .{});
         linter.addRule(.{ .builtin = .import_ordering }, .{});

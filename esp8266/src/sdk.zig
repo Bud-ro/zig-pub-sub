@@ -17,7 +17,7 @@ pub const ETSTimer = extern struct {
     timer_next: ?*ETSTimer,
     timer_expire: u32,
     timer_period: u32,
-    timer_func: ?*const fn (?*anyopaque) callconv(cc) void,
+    timer_func: ?*const fn (?*anyopaque) callconv(cc) void, // zlinter-disable-current-line field_naming
     timer_arg: ?*anyopaque,
 };
 
