@@ -29,6 +29,16 @@ const TimeSlot = struct {
     fn end(comptime self: TimeSlot) u32 {
         return self.start_us + self.duration_us;
     }
+
+    fn validate(comptime self: TimeSlot, comptime cycle_length_us: u32) ?[]const u8 {
+        if (constraints.nonZero(self.duration_us)) |err| return err;
+        if (self.end() > cycle_length_us)
+            return std.fmt.comptimePrint(
+                "slot on channel {} at {}us extends past cycle boundary {}us",
+                .{ @intFromEnum(self.channel), self.start_us, cycle_length_us },
+            );
+        return null;
+    }
 };
 
 const ResourceSharing = struct {
@@ -41,79 +51,79 @@ const ScheduleParams = struct {
     cycle_length_us: u32,
 };
 
-fn validateSchedule(
-    comptime slots: []const TimeSlot,
-    comptime params: ScheduleParams,
-    comptime shared_resources: []const ResourceSharing,
-) void {
-    const min_gap_us = params.min_gap_us;
-    const cycle_length_us = params.cycle_length_us;
-    @setEvalBranchQuota(10_000);
-    constraints.assert(constraints.lenInRange(1, 64, slots.len));
+const ScheduleValidator = struct {
+    slots: []const TimeSlot,
+    params: ScheduleParams,
+    shared_resources: []const ResourceSharing,
 
-    for (slots) |slot| {
-        constraints.assert(constraints.nonZero(slot.duration_us));
-        if (slot.end() > cycle_length_us)
-            @compileError(std.fmt.comptimePrint(
-                "slot on channel {} at {}us extends past cycle boundary {}us",
-                .{ @intFromEnum(slot.channel), slot.start_us, cycle_length_us },
-            ));
-    }
+    fn validate(comptime self: ScheduleValidator) ?[]const u8 {
+        const slots = self.slots;
+        const min_gap_us = self.params.min_gap_us;
+        const cycle_length_us = self.params.cycle_length_us;
+        @setEvalBranchQuota(10_000);
+        if (constraints.lenInRange(1, 64, slots.len)) |err| return err;
 
-    // No overlap on same channel, with minimum gap
-    for (0..slots.len) |i| {
-        for (i + 1..slots.len) |j| {
-            if (slots[i].channel != slots[j].channel) continue;
-
-            const a_start = slots[i].start_us;
-            const a_end = slots[i].end();
-            const b_start = slots[j].start_us;
-            const b_end = slots[j].end();
-
-            // Check overlap
-            if (a_start < b_end and b_start < a_end)
-                @compileError(std.fmt.comptimePrint(
-                    "overlapping slots on channel {} at {}us and {}us",
-                    .{ @intFromEnum(slots[i].channel), a_start, b_start },
-                ));
-
-            // Check minimum gap
-            const gap = if (a_end <= b_start) b_start - a_end else a_start - b_end;
-            if (gap < min_gap_us)
-                @compileError(std.fmt.comptimePrint(
-                    "insufficient gap ({}us < {}us) between slots on channel {}",
-                    .{ gap, min_gap_us, @intFromEnum(slots[i].channel) },
-                ));
+        for (slots) |slot| {
+            if (slot.validate(cycle_length_us)) |err| return err;
         }
-    }
 
-    // Check conflicts on shared resources
-    for (shared_resources) |shared| {
+        // No overlap on same channel, with minimum gap
         for (0..slots.len) |i| {
-            if (slots[i].channel != shared.a and slots[i].channel != shared.b) continue;
             for (i + 1..slots.len) |j| {
-                if (slots[j].channel != shared.a and slots[j].channel != shared.b) continue;
-                if (slots[i].channel == slots[j].channel) continue;
+                if (slots[i].channel != slots[j].channel) continue;
 
                 const a_start = slots[i].start_us;
                 const a_end = slots[i].end();
                 const b_start = slots[j].start_us;
                 const b_end = slots[j].end();
 
+                // Check overlap
                 if (a_start < b_end and b_start < a_end)
-                    @compileError(std.fmt.comptimePrint(
-                        "resource conflict: channels {} and {} share hardware and overlap at {}us/{}us",
-                        .{ @intFromEnum(slots[i].channel), @intFromEnum(slots[j].channel), a_start, b_start },
-                    ));
+                    return std.fmt.comptimePrint(
+                        "overlapping slots on channel {} at {}us and {}us",
+                        .{ @intFromEnum(slots[i].channel), a_start, b_start },
+                    );
+
+                // Check minimum gap
+                const gap = if (a_end <= b_start) b_start - a_end else a_start - b_end;
+                if (gap < min_gap_us)
+                    return std.fmt.comptimePrint(
+                        "insufficient gap ({}us < {}us) between slots on channel {}",
+                        .{ gap, min_gap_us, @intFromEnum(slots[i].channel) },
+                    );
             }
         }
-    }
 
-    // Priority ordering: if two slots on different channels overlap in time,
-    // the one with lower priority number must come from a higher-priority channel.
-    // (This is a sanity check, not a hard constraint — just verify no priority inversion
-    // where a low-priority task blocks a high-priority one by occupying shared time.)
-}
+        // Check conflicts on shared resources
+        for (self.shared_resources) |shared| {
+            for (0..slots.len) |i| {
+                if (slots[i].channel != shared.a and slots[i].channel != shared.b) continue;
+                for (i + 1..slots.len) |j| {
+                    if (slots[j].channel != shared.a and slots[j].channel != shared.b) continue;
+                    if (slots[i].channel == slots[j].channel) continue;
+
+                    const a_start = slots[i].start_us;
+                    const a_end = slots[i].end();
+                    const b_start = slots[j].start_us;
+                    const b_end = slots[j].end();
+
+                    if (a_start < b_end and b_start < a_end)
+                        return std.fmt.comptimePrint(
+                            "resource conflict: channels {} and {} share hardware and overlap at {}us/{}us",
+                            .{ @intFromEnum(slots[i].channel), @intFromEnum(slots[j].channel), a_start, b_start },
+                        );
+                }
+            }
+        }
+
+        // Priority ordering: if two slots on different channels overlap in time,
+        // the one with lower priority number must come from a higher-priority channel.
+        // (This is a sanity check, not a hard constraint — just verify no priority inversion
+        // where a low-priority task blocks a high-priority one by occupying shared time.)
+
+        return null;
+    }
+};
 
 fn computeUtilization(comptime slots: []const TimeSlot, comptime cycle_us: u32) u32 {
     var total: u32 = 0;
@@ -147,7 +157,12 @@ const cycle_schedule = blk: {
         // Idle task fills remaining time
         .{ .channel = .idle_task, .start_us = 920, .duration_us = 80, .priority = 7 },
     };
-    validateSchedule(&slots, .{ .min_gap_us = 10, .cycle_length_us = 1000 }, &shared_hw);
+    const validator = ScheduleValidator{
+        .slots = &slots,
+        .params = .{ .min_gap_us = 10, .cycle_length_us = 1000 },
+        .shared_resources = &shared_hw,
+    };
+    if (validator.validate()) |err| @compileError(err);
     break :blk slots;
 };
 
@@ -215,63 +230,75 @@ const PeriodicTask = struct {
     period_us: u32,
     duration_us: u32,
     offset_us: u32,
+
+    fn validate(comptime self: PeriodicTask) ?[]const u8 {
+        if (constraints.nonZero(self.period_us)) |err| return err;
+        if (constraints.nonZero(self.duration_us)) |err| return err;
+        if (self.duration_us >= self.period_us)
+            return "task duration must be less than period";
+        if (self.offset_us + self.duration_us > self.period_us)
+            return "initial slot extends past first period";
+        return null;
+    }
 };
 
-fn validatePeriodicSchedule(
-    comptime tasks: []const PeriodicTask,
-    comptime shared: []const ResourceSharing,
-    comptime horizon_us: u32,
-) void {
-    @setEvalBranchQuota(100_000);
+const PeriodicScheduleValidator = struct {
+    tasks: []const PeriodicTask,
+    shared: []const ResourceSharing,
+    horizon_us: u32,
 
-    for (tasks) |task| {
-        constraints.assert(constraints.nonZero(task.period_us));
-        constraints.assert(constraints.nonZero(task.duration_us));
-        if (task.duration_us >= task.period_us)
-            @compileError("task duration must be less than period");
-        if (task.offset_us + task.duration_us > task.period_us)
-            @compileError("initial slot extends past first period");
-    }
+    fn validate(comptime self: PeriodicScheduleValidator) ?[]const u8 {
+        const tasks = self.tasks;
+        const shared = self.shared;
+        const horizon_us = self.horizon_us;
+        @setEvalBranchQuota(100_000);
 
-    // Expand all instances within horizon and check for conflicts
-    // We check channel-level and shared-resource conflicts
-    for (0..tasks.len) |i| {
-        var t_i = tasks[i].offset_us;
-        while (t_i + tasks[i].duration_us <= horizon_us) {
-            for (0..tasks.len) |j| {
-                if (i == j) {
-                    // No need to check same task against itself since instances are periodic and non-overlapping by construction
-                } else {
-                    const same_channel = tasks[i].channel == tasks[j].channel;
-                    var shares_hw = false;
-                    for (shared) |s| {
-                        if ((tasks[i].channel == s.a and tasks[j].channel == s.b) or
-                            (tasks[i].channel == s.b and tasks[j].channel == s.a))
-                        {
-                            shares_hw = true;
-                            break;
+        for (tasks) |task| {
+            if (task.validate()) |err| return err;
+        }
+
+        // Expand all instances within horizon and check for conflicts
+        // We check channel-level and shared-resource conflicts
+        for (0..tasks.len) |i| {
+            var t_i = tasks[i].offset_us;
+            while (t_i + tasks[i].duration_us <= horizon_us) {
+                for (0..tasks.len) |j| {
+                    if (i == j) {
+                        // No need to check same task against itself since instances are periodic and non-overlapping by construction
+                    } else {
+                        const same_channel = tasks[i].channel == tasks[j].channel;
+                        var shares_hw = false;
+                        for (shared) |s| {
+                            if ((tasks[i].channel == s.a and tasks[j].channel == s.b) or
+                                (tasks[i].channel == s.b and tasks[j].channel == s.a))
+                            {
+                                shares_hw = true;
+                                break;
+                            }
                         }
-                    }
 
-                    if (same_channel or shares_hw) {
-                        var t_j = tasks[j].offset_us;
-                        while (t_j + tasks[j].duration_us <= horizon_us) {
-                            const i_end = t_i + tasks[i].duration_us;
-                            const j_end = t_j + tasks[j].duration_us;
-                            if (t_i < j_end and t_j < i_end)
-                                @compileError(std.fmt.comptimePrint(
-                                    "periodic conflict: channels {} and {} at {}us and {}us",
-                                    .{ @intFromEnum(tasks[i].channel), @intFromEnum(tasks[j].channel), t_i, t_j },
-                                ));
-                            t_j += tasks[j].period_us;
+                        if (same_channel or shares_hw) {
+                            var t_j = tasks[j].offset_us;
+                            while (t_j + tasks[j].duration_us <= horizon_us) {
+                                const i_end = t_i + tasks[i].duration_us;
+                                const j_end = t_j + tasks[j].duration_us;
+                                if (t_i < j_end and t_j < i_end)
+                                    return std.fmt.comptimePrint(
+                                        "periodic conflict: channels {} and {} at {}us and {}us",
+                                        .{ @intFromEnum(tasks[i].channel), @intFromEnum(tasks[j].channel), t_i, t_j },
+                                    );
+                                t_j += tasks[j].period_us;
+                            }
                         }
                     }
                 }
+                t_i += tasks[i].period_us;
             }
-            t_i += tasks[i].period_us;
         }
+
+        return null;
     }
-}
+};
 
 const periodic_tasks = blk: {
     const tasks = [_]PeriodicTask{
@@ -282,7 +309,12 @@ const periodic_tasks = blk: {
         .{ .channel = .i2c_transfer, .period_us = 2000, .duration_us = 200, .offset_us = 1500 },
     };
     const validation_horizon_us = 10000;
-    validatePeriodicSchedule(&tasks, &shared_hw, validation_horizon_us);
+    const validator = PeriodicScheduleValidator{
+        .tasks = &tasks,
+        .shared = &shared_hw,
+        .horizon_us = validation_horizon_us,
+    };
+    if (validator.validate()) |err| @compileError(err);
     break :blk tasks;
 };
 

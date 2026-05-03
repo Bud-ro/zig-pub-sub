@@ -19,7 +19,7 @@ const StatusRegister = packed struct {
         if (self.busy == 1 and self.error_code != 0)
             return "cannot be busy with an active error";
 
-        if (self.channel < 0 or self.channel > 7) return "channel out of range [0, 7]";
+        if (self.channel > 7) return "channel out of range [0, 7]";
 
         if (self.mode == 3)
             return "mode 3 is reserved";
@@ -79,7 +79,6 @@ const DacControl = packed struct {
         if (self.output_gain == 1 and self.data > 2048)
             return "2x gain mode limits data to 0-2048 to avoid clipping";
 
-        if (self.data < 0 or self.data > 4095) return "data out of range [0, 4095]";
         return null;
     }
 };
@@ -200,50 +199,61 @@ const Command = union(CommandTag) {
     configure: ConfigureData,
     reset: void,
     calibrate: CalibrateData,
+
+    pub fn validate(comptime self: Command) ?[]const u8 {
+        switch (self) {
+            .set_output => |data| {
+                if (constraints.inRange(0, 7, data.channel)) |err| return err;
+                if (constraints.inRange(0, 4095, data.value)) |err| return err;
+            },
+            .read_input => |channel| {
+                if (constraints.inRange(0, 15, channel)) |err| return err;
+            },
+            .configure => |data| {
+                if (constraints.inRange(0, 255, data.parameter_id)) |err| return err;
+            },
+            .reset => {},
+            .calibrate => |data| {
+                if (constraints.inRange(0, 7, data.channel)) |err| return err;
+                if (constraints.inRange(-1000, 1000, data.reference_value)) |err| return err;
+                if (constraints.oneOf(&.{ 1, 4, 8, 16, 32, 64 }, data.num_samples)) |err| return err;
+            },
+        }
+        return null;
+    }
 };
 
-fn validateCommand(comptime cmd: Command) void {
-    switch (cmd) {
-        .set_output => |data| {
-            constraints.assert(constraints.inRange(0, 7, data.channel));
-            constraints.assert(constraints.inRange(0, 4095, data.value));
-        },
-        .read_input => |channel| {
-            constraints.assert(constraints.inRange(0, 15, channel));
-        },
-        .configure => |data| {
-            constraints.assert(constraints.inRange(0, 255, data.parameter_id));
-        },
-        .reset => {},
-        .calibrate => |data| {
-            constraints.assert(constraints.inRange(0, 7, data.channel));
-            constraints.assert(constraints.inRange(-1000, 1000, data.reference_value));
-            constraints.assert(constraints.oneOf(&.{ 1, 4, 8, 16, 32, 64 }, data.num_samples));
-        },
-    }
-}
+const CommandSequence = struct {
+    cmds: []const Command,
 
-fn validateCommandSequence(comptime cmds: []const Command) void {
-    constraints.assert(constraints.lenInRange(1, 32, cmds.len));
+    pub fn validate(comptime self: CommandSequence) ?[]const u8 {
+        if (constraints.lenInRange(1, 32, self.cmds.len)) |err| return err;
 
-    // Reset must be followed by configure (if not last)
-    for (0..cmds.len - 1) |i| {
-        if (cmds[i] == .reset and cmds[i + 1] != .configure)
-            @compileError(std.fmt.comptimePrint(
-                "reset at index {} must be followed by configure",
-                .{i},
-            ));
-    }
+        // Validate each individual command
+        for (self.cmds) |cmd| {
+            if (cmd.validate()) |err| return err;
+        }
 
-    // Calibrate must not appear before any configure
-    var seen_configure = false;
-    for (cmds) |cmd| {
-        validateCommand(cmd);
-        if (cmd == .configure) seen_configure = true;
-        if (cmd == .calibrate and !seen_configure)
-            @compileError("calibrate must not appear before configure");
+        // Reset must be followed by configure (if not last)
+        for (0..self.cmds.len - 1) |i| {
+            if (self.cmds[i] == .reset and self.cmds[i + 1] != .configure)
+                return std.fmt.comptimePrint(
+                    "reset at index {} must be followed by configure",
+                    .{i},
+                );
+        }
+
+        // Calibrate must not appear before any configure
+        var seen_configure = false;
+        for (self.cmds) |cmd| {
+            if (cmd == .configure) seen_configure = true;
+            if (cmd == .calibrate and !seen_configure)
+                return "calibrate must not appear before configure";
+        }
+
+        return null;
     }
-}
+};
 
 const init_sequence = blk: {
     const cmds = [_]Command{
@@ -255,7 +265,7 @@ const init_sequence = blk: {
         .{ .set_output = .{ .channel = 0, .value = 2048 } },
         .{ .read_input = 5 },
     };
-    validateCommandSequence(&cmds);
+    _ = contracts.validated(CommandSequence{ .cmds = &cmds });
     break :blk cmds;
 };
 
@@ -291,10 +301,10 @@ const GainTable = struct {
     col_labels: [8]u8,
 
     pub fn validate(comptime self: GainTable) ?[]const u8 {
-        constraints.assert(constraints.isSorted(u8, &self.row_labels));
-        constraints.assert(constraints.noDuplicates(u8, &self.row_labels));
-        constraints.assert(constraints.isSorted(u8, &self.col_labels));
-        constraints.assert(constraints.noDuplicates(u8, &self.col_labels));
+        if (constraints.isSorted(u8, &self.row_labels)) |err| return err;
+        if (constraints.noDuplicates(u8, &self.row_labels)) |err| return err;
+        if (constraints.isSorted(u8, &self.col_labels)) |err| return err;
+        if (constraints.noDuplicates(u8, &self.col_labels)) |err| return err;
 
         // Each row must be monotonically non-decreasing
         for (self.values) |row| {
@@ -350,9 +360,6 @@ test "gain table is monotonic in both dimensions" {
 
 test "gain table labels are sorted and unique" {
     comptime {
-        constraints.assert(constraints.isSorted(u8, &gain_config.row_labels));
-        constraints.assert(constraints.noDuplicates(u8, &gain_config.row_labels));
-        constraints.assert(constraints.isSorted(u8, &gain_config.col_labels));
-        constraints.assert(constraints.noDuplicates(u8, &gain_config.col_labels));
+        contracts.assertValid(gain_config);
     }
 }

@@ -1,5 +1,4 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
 const contracts = @import("data_gen").contracts;
 
 // --- CAN Bus Bit Timing ---
@@ -69,26 +68,43 @@ const CanNodeConfig = struct {
     }
 };
 
-fn validateCanNetwork(comptime nodes: []const CanNodeConfig) void {
-    constraints.assert(constraints.lenInRange(2, 16, nodes.len));
+fn CanNetwork(comptime N: usize) type {
+    return struct {
+        nodes: [N]CanNodeConfig,
 
-    var ids: [nodes.len]u8 = undefined;
-    for (nodes, 0..) |node, i| {
-        contracts.assertValid(node);
-        ids[i] = node.node_id;
-    }
-    constraints.assert(constraints.noDuplicates(u8, &ids));
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            if (N < 2 or N > 16)
+                return std.fmt.comptimePrint("length {} is outside [2, 16]", .{N});
 
-    // All nodes must operate at the same baud rate
-    const reference_baud = nodes[0].timing.baudRate(nodes[0].clock_hz);
-    for (nodes[1..]) |node| {
-        const baud = node.timing.baudRate(node.clock_hz);
-        if (baud != reference_baud)
-            @compileError(std.fmt.comptimePrint(
-                "node {} baud rate {} doesn't match network baud rate {}",
-                .{ node.node_id, baud, reference_baud },
-            ));
-    }
+            var ids: [N]u8 = undefined;
+            for (self.nodes, 0..) |node, i| {
+                if (contracts.check(node, std.fmt.comptimePrint(".nodes[{}]", .{i}))) |err| return err;
+                ids[i] = node.node_id;
+            }
+
+            // Check for duplicate node IDs
+            for (0..N) |i| {
+                for (i + 1..N) |j| {
+                    if (ids[i] == ids[j]) {
+                        return std.fmt.comptimePrint("duplicate value at indices {} and {}", .{ i, j });
+                    }
+                }
+            }
+
+            // All nodes must operate at the same baud rate
+            const reference_baud = self.nodes[0].timing.baudRate(self.nodes[0].clock_hz);
+            for (self.nodes[1..]) |node| {
+                const baud = node.timing.baudRate(node.clock_hz);
+                if (baud != reference_baud)
+                    return std.fmt.comptimePrint(
+                        "node {} baud rate {} doesn't match network baud rate {}",
+                        .{ node.node_id, baud, reference_baud },
+                    );
+            }
+
+            return null;
+        }
+    };
 }
 
 const can_network = blk: {
@@ -134,8 +150,7 @@ const can_network = blk: {
             },
         },
     };
-    validateCanNetwork(&nodes);
-    break :blk nodes;
+    break :blk (contracts.validated(CanNetwork(3){ .nodes = nodes })).nodes;
 };
 
 test "CAN network all nodes at 500kbps" {
@@ -171,47 +186,70 @@ const CanFilter = struct {
     mask: u16,
     is_extended: bool,
     fifo: u1,
+
+    pub fn validate(comptime self: CanFilter) ?[]const u8 {
+        if (!self.is_extended) {
+            if (self.can_id > 0x7FF)
+                return "standard CAN ID must be <= 0x7FF";
+            if (self.mask > 0x7FF)
+                return "standard CAN mask must be <= 0x7FF";
+        }
+        return null;
+    }
 };
 
-fn validateCanFilters(comptime filters: []const CanFilter) void {
-    @setEvalBranchQuota(5000);
-    constraints.assert(constraints.lenInRange(1, 28, filters.len));
+fn CanFilterBank(comptime N: usize) type {
+    return struct {
+        filters: [N]CanFilter,
 
-    var fids: [filters.len]u8 = undefined;
-    for (filters, 0..) |f, i| {
-        fids[i] = f.filter_id;
-        if (!f.is_extended) {
-            if (f.can_id > 0x7FF)
-                @compileError("standard CAN ID must be <= 0x7FF");
-            if (f.mask > 0x7FF)
-                @compileError("standard CAN mask must be <= 0x7FF");
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            @setEvalBranchQuota(5000);
+
+            if (N < 1 or N > 28)
+                return std.fmt.comptimePrint("length {} is outside [1, 28]", .{N});
+
+            var fids: [N]u8 = undefined;
+            for (self.filters, 0..) |f, i| {
+                if (contracts.check(f, std.fmt.comptimePrint(".filters[{}]", .{i}))) |err| return err;
+                fids[i] = f.filter_id;
+            }
+
+            // Check for duplicate filter IDs
+            for (0..N) |i| {
+                for (i + 1..N) |j| {
+                    if (fids[i] == fids[j]) {
+                        return std.fmt.comptimePrint("duplicate value at indices {} and {}", .{ i, j });
+                    }
+                }
+            }
+
+            // Check for fully redundant filters (one filter's acceptance set is a subset of another's)
+            for (0..N) |i| {
+                for (i + 1..N) |j| {
+                    if (self.filters[i].is_extended != self.filters[j].is_extended) continue;
+                    const a_id = self.filters[i].can_id;
+                    const a_mask = self.filters[i].mask;
+                    const b_id = self.filters[j].can_id;
+                    const b_mask = self.filters[j].mask;
+
+                    // If B's mask is a superset of A's mask and they match on B's bits,
+                    // then B is redundant (A already catches everything B would)
+                    if ((a_mask & b_mask) == b_mask and (a_id & b_mask) == (b_id & b_mask))
+                        return std.fmt.comptimePrint(
+                            "filter {} is redundant with filter {} (superset acceptance)",
+                            .{ self.filters[j].filter_id, self.filters[i].filter_id },
+                        );
+                    if ((b_mask & a_mask) == a_mask and (b_id & a_mask) == (a_id & a_mask))
+                        return std.fmt.comptimePrint(
+                            "filter {} is redundant with filter {} (superset acceptance)",
+                            .{ self.filters[i].filter_id, self.filters[j].filter_id },
+                        );
+                }
+            }
+
+            return null;
         }
-    }
-    constraints.assert(constraints.noDuplicates(u8, &fids));
-
-    // Check for fully redundant filters (one filter's acceptance set is a subset of another's)
-    for (0..filters.len) |i| {
-        for (i + 1..filters.len) |j| {
-            if (filters[i].is_extended != filters[j].is_extended) continue;
-            const a_id = filters[i].can_id;
-            const a_mask = filters[i].mask;
-            const b_id = filters[j].can_id;
-            const b_mask = filters[j].mask;
-
-            // If B's mask is a superset of A's mask and they match on B's bits,
-            // then B is redundant (A already catches everything B would)
-            if ((a_mask & b_mask) == b_mask and (a_id & b_mask) == (b_id & b_mask))
-                @compileError(std.fmt.comptimePrint(
-                    "filter {} is redundant with filter {} (superset acceptance)",
-                    .{ filters[j].filter_id, filters[i].filter_id },
-                ));
-            if ((b_mask & a_mask) == a_mask and (b_id & a_mask) == (a_id & a_mask))
-                @compileError(std.fmt.comptimePrint(
-                    "filter {} is redundant with filter {} (superset acceptance)",
-                    .{ filters[i].filter_id, filters[j].filter_id },
-                ));
-        }
-    }
+    };
 }
 
 const can_filters = blk: {
@@ -221,8 +259,7 @@ const can_filters = blk: {
         .{ .filter_id = 2, .can_id = 0x300, .mask = 0x7FF, .is_extended = false, .fifo = 1 },
         .{ .filter_id = 3, .can_id = 0x400, .mask = 0x700, .is_extended = false, .fifo = 1 },
     };
-    validateCanFilters(&filters);
-    break :blk filters;
+    break :blk (contracts.validated(CanFilterBank(4){ .filters = filters })).filters;
 };
 
 test "CAN filters have no redundant entries" {

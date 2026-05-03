@@ -11,7 +11,7 @@ const std = @import("std");
 pub fn fixedPoint(comptime T: type, comptime frac_bits: comptime_int, comptime value: comptime_float) T {
     const scale = comptime_pow2(frac_bits);
     const scaled_value = value * scale;
-    const truncated = @as(comptime_int, @intFromFloat(scaled_value));
+    const truncated = @as(comptime_int, @intFromFloat(@floor(scaled_value)));
 
     if (@as(comptime_float, @floatFromInt(truncated)) != scaled_value) {
         const lower: comptime_float = @as(comptime_float, @floatFromInt(truncated)) / scale;
@@ -36,11 +36,11 @@ pub fn fixedPoint(comptime T: type, comptime frac_bits: comptime_int, comptime v
     return @intCast(truncated);
 }
 
-/// Converts a comptime float by multiplying by a scale factor and rounding to the nearest integer.
+/// Converts a comptime float by multiplying by a scale factor and truncating to an integer.
 /// Compile error if the result is not exact (i.e., the value has more precision than the scale allows).
 pub fn scaled(comptime T: type, comptime scale: comptime_int, comptime value: comptime_float) T {
     const result = value * @as(comptime_float, @floatFromInt(scale));
-    const truncated = @as(comptime_int, @intFromFloat(result));
+    const truncated = @as(comptime_int, @intFromFloat(@floor(result)));
 
     if (@as(comptime_float, @floatFromInt(truncated)) != result) {
         const lower: comptime_float = @as(comptime_float, @floatFromInt(truncated)) / @as(comptime_float, @floatFromInt(scale));
@@ -63,7 +63,7 @@ pub fn scaledNearest(comptime T: type, comptime scale: comptime_int, comptime va
 }
 
 /// Converts a percentage (0-100) to a fraction of a given max value.
-/// Example: percentOf(u8, 255, 50.0) = 127 (50% of 255, nearest).
+/// Example: percentOf(u8, 255, 50.0) = 128 (50% of 255, nearest).
 pub fn percentOf(comptime T: type, comptime max: comptime_int, comptime pct: comptime_float) T {
     const result = pct / 100.0 * @as(comptime_float, @floatFromInt(max));
     const rounded = @as(comptime_int, @intFromFloat(@round(result)));

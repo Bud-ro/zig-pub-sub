@@ -200,30 +200,40 @@ const ZoneConfig = struct {
     pid: PidConfig,
     setpoint: i16,
     deadband: u16,
+
+    pub fn validate(comptime self: ZoneConfig) ?[]const u8 {
+        if (self.deadband == 0) return "value must not be zero";
+
+        if (self.setpoint < self.pid.output_min or self.setpoint > self.pid.output_max)
+            return std.fmt.comptimePrint(
+                "zone {} setpoint {} is outside controller output range",
+                .{ self.zone_id, self.setpoint },
+            );
+
+        return null;
+    }
 };
 
-fn validateMultiZone(comptime zones: []const ZoneConfig) void {
-    constraints.assert(constraints.lenInRange(1, 16, zones.len));
+const MultiZone = struct {
+    zones: []const ZoneConfig,
 
-    var ids: [zones.len]u8 = undefined;
-    for (zones, 0..) |zone, i| {
-        contracts.assertValid(zone.pid);
-        ids[i] = zone.zone_id;
-        constraints.assert(constraints.nonZero(zone.deadband));
+    pub fn validate(comptime self: MultiZone) ?[]const u8 {
+        if (constraints.lenInRange(1, 16, self.zones.len)) |err| return err;
 
-        if (zone.setpoint < zone.pid.output_min or zone.setpoint > zone.pid.output_max)
-            @compileError(std.fmt.comptimePrint(
-                "zone {} setpoint {} is outside controller output range",
-                .{ zone.zone_id, zone.setpoint },
-            ));
+        var ids: [self.zones.len]u8 = undefined;
+        for (self.zones, 0..) |zone, i| {
+            ids[i] = zone.zone_id;
+        }
+        if (constraints.noDuplicates(u8, &ids)) |err| return err;
+
+        for (1..self.zones.len) |i| {
+            if (self.zones[i].pid.sample_period_ms != self.zones[0].pid.sample_period_ms)
+                return "all zones must use the same sample period";
+        }
+
+        return null;
     }
-    constraints.assert(constraints.noDuplicates(u8, &ids));
-
-    for (1..zones.len) |i| {
-        if (zones[i].pid.sample_period_ms != zones[0].pid.sample_period_ms)
-            @compileError("all zones must use the same sample period");
-    }
-}
+};
 
 test "multi-zone temperature control" {
     comptime {
@@ -238,11 +248,11 @@ test "multi-zone temperature control" {
             .sample_period_ms = 100,
         });
 
-        validateMultiZone(&.{
+        contracts.assertValid(MultiZone{ .zones = &.{
             .{ .zone_id = 0, .pid = base_pid, .setpoint = 220, .deadband = 5 },
             .{ .zone_id = 1, .pid = base_pid, .setpoint = 180, .deadband = 5 },
             .{ .zone_id = 2, .pid = base_pid, .setpoint = 250, .deadband = 10 },
             .{ .zone_id = 3, .pid = base_pid, .setpoint = -100, .deadband = 3 },
-        });
+        } });
     }
 }

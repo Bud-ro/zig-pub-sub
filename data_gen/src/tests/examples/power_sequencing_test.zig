@@ -17,78 +17,90 @@ const RailSpec = struct {
     stable_time_us: u32,
     depends_on: ?RailId,
     min_gap_after_dep_us: u32,
+
+    pub fn validate(comptime self: RailSpec) ?[]const u8 {
+        if (constraints.nonZero(self.voltage_mv)) |err| return err;
+        if (constraints.nonZero(self.max_current_ma)) |err| return err;
+        return null;
+    }
 };
 
-fn validatePowerSequence(comptime rails: []const RailSpec) void {
-    @setEvalBranchQuota(5000);
-    constraints.assert(constraints.lenInRange(2, 16, rails.len));
+fn ValidatedPowerSequence(comptime len: usize) type {
+    return struct {
+        rails: [len]RailSpec,
 
-    // Unique rail IDs
-    var ids: [rails.len]u8 = undefined;
-    for (rails, 0..) |rail, i| {
-        ids[i] = @intFromEnum(rail.rail);
-        constraints.assert(constraints.nonZero(rail.voltage_mv));
-        constraints.assert(constraints.nonZero(rail.max_current_ma));
-    }
-    constraints.assert(constraints.noDuplicates(u8, &ids));
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            @setEvalBranchQuota(5000);
+            if (constraints.lenInRange(2, 16, self.rails.len)) |err| return err;
 
-    // Dependencies must reference rails that appear earlier in the sequence
-    for (rails, 0..) |rail, i| {
-        if (rail.depends_on) |dep| {
-            var dep_idx: ?usize = null;
-            for (rails[0..i], 0..) |earlier, j| {
-                if (earlier.rail == dep) {
-                    dep_idx = j;
-                    break;
+            // Unique rail IDs
+            var ids: [len]u8 = undefined;
+            for (self.rails, 0..) |rail, i| {
+                ids[i] = @intFromEnum(rail.rail);
+            }
+            if (constraints.noDuplicates(u8, &ids)) |err| return err;
+
+            // Dependencies must reference rails that appear earlier in the sequence
+            for (self.rails, 0..) |rail, i| {
+                if (rail.depends_on) |dep| {
+                    var dep_idx: ?usize = null;
+                    for (self.rails[0..i], 0..) |earlier, j| {
+                        if (earlier.rail == dep) {
+                            dep_idx = j;
+                            break;
+                        }
+                    }
+                    if (dep_idx == null)
+                        return std.fmt.comptimePrint(
+                            "rail {} depends on {} which must appear earlier in sequence",
+                            .{ @intFromEnum(rail.rail), @intFromEnum(dep) },
+                        );
                 }
             }
-            if (dep_idx == null)
-                @compileError(std.fmt.comptimePrint(
-                    "rail {} depends on {} which must appear earlier in sequence",
-                    .{ @intFromEnum(rail.rail), @intFromEnum(dep) },
-                ));
-        }
-    }
 
-    // No circular dependencies (since we require deps to appear earlier, this is
-    // guaranteed, but let's also verify no rail transitively depends on itself)
-    for (rails) |start_rail| {
-        var current = start_rail.depends_on;
-        var depth: u8 = 0;
-        while (current != null and depth < rails.len) : (depth += 1) {
-            if (current.? == start_rail.rail)
-                @compileError("circular power rail dependency detected");
-            for (rails) |r| {
-                if (r.rail == current.?) {
-                    current = r.depends_on;
-                    break;
+            // No circular dependencies (since we require deps to appear earlier, this is
+            // guaranteed, but let's also verify no rail transitively depends on itself)
+            for (self.rails) |start_rail| {
+                var current = start_rail.depends_on;
+                var depth: u8 = 0;
+                while (current != null and depth < self.rails.len) : (depth += 1) {
+                    if (current.? == start_rail.rail)
+                        return "circular power rail dependency detected";
+                    for (self.rails) |r| {
+                        if (r.rail == current.?) {
+                            current = r.depends_on;
+                            break;
+                        }
+                    }
                 }
             }
+
+            // First rail must have no dependency (it's the root supply)
+            if (self.rails[0].depends_on != null)
+                return "first rail in sequence must have no dependency (root supply)";
+
+            // DDR voltage relationship: VTT must be approximately half of VDDQ
+            var vtt_rail: ?RailSpec = null;
+            var vddq_rail: ?RailSpec = null;
+            for (self.rails) |rail| {
+                if (rail.rail == .vtt_ddr) vtt_rail = rail;
+                if (rail.rail == .v2v5_ddr) vddq_rail = rail;
+            }
+            if (vtt_rail != null and vddq_rail != null) {
+                const vtt = vtt_rail.?.voltage_mv;
+                const vddq = vddq_rail.?.voltage_mv;
+                const half_vddq = vddq / 2;
+                const tolerance = vddq / 20; // 5% tolerance
+                if (vtt < half_vddq - tolerance or vtt > half_vddq + tolerance)
+                    return std.fmt.comptimePrint(
+                        "VTT ({}mV) must be within 5% of half VDDQ ({}mV)",
+                        .{ vtt, vddq },
+                    );
+            }
+
+            return null;
         }
-    }
-
-    // First rail must have no dependency (it's the root supply)
-    if (rails[0].depends_on != null)
-        @compileError("first rail in sequence must have no dependency (root supply)");
-
-    // DDR voltage relationship: VTT must be approximately half of VDDQ
-    var vtt_rail: ?RailSpec = null;
-    var vddq_rail: ?RailSpec = null;
-    for (rails) |rail| {
-        if (rail.rail == .vtt_ddr) vtt_rail = rail;
-        if (rail.rail == .v2v5_ddr) vddq_rail = rail;
-    }
-    if (vtt_rail != null and vddq_rail != null) {
-        const vtt = vtt_rail.?.voltage_mv;
-        const vddq = vddq_rail.?.voltage_mv;
-        const half_vddq = vddq / 2;
-        const tolerance = vddq / 20; // 5% tolerance
-        if (vtt < half_vddq - tolerance or vtt > half_vddq + tolerance)
-            @compileError(std.fmt.comptimePrint(
-                "VTT ({}mV) must be within 5% of half VDDQ ({}mV)",
-                .{ vtt, vddq },
-            ));
-    }
+    };
 }
 
 const power_sequence = blk: {
@@ -157,8 +169,7 @@ const power_sequence = blk: {
             .min_gap_after_dep_us = 500,
         },
     };
-    validatePowerSequence(&rails);
-    break :blk rails;
+    break :blk contracts.validated(ValidatedPowerSequence(rails.len){ .rails = rails }).rails;
 };
 
 test "power sequence starts with battery" {
@@ -206,36 +217,47 @@ test "power sequence has 7 rails" {
 // When powering up, the total inrush current at any point in the sequence
 // must not exceed the supply capacity.
 
-fn validateInrushBudget(comptime rails: []const RailSpec, comptime supply_max_ma: u32) void {
-    // At each step, compute worst-case concurrent inrush (current rail + any
-    // rail whose stable_time overlaps with current rail's enable time)
-    var cumulative_time_us: u32 = 0;
-    for (rails) |rail| {
-        var concurrent_current: u32 = rail.max_current_ma;
-        const my_start = cumulative_time_us;
-        const my_end = my_start + rail.enable_delay_us + rail.stable_time_us;
+fn ValidatedInrushBudget(comptime len: usize) type {
+    return struct {
+        rails: [len]RailSpec,
+        supply_max_ma: u32,
 
-        var prev_time: u32 = 0;
-        for (rails) |prev_rail| {
-            if (prev_rail.rail == rail.rail) break;
-            const prev_end = prev_time + prev_rail.enable_delay_us + prev_rail.stable_time_us;
-            if (prev_end > my_start)
-                concurrent_current += prev_rail.max_current_ma;
-            prev_time += prev_rail.enable_delay_us + prev_rail.stable_time_us + prev_rail.min_gap_after_dep_us;
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            // At each step, compute worst-case concurrent inrush (current rail + any
+            // rail whose stable_time overlaps with current rail's enable time)
+            var cumulative_time_us: u32 = 0;
+            for (self.rails) |rail| {
+                var concurrent_current: u32 = rail.max_current_ma;
+                const my_start = cumulative_time_us;
+                const my_end = my_start + rail.enable_delay_us + rail.stable_time_us;
+
+                var prev_time: u32 = 0;
+                for (self.rails) |prev_rail| {
+                    if (prev_rail.rail == rail.rail) break;
+                    const prev_end = prev_time + prev_rail.enable_delay_us + prev_rail.stable_time_us;
+                    if (prev_end > my_start)
+                        concurrent_current += prev_rail.max_current_ma;
+                    prev_time += prev_rail.enable_delay_us + prev_rail.stable_time_us + prev_rail.min_gap_after_dep_us;
+                }
+
+                if (concurrent_current > self.supply_max_ma)
+                    return std.fmt.comptimePrint(
+                        "inrush current {}mA at rail {} exceeds supply capacity {}mA",
+                        .{ concurrent_current, @intFromEnum(rail.rail), self.supply_max_ma },
+                    );
+
+                cumulative_time_us = my_end + rail.min_gap_after_dep_us;
+            }
+            return null;
         }
-
-        if (concurrent_current > supply_max_ma)
-            @compileError(std.fmt.comptimePrint(
-                "inrush current {}mA at rail {} exceeds supply capacity {}mA",
-                .{ concurrent_current, @intFromEnum(rail.rail), supply_max_ma },
-            ));
-
-        cumulative_time_us = my_end + rail.min_gap_after_dep_us;
-    }
+    };
 }
 
 test "power sequence inrush within 3A supply budget" {
     comptime {
-        validateInrushBudget(&power_sequence, 3000);
+        contracts.assertValid(ValidatedInrushBudget(power_sequence.len){
+            .rails = power_sequence,
+            .supply_max_ma = 3000,
+        });
     }
 }

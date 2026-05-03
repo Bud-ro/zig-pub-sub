@@ -68,31 +68,36 @@ const Register = struct {
     }
 };
 
-fn validateRegisterMap(comptime regs: []const Register) void {
-    constraints.assert(constraints.lenInRange(1, 128, regs.len));
+const RegisterMap = struct {
+    regs: []const Register,
 
-    var ids: [regs.len]u8 = undefined;
-    for (regs, 0..) |reg, i| {
-        contracts.assertValid(reg);
-        ids[i] = reg.name_id;
-    }
-    constraints.assert(constraints.noDuplicates(u8, &ids));
+    pub fn validate(comptime self: RegisterMap) ?[]const u8 {
+        if (constraints.lenInRange(1, 128, self.regs.len)) |err| return err;
 
-    // Registers must not overlap in address space
-    for (0..regs.len) |i| {
-        for (i + 1..regs.len) |j| {
-            const a_start = regs[i].address;
-            const a_end = regs[i].address + regs[i].width_bytes;
-            const b_start = regs[j].address;
-            const b_end = regs[j].address + regs[j].width_bytes;
-            if (a_start < b_end and b_start < a_end)
-                @compileError(std.fmt.comptimePrint(
-                    "registers at 0x{x:0>4} and 0x{x:0>4} overlap",
-                    .{ a_start, b_start },
-                ));
+        var ids: [self.regs.len]u8 = undefined;
+        for (self.regs, 0..) |reg, i| {
+            if (contracts.check(reg, "")) |err| return err;
+            ids[i] = reg.name_id;
         }
+        if (constraints.noDuplicates(u8, &ids)) |err| return err;
+
+        // Registers must not overlap in address space
+        for (0..self.regs.len) |i| {
+            for (i + 1..self.regs.len) |j| {
+                const a_start = self.regs[i].address;
+                const a_end = self.regs[i].address + self.regs[i].width_bytes;
+                const b_start = self.regs[j].address;
+                const b_end = self.regs[j].address + self.regs[j].width_bytes;
+                if (a_start < b_end and b_start < a_end)
+                    return std.fmt.comptimePrint(
+                        "registers at 0x{x:0>4} and 0x{x:0>4} overlap",
+                        .{ a_start, b_start },
+                    );
+            }
+        }
+        return null;
     }
-}
+};
 
 const peripheral_regs = blk: {
     const regs = [_]Register{
@@ -169,7 +174,7 @@ const peripheral_regs = blk: {
             },
         },
     };
-    validateRegisterMap(&regs);
+    contracts.assertValid(RegisterMap{ .regs = &regs });
     break :blk regs;
 };
 
@@ -242,7 +247,7 @@ const gpio_regs = blk: {
         }
     }.f;
     const regs = generators.generateArray(Register, 24, gen);
-    validateRegisterMap(&regs);
+    contracts.assertValid(RegisterMap{ .regs = &regs });
     break :blk regs;
 };
 

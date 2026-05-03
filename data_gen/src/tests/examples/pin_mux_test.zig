@@ -49,6 +49,23 @@ const PinAssignment = struct {
     function: Function,
     pull: enum(u2) { none, up, down, reserved },
     speed: enum(u2) { low, medium, high, very_high },
+
+    /// Per-element validation: ADC pins must have pull = none,
+    /// I2C pins must have pull = up.
+    pub fn validate(comptime self: PinAssignment) ?[]const u8 {
+        switch (self.function) {
+            .adc_ch0, .adc_ch1, .adc_ch2, .adc_ch3 => {
+                if (self.pull != .none)
+                    return "ADC pins must not have pull-up/down enabled";
+            },
+            .i2c1_scl, .i2c1_sda => {
+                if (self.pull != .up)
+                    return "I2C pins require pull-up configuration";
+            },
+            else => {},
+        }
+        return null;
+    }
 };
 
 const PinCapability = struct {
@@ -56,134 +73,126 @@ const PinCapability = struct {
     allowed_functions: []const Function,
 };
 
-fn validatePinMux(
-    comptime assignments: []const PinAssignment,
-    comptime capabilities: []const PinCapability,
-) void {
-    @setEvalBranchQuota(10_000);
-    constraints.assert(constraints.lenInRange(1, 32, assignments.len));
+fn PinMuxConfig(comptime N: usize) type {
+    return struct {
+        assignments: [N]PinAssignment,
+        capabilities: []const PinCapability,
 
-    // Each pin used at most once
-    var pins: [assignments.len]u8 = undefined;
-    for (assignments, 0..) |a, i| {
-        pins[i] = @intFromEnum(a.pin);
-    }
-    constraints.assert(constraints.noDuplicates(u8, &pins));
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            @setEvalBranchQuota(10_000);
+            if (constraints.lenInRange(1, 32, N)) |err| return err;
 
-    // Each non-GPIO function used at most once
-    for (0..assignments.len) |i| {
-        if (assignments[i].function == .gpio) continue;
-        for (i + 1..assignments.len) |j| {
-            if (assignments[i].function == assignments[j].function)
-                @compileError(std.fmt.comptimePrint(
-                    "function {} assigned to multiple pins",
-                    .{@intFromEnum(assignments[i].function)},
-                ));
-        }
-    }
+            // Each pin used at most once
+            var pins: [N]u8 = undefined;
+            for (self.assignments, 0..) |a, i| {
+                pins[i] = @intFromEnum(a.pin);
+            }
+            if (constraints.noDuplicates(u8, &pins)) |err| return err;
 
-    // Verify each assignment is valid per the capability table
-    for (assignments) |a| {
-        var found_cap = false;
-        for (capabilities) |cap| {
-            if (cap.pin == a.pin) {
-                found_cap = true;
-                var func_allowed = false;
-                for (cap.allowed_functions) |f| {
-                    if (f == a.function) {
-                        func_allowed = true;
+            // Each non-GPIO function used at most once
+            for (0..N) |i| {
+                if (self.assignments[i].function == .gpio) continue;
+                for (i + 1..N) |j| {
+                    if (self.assignments[i].function == self.assignments[j].function)
+                        return std.fmt.comptimePrint(
+                            "function {} assigned to multiple pins",
+                            .{@intFromEnum(self.assignments[i].function)},
+                        );
+                }
+            }
+
+            // Verify each assignment is valid per the capability table
+            for (self.assignments) |a| {
+                var found_cap = false;
+                for (self.capabilities) |cap| {
+                    if (cap.pin == a.pin) {
+                        found_cap = true;
+                        var func_allowed = false;
+                        for (cap.allowed_functions) |f| {
+                            if (f == a.function) {
+                                func_allowed = true;
+                                break;
+                            }
+                        }
+                        if (!func_allowed)
+                            return std.fmt.comptimePrint(
+                                "pin {} does not support function {}",
+                                .{ @intFromEnum(a.pin), @intFromEnum(a.function) },
+                            );
                         break;
                     }
                 }
-                if (!func_allowed)
-                    @compileError(std.fmt.comptimePrint(
-                        "pin {} does not support function {}",
-                        .{ @intFromEnum(a.pin), @intFromEnum(a.function) },
-                    ));
-                break;
+                if (!found_cap)
+                    return std.fmt.comptimePrint(
+                        "pin {} not found in capability table",
+                        .{@intFromEnum(a.pin)},
+                    );
             }
-        }
-        if (!found_cap)
-            @compileError(std.fmt.comptimePrint(
-                "pin {} not found in capability table",
-                .{@intFromEnum(a.pin)},
-            ));
-    }
 
-    // ADC pins must have pull = none (analog input)
-    for (assignments) |a| {
-        switch (a.function) {
-            .adc_ch0, .adc_ch1, .adc_ch2, .adc_ch3 => {
-                if (a.pull != .none)
-                    @compileError("ADC pins must not have pull-up/down enabled");
-            },
-            else => {},
-        }
-    }
-
-    // SPI pins must all use the same speed setting
-    var spi_speed: ?@TypeOf(assignments[0].speed) = null;
-    for (assignments) |a| {
-        switch (a.function) {
-            .spi1_sck, .spi1_mosi, .spi1_miso, .spi1_nss => {
-                if (spi_speed) |s| {
-                    if (a.speed != s)
-                        @compileError("all SPI pins must use the same speed setting");
-                } else {
-                    spi_speed = a.speed;
+            // SPI pins must all use the same speed setting
+            var spi_speed: ?@TypeOf(self.assignments[0].speed) = null;
+            for (self.assignments) |a| {
+                switch (a.function) {
+                    .spi1_sck, .spi1_mosi, .spi1_miso, .spi1_nss => {
+                        if (spi_speed) |s| {
+                            if (a.speed != s)
+                                return "all SPI pins must use the same speed setting";
+                        } else {
+                            spi_speed = a.speed;
+                        }
+                    },
+                    else => {},
                 }
-            },
-            else => {},
-        }
-    }
+            }
 
-    // I2C pins must use open-drain (pull = up)
-    for (assignments) |a| {
-        switch (a.function) {
-            .i2c1_scl, .i2c1_sda => {
-                if (a.pull != .up)
-                    @compileError("I2C pins require pull-up configuration");
-            },
-            else => {},
+            return null;
         }
-    }
+    };
 }
 
-fn validatePeripheralGroups(comptime assignments: []const PinAssignment) void {
-    // If any SPI pin is assigned, ALL SPI pins must be assigned
-    var has_spi = false;
-    var spi_count: u8 = 0;
-    for (assignments) |a| {
-        switch (a.function) {
-            .spi1_sck, .spi1_mosi, .spi1_miso, .spi1_nss => {
-                has_spi = true;
-                spi_count += 1;
-            },
-            else => {},
+fn PeripheralGroupConfig(comptime N: usize) type {
+    return struct {
+        assignments: [N]PinAssignment,
+
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            // If any SPI pin is assigned, ALL SPI pins must be assigned
+            var has_spi = false;
+            var spi_count: u8 = 0;
+            for (self.assignments) |a| {
+                switch (a.function) {
+                    .spi1_sck, .spi1_mosi, .spi1_miso, .spi1_nss => {
+                        has_spi = true;
+                        spi_count += 1;
+                    },
+                    else => {},
+                }
+            }
+            if (has_spi and spi_count != 4)
+                return "SPI requires all 4 pins (SCK, MOSI, MISO, NSS) to be assigned";
+
+            // If any UART pin is assigned, both TX and RX must be assigned
+            var has_uart_tx = false;
+            var has_uart_rx = false;
+            for (self.assignments) |a| {
+                if (a.function == .uart1_tx) has_uart_tx = true;
+                if (a.function == .uart1_rx) has_uart_rx = true;
+            }
+            if ((has_uart_tx or has_uart_rx) and !(has_uart_tx and has_uart_rx))
+                return "UART requires both TX and RX pins";
+
+            // If any I2C pin is assigned, both SCL and SDA must be assigned
+            var has_scl = false;
+            var has_sda = false;
+            for (self.assignments) |a| {
+                if (a.function == .i2c1_scl) has_scl = true;
+                if (a.function == .i2c1_sda) has_sda = true;
+            }
+            if ((has_scl or has_sda) and !(has_scl and has_sda))
+                return "I2C requires both SCL and SDA pins";
+
+            return null;
         }
-    }
-    if (has_spi and spi_count != 4)
-        @compileError("SPI requires all 4 pins (SCK, MOSI, MISO, NSS) to be assigned");
-
-    // If any UART pin is assigned, both TX and RX must be assigned
-    var has_uart_tx = false;
-    var has_uart_rx = false;
-    for (assignments) |a| {
-        if (a.function == .uart1_tx) has_uart_tx = true;
-        if (a.function == .uart1_rx) has_uart_rx = true;
-    }
-    if ((has_uart_tx or has_uart_rx) and !(has_uart_tx and has_uart_rx))
-        @compileError("UART requires both TX and RX pins");
-
-    // If any I2C pin is assigned, both SCL and SDA must be assigned
-    var has_scl = false;
-    var has_sda = false;
-    for (assignments) |a| {
-        if (a.function == .i2c1_scl) has_scl = true;
-        if (a.function == .i2c1_sda) has_sda = true;
-    }
-    if ((has_scl or has_sda) and !(has_scl and has_sda))
-        @compileError("I2C requires both SCL and SDA pins");
+    };
 }
 
 const pin_capabilities = [_]PinCapability{
@@ -205,25 +214,31 @@ const pin_capabilities = [_]PinCapability{
     .{ .pin = .pb7, .allowed_functions = &.{ .gpio, .i2c1_sda, .uart1_rx } },
 };
 
-const app_pin_config = blk: {
-    const assignments = [_]PinAssignment{
-        .{ .pin = .pa0, .function = .adc_ch0, .pull = .none, .speed = .low },
-        .{ .pin = .pa1, .function = .adc_ch1, .pull = .none, .speed = .low },
-        .{ .pin = .pa2, .function = .uart1_tx, .pull = .none, .speed = .high },
-        .{ .pin = .pa3, .function = .uart1_rx, .pull = .up, .speed = .high },
-        .{ .pin = .pa4, .function = .spi1_nss, .pull = .up, .speed = .very_high },
-        .{ .pin = .pa5, .function = .spi1_sck, .pull = .none, .speed = .very_high },
-        .{ .pin = .pa6, .function = .spi1_miso, .pull = .none, .speed = .very_high },
-        .{ .pin = .pa7, .function = .spi1_mosi, .pull = .none, .speed = .very_high },
-        .{ .pin = .pb2, .function = .gpio, .pull = .down, .speed = .low },
-        .{ .pin = .pb3, .function = .gpio, .pull = .down, .speed = .low },
-        .{ .pin = .pb6, .function = .i2c1_scl, .pull = .up, .speed = .medium },
-        .{ .pin = .pb7, .function = .i2c1_sda, .pull = .up, .speed = .medium },
-    };
-    validatePinMux(&assignments, &pin_capabilities);
-    validatePeripheralGroups(&assignments);
-    break :blk assignments;
+const assignments = [_]PinAssignment{
+    .{ .pin = .pa0, .function = .adc_ch0, .pull = .none, .speed = .low },
+    .{ .pin = .pa1, .function = .adc_ch1, .pull = .none, .speed = .low },
+    .{ .pin = .pa2, .function = .uart1_tx, .pull = .none, .speed = .high },
+    .{ .pin = .pa3, .function = .uart1_rx, .pull = .up, .speed = .high },
+    .{ .pin = .pa4, .function = .spi1_nss, .pull = .up, .speed = .very_high },
+    .{ .pin = .pa5, .function = .spi1_sck, .pull = .none, .speed = .very_high },
+    .{ .pin = .pa6, .function = .spi1_miso, .pull = .none, .speed = .very_high },
+    .{ .pin = .pa7, .function = .spi1_mosi, .pull = .none, .speed = .very_high },
+    .{ .pin = .pb2, .function = .gpio, .pull = .down, .speed = .low },
+    .{ .pin = .pb3, .function = .gpio, .pull = .down, .speed = .low },
+    .{ .pin = .pb6, .function = .i2c1_scl, .pull = .up, .speed = .medium },
+    .{ .pin = .pb7, .function = .i2c1_sda, .pull = .up, .speed = .medium },
 };
+
+const app_pin_config = contracts.validated(PinMuxConfig(assignments.len){
+    .assignments = assignments,
+    .capabilities = &pin_capabilities,
+}).assignments;
+
+comptime {
+    contracts.assertValid(PeripheralGroupConfig(assignments.len){
+        .assignments = assignments,
+    });
+}
 
 test "pin mux has no duplicate pins" {
     comptime {

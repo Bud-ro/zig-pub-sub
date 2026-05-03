@@ -11,7 +11,7 @@ const Component = struct {
     active: bool,
 
     pub fn validate(comptime self: Component) ?[]const u8 {
-        if (self.power_mw < 0 or self.power_mw > 5000) return "power_mw out of range [0, 5000]";
+        if (self.power_mw > 5000) return "power_mw out of range [0, 5000]";
         if (self.voltage_mv != 1800 and self.voltage_mv != 3300 and self.voltage_mv != 5000 and self.voltage_mv != 12000)
             return "voltage_mv must be one of 1800, 3300, 5000, 12000";
         if (!self.active and self.power_mw != 0)
@@ -27,7 +27,7 @@ const Subsystem = struct {
     voltage_mv: u16,
 
     pub fn validate(comptime self: Subsystem) ?[]const u8 {
-        if (self.max_power_mw < 0 or self.max_power_mw > 15000) return "max_power_mw out of range [0, 15000]";
+        if (self.max_power_mw > 15000) return "max_power_mw out of range [0, 15000]";
 
         var total_power: u32 = 0;
         for (self.components) |comp| {
@@ -52,7 +52,7 @@ const System = struct {
     name_id: u8,
 
     pub fn validate(comptime self: System) ?[]const u8 {
-        if (self.power_budget_mw < 0 or self.power_budget_mw > 50000) return "power_budget_mw out of range [0, 50000]";
+        if (self.power_budget_mw > 50000) return "power_budget_mw out of range [0, 50000]";
 
         var total_power: u32 = 0;
         var sub_ids: [3]u8 = undefined;
@@ -61,7 +61,7 @@ const System = struct {
             sub_ids[i] = sub.name_id;
         }
 
-        constraints.assert(constraints.noDuplicates(u8, &sub_ids));
+        if (constraints.noDuplicates(u8, &sub_ids)) |err| return err;
 
         if (total_power > self.power_budget_mw)
             return std.fmt.comptimePrint(
@@ -126,14 +126,24 @@ test "embedded system passes full three-level validation" {
 test "embedded system component IDs are unique within subsystems" {
     comptime {
         for (embedded_system.subsystems) |sub| {
-            var ids: [4]u8 = undefined;
-            for (sub.components, 0..) |comp, i| {
-                ids[i] = comp.name_id;
-            }
-            constraints.assert(constraints.noDuplicates(u8, &ids));
+            const wrapper: SubsystemComponentIds = .{ .subsystem = sub };
+            if (wrapper.validate()) |err| @compileError(err);
         }
     }
 }
+
+const SubsystemComponentIds = struct {
+    subsystem: Subsystem,
+
+    pub fn validate(comptime self: SubsystemComponentIds) ?[]const u8 {
+        var ids: [4]u8 = undefined;
+        for (self.subsystem.components, 0..) |comp, i| {
+            ids[i] = comp.name_id;
+        }
+        if (constraints.noDuplicates(u8, &ids)) |err| return err;
+        return null;
+    }
+};
 
 // --- Index-Referenced Data (tasks referencing dependencies by index) ---
 
@@ -143,26 +153,33 @@ const Task = struct {
     dependency_idx: ?u8,
 };
 
-fn validateTaskGraph(comptime tasks: []const Task) void {
-    constraints.assert(constraints.lenInRange(1, 64, tasks.len));
+fn TaskGraph(comptime n: usize) type {
+    return struct {
+        tasks: [n]Task,
 
-    var ids: [tasks.len]u8 = undefined;
-    for (tasks, 0..) |task, i| {
-        ids[i] = task.id;
-        constraints.assert(constraints.nonZero(task.duration_hours));
-        constraints.assert(constraints.inRange(1, 100, task.duration_hours));
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            if (constraints.lenInRange(1, 64, self.tasks.len)) |err| return err;
 
-        if (task.dependency_idx) |dep_idx| {
-            if (dep_idx >= tasks.len)
-                @compileError(std.fmt.comptimePrint(
-                    "task {} references dependency index {} but only {} tasks exist",
-                    .{ task.id, dep_idx, tasks.len },
-                ));
-            if (dep_idx >= i)
-                @compileError("dependency must reference an earlier task (no forward or self references)");
+            var ids: [self.tasks.len]u8 = undefined;
+            for (self.tasks, 0..) |task, i| {
+                ids[i] = task.id;
+                if (constraints.nonZero(task.duration_hours)) |err| return err;
+                if (constraints.inRange(1, 100, task.duration_hours)) |err| return err;
+
+                if (task.dependency_idx) |dep_idx| {
+                    if (dep_idx >= self.tasks.len)
+                        return std.fmt.comptimePrint(
+                            "task {} references dependency index {} but only {} tasks exist",
+                            .{ task.id, dep_idx, self.tasks.len },
+                        );
+                    if (dep_idx >= i)
+                        return "dependency must reference an earlier task (no forward or self references)";
+                }
+            }
+            if (constraints.noDuplicates(u8, &ids)) |err| return err;
+            return null;
         }
-    }
-    constraints.assert(constraints.noDuplicates(u8, &ids));
+    };
 }
 
 const project_tasks = blk: {
@@ -175,7 +192,8 @@ const project_tasks = blk: {
         .{ .id = 6, .duration_hours = 4, .dependency_idx = 4 },
         .{ .id = 7, .duration_hours = 12, .dependency_idx = 5 },
     };
-    validateTaskGraph(&tasks);
+    const wrapper: TaskGraph(tasks.len) = .{ .tasks = tasks };
+    if (wrapper.validate()) |err| @compileError(err);
     break :blk tasks;
 };
 
@@ -191,11 +209,8 @@ test "task graph has valid dependency indices" {
 
 test "task graph has unique IDs" {
     comptime {
-        var ids: [project_tasks.len]u8 = undefined;
-        for (project_tasks, 0..) |task, i| {
-            ids[i] = task.id;
-        }
-        constraints.assert(constraints.noDuplicates(u8, &ids));
+        const wrapper: TaskGraph(project_tasks.len) = .{ .tasks = project_tasks };
+        if (wrapper.validate()) |err| @compileError(err);
     }
 }
 
@@ -210,26 +225,33 @@ const ErdSpec = struct {
     max_subs: u8,
 };
 
-fn validateErdRegistry(comptime specs: []const ErdSpec) void {
-    constraints.assert(constraints.lenInRange(1, 256, specs.len));
+fn ErdRegistry(comptime n: usize) type {
+    return struct {
+        specs: [n]ErdSpec,
 
-    var numbers: [specs.len]u16 = undefined;
-    for (specs, 0..) |spec, i| {
-        numbers[i] = spec.erd_number;
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            if (constraints.lenInRange(1, 256, self.specs.len)) |err| return err;
 
-        const expected_size: u8 = switch (spec.erd_type) {
-            .u8_type => 1,
-            .u16_type => 2,
-            .u32_type => 4,
-            .bool_type => 1,
-            .struct_type => spec.size_bytes,
-        };
-        if (spec.erd_type != .struct_type and spec.size_bytes != expected_size)
-            @compileError("size_bytes doesn't match type");
+            var numbers: [self.specs.len]u16 = undefined;
+            for (self.specs, 0..) |spec, i| {
+                numbers[i] = spec.erd_number;
 
-        constraints.assert(constraints.inRange(0, 16, spec.max_subs));
-    }
-    constraints.assert(constraints.noDuplicates(u16, &numbers));
+                const expected_size: u8 = switch (spec.erd_type) {
+                    .u8_type => 1,
+                    .u16_type => 2,
+                    .u32_type => 4,
+                    .bool_type => 1,
+                    .struct_type => spec.size_bytes,
+                };
+                if (spec.erd_type != .struct_type and spec.size_bytes != expected_size)
+                    return "size_bytes doesn't match type";
+
+                if (constraints.inRange(0, 16, spec.max_subs)) |err| return err;
+            }
+            if (constraints.noDuplicates(u16, &numbers)) |err| return err;
+            return null;
+        }
+    };
 }
 
 const erd_registry = blk: {
@@ -241,17 +263,15 @@ const erd_registry = blk: {
         .{ .erd_number = 0x0004, .erd_type = .struct_type, .size_bytes = 8, .max_subs = 0 },
         .{ .erd_number = 0x0005, .erd_type = .u8_type, .size_bytes = 1, .max_subs = 2 },
     };
-    validateErdRegistry(&specs);
+    const wrapper: ErdRegistry(specs.len) = .{ .specs = specs };
+    if (wrapper.validate()) |err| @compileError(err);
     break :blk specs;
 };
 
 test "ERD registry has unique numbers" {
     comptime {
-        var nums: [erd_registry.len]u16 = undefined;
-        for (erd_registry, 0..) |spec, i| {
-            nums[i] = spec.erd_number;
-        }
-        constraints.assert(constraints.noDuplicates(u16, &nums));
+        const wrapper: ErdRegistry(erd_registry.len) = .{ .specs = erd_registry };
+        if (wrapper.validate()) |err| @compileError(err);
     }
 }
 

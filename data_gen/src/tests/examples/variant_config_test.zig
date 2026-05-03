@@ -84,7 +84,7 @@ const ServoConfig = struct {
 
         // Position loop must run fast enough relative to max RPM
         // At max RPM, encoder produces ppr * rpm/60 pulses/sec
-        // Loop must sample at least 10x per encoder pulse
+        // Loop must sample at least 1% of the encoder pulse rate
         const pulses_per_sec = @as(u32, self.encoder_ppr) * self.base.max_rpm / 60;
         if (self.position_loop_hz < pulses_per_sec / 100)
             return "position loop too slow for encoder resolution at max RPM";
@@ -141,6 +141,43 @@ const AlarmLevel = struct {
     threshold: u32,
     severity: u8,
     debounce_ms: u16,
+
+    pub fn validate(comptime self: AlarmLevel) ?[]const u8 {
+        if (constraints.nonZero(self.threshold)) |err| return err;
+        if (constraints.inRange(@as(u8, 1), @as(u8, 8), self.severity)) |err| return err;
+        if (constraints.nonZero(self.debounce_ms)) |err| return err;
+        return null;
+    }
+};
+
+const AlarmLevels = struct {
+    levels: [8]AlarmLevel,
+
+    pub fn validate(comptime self: AlarmLevels) ?[]const u8 {
+        // Running constraint: each level > 120% of previous
+        for (1..self.levels.len) |i| {
+            if (self.levels[i].threshold * 100 <= self.levels[i - 1].threshold * 120)
+                return "each alarm level must be at least 20% above the previous";
+        }
+
+        // Global constraint: total span <= 30x first value
+        if (self.levels[self.levels.len - 1].threshold > self.levels[0].threshold * 30)
+            return "alarm span exceeds 30x the base threshold";
+
+        // Severity must be strictly increasing
+        for (1..self.levels.len) |i| {
+            if (self.levels[i].severity <= self.levels[i - 1].severity)
+                return "severity must increase with threshold";
+        }
+
+        // Debounce must decrease (higher severity = faster response)
+        for (1..self.levels.len) |i| {
+            if (self.levels[i].debounce_ms >= self.levels[i - 1].debounce_ms)
+                return "debounce must decrease with severity";
+        }
+
+        return null;
+    }
 };
 
 const alarm_levels = blk: {
@@ -161,29 +198,8 @@ const alarm_levels = blk: {
     }.f;
     const levels = generators.generateArray(AlarmLevel, 8, gen);
 
-    // Running constraint: each level > 120% of previous
-    for (1..levels.len) |i| {
-        if (levels[i].threshold * 100 <= levels[i - 1].threshold * 120)
-            @compileError("each alarm level must be at least 20% above the previous");
-    }
-
-    // Global constraint: total span <= 10x first value
-    if (levels[levels.len - 1].threshold > levels[0].threshold * 30)
-        @compileError("alarm span exceeds 30x the base threshold");
-
-    // Severity must be strictly increasing
-    for (1..levels.len) |i| {
-        if (levels[i].severity <= levels[i - 1].severity)
-            @compileError("severity must increase with threshold");
-    }
-
-    // Debounce must decrease (higher severity = faster response)
-    for (1..levels.len) |i| {
-        if (levels[i].debounce_ms >= levels[i - 1].debounce_ms)
-            @compileError("debounce must decrease with severity");
-    }
-
-    break :blk levels;
+    const wrapper = contracts.validated(AlarmLevels{ .levels = levels });
+    break :blk wrapper.levels;
 };
 
 test "alarm levels are exponentially spaced" {
@@ -224,78 +240,86 @@ const ProductVariant = struct {
     motor: BaseMotorConfig,
     features: []const Feature,
     price_cents: u32,
-};
 
-fn validateProductLine(comptime variants: []const ProductVariant) void {
-    @setEvalBranchQuota(5000);
-    constraints.assert(constraints.lenInRange(2, 16, variants.len));
-
-    var skus: [variants.len]u16 = undefined;
-    for (variants, 0..) |v, i| {
-        skus[i] = v.sku_id;
-        contracts.assertValid(v.motor);
-        constraints.assert(constraints.lenInRange(0, 6, v.features.len));
-        constraints.assert(constraints.nonZero(v.price_cents));
+    pub fn validate(comptime self: ProductVariant) ?[]const u8 {
+        if (constraints.lenInRange(0, 6, self.features.len)) |err| return err;
+        if (constraints.nonZero(self.price_cents)) |err| return err;
 
         // No duplicate features within a variant
-        for (0..v.features.len) |fi| {
-            for (fi + 1..v.features.len) |fj| {
-                if (v.features[fi] == v.features[fj])
-                    @compileError(std.fmt.comptimePrint(
+        for (0..self.features.len) |fi| {
+            for (fi + 1..self.features.len) |fj| {
+                if (self.features[fi] == self.features[fj])
+                    return std.fmt.comptimePrint(
                         "SKU {} has duplicate feature",
-                        .{v.sku_id},
-                    ));
+                        .{self.sku_id},
+                    );
             }
         }
+        return null;
     }
-    constraints.assert(constraints.noDuplicates(u16, &skus));
+};
 
-    // No two variants can have identical feature sets
-    for (0..variants.len) |i| {
-        for (i + 1..variants.len) |j| {
-            if (variants[i].features.len == variants[j].features.len) {
-                var all_match = true;
-                for (variants[i].features) |fi| {
-                    var found = false;
-                    for (variants[j].features) |fj| {
-                        if (fi == fj) {
-                            found = true;
+const ProductLine = struct {
+    variants: []const ProductVariant,
+
+    pub fn validate(comptime self: ProductLine) ?[]const u8 {
+        @setEvalBranchQuota(5000);
+        if (constraints.lenInRange(2, 16, self.variants.len)) |err| return err;
+
+        var skus: [self.variants.len]u16 = undefined;
+        for (self.variants, 0..) |v, i| {
+            skus[i] = v.sku_id;
+        }
+        if (constraints.noDuplicates(u16, &skus)) |err| return err;
+
+        // No two variants can have identical feature sets
+        for (0..self.variants.len) |i| {
+            for (i + 1..self.variants.len) |j| {
+                if (self.variants[i].features.len == self.variants[j].features.len) {
+                    var all_match = true;
+                    for (self.variants[i].features) |fi| {
+                        var found = false;
+                        for (self.variants[j].features) |fj| {
+                            if (fi == fj) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            all_match = false;
                             break;
                         }
                     }
-                    if (!found) {
-                        all_match = false;
-                        break;
-                    }
+                    if (all_match)
+                        return std.fmt.comptimePrint(
+                            "SKUs {} and {} have identical feature sets",
+                            .{ self.variants[i].sku_id, self.variants[j].sku_id },
+                        );
                 }
-                if (all_match)
-                    @compileError(std.fmt.comptimePrint(
-                        "SKUs {} and {} have identical feature sets",
-                        .{ variants[i].sku_id, variants[j].sku_id },
-                    ));
             }
         }
-    }
 
-    // More features should cost more (loose check: no variant with strictly
-    // more features should cost less)
-    for (0..variants.len) |i| {
-        for (i + 1..variants.len) |j| {
-            if (variants[i].features.len > variants[j].features.len and
-                variants[i].price_cents < variants[j].price_cents)
-                @compileError(std.fmt.comptimePrint(
-                    "SKU {} has more features but costs less than SKU {}",
-                    .{ variants[i].sku_id, variants[j].sku_id },
-                ));
-            if (variants[j].features.len > variants[i].features.len and
-                variants[j].price_cents < variants[i].price_cents)
-                @compileError(std.fmt.comptimePrint(
-                    "SKU {} has more features but costs less than SKU {}",
-                    .{ variants[j].sku_id, variants[i].sku_id },
-                ));
+        // More features should cost more (loose check: no variant with strictly
+        // more features should cost less)
+        for (0..self.variants.len) |i| {
+            for (i + 1..self.variants.len) |j| {
+                if (self.variants[i].features.len > self.variants[j].features.len and
+                    self.variants[i].price_cents < self.variants[j].price_cents)
+                    return std.fmt.comptimePrint(
+                        "SKU {} has more features but costs less than SKU {}",
+                        .{ self.variants[i].sku_id, self.variants[j].sku_id },
+                    );
+                if (self.variants[j].features.len > self.variants[i].features.len and
+                    self.variants[j].price_cents < self.variants[i].price_cents)
+                    return std.fmt.comptimePrint(
+                        "SKU {} has more features but costs less than SKU {}",
+                        .{ self.variants[j].sku_id, self.variants[i].sku_id },
+                    );
+            }
         }
+        return null;
     }
-}
+};
 
 const base_motor = BaseMotorConfig{
     .rated_voltage_mv = 24000,
@@ -314,8 +338,8 @@ const product_line = blk: {
         .{ .sku_id = 1004, .motor = base_motor, .features = &.{ .wifi, .bluetooth, .lte, .gps }, .price_cents = 24900 },
         .{ .sku_id = 1005, .motor = base_motor, .features = &.{ .wifi, .bluetooth, .lte, .gps, .nfc, .zigbee }, .price_cents = 34900 },
     };
-    validateProductLine(&variants);
-    break :blk variants;
+    const validated = contracts.validated(ProductLine{ .variants = &variants });
+    break :blk validated.variants;
 };
 
 test "product line has unique SKUs" {

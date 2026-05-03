@@ -13,66 +13,78 @@ const TaskDef = struct {
     wcet_us: u32,
     priority: u8,
     stack_size: u16,
+
+    pub fn validate(comptime self: TaskDef) ?[]const u8 {
+        if (constraints.nonZero(self.period_ms)) |err| return err;
+        if (constraints.nonZero(self.wcet_us)) |err| return err;
+        if (constraints.isPowerOfTwo(self.stack_size)) |err| return err;
+        if (constraints.inRange(64, 8192, self.stack_size)) |err| return err;
+
+        if (self.wcet_us >= @as(u32, self.period_ms) * 1000)
+            return std.fmt.comptimePrint(
+                "task {} WCET ({}us) exceeds period ({}ms)",
+                .{ self.id, self.wcet_us, self.period_ms },
+            );
+        return null;
+    }
 };
 
-fn validateRateMonotonic(comptime tasks: []const TaskDef) void {
-    @setEvalBranchQuota(5000);
-    constraints.assert(constraints.lenInRange(1, 32, tasks.len));
+fn ValidatedTaskSet(comptime len: usize) type {
+    return struct {
+        tasks: [len]TaskDef,
 
-    var ids: [tasks.len]u8 = undefined;
-    var priorities: [tasks.len]u8 = undefined;
-    for (tasks, 0..) |task, i| {
-        ids[i] = task.id;
-        priorities[i] = task.priority;
-        constraints.assert(constraints.nonZero(task.period_ms));
-        constraints.assert(constraints.nonZero(task.wcet_us));
-        constraints.assert(constraints.isPowerOfTwo(task.stack_size));
-        constraints.assert(constraints.inRange(64, 8192, task.stack_size));
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            @setEvalBranchQuota(5000);
+            if (constraints.lenInRange(1, 32, self.tasks.len)) |err| return err;
 
-        if (task.wcet_us >= @as(u32, task.period_ms) * 1000)
-            @compileError(std.fmt.comptimePrint(
-                "task {} WCET ({}us) exceeds period ({}ms)",
-                .{ task.id, task.wcet_us, task.period_ms },
-            ));
-    }
-    constraints.assert(constraints.noDuplicates(u8, &ids));
-    constraints.assert(constraints.noDuplicates(u8, &priorities));
+            var ids: [len]u8 = undefined;
+            var priorities: [len]u8 = undefined;
+            for (self.tasks, 0..) |task, i| {
+                ids[i] = task.id;
+                priorities[i] = task.priority;
+            }
+            if (constraints.noDuplicates(u8, &ids)) |err| return err;
+            if (constraints.noDuplicates(u8, &priorities)) |err| return err;
 
-    // Rate-monotonic: shorter period must have higher priority (lower number)
-    for (0..tasks.len) |i| {
-        for (i + 1..tasks.len) |j| {
-            if (tasks[i].period_ms < tasks[j].period_ms and tasks[i].priority > tasks[j].priority)
-                @compileError(std.fmt.comptimePrint(
-                    "RM violation: task {} (period {}ms) has lower priority than task {} (period {}ms)",
-                    .{ tasks[i].id, tasks[i].period_ms, tasks[j].id, tasks[j].period_ms },
-                ));
-            if (tasks[i].period_ms > tasks[j].period_ms and tasks[i].priority < tasks[j].priority)
-                @compileError(std.fmt.comptimePrint(
-                    "RM violation: task {} (period {}ms) has higher priority than task {} (period {}ms)",
-                    .{ tasks[i].id, tasks[i].period_ms, tasks[j].id, tasks[j].period_ms },
-                ));
+            // Rate-monotonic: shorter period must have higher priority (lower number)
+            for (0..self.tasks.len) |i| {
+                for (i + 1..self.tasks.len) |j| {
+                    if (self.tasks[i].period_ms < self.tasks[j].period_ms and self.tasks[i].priority > self.tasks[j].priority)
+                        return std.fmt.comptimePrint(
+                            "RM violation: task {} (period {}ms) has lower priority than task {} (period {}ms)",
+                            .{ self.tasks[i].id, self.tasks[i].period_ms, self.tasks[j].id, self.tasks[j].period_ms },
+                        );
+                    if (self.tasks[i].period_ms > self.tasks[j].period_ms and self.tasks[i].priority < self.tasks[j].priority)
+                        return std.fmt.comptimePrint(
+                            "RM violation: task {} (period {}ms) has higher priority than task {} (period {}ms)",
+                            .{ self.tasks[i].id, self.tasks[i].period_ms, self.tasks[j].id, self.tasks[j].period_ms },
+                        );
+                }
+            }
+
+            // CPU utilization check: sum(wcet/period) must be < 1.0
+            // We compute in parts-per-thousand to avoid floating point
+            var utilization_ppt: u32 = 0;
+            for (self.tasks) |task| {
+                utilization_ppt += (task.wcet_us * 1000) / (@as(u32, task.period_ms) * 1000);
+            }
+            if (utilization_ppt >= 1000)
+                return std.fmt.comptimePrint(
+                    "CPU utilization {}‰ exceeds 1000‰ (100%)",
+                    .{utilization_ppt},
+                );
+
+            // Liu & Layland bound for N tasks: N * (2^(1/N) - 1)
+            // For practical purposes, warn if utilization > 700 (70%) for > 3 tasks
+            if (self.tasks.len > 3 and utilization_ppt > 700)
+                return std.fmt.comptimePrint(
+                    "CPU utilization {}‰ exceeds practical RM bound for {} tasks",
+                    .{ utilization_ppt, self.tasks.len },
+                );
+
+            return null;
         }
-    }
-
-    // CPU utilization check: sum(wcet/period) must be < 1.0
-    // We compute in parts-per-thousand to avoid floating point
-    var utilization_ppt: u32 = 0;
-    for (tasks) |task| {
-        utilization_ppt += (task.wcet_us * 1000) / (@as(u32, task.period_ms) * 1000);
-    }
-    if (utilization_ppt >= 1000)
-        @compileError(std.fmt.comptimePrint(
-            "CPU utilization {}‰ exceeds 1000‰ (100%)",
-            .{utilization_ppt},
-        ));
-
-    // Liu & Layland bound for N tasks: N * (2^(1/N) - 1)
-    // For practical purposes, warn if utilization > 700 (70%) for > 3 tasks
-    if (tasks.len > 3 and utilization_ppt > 700)
-        @compileError(std.fmt.comptimePrint(
-            "CPU utilization {}‰ exceeds practical RM bound for {} tasks",
-            .{ utilization_ppt, tasks.len },
-        ));
+    };
 }
 
 const task_set = blk: {
@@ -84,8 +96,7 @@ const task_set = blk: {
         .{ .id = 5, .period_ms = 100, .wcet_us = 5000, .priority = 4, .stack_size = 2048 },
         .{ .id = 6, .period_ms = 1000, .wcet_us = 10000, .priority = 5, .stack_size = 4096 },
     };
-    validateRateMonotonic(&tasks);
-    break :blk tasks;
+    break :blk contracts.validated(ValidatedTaskSet(tasks.len){ .tasks = tasks }).tasks;
 };
 
 test "task set follows rate-monotonic priority assignment" {
@@ -126,49 +137,60 @@ const MemRegion = struct {
     writable: bool,
     executable: bool,
     cacheable: bool,
+
+    pub fn validate(comptime self: MemRegion) ?[]const u8 {
+        if (constraints.nonZero(self.size)) |err| return err;
+        if (constraints.isPowerOfTwo(self.size)) |err| return err;
+
+        if (self.start_addr % self.size != 0)
+            return std.fmt.comptimePrint(
+                "region {} at 0x{x:0>8} is not aligned to its size 0x{x}",
+                .{ self.name_id, self.start_addr, self.size },
+            );
+
+        if (self.executable and self.writable)
+            return std.fmt.comptimePrint(
+                "region {} is both writable and executable (W^X violation)",
+                .{self.name_id},
+            );
+
+        if (!self.readable and !self.writable)
+            return std.fmt.comptimePrint(
+                "region {} has no read or write access",
+                .{self.name_id},
+            );
+        return null;
+    }
 };
 
-fn validateMemoryMap(comptime regions: []const MemRegion) void {
-    @setEvalBranchQuota(5000);
-    constraints.assert(constraints.lenInRange(1, 32, regions.len));
+fn ValidatedMemoryMap(comptime len: usize) type {
+    return struct {
+        regions: [len]MemRegion,
 
-    var ids: [regions.len]u8 = undefined;
-    for (regions, 0..) |region, i| {
-        ids[i] = region.name_id;
-        constraints.assert(constraints.nonZero(region.size));
-        constraints.assert(constraints.isPowerOfTwo(region.size));
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            @setEvalBranchQuota(5000);
+            if (constraints.lenInRange(1, 32, self.regions.len)) |err| return err;
 
-        if (region.start_addr % region.size != 0)
-            @compileError(std.fmt.comptimePrint(
-                "region {} at 0x{x:0>8} is not aligned to its size 0x{x}",
-                .{ region.name_id, region.start_addr, region.size },
-            ));
+            var ids: [len]u8 = undefined;
+            for (self.regions, 0..) |region, i| {
+                ids[i] = region.name_id;
+            }
+            if (constraints.noDuplicates(u8, &ids)) |err| return err;
 
-        if (region.executable and region.writable)
-            @compileError(std.fmt.comptimePrint(
-                "region {} is both writable and executable (W^X violation)",
-                .{region.name_id},
-            ));
-
-        if (!region.readable and !region.writable)
-            @compileError(std.fmt.comptimePrint(
-                "region {} has no read or write access",
-                .{region.name_id},
-            ));
-    }
-    constraints.assert(constraints.noDuplicates(u8, &ids));
-
-    for (0..regions.len) |i| {
-        for (i + 1..regions.len) |j| {
-            const a_end = regions[i].start_addr + regions[i].size;
-            const b_end = regions[j].start_addr + regions[j].size;
-            if (regions[i].start_addr < b_end and regions[j].start_addr < a_end)
-                @compileError(std.fmt.comptimePrint(
-                    "memory regions {} and {} overlap",
-                    .{ regions[i].name_id, regions[j].name_id },
-                ));
+            for (0..self.regions.len) |i| {
+                for (i + 1..self.regions.len) |j| {
+                    const a_end = self.regions[i].start_addr + self.regions[i].size;
+                    const b_end = self.regions[j].start_addr + self.regions[j].size;
+                    if (self.regions[i].start_addr < b_end and self.regions[j].start_addr < a_end)
+                        return std.fmt.comptimePrint(
+                            "memory regions {} and {} overlap",
+                            .{ self.regions[i].name_id, self.regions[j].name_id },
+                        );
+                }
+            }
+            return null;
         }
-    }
+    };
 }
 
 const memory_map = blk: {
@@ -181,8 +203,7 @@ const memory_map = blk: {
         .{ .name_id = 5, .start_addr = 0x40002000, .size = 0x00001000, .readable = true, .writable = false, .executable = false, .cacheable = false },
         .{ .name_id = 6, .start_addr = 0xE0000000, .size = 0x00100000, .readable = true, .writable = true, .executable = false, .cacheable = false },
     };
-    validateMemoryMap(&regions);
-    break :blk regions;
+    break :blk contracts.validated(ValidatedMemoryMap(regions.len){ .regions = regions }).regions;
 };
 
 test "memory map regions do not overlap" {
@@ -221,34 +242,46 @@ const IrqEntry = struct {
     priority: u8,
     handler_task_id: u8,
     preempts_below_priority: u8,
+
+    pub fn validate(comptime self: IrqEntry) ?[]const u8 {
+        if (constraints.inRange(0, 15, self.priority)) |err| return err;
+
+        if (self.preempts_below_priority > self.priority)
+            return "preemption threshold cannot exceed own priority";
+        return null;
+    }
 };
 
-fn validateIrqTable(comptime entries: []const IrqEntry, comptime task_set_ref: []const TaskDef) void {
-    constraints.assert(constraints.lenInRange(1, 64, entries.len));
+fn ValidatedIrqTable(comptime len: usize, comptime task_set_len: usize) type {
+    return struct {
+        entries: [len]IrqEntry,
+        task_set_ref: [task_set_len]TaskDef,
 
-    var vectors: [entries.len]u8 = undefined;
-    for (entries, 0..) |entry, i| {
-        vectors[i] = entry.vector;
-        constraints.assert(constraints.inRange(0, 15, entry.priority));
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            if (constraints.lenInRange(1, 64, self.entries.len)) |err| return err;
 
-        if (entry.preempts_below_priority > entry.priority)
-            @compileError("preemption threshold cannot exceed own priority");
+            var vectors: [len]u8 = undefined;
+            for (self.entries, 0..) |entry, i| {
+                vectors[i] = entry.vector;
 
-        // Handler task must exist in the task set
-        var found = false;
-        for (task_set_ref) |task| {
-            if (task.id == entry.handler_task_id) {
-                found = true;
-                break;
+                // Handler task must exist in the task set
+                var found = false;
+                for (self.task_set_ref) |task| {
+                    if (task.id == entry.handler_task_id) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    return std.fmt.comptimePrint(
+                        "IRQ vector {} references unknown task {}",
+                        .{ entry.vector, entry.handler_task_id },
+                    );
             }
+            if (constraints.noDuplicates(u8, &vectors)) |err| return err;
+            return null;
         }
-        if (!found)
-            @compileError(std.fmt.comptimePrint(
-                "IRQ vector {} references unknown task {}",
-                .{ entry.vector, entry.handler_task_id },
-            ));
-    }
-    constraints.assert(constraints.noDuplicates(u8, &vectors));
+    };
 }
 
 const irq_table = blk: {
@@ -258,8 +291,7 @@ const irq_table = blk: {
         .{ .vector = 5, .priority = 5, .handler_task_id = 3, .preempts_below_priority = 3 },
         .{ .vector = 10, .priority = 8, .handler_task_id = 5, .preempts_below_priority = 5 },
     };
-    validateIrqTable(&entries, &task_set);
-    break :blk entries;
+    break :blk contracts.validated(ValidatedIrqTable(entries.len, task_set.len){ .entries = entries, .task_set_ref = task_set }).entries;
 };
 
 test "IRQ table has unique vectors" {
@@ -267,7 +299,11 @@ test "IRQ table has unique vectors" {
         try std.testing.expectEqual(4, irq_table.len);
         var vectors: [irq_table.len]u8 = undefined;
         for (irq_table, 0..) |entry, i| vectors[i] = entry.vector;
-        constraints.assert(constraints.noDuplicates(u8, &vectors));
+        for (0..vectors.len) |i| {
+            for (i + 1..vectors.len) |j| {
+                try std.testing.expect(vectors[i] != vectors[j]);
+            }
+        }
     }
 }
 

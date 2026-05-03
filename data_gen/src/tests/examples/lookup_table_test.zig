@@ -1,8 +1,21 @@
 const std = @import("std");
 const constraints = @import("data_gen").constraints;
+const contracts = @import("data_gen").contracts;
 const generators = @import("data_gen").generators;
 
 // --- Generated 256-entry u8 → u8 Lookup Table ---
+
+const GammaTable = struct {
+    table: [256]u8,
+
+    pub fn validate(comptime self: GammaTable) ?[]const u8 {
+        if (self.table[0] != 0)
+            return "gamma table must start at 0";
+        if (self.table[255] != 255)
+            return "gamma table must end at 255";
+        return null;
+    }
+};
 
 const gamma_table = blk: {
     const gen = struct {
@@ -11,14 +24,12 @@ const gamma_table = blk: {
             return @intCast((normalized * normalized) / 255);
         }
     }.f;
-    const table = generators.generateArray(u8, 256, gen);
 
-    if (table[0] != 0)
-        @compileError("gamma table must start at 0");
-    if (table[255] != 255)
-        @compileError("gamma table must end at 255");
+    const validated = contracts.validated(GammaTable{
+        .table = generators.generateArray(u8, 256, gen),
+    });
 
-    break :blk table;
+    break :blk validated.table;
 };
 
 test "gamma table has 256 entries" {
@@ -45,38 +56,49 @@ const PriorityConfig = struct {
     priority: Priority,
     weight: u16,
     max_queue_depth: u8,
+
+    pub fn validate(comptime self: PriorityConfig) ?[]const u8 {
+        if (constraints.nonZero(self.weight)) |err| return err;
+        if (constraints.nonZero(self.max_queue_depth)) |err| return err;
+        return null;
+    }
 };
 
-fn validatePriorityMap(comptime map: []const PriorityConfig) void {
-    const all_priorities = [_]Priority{ .critical, .high, .normal, .low, .background };
+const PriorityMap = struct {
+    entries: []const PriorityConfig,
 
-    if (map.len != all_priorities.len)
-        @compileError("priority map must have exactly one entry per priority");
+    pub fn validate(comptime self: PriorityMap) ?[]const u8 {
+        const all_priorities = [_]Priority{ .critical, .high, .normal, .low, .background };
 
-    for (all_priorities) |expected| {
-        var found = false;
-        for (map) |entry| {
-            if (entry.priority == expected) {
-                found = true;
-                break;
+        if (self.entries.len != all_priorities.len)
+            return "priority map must have exactly one entry per priority";
+
+        for (all_priorities) |expected| {
+            var found = false;
+            for (self.entries) |entry| {
+                if (entry.priority == expected) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                return "missing entry for a priority level";
+        }
+
+        for (0..self.entries.len) |i| {
+            for (i + 1..self.entries.len) |j| {
+                if (self.entries[i].priority == self.entries[j].priority)
+                    return "duplicate priority entry";
             }
         }
-        if (!found)
-            @compileError("missing entry for a priority level");
-    }
 
-    for (0..map.len) |i| {
-        for (i + 1..map.len) |j| {
-            if (map[i].priority == map[j].priority)
-                @compileError("duplicate priority entry");
+        for (self.entries) |entry| {
+            if (entry.validate()) |err| return err;
         }
-    }
 
-    for (map) |entry| {
-        constraints.assert(constraints.nonZero(entry.weight));
-        constraints.assert(constraints.nonZero(entry.max_queue_depth));
+        return null;
     }
-}
+};
 
 const priority_config = blk: {
     const map = [_]PriorityConfig{
@@ -86,7 +108,7 @@ const priority_config = blk: {
         .{ .priority = .low, .weight = 25, .max_queue_depth = 32 },
         .{ .priority = .background, .weight = 5, .max_queue_depth = 64 },
     };
-    validatePriorityMap(&map);
+    contracts.assertValid(PriorityMap{ .entries = &map });
     break :blk map;
 };
 
@@ -110,19 +132,28 @@ test "priority weights are descending" {
 const InterpPoint = struct {
     x: i32,
     y: i32,
+
+    pub fn validate(comptime self: InterpPoint) ?[]const u8 {
+        if (constraints.inRange(-10000, 10000, self.y)) |err| return err;
+        return null;
+    }
 };
 
-fn validateInterpTable(comptime table: []const InterpPoint) void {
-    constraints.assert(constraints.lenInRange(3, 128, table.len));
+const InterpTable = struct {
+    points: []const InterpPoint,
 
-    var xs: [table.len]i32 = undefined;
-    for (table, 0..) |pt, i| {
-        xs[i] = pt.x;
-        constraints.assert(constraints.inRange(-10000, 10000, pt.y));
+    pub fn validate(comptime self: InterpTable) ?[]const u8 {
+        if (constraints.lenInRange(3, 128, self.points.len)) |err| return err;
+
+        var xs: [self.points.len]i32 = undefined;
+        for (self.points, 0..) |pt, i| {
+            xs[i] = pt.x;
+        }
+        if (constraints.isSorted(i32, &xs)) |err| return err;
+        if (constraints.noDuplicates(i32, &xs)) |err| return err;
+        return null;
     }
-    constraints.assert(constraints.isSorted(i32, &xs));
-    constraints.assert(constraints.noDuplicates(i32, &xs));
-}
+};
 
 const pressure_curve = blk: {
     const table = [_]InterpPoint{
@@ -138,7 +169,7 @@ const pressure_curve = blk: {
         .{ .x = 900, .y = 4600 },
         .{ .x = 1000, .y = 5600 },
     };
-    validateInterpTable(&table);
+    contracts.assertValid(InterpTable{ .points = &table });
     break :blk table;
 };
 
@@ -179,23 +210,30 @@ const Segment = struct {
     end_x: i16,
     start_y: i16,
     end_y: i16,
+
+    pub fn validate(comptime self: Segment) ?[]const u8 {
+        if (constraints.lessThan(self.start_x, self.end_x)) |err| return err;
+        return null;
+    }
 };
 
-fn validatePiecewise(comptime segments: []const Segment) void {
-    if (segments.len == 0)
-        @compileError("piecewise map needs at least one segment");
+const PiecewiseMap = struct {
+    segments: []const Segment,
 
-    for (segments) |seg| {
-        constraints.assert(constraints.lessThan(seg.start_x, seg.end_x));
-    }
+    pub fn validate(comptime self: PiecewiseMap) ?[]const u8 {
+        if (self.segments.len == 0)
+            return "piecewise map needs at least one segment";
 
-    for (1..segments.len) |i| {
-        if (segments[i].start_x != segments[i - 1].end_x)
-            @compileError("segments must be contiguous (start_x must equal previous end_x)");
-        if (segments[i].start_y != segments[i - 1].end_y)
-            @compileError("segments must be continuous (start_y must equal previous end_y)");
+        for (1..self.segments.len) |i| {
+            if (self.segments[i].start_x != self.segments[i - 1].end_x)
+                return "segments must be contiguous (start_x must equal previous end_x)";
+            if (self.segments[i].start_y != self.segments[i - 1].end_y)
+                return "segments must be continuous (start_y must equal previous end_y)";
+        }
+
+        return null;
     }
-}
+};
 
 const motor_torque_map = blk: {
     const segs = [_]Segment{
@@ -203,7 +241,7 @@ const motor_torque_map = blk: {
         .{ .start_x = 500, .end_x = 2000, .start_y = 100, .end_y = 100 },
         .{ .start_x = 2000, .end_x = 5000, .start_y = 100, .end_y = 30 },
     };
-    validatePiecewise(&segs);
+    contracts.assertValid(PiecewiseMap{ .segments = &segs });
     break :blk segs;
 };
 

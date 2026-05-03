@@ -1,5 +1,4 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
 const contracts = @import("data_gen").contracts;
 const generators = @import("data_gen").generators;
 
@@ -8,6 +7,12 @@ const generators = @import("data_gen").generators;
 const CalEntry = struct {
     raw: u16,
     calibrated: u16,
+
+    pub fn validate(comptime self: CalEntry) ?[]const u8 {
+        if (self.raw > 65535) return "raw out of range [0, 65535]";
+        if (self.calibrated > 65535) return "calibrated out of range [0, 65535]";
+        return null;
+    }
 };
 
 const large_cal_table = blk: {
@@ -15,16 +20,13 @@ const large_cal_table = blk: {
         fn f(comptime i: usize) CalEntry {
             const raw: u16 = @intCast(i * 32);
             const offset: u16 = @intCast(i / 8);
-            return .{ .raw = raw, .calibrated = raw + offset };
+            const entry = CalEntry{ .raw = raw, .calibrated = raw + offset };
+            contracts.assertValid(entry);
+            return entry;
         }
     }.f;
     @setEvalBranchQuota(5000);
     const table = generators.generateArray(CalEntry, 128, gen);
-
-    for (table) |entry| {
-        constraints.assert(constraints.inRange(0, 65535, entry.raw));
-        constraints.assert(constraints.inRange(0, 65535, entry.calibrated));
-    }
 
     for (1..table.len) |i| {
         if (table[i].raw <= table[i - 1].raw)
@@ -83,6 +85,15 @@ test "64 repeated timer configs are identical" {
 
 // --- 256-entry Lookup Table ---
 
+const SineEntry = struct {
+    value: i16,
+
+    pub fn validate(comptime self: SineEntry) ?[]const u8 {
+        if (self.value < -512 or self.value > 512) return "sine value out of range [-512, 512]";
+        return null;
+    }
+};
+
 const sin_approx_table = blk: {
     @setEvalBranchQuota(10_000);
     const gen = struct {
@@ -103,7 +114,8 @@ const sin_approx_table = blk: {
     const table = generators.generateArray(i16, 256, gen);
 
     for (table) |v| {
-        constraints.assert(constraints.inRange(-512, 512, v));
+        const entry = SineEntry{ .value = v };
+        if (entry.validate()) |err| @compileError(err);
     }
 
     if (table[0] != 0)

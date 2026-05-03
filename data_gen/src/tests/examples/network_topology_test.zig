@@ -9,56 +9,63 @@ const contracts = @import("data_gen").contracts;
 // and the triangle inequality must hold:
 // cost[i][j] <= cost[i][k] + cost[k][j] for all i,j,k.
 
-fn validateCostMatrix(comptime matrix: anytype) void {
-    const N = matrix.len;
-    @setEvalBranchQuota(10_000);
+fn CostMatrix(comptime N: usize) type {
+    return struct {
+        matrix: [N][N]u16,
 
-    // Diagonal must be zero
-    for (0..N) |i| {
-        if (matrix[i][i] != 0)
-            @compileError(std.fmt.comptimePrint(
-                "cost matrix diagonal[{}][{}] must be 0, got {}",
-                .{ i, i, matrix[i][i] },
-            ));
-    }
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            @setEvalBranchQuota(10_000);
 
-    // Symmetry
-    for (0..N) |i| {
-        for (i + 1..N) |j| {
-            if (matrix[i][j] != matrix[j][i])
-                @compileError(std.fmt.comptimePrint(
-                    "cost matrix not symmetric: [{},{}]={} != [{},{}]={}",
-                    .{ i, j, matrix[i][j], j, i, matrix[j][i] },
-                ));
-        }
-    }
-
-    // All non-diagonal entries must be positive
-    for (0..N) |i| {
-        for (0..N) |j| {
-            if (i != j and matrix[i][j] == 0)
-                @compileError(std.fmt.comptimePrint(
-                    "non-diagonal cost[{}][{}] must be > 0",
-                    .{ i, j },
-                ));
-        }
-    }
-
-    // Triangle inequality
-    for (0..N) |i| {
-        for (0..N) |j| {
-            for (0..N) |k| {
-                if (i == j or i == k or j == k) continue;
-                const direct: u32 = matrix[i][j];
-                const via_k: u32 = @as(u32, matrix[i][k]) + matrix[k][j];
-                if (direct > via_k)
-                    @compileError(std.fmt.comptimePrint(
-                        "triangle inequality violated: cost[{}][{}]={} > cost[{}][{}]+cost[{}][{}]={}",
-                        .{ i, j, direct, i, k, k, j, via_k },
-                    ));
+            // Diagonal must be zero
+            for (0..N) |i| {
+                if (self.matrix[i][i] != 0)
+                    return std.fmt.comptimePrint(
+                        "cost matrix diagonal[{}][{}] must be 0, got {}",
+                        .{ i, i, self.matrix[i][i] },
+                    );
             }
+
+            // Symmetry
+            for (0..N) |i| {
+                for (i + 1..N) |j| {
+                    if (self.matrix[i][j] != self.matrix[j][i])
+                        return std.fmt.comptimePrint(
+                            "cost matrix not symmetric: [{},{}]={} != [{},{}]={}",
+                            .{ i, j, self.matrix[i][j], j, i, self.matrix[j][i] },
+                        );
+                }
+            }
+
+            // All non-diagonal entries must be positive
+            for (0..N) |i| {
+                for (0..N) |j| {
+                    if (i != j and self.matrix[i][j] == 0)
+                        return std.fmt.comptimePrint(
+                            "non-diagonal cost[{}][{}] must be > 0",
+                            .{ i, j },
+                        );
+                }
+            }
+
+            // Triangle inequality
+            for (0..N) |i| {
+                for (0..N) |j| {
+                    for (0..N) |k| {
+                        if (i == j or i == k or j == k) continue;
+                        const direct: u32 = self.matrix[i][j];
+                        const via_k: u32 = @as(u32, self.matrix[i][k]) + self.matrix[k][j];
+                        if (direct > via_k)
+                            return std.fmt.comptimePrint(
+                                "triangle inequality violated: cost[{}][{}]={} > cost[{}][{}]+cost[{}][{}]={}",
+                                .{ i, j, direct, i, k, k, j, via_k },
+                            );
+                    }
+                }
+            }
+
+            return null;
         }
-    }
+    };
 }
 
 const latency_matrix = blk: {
@@ -70,7 +77,8 @@ const latency_matrix = blk: {
         .{ 25, 20, 10, 0, 8 },
         .{ 30, 25, 15, 8, 0 },
     };
-    validateCostMatrix(m);
+    const wrapper: CostMatrix(5) = .{ .matrix = m };
+    if (wrapper.validate()) |err| @compileError(err);
     break :blk m;
 };
 
@@ -113,59 +121,72 @@ const Edge = struct {
     a: u8,
     b: u8,
     cost: u16,
+
+    pub fn validate(comptime self: Edge) ?[]const u8 {
+        if (constraints.nonZero(self.cost)) |err| return err;
+        return null;
+    }
 };
 
-fn validateSpanningTree(comptime N: u8, comptime edges: []const Edge) void {
-    if (edges.len != N - 1)
-        @compileError(std.fmt.comptimePrint(
-            "spanning tree of {} nodes requires exactly {} edges, got {}",
-            .{ N, N - 1, edges.len },
-        ));
+fn SpanningTree(comptime N: u8, comptime edge_count: usize) type {
+    return struct {
+        edges: [edge_count]Edge,
 
-    // All node indices in range
-    for (edges) |e| {
-        if (e.a >= N or e.b >= N)
-            @compileError("edge references node outside range");
-        if (e.a == e.b)
-            @compileError("self-loop in spanning tree");
-        constraints.assert(constraints.nonZero(e.cost));
-    }
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            if (self.edges.len != N - 1)
+                return std.fmt.comptimePrint(
+                    "spanning tree of {} nodes requires exactly {} edges, got {}",
+                    .{ N, N - 1, self.edges.len },
+                );
 
-    // No duplicate edges
-    for (0..edges.len) |i| {
-        for (i + 1..edges.len) |j| {
-            const same = (edges[i].a == edges[j].a and edges[i].b == edges[j].b) or
-                (edges[i].a == edges[j].b and edges[i].b == edges[j].a);
-            if (same)
-                @compileError("duplicate edge in spanning tree");
+            // All node indices in range
+            for (self.edges) |e| {
+                if (e.a >= N or e.b >= N)
+                    return "edge references node outside range";
+                if (e.a == e.b)
+                    return "self-loop in spanning tree";
+                if (e.validate()) |err| return err;
+            }
+
+            // No duplicate edges
+            for (0..self.edges.len) |i| {
+                for (i + 1..self.edges.len) |j| {
+                    const same = (self.edges[i].a == self.edges[j].a and self.edges[i].b == self.edges[j].b) or
+                        (self.edges[i].a == self.edges[j].b and self.edges[i].b == self.edges[j].a);
+                    if (same)
+                        return "duplicate edge in spanning tree";
+                }
+            }
+
+            // Connectivity check using union-find
+            var parent: [256]u8 = undefined;
+            for (0..N) |i| parent[i] = @intCast(i);
+
+            for (self.edges) |e| {
+                var ra = e.a;
+                while (parent[ra] != ra) ra = parent[ra];
+                var rb = e.b;
+                while (parent[rb] != rb) rb = parent[rb];
+
+                if (ra == rb)
+                    return "cycle detected in spanning tree";
+
+                parent[ra] = rb;
+            }
+
+            // Verify all nodes share a root
+            var root = parent[0];
+            while (parent[root] != root) root = parent[root];
+            for (1..N) |i| {
+                var r: u8 = @intCast(i);
+                while (parent[r] != r) r = parent[r];
+                if (r != root)
+                    return "spanning tree does not connect all nodes";
+            }
+
+            return null;
         }
-    }
-
-    // Connectivity check using union-find
-    var parent: [256]u8 = undefined;
-    for (0..N) |i| parent[i] = @intCast(i);
-
-    for (edges) |e| {
-        var ra = e.a;
-        while (parent[ra] != ra) ra = parent[ra];
-        var rb = e.b;
-        while (parent[rb] != rb) rb = parent[rb];
-
-        if (ra == rb)
-            @compileError("cycle detected in spanning tree");
-
-        parent[ra] = rb;
-    }
-
-    // Verify all nodes share a root
-    var root = parent[0];
-    while (parent[root] != root) root = parent[root];
-    for (1..N) |i| {
-        var r: u8 = @intCast(i);
-        while (parent[r] != r) r = parent[r];
-        if (r != root)
-            @compileError("spanning tree does not connect all nodes");
-    }
+    };
 }
 
 const network_tree = blk: {
@@ -176,7 +197,8 @@ const network_tree = blk: {
         .{ .a = 3, .b = 4, .cost = 8 },
     };
     const node_count = 5;
-    validateSpanningTree(node_count, &edges);
+    const wrapper: SpanningTree(node_count, edges.len) = .{ .edges = edges };
+    if (wrapper.validate()) |err| @compileError(err);
     break :blk edges;
 };
 
@@ -198,22 +220,31 @@ test "spanning tree total cost" {
 // An adjacency matrix and a spanning tree must be consistent:
 // every edge in the tree must exist in the full graph (cost matches).
 
-fn validateTreeMatchesGraph(
-    comptime matrix: anytype,
-    comptime tree: []const Edge,
-) void {
-    for (tree) |e| {
-        if (matrix[e.a][e.b] != e.cost)
-            @compileError(std.fmt.comptimePrint(
-                "tree edge ({},{}) cost {} doesn't match graph cost {}",
-                .{ e.a, e.b, e.cost, matrix[e.a][e.b] },
-            ));
-    }
+fn TreeGraphConsistency(comptime N: usize, comptime edge_count: usize) type {
+    return struct {
+        matrix: [N][N]u16,
+        tree: [edge_count]Edge,
+
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            for (self.tree) |e| {
+                if (self.matrix[e.a][e.b] != e.cost)
+                    return std.fmt.comptimePrint(
+                        "tree edge ({},{}) cost {} doesn't match graph cost {}",
+                        .{ e.a, e.b, e.cost, self.matrix[e.a][e.b] },
+                    );
+            }
+            return null;
+        }
+    };
 }
 
 test "spanning tree edges match latency matrix" {
     comptime {
-        validateTreeMatchesGraph(latency_matrix, &network_tree);
+        const wrapper: TreeGraphConsistency(5, network_tree.len) = .{
+            .matrix = latency_matrix,
+            .tree = network_tree,
+        };
+        if (wrapper.validate()) |err| @compileError(err);
     }
 }
 
@@ -230,39 +261,47 @@ const ClockNode = struct {
     frequency_hz: u32,
 };
 
-fn validateClockTree(comptime nodes: []const ClockNode) void {
-    constraints.assert(constraints.lenInRange(1, 16, nodes.len));
+fn ClockTree(comptime N: usize) type {
+    return struct {
+        nodes: [N]ClockNode,
 
-    if (nodes[0].parent_idx != null)
-        @compileError("root clock must have no parent");
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            if (constraints.lenInRange(1, 16, N)) |err| return err;
 
-    var ids: [nodes.len]u8 = undefined;
-    for (nodes, 0..) |node, i| {
-        ids[i] = node.name_id;
-        constraints.assert(constraints.nonZero(node.frequency_hz));
+            if (self.nodes[0].parent_idx != null)
+                return "root clock must have no parent";
 
-        if (node.parent_idx) |pidx| {
-            if (pidx >= i)
-                @compileError("parent must appear before child in clock tree");
+            var ids: [N]u8 = undefined;
+            for (self.nodes, 0..) |node, i| {
+                ids[i] = node.name_id;
+                if (constraints.nonZero(node.frequency_hz)) |err| return err;
 
-            constraints.assert(constraints.nonZero(node.divider));
-            const parent_freq = nodes[pidx].frequency_hz;
-            const expected_freq = parent_freq / node.divider;
+                if (node.parent_idx) |pidx| {
+                    if (pidx >= i)
+                        return "parent must appear before child in clock tree";
 
-            if (expected_freq != node.frequency_hz)
-                @compileError(std.fmt.comptimePrint(
-                    "clock {} frequency {} != parent {} / divider {} = {}",
-                    .{ node.name_id, node.frequency_hz, parent_freq, node.divider, expected_freq },
-                ));
+                    if (constraints.nonZero(node.divider)) |err| return err;
+                    const parent_freq = self.nodes[pidx].frequency_hz;
+                    const expected_freq = parent_freq / node.divider;
 
-            if (parent_freq % node.divider != 0)
-                @compileError(std.fmt.comptimePrint(
-                    "parent frequency {} is not evenly divisible by {}",
-                    .{ parent_freq, node.divider },
-                ));
+                    if (expected_freq != node.frequency_hz)
+                        return std.fmt.comptimePrint(
+                            "clock {} frequency {} != parent {} / divider {} = {}",
+                            .{ node.name_id, node.frequency_hz, parent_freq, node.divider, expected_freq },
+                        );
+
+                    if (parent_freq % node.divider != 0)
+                        return std.fmt.comptimePrint(
+                            "parent frequency {} is not evenly divisible by {}",
+                            .{ parent_freq, node.divider },
+                        );
+                }
+            }
+            if (constraints.noDuplicates(u8, &ids)) |err| return err;
+
+            return null;
         }
-    }
-    constraints.assert(constraints.noDuplicates(u8, &ids));
+    };
 }
 
 const clock_tree = blk: {
@@ -275,7 +314,8 @@ const clock_tree = blk: {
         .{ .name_id = 5, .parent_idx = 3, .divider = 48, .frequency_hz = 1_000_000 },
         .{ .name_id = 6, .parent_idx = 3, .divider = 3, .frequency_hz = 16_000_000 },
     };
-    validateClockTree(&nodes);
+    const wrapper: ClockTree(nodes.len) = .{ .nodes = nodes };
+    if (wrapper.validate()) |err| @compileError(err);
     break :blk nodes;
 };
 

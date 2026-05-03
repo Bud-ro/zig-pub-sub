@@ -59,30 +59,38 @@ const WashStep = struct {
     }
 };
 
-fn validateWashCycle(comptime cycle: []const WashStep) void {
-    if (cycle.len < 3)
-        @compileError("wash cycle needs at least fill, wash, drain");
+const WashCycle = struct {
+    steps: []const WashStep,
 
-    if (cycle[0].phase != .fill)
-        @compileError("cycle must start with fill");
+    pub fn validate(comptime self: WashCycle) ?[]const u8 {
+        const cycle = self.steps;
 
-    if (cycle[cycle.len - 1].phase != .drain)
-        @compileError("cycle must end with drain");
+        if (cycle.len < 3)
+            return "wash cycle needs at least fill, wash, drain";
 
-    var total_water: u32 = 0;
-    var has_wash = false;
-    for (cycle) |step| {
-        contracts.assertValid(step);
-        total_water += step.water_liters;
-        if (step.phase == .wash) has_wash = true;
+        if (cycle[0].phase != .fill)
+            return "cycle must start with fill";
+
+        if (cycle[cycle.len - 1].phase != .drain)
+            return "cycle must end with drain";
+
+        var total_water: u32 = 0;
+        var has_wash = false;
+        for (cycle) |step| {
+            if (step.validate()) |err| return err;
+            total_water += step.water_liters;
+            if (step.phase == .wash) has_wash = true;
+        }
+
+        if (!has_wash)
+            return "cycle must include at least one wash phase";
+
+        if (total_water > 100)
+            return "total water usage exceeds 100 liters";
+
+        return null;
     }
-
-    if (!has_wash)
-        @compileError("cycle must include at least one wash phase");
-
-    if (total_water > 100)
-        @compileError("total water usage exceeds 100 liters");
-}
+};
 
 const quick_wash = blk: {
     const steps = [_]WashStep{
@@ -92,8 +100,7 @@ const quick_wash = blk: {
         .{ .phase = .spin, .duration_seconds = 480, .water_temp_c = 0, .drum_rpm = 1200, .water_liters = 0 },
         .{ .phase = .drain, .duration_seconds = 60, .water_temp_c = 0, .drum_rpm = 0, .water_liters = 0 },
     };
-    validateWashCycle(&steps);
-    break :blk steps;
+    break :blk contracts.validated(WashCycle{ .steps = &steps }).steps;
 };
 
 const heavy_duty = blk: {
@@ -108,8 +115,7 @@ const heavy_duty = blk: {
         .{ .phase = .spin, .duration_seconds = 600, .water_temp_c = 0, .drum_rpm = 1400, .water_liters = 0 },
         .{ .phase = .drain, .duration_seconds = 60, .water_temp_c = 0, .drum_rpm = 0, .water_liters = 0 },
     };
-    validateWashCycle(&steps);
-    break :blk steps;
+    break :blk contracts.validated(WashCycle{ .steps = &steps }).steps;
 };
 
 test "quick wash cycle is valid" {
@@ -142,29 +148,37 @@ const ProcessStep = struct {
     ramp_rate_c_per_min: u8,
 };
 
-fn validateHeatTreatProcess(comptime steps: []const ProcessStep) void {
-    if (steps.len < 2)
-        @compileError("process needs at least 2 steps");
+const HeatTreatProcess = struct {
+    steps: []const ProcessStep,
 
-    if (steps[0].phase != .preheat)
-        @compileError("process must start with preheat");
+    pub fn validate(comptime self: HeatTreatProcess) ?[]const u8 {
+        const s = self.steps;
 
-    if (steps[steps.len - 1].phase != .quench and steps[steps.len - 1].phase != .cool_down)
-        @compileError("process must end with cool_down or quench");
+        if (s.len < 2)
+            return "process needs at least 2 steps";
 
-    for (1..steps.len) |i| {
-        const delta = if (steps[i].target_temp_c > steps[i - 1].target_temp_c)
-            steps[i].target_temp_c - steps[i - 1].target_temp_c
-        else
-            steps[i - 1].target_temp_c - steps[i].target_temp_c;
+        if (s[0].phase != .preheat)
+            return "process must start with preheat";
 
-        if (delta > 200)
-            @compileError(std.fmt.comptimePrint(
-                "temperature change of {}C between steps {} and {} exceeds 200C max delta",
-                .{ delta, i - 1, i },
-            ));
+        if (s[s.len - 1].phase != .quench and s[s.len - 1].phase != .cool_down)
+            return "process must end with cool_down or quench";
+
+        for (1..s.len) |i| {
+            const delta = if (s[i].target_temp_c > s[i - 1].target_temp_c)
+                s[i].target_temp_c - s[i - 1].target_temp_c
+            else
+                s[i - 1].target_temp_c - s[i].target_temp_c;
+
+            if (delta > 200)
+                return std.fmt.comptimePrint(
+                    "temperature change of {}C between steps {} and {} exceeds 200C max delta",
+                    .{ delta, i - 1, i },
+                );
+        }
+
+        return null;
     }
-}
+};
 
 const annealing_process = blk: {
     const steps = [_]ProcessStep{
@@ -176,8 +190,7 @@ const annealing_process = blk: {
         .{ .phase = .cool_down, .target_temp_c = 200, .hold_time_seconds = 1800, .ramp_rate_c_per_min = 10 },
         .{ .phase = .cool_down, .target_temp_c = 25, .hold_time_seconds = 3600, .ramp_rate_c_per_min = 5 },
     };
-    validateHeatTreatProcess(&steps);
-    break :blk steps;
+    break :blk contracts.validated(HeatTreatProcess{ .steps = &steps }).steps;
 };
 
 test "annealing process follows temperature limits" {
@@ -195,31 +208,43 @@ const Ingredient = struct {
     amount_ml: u16,
     temp_c: u8,
     dispense_time_ms: u16,
+
+    pub fn validate(comptime self: Ingredient) ?[]const u8 {
+        if (constraints.inRange(1, 500, self.amount_ml)) |err| return err;
+        if (constraints.inRange(4, 100, self.temp_c)) |err| return err;
+        if (constraints.nonZero(self.dispense_time_ms)) |err| return err;
+        return null;
+    }
 };
 
-fn validateBeverageRecipe(comptime recipe: []const Ingredient) void {
-    constraints.assert(constraints.lenInRange(1, 8, recipe.len));
+const BeverageRecipe = struct {
+    ingredients: []const Ingredient,
 
-    var total_ml: u32 = 0;
-    var ids: [recipe.len]u8 = undefined;
-    for (recipe, 0..) |ing, i| {
-        constraints.assert(constraints.inRange(1, 500, ing.amount_ml));
-        constraints.assert(constraints.inRange(4, 100, ing.temp_c));
-        constraints.assert(constraints.nonZero(ing.dispense_time_ms));
-        total_ml += ing.amount_ml;
-        ids[i] = ing.id;
+    pub fn validate(comptime self: BeverageRecipe) ?[]const u8 {
+        const recipe = self.ingredients;
+
+        if (constraints.lenInRange(1, 8, recipe.len)) |err| return err;
+
+        var total_ml: u32 = 0;
+        var ids: [recipe.len]u8 = undefined;
+        for (recipe, 0..) |ing, i| {
+            if (ing.validate()) |err| return err;
+            total_ml += ing.amount_ml;
+            ids[i] = ing.id;
+        }
+        if (constraints.noDuplicates(u8, &ids)) |err| return err;
+        if (constraints.inRange(100, 1000, total_ml)) |err| return err;
+
+        return null;
     }
-    constraints.assert(constraints.noDuplicates(u8, &ids));
-    constraints.assert(constraints.inRange(100, 1000, total_ml));
-}
+};
 
 const espresso = blk: {
     const recipe = [_]Ingredient{
         .{ .id = 1, .amount_ml = 30, .temp_c = 93, .dispense_time_ms = 25000 },
         .{ .id = 2, .amount_ml = 200, .temp_c = 85, .dispense_time_ms = 5000 },
     };
-    validateBeverageRecipe(&recipe);
-    break :blk recipe;
+    break :blk contracts.validated(BeverageRecipe{ .ingredients = &recipe }).ingredients;
 };
 
 test "espresso recipe has valid ingredients" {

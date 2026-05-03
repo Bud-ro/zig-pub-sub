@@ -8,19 +8,30 @@ const generators = @import("data_gen").generators;
 const LinPoint = struct {
     input: i16,
     output: i16,
+
+    pub fn validate(comptime self: LinPoint) ?[]const u8 {
+        if (constraints.inRange(-1000, 1000, self.input)) |err| return err;
+        if (constraints.inRange(-1000, 1000, self.output)) |err| return err;
+        return null;
+    }
 };
 
-fn validateLinearization(comptime table: []const LinPoint) void {
-    constraints.assert(constraints.lenInRange(2, 64, table.len));
+fn ValidatedLinTable(comptime len: usize) type {
+    return struct {
+        table: [len]LinPoint,
 
-    var inputs: [table.len]i16 = undefined;
-    for (table, 0..) |pt, i| {
-        inputs[i] = pt.input;
-        constraints.assert(constraints.inRange(-1000, 1000, pt.input));
-        constraints.assert(constraints.inRange(-1000, 1000, pt.output));
-    }
-    constraints.assert(constraints.isSorted(i16, &inputs));
-    constraints.assert(constraints.noDuplicates(i16, &inputs));
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            if (constraints.lenInRange(2, 64, self.table.len)) |err| return err;
+
+            var inputs: [len]i16 = undefined;
+            for (self.table, 0..) |pt, i| {
+                inputs[i] = pt.input;
+            }
+            if (constraints.isSorted(i16, &inputs)) |err| return err;
+            if (constraints.noDuplicates(i16, &inputs)) |err| return err;
+            return null;
+        }
+    };
 }
 
 const temp_linearization = blk: {
@@ -39,8 +50,7 @@ const temp_linearization = blk: {
         .{ .input = 750, .output = 820 },
         .{ .input = 1000, .output = 1000 },
     };
-    validateLinearization(&table);
-    break :blk table;
+    break :blk contracts.validated(ValidatedLinTable(table.len){ .table = table }).table;
 };
 
 test "linearization table is sorted and unique" {
@@ -71,24 +81,29 @@ const PolyCoeffs = struct {
     }
 };
 
-fn validatePolyAtBoundaries(comptime p: PolyCoeffs, comptime min_out: i32, comptime max_out: i32) void {
-    contracts.assertValid(p);
-    const boundary_inputs = [_]i32{ -100, -10, 0, 10, 100 };
-    for (boundary_inputs) |x| {
-        const y = p.eval(x);
-        if (y < min_out or y > max_out) {
-            @compileError(std.fmt.comptimePrint(
-                "polynomial at x={} gives y={}, outside [{}, {}]",
-                .{ x, y, min_out, max_out },
-            ));
+fn BoundedPoly(comptime min_out: i32, comptime max_out: i32) type {
+    return struct {
+        p: PolyCoeffs,
+
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            const boundary_inputs = [_]i32{ -100, -10, 0, 10, 100 };
+            for (boundary_inputs) |x| {
+                const y = self.p.eval(x);
+                if (y < min_out or y > max_out) {
+                    return std.fmt.comptimePrint(
+                        "polynomial at x={} gives y={}, outside [{}, {}]",
+                        .{ x, y, min_out, max_out },
+                    );
+                }
+            }
+            return null;
         }
-    }
+    };
 }
 
 test "polynomial coefficients stay in bounds" {
     comptime {
-        const p = PolyCoeffs{ .a = 0, .b = 10, .c = 50 };
-        validatePolyAtBoundaries(p, -1000, 1100);
+        const p = contracts.validated(BoundedPoly(-1000, 1100){ .p = .{ .a = 0, .b = 10, .c = 50 } }).p;
         try std.testing.expectEqual(50, p.eval(0));
         try std.testing.expectEqual(60, p.eval(1));
     }
@@ -164,7 +179,30 @@ test "scaling config with offset" {
 
 // --- Generated Calibration Table Using Generators ---
 
-const CalEntry = struct { raw: u16, calibrated: u16 };
+const CalEntry = struct {
+    raw: u16,
+    calibrated: u16,
+
+    pub fn validate(comptime self: CalEntry) ?[]const u8 {
+        if (constraints.inRange(0, 4095, self.raw)) |err| return err;
+        if (constraints.inRange(0, 4095, self.calibrated)) |err| return err;
+        return null;
+    }
+};
+
+fn ValidatedCalTable(comptime len: usize) type {
+    return struct {
+        table: [len]CalEntry,
+
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            for (1..self.table.len) |i| {
+                if (self.table[i].raw <= self.table[i - 1].raw)
+                    return "raw values must be strictly increasing";
+            }
+            return null;
+        }
+    };
+}
 
 const cal_table = blk: {
     const gen_fn = struct {
@@ -176,17 +214,8 @@ const cal_table = blk: {
     }.f;
     const table = generators.generateArray(CalEntry, 64, gen_fn);
 
-    for (table) |entry| {
-        constraints.assert(constraints.inRange(0, 4095, entry.raw));
-        constraints.assert(constraints.inRange(0, 4095, entry.calibrated));
-    }
-
-    for (1..table.len) |i| {
-        if (table[i].raw <= table[i - 1].raw)
-            @compileError("raw values must be strictly increasing");
-    }
-
-    break :blk table;
+    @setEvalBranchQuota(100000);
+    break :blk contracts.validated(ValidatedCalTable(table.len){ .table = table }).table;
 };
 
 test "generated cal table has 64 entries" {
@@ -214,7 +243,7 @@ const AdcCalibration = struct {
     reference_mv: u16,
 
     pub fn validate(comptime self: AdcCalibration) ?[]const u8 {
-        if (self.channel < 0 or self.channel > 15) return "channel out of range [0, 15]";
+        if (self.channel > 15) return "channel out of range [0, 15]";
         if (self.gain < 512 or self.gain > 2048) return "gain out of range [512, 2048]";
         if (self.offset < -500 or self.offset > 500) return "offset out of range [-500, 500]";
         if (self.reference_mv != 1100 and self.reference_mv != 2500 and self.reference_mv != 3300 and self.reference_mv != 5000)
@@ -223,21 +252,28 @@ const AdcCalibration = struct {
     }
 };
 
+fn ValidatedAdcChannels(comptime len: usize) type {
+    return struct {
+        channels: [len]AdcCalibration,
+
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            var chan_ids: [len]u8 = undefined;
+            for (self.channels, 0..) |ch, i| {
+                chan_ids[i] = ch.channel;
+            }
+            if (constraints.noDuplicates(u8, &chan_ids)) |err| return err;
+            return null;
+        }
+    };
+}
+
 test "ADC calibration for 4 channels" {
     comptime {
-        const channels = [_]AdcCalibration{
-            contracts.validated(AdcCalibration{ .channel = 0, .gain = 1024, .offset = -12, .reference_mv = 3300 }),
-            contracts.validated(AdcCalibration{ .channel = 1, .gain = 1024, .offset = 5, .reference_mv = 3300 }),
-            contracts.validated(AdcCalibration{ .channel = 2, .gain = 2048, .offset = -3, .reference_mv = 5000 }),
-            contracts.validated(AdcCalibration{ .channel = 3, .gain = 512, .offset = 100, .reference_mv = 1100 }),
-        };
-
-        const chan_ids = [_]u8{
-            channels[0].channel,
-            channels[1].channel,
-            channels[2].channel,
-            channels[3].channel,
-        };
-        constraints.assert(constraints.noDuplicates(u8, &chan_ids));
+        _ = contracts.validated(ValidatedAdcChannels(4){ .channels = .{
+            .{ .channel = 0, .gain = 1024, .offset = -12, .reference_mv = 3300 },
+            .{ .channel = 1, .gain = 1024, .offset = 5, .reference_mv = 3300 },
+            .{ .channel = 2, .gain = 2048, .offset = -3, .reference_mv = 5000 },
+            .{ .channel = 3, .gain = 512, .offset = 100, .reference_mv = 1100 },
+        } }).channels;
     }
 }

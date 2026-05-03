@@ -1,14 +1,7 @@
 //! Primitive comptime constraint functions. Each returns ?[]const u8:
 //! null means the check passed, a string means it failed (with a message).
-//! Use `assert` to convert a check result into a @compileError for standalone use.
 
 const std = @import("std");
-
-/// Converts a check result into a @compileError. Use in standalone
-/// validation functions that don't return ?[]const u8 themselves.
-pub fn assert(comptime result: ?[]const u8) void {
-    if (result) |err| @compileError(err);
-}
 
 /// Checks value is within [min, max] inclusive.
 pub fn inRange(comptime min: anytype, comptime max: anytype, comptime value: anytype) ?[]const u8 {
@@ -91,21 +84,28 @@ pub fn noDuplicates(comptime T: type, comptime arr: []const T) ?[]const u8 {
     return null;
 }
 
-/// Checks value is a power of two.
+/// Checks value is a power of two. Value must be unsigned.
 pub fn isPowerOfTwo(comptime value: anytype) ?[]const u8 {
-    const v: usize = value;
-    if (v == 0 or (v & (v - 1)) != 0) {
-        return std.fmt.comptimePrint("{} is not a power of two", .{v});
+    const T = @TypeOf(value);
+    if (@typeInfo(T) == .int and @typeInfo(T).int.signedness == .signed)
+        @compileError("isPowerOfTwo requires an unsigned integer");
+    if (value == 0 or (value & (value - 1)) != 0) {
+        return std.fmt.comptimePrint("{} is not a power of two", .{value});
     }
     return null;
 }
 
-/// Checks value is a multiple of divisor.
+/// Checks value is a multiple of divisor. Both must be unsigned.
 pub fn isMultipleOf(comptime divisor: anytype, comptime value: anytype) ?[]const u8 {
-    const d: usize = divisor;
-    const v: usize = value;
-    if (v % d != 0) {
-        return std.fmt.comptimePrint("{} is not a multiple of {}", .{ v, d });
+    const DT = @TypeOf(divisor);
+    const VT = @TypeOf(value);
+    if (@typeInfo(DT) == .int and @typeInfo(DT).int.signedness == .signed)
+        @compileError("isMultipleOf requires unsigned integers");
+    if (@typeInfo(VT) == .int and @typeInfo(VT).int.signedness == .signed)
+        @compileError("isMultipleOf requires unsigned integers");
+    if (divisor == 0) return "divisor must not be zero";
+    if (value % divisor != 0) {
+        return std.fmt.comptimePrint("{} is not a multiple of {}", .{ value, divisor });
     }
     return null;
 }

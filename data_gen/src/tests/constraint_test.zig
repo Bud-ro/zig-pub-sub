@@ -3,12 +3,12 @@ const constraints = @import("data_gen").constraints;
 
 test "inRange accepts values within bounds" {
     comptime {
-        constraints.assert(constraints.inRange(10, 100, 10));
-        constraints.assert(constraints.inRange(10, 100, 50));
-        constraints.assert(constraints.inRange(10, 100, 100));
-        constraints.assert(constraints.inRange(-100, 100, -100));
-        constraints.assert(constraints.inRange(-100, 100, 0));
-        constraints.assert(constraints.inRange(-100, 100, 100));
+        if (constraints.inRange(10, 100, 10)) |err| @compileError(err);
+        if (constraints.inRange(10, 100, 50)) |err| @compileError(err);
+        if (constraints.inRange(10, 100, 100)) |err| @compileError(err);
+        if (constraints.inRange(-100, 100, -100)) |err| @compileError(err);
+        if (constraints.inRange(-100, 100, 0)) |err| @compileError(err);
+        if (constraints.inRange(-100, 100, 100)) |err| @compileError(err);
     }
 }
 
@@ -24,8 +24,8 @@ test "isInRange returns correct bool" {
 
 test "oneOf accepts allowed values" {
     comptime {
-        constraints.assert(constraints.oneOf(&.{ 100, 200, 500, 1000 }, 200));
-        constraints.assert(constraints.oneOf(&.{ 100, 200, 500, 1000 }, 1000));
+        if (constraints.oneOf(&.{ 100, 200, 500, 1000 }, 200)) |err| @compileError(err);
+        if (constraints.oneOf(&.{ 100, 200, 500, 1000 }, 1000)) |err| @compileError(err);
     }
 }
 
@@ -38,99 +38,99 @@ test "isOneOf returns correct bool" {
 
 test "exactLen passes on correct length" {
     comptime {
-        constraints.assert(constraints.exactLen(4, 4));
-        constraints.assert(constraints.exactLen(0, 0));
-        constraints.assert(constraints.exactLen(256, 256));
+        if (constraints.exactLen(4, 4)) |err| @compileError(err);
+        if (constraints.exactLen(0, 0)) |err| @compileError(err);
+        if (constraints.exactLen(256, 256)) |err| @compileError(err);
     }
 }
 
 test "lenInRange passes within bounds" {
     comptime {
-        constraints.assert(constraints.lenInRange(2, 256, 2));
-        constraints.assert(constraints.lenInRange(2, 256, 128));
-        constraints.assert(constraints.lenInRange(2, 256, 256));
+        if (constraints.lenInRange(2, 256, 2)) |err| @compileError(err);
+        if (constraints.lenInRange(2, 256, 128)) |err| @compileError(err);
+        if (constraints.lenInRange(2, 256, 256)) |err| @compileError(err);
     }
 }
 
 test "isSorted passes on sorted array" {
     comptime {
-        constraints.assert(constraints.isSorted(i16, &.{ -10, 0, 5, 100 }));
-        constraints.assert(constraints.isSorted(u32, &.{ 1, 2, 3, 4, 5 }));
-        constraints.assert(constraints.isSorted(u8, &.{42}));
-        constraints.assert(constraints.isSorted(u8, &.{}));
+        if (constraints.isSorted(i16, &.{ -10, 0, 5, 100 })) |err| @compileError(err);
+        if (constraints.isSorted(u32, &.{ 1, 2, 3, 4, 5 })) |err| @compileError(err);
+        if (constraints.isSorted(u8, &.{42})) |err| @compileError(err);
+        if (constraints.isSorted(u8, &.{})) |err| @compileError(err);
     }
 }
 
 test "noDuplicates passes on unique array" {
     comptime {
-        constraints.assert(constraints.noDuplicates(u32, &.{ 1, 2, 3, 4, 5 }));
-        constraints.assert(constraints.noDuplicates(i8, &.{ -1, 0, 1 }));
-        constraints.assert(constraints.noDuplicates(u8, &.{42}));
-        constraints.assert(constraints.noDuplicates(u8, &.{}));
+        if (constraints.noDuplicates(u32, &.{ 1, 2, 3, 4, 5 })) |err| @compileError(err);
+        if (constraints.noDuplicates(i8, &.{ -1, 0, 1 })) |err| @compileError(err);
+        if (constraints.noDuplicates(u8, &.{42})) |err| @compileError(err);
+        if (constraints.noDuplicates(u8, &.{})) |err| @compileError(err);
     }
 }
 
 test "isPowerOfTwo passes on powers of two" {
     comptime {
-        constraints.assert(constraints.isPowerOfTwo(1));
-        constraints.assert(constraints.isPowerOfTwo(2));
-        constraints.assert(constraints.isPowerOfTwo(4));
-        constraints.assert(constraints.isPowerOfTwo(256));
-        constraints.assert(constraints.isPowerOfTwo(1024));
+        if (constraints.isPowerOfTwo(1)) |err| @compileError(err);
+        if (constraints.isPowerOfTwo(2)) |err| @compileError(err);
+        if (constraints.isPowerOfTwo(4)) |err| @compileError(err);
+        if (constraints.isPowerOfTwo(256)) |err| @compileError(err);
+        if (constraints.isPowerOfTwo(1024)) |err| @compileError(err);
     }
 }
 
 test "isMultipleOf passes on valid multiples" {
     comptime {
-        constraints.assert(constraints.isMultipleOf(4, 8));
-        constraints.assert(constraints.isMultipleOf(4, 16));
-        constraints.assert(constraints.isMultipleOf(10, 100));
-        constraints.assert(constraints.isMultipleOf(1, 7));
+        if (constraints.isMultipleOf(4, 8)) |err| @compileError(err);
+        if (constraints.isMultipleOf(4, 16)) |err| @compileError(err);
+        if (constraints.isMultipleOf(10, 100)) |err| @compileError(err);
+        if (constraints.isMultipleOf(1, 7)) |err| @compileError(err);
     }
 }
 
 test "nonZero passes on non-zero values" {
     comptime {
-        constraints.assert(constraints.nonZero(1));
-        constraints.assert(constraints.nonZero(42));
-        constraints.assert(constraints.nonZero(-1));
+        if (constraints.nonZero(1)) |err| @compileError(err);
+        if (constraints.nonZero(42)) |err| @compileError(err);
+        if (constraints.nonZero(-1)) |err| @compileError(err);
     }
 }
 
 test "anyOf passes when at least one is true" {
     comptime {
-        constraints.assert(constraints.anyOf(&.{ false, true, false }));
-        constraints.assert(constraints.anyOf(&.{ true, false }));
-        constraints.assert(constraints.anyOf(&.{true}));
+        if (constraints.anyOf(&.{ false, true, false })) |err| @compileError(err);
+        if (constraints.anyOf(&.{ true, false })) |err| @compileError(err);
+        if (constraints.anyOf(&.{true})) |err| @compileError(err);
     }
 }
 
 test "lessThan passes for strictly less values" {
     comptime {
-        constraints.assert(constraints.lessThan(5, 10));
-        constraints.assert(constraints.lessThan(-10, 0));
+        if (constraints.lessThan(5, 10)) |err| @compileError(err);
+        if (constraints.lessThan(-10, 0)) |err| @compileError(err);
     }
 }
 
 test "greaterThan passes for strictly greater values" {
     comptime {
-        constraints.assert(constraints.greaterThan(10, 5));
-        constraints.assert(constraints.greaterThan(0, -10));
+        if (constraints.greaterThan(10, 5)) |err| @compileError(err);
+        if (constraints.greaterThan(0, -10)) |err| @compileError(err);
     }
 }
 
 test "sumAtMost passes when sum is within budget" {
     comptime {
-        constraints.assert(constraints.sumAtMost(u32, &.{ 10, 20, 30 }, 100));
-        constraints.assert(constraints.sumAtMost(u32, &.{ 10, 20, 30 }, 60));
-        constraints.assert(constraints.sumAtMost(u16, &.{0}, 0));
+        if (constraints.sumAtMost(u32, &.{ 10, 20, 30 }, 100)) |err| @compileError(err);
+        if (constraints.sumAtMost(u32, &.{ 10, 20, 30 }, 60)) |err| @compileError(err);
+        if (constraints.sumAtMost(u16, &.{0}, 0)) |err| @compileError(err);
     }
 }
 
 test "sumEquals passes when sum matches target" {
     comptime {
-        constraints.assert(constraints.sumEquals(u32, &.{ 25, 25, 50 }, 100));
-        constraints.assert(constraints.sumEquals(u16, &.{ 10, 20, 30, 40 }, 100));
+        if (constraints.sumEquals(u32, &.{ 25, 25, 50 }, 100)) |err| @compileError(err);
+        if (constraints.sumEquals(u16, &.{ 10, 20, 30, 40 }, 100)) |err| @compileError(err);
     }
 }
 
@@ -143,16 +143,16 @@ test "allElements passes when all elements satisfy check" {
     }.f;
 
     comptime {
-        constraints.assert(constraints.allElements(i32, &.{ 1, 2, 3, 100 }, checkPositive));
+        if (constraints.allElements(i32, &.{ 1, 2, 3, 100 }, checkPositive)) |err| @compileError(err);
     }
 }
 
 test "anyOf with isInRange for OR composition" {
     comptime {
         const value: u32 = 95;
-        constraints.assert(constraints.anyOf(&.{
+        if (constraints.anyOf(&.{
             constraints.isInRange(0, 10, value),
             constraints.isInRange(90, 100, value),
-        }));
+        })) |err| @compileError(err);
     }
 }

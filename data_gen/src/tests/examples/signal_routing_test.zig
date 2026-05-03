@@ -1,7 +1,6 @@
 const std = @import("std");
 const constraints = @import("data_gen").constraints;
 const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
 
 // --- Signal Routing Matrix ---
 // An NxM routing matrix connecting inputs to outputs.
@@ -33,47 +32,55 @@ const RouteEntry = struct {
     destination: SignalId,
     attenuation_db: u8,
     invert: bool,
+
+    pub fn validate(comptime self: RouteEntry) ?[]const u8 {
+        // Source and destination must be different
+        if (self.source == self.destination)
+            return "cannot route a signal to itself";
+
+        // Attenuation sanity
+        if (constraints.inRange(0, 60, self.attenuation_db)) |err| return err;
+
+        return null;
+    }
 };
 
-fn validateRoutingMatrix(comptime routes: []const RouteEntry) void {
-    @setEvalBranchQuota(5000);
-    constraints.assert(constraints.lenInRange(1, 64, routes.len));
+fn ValidatedRoutingMatrix(comptime len: usize) type {
+    return struct {
+        routes: [len]RouteEntry,
 
-    // Each destination must appear at most once (single driver)
-    for (0..routes.len) |i| {
-        for (i + 1..routes.len) |j| {
-            if (routes[i].destination == routes[j].destination)
-                @compileError(std.fmt.comptimePrint(
-                    "destination {} has multiple drivers",
-                    .{@intFromEnum(routes[i].destination)},
-                ));
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            @setEvalBranchQuota(5000);
+            if (constraints.lenInRange(1, 64, self.routes.len)) |err| return err;
+
+            // Each destination must appear at most once (single driver)
+            for (0..self.routes.len) |i| {
+                for (i + 1..self.routes.len) |j| {
+                    if (self.routes[i].destination == self.routes[j].destination)
+                        return std.fmt.comptimePrint(
+                            "destination {} has multiple drivers",
+                            .{@intFromEnum(self.routes[i].destination)},
+                        );
+                }
+            }
+
+            // ADC inputs are exclusive: each ADC can only drive one destination
+            const exclusive_sources = [_]SignalId{ .adc0, .adc1, .adc2, .adc3 };
+            for (exclusive_sources) |excl| {
+                var use_count: u8 = 0;
+                for (self.routes) |route| {
+                    if (route.source == excl) use_count += 1;
+                }
+                if (use_count > 1)
+                    return std.fmt.comptimePrint(
+                        "exclusive source {} is routed to {} destinations (max 1)",
+                        .{ @intFromEnum(excl), use_count },
+                    );
+            }
+
+            return null;
         }
-    }
-
-    // Source and destination must be different
-    for (routes) |route| {
-        if (route.source == route.destination)
-            @compileError("cannot route a signal to itself");
-    }
-
-    // ADC inputs are exclusive: each ADC can only drive one destination
-    const exclusive_sources = [_]SignalId{ .adc0, .adc1, .adc2, .adc3 };
-    for (exclusive_sources) |excl| {
-        var use_count: u8 = 0;
-        for (routes) |route| {
-            if (route.source == excl) use_count += 1;
-        }
-        if (use_count > 1)
-            @compileError(std.fmt.comptimePrint(
-                "exclusive source {} is routed to {} destinations (max 1)",
-                .{ @intFromEnum(excl), use_count },
-            ));
-    }
-
-    // Attenuation sanity
-    for (routes) |route| {
-        constraints.assert(constraints.inRange(0, 60, route.attenuation_db));
-    }
+    };
 }
 
 const signal_routes = blk: {
@@ -85,8 +92,7 @@ const signal_routes = blk: {
         .{ .source = .timer1_pwm, .destination = .gpio2, .attenuation_db = 0, .invert = false },
         .{ .source = .uart_tx, .destination = .gpio3, .attenuation_db = 0, .invert = false },
     };
-    validateRoutingMatrix(&routes);
-    break :blk routes;
+    break :blk contracts.validated(ValidatedRoutingMatrix(routes.len){ .routes = routes }).routes;
 };
 
 test "signal routing has unique destinations" {
@@ -130,33 +136,45 @@ const CrossbarEntry = struct {
     input_channel: u4,
     output_channel: u4,
     gain_x10: u8,
+
+    pub fn validate(comptime self: CrossbarEntry) ?[]const u8 {
+        if (constraints.inRange(1, 100, self.gain_x10)) |err| return err;
+        return null;
+    }
 };
 
-fn validateCrossbar(comptime N: u4, comptime entries: []const CrossbarEntry) void {
-    if (entries.len != N)
-        @compileError(std.fmt.comptimePrint(
-            "crossbar must have exactly {} entries for {}x{} switch",
-            .{ N, N, N },
-        ));
+fn ValidatedCrossbar(comptime N: u4, comptime len: usize) type {
+    return struct {
+        entries: [len]CrossbarEntry,
 
-    // Each input used exactly once
-    for (0..entries.len) |i| {
-        for (i + 1..entries.len) |j| {
-            if (entries[i].input_channel == entries[j].input_channel)
-                @compileError("duplicate input channel in crossbar");
-            if (entries[i].output_channel == entries[j].output_channel)
-                @compileError("duplicate output channel in crossbar");
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            if (self.entries.len != N)
+                return std.fmt.comptimePrint(
+                    "crossbar must have exactly {} entries for {}x{} switch",
+                    .{ N, N, N },
+                );
+
+            // Each input used exactly once
+            for (0..self.entries.len) |i| {
+                for (i + 1..self.entries.len) |j| {
+                    if (self.entries[i].input_channel == self.entries[j].input_channel)
+                        return "duplicate input channel in crossbar";
+                    if (self.entries[i].output_channel == self.entries[j].output_channel)
+                        return "duplicate output channel in crossbar";
+                }
+            }
+
+            // All channels in range [0, N)
+            for (self.entries) |e| {
+                if (e.input_channel >= N)
+                    return "input channel out of range";
+                if (e.output_channel >= N)
+                    return "output channel out of range";
+            }
+
+            return null;
         }
-    }
-
-    // All channels in range [0, N)
-    for (entries) |e| {
-        if (e.input_channel >= N)
-            @compileError("input channel out of range");
-        if (e.output_channel >= N)
-            @compileError("output channel out of range");
-        constraints.assert(constraints.inRange(1, 100, e.gain_x10));
-    }
+    };
 }
 
 const audio_crossbar = blk: {
@@ -166,8 +184,7 @@ const audio_crossbar = blk: {
         .{ .input_channel = 2, .output_channel = 3, .gain_x10 = 10 },
         .{ .input_channel = 3, .output_channel = 1, .gain_x10 = 12 },
     };
-    validateCrossbar(4, &entries);
-    break :blk entries;
+    break :blk contracts.validated(ValidatedCrossbar(4, entries.len){ .entries = entries }).entries;
 };
 
 test "crossbar is a valid permutation" {
@@ -197,41 +214,52 @@ const DmaAssignment = struct {
     priority: enum(u2) { low, medium, high, very_high },
     circular: bool,
     mem_increment: bool,
+
+    pub fn validate(comptime self: DmaAssignment) ?[]const u8 {
+        if (constraints.inRange(0, 15, self.channel)) |err| return err;
+
+        // ADC must use circular mode
+        if (self.peripheral == .adc1 and !self.circular)
+            return "ADC DMA must use circular mode";
+
+        return null;
+    }
 };
 
-fn validateDmaAssignments(comptime assignments: []const DmaAssignment) void {
-    constraints.assert(constraints.lenInRange(1, 16, assignments.len));
+fn ValidatedDmaAssignments(comptime len: usize) type {
+    return struct {
+        assignments: [len]DmaAssignment,
 
-    // Each channel used at most once
-    var channels: [assignments.len]u8 = undefined;
-    var periphs: [assignments.len]u8 = undefined;
-    for (assignments, 0..) |a, i| {
-        channels[i] = a.channel;
-        periphs[i] = @intFromEnum(a.peripheral);
-        constraints.assert(constraints.inRange(0, 15, a.channel));
-    }
-    constraints.assert(constraints.noDuplicates(u8, &channels));
-    constraints.assert(constraints.noDuplicates(u8, &periphs));
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            if (constraints.lenInRange(1, 16, self.assignments.len)) |err| return err;
 
-    // TX/RX pairs must use different channels but same priority
-    for (assignments) |a| {
-        for (assignments) |b| {
-            const is_tx_rx_pair = switch (a.peripheral) {
-                .spi1_tx => b.peripheral == .spi1_rx,
-                .i2c1_tx => b.peripheral == .i2c1_rx,
-                .uart1_tx => b.peripheral == .uart1_rx,
-                else => false,
-            };
-            if (is_tx_rx_pair and a.priority != b.priority)
-                @compileError("TX/RX pair must have matching priority");
+            // Each channel used at most once
+            var channels: [len]u8 = undefined;
+            var periphs: [len]u8 = undefined;
+            for (self.assignments, 0..) |a, i| {
+                channels[i] = a.channel;
+                periphs[i] = @intFromEnum(a.peripheral);
+            }
+            if (constraints.noDuplicates(u8, &channels)) |err| return err;
+            if (constraints.noDuplicates(u8, &periphs)) |err| return err;
+
+            // TX/RX pairs must use different channels but same priority
+            for (self.assignments) |a| {
+                for (self.assignments) |b| {
+                    const is_tx_rx_pair = switch (a.peripheral) {
+                        .spi1_tx => b.peripheral == .spi1_rx,
+                        .i2c1_tx => b.peripheral == .i2c1_rx,
+                        .uart1_tx => b.peripheral == .uart1_rx,
+                        else => false,
+                    };
+                    if (is_tx_rx_pair and a.priority != b.priority)
+                        return "TX/RX pair must have matching priority";
+                }
+            }
+
+            return null;
         }
-    }
-
-    // ADC must use circular mode
-    for (assignments) |a| {
-        if (a.peripheral == .adc1 and !a.circular)
-            @compileError("ADC DMA must use circular mode");
-    }
+    };
 }
 
 const dma_config = blk: {
@@ -244,8 +272,7 @@ const dma_config = blk: {
         .{ .channel = 5, .peripheral = .i2c1_tx, .priority = .low, .circular = false, .mem_increment = true },
         .{ .channel = 6, .peripheral = .i2c1_rx, .priority = .low, .circular = false, .mem_increment = true },
     };
-    validateDmaAssignments(&assignments);
-    break :blk assignments;
+    break :blk contracts.validated(ValidatedDmaAssignments(assignments.len){ .assignments = assignments }).assignments;
 };
 
 test "DMA assignments have unique channels and peripherals" {

@@ -18,68 +18,78 @@ const SensorWeight = struct {
     noise_variance_x1000: u32,
     update_rate_hz: u16,
     latency_us: u32,
+
+    pub fn validate(comptime self: SensorWeight) ?[]const u8 {
+        if (constraints.nonZero(self.weight_per1024)) |err| return err;
+        if (constraints.nonZero(self.update_rate_hz)) |err| return err;
+        return null;
+    }
 };
 
-fn validateFusionWeights(comptime sensors: []const SensorWeight) void {
-    constraints.assert(constraints.lenInRange(2, 8, sensors.len));
+const FusionConfig = struct {
+    sensors: [5]SensorWeight,
 
-    // Weights must sum to 1024 (representing 1.0)
-    var weight_sum: u32 = 0;
-    for (sensors) |s| {
-        constraints.assert(constraints.nonZero(s.weight_per1024));
-        constraints.assert(constraints.nonZero(s.update_rate_hz));
-        weight_sum += s.weight_per1024;
-    }
-    if (weight_sum != 1024)
-        @compileError(std.fmt.comptimePrint(
-            "fusion weights sum to {} but must equal 1024 (1.0)",
-            .{weight_sum},
-        ));
+    pub fn validate(comptime self: FusionConfig) ?[]const u8 {
+        const sensors = &self.sensors;
+        if (constraints.lenInRange(2, 8, sensors.len)) |err| return err;
 
-    // No duplicate sensor types
-    for (0..sensors.len) |i| {
-        for (i + 1..sensors.len) |j| {
-            if (sensors[i].sensor == sensors[j].sensor)
-                @compileError("duplicate sensor type in fusion");
+        // Weights must sum to 1024 (representing 1.0)
+        var weight_sum: u32 = 0;
+        for (sensors) |s| {
+            weight_sum += s.weight_per1024;
         }
-    }
+        if (weight_sum != 1024)
+            return std.fmt.comptimePrint(
+                "fusion weights sum to {} but must equal 1024 (1.0)",
+                .{weight_sum},
+            );
 
-    // Weighted noise variance: sum(weight_i^2 * variance_i) / 1024^2
-    // Must be below a threshold (1000 = 1.0 in our fixed-point)
-    var weighted_noise: u64 = 0;
-    for (sensors) |s| {
-        weighted_noise += @as(u64, s.weight_per1024) * s.weight_per1024 * s.noise_variance_x1000 / (1024 * 1024);
-    }
-    if (weighted_noise > 500)
-        @compileError(std.fmt.comptimePrint(
-            "fused noise variance {} exceeds threshold 500",
-            .{weighted_noise},
-        ));
-
-    // Higher-weight sensors must have lower latency (otherwise the fusion
-    // is dominated by stale data)
-    for (0..sensors.len) |i| {
-        for (i + 1..sensors.len) |j| {
-            if (sensors[i].weight_per1024 > sensors[j].weight_per1024 and
-                sensors[i].latency_us > sensors[j].latency_us * 2)
-                @compileError(std.fmt.comptimePrint(
-                    "sensor {} has higher weight but >2x the latency of sensor {}",
-                    .{ @intFromEnum(sensors[i].sensor), @intFromEnum(sensors[j].sensor) },
-                ));
+        // No duplicate sensor types
+        for (0..sensors.len) |i| {
+            for (i + 1..sensors.len) |j| {
+                if (sensors[i].sensor == sensors[j].sensor)
+                    return "duplicate sensor type in fusion";
+            }
         }
+
+        // Weighted noise variance: sum(weight_i^2 * variance_i) / 1024^2
+        // Must be below a threshold (1000 = 1.0 in our fixed-point)
+        var weighted_noise: u64 = 0;
+        for (sensors) |s| {
+            weighted_noise += @as(u64, s.weight_per1024) * s.weight_per1024 * s.noise_variance_x1000 / (1024 * 1024);
+        }
+        if (weighted_noise > 500)
+            return std.fmt.comptimePrint(
+                "fused noise variance {} exceeds threshold 500",
+                .{weighted_noise},
+            );
+
+        // Higher-weight sensors must have lower latency (otherwise the fusion
+        // is dominated by stale data)
+        for (0..sensors.len) |i| {
+            for (i + 1..sensors.len) |j| {
+                if (sensors[i].weight_per1024 > sensors[j].weight_per1024 and
+                    sensors[i].latency_us > sensors[j].latency_us * 2)
+                    return std.fmt.comptimePrint(
+                        "sensor {} has higher weight but >2x the latency of sensor {}",
+                        .{ @intFromEnum(sensors[i].sensor), @intFromEnum(sensors[j].sensor) },
+                    );
+            }
+        }
+
+        return null;
     }
-}
+};
 
 const imu_fusion = blk: {
-    const sensors = [_]SensorWeight{
+    const config = contracts.validated(FusionConfig{ .sensors = .{
         .{ .sensor = .accelerometer, .weight_per1024 = 400, .noise_variance_x1000 = 200, .update_rate_hz = 1000, .latency_us = 100 },
         .{ .sensor = .gyroscope, .weight_per1024 = 350, .noise_variance_x1000 = 150, .update_rate_hz = 1000, .latency_us = 100 },
         .{ .sensor = .magnetometer, .weight_per1024 = 150, .noise_variance_x1000 = 800, .update_rate_hz = 100, .latency_us = 2000 },
         .{ .sensor = .barometer, .weight_per1024 = 100, .noise_variance_x1000 = 500, .update_rate_hz = 50, .latency_us = 5000 },
         .{ .sensor = .gps, .weight_per1024 = 24, .noise_variance_x1000 = 3000, .update_rate_hz = 10, .latency_us = 50000 },
-    };
-    validateFusionWeights(&sensors);
-    break :blk sensors;
+    } });
+    break :blk config.sensors;
 };
 
 test "fusion weights sum to 1024" {
@@ -154,29 +164,45 @@ const MeasurementStep = struct {
     duration_ms: u16,
     target_value: i16,
     tolerance_pct: u8,
+
+    pub fn validate(comptime self: MeasurementStep) ?[]const u8 {
+        if (constraints.nonZero(self.duration_ms)) |err| return err;
+        if (constraints.inRange(1, 50, self.tolerance_pct)) |err| return err;
+
+        switch (self.phase) {
+            .zero_cal => {
+                if (self.target_value != 0)
+                    return "zero calibration target must be 0";
+            },
+            .span_cal => {
+                if (constraints.nonZero(self.target_value)) |err| return err;
+            },
+            .warmup => {
+                if (constraints.inRange(1000, 30000, self.duration_ms)) |err| return err;
+            },
+            .measure => {
+                if (constraints.inRange(1, 10, self.tolerance_pct)) |err| return err;
+            },
+            .cooldown => {
+                if (constraints.inRange(500, 10000, self.duration_ms)) |err| return err;
+            },
+        }
+        return null;
+    }
 };
 
-fn validateMeasurementStep(comptime step: MeasurementStep, comptime idx: usize) void {
-    constraints.assert(constraints.nonZero(step.duration_ms));
-    constraints.assert(constraints.inRange(1, 50, step.tolerance_pct));
+const MeasurementSequence = struct {
+    steps: [7]MeasurementStep,
 
-    if (idx == 0 and step.phase != .zero_cal)
-        @compileError("measurement sequence must start with zero calibration");
-
-    switch (step.phase) {
-        .zero_cal => {
-            if (step.target_value != 0)
-                @compileError("zero calibration target must be 0");
-        },
-        .span_cal => constraints.assert(constraints.nonZero(step.target_value)),
-        .warmup => constraints.assert(constraints.inRange(1000, 30000, step.duration_ms)),
-        .measure => constraints.assert(constraints.inRange(1, 10, step.tolerance_pct)),
-        .cooldown => constraints.assert(constraints.inRange(500, 10000, step.duration_ms)),
+    pub fn validate(comptime self: MeasurementSequence) ?[]const u8 {
+        if (self.steps[0].phase != .zero_cal)
+            return "measurement sequence must start with zero calibration";
+        return null;
     }
-}
+};
 
 const measurement_sequence = blk: {
-    const steps = [_]MeasurementStep{
+    const seq = contracts.validated(MeasurementSequence{ .steps = .{
         .{ .phase = .zero_cal, .duration_ms = 500, .target_value = 0, .tolerance_pct = 5 },
         .{ .phase = .span_cal, .duration_ms = 500, .target_value = 1000, .tolerance_pct = 10 },
         .{ .phase = .warmup, .duration_ms = 5000, .target_value = 0, .tolerance_pct = 50 },
@@ -184,9 +210,8 @@ const measurement_sequence = blk: {
         .{ .phase = .measure, .duration_ms = 2000, .target_value = 750, .tolerance_pct = 3 },
         .{ .phase = .measure, .duration_ms = 2000, .target_value = 250, .tolerance_pct = 5 },
         .{ .phase = .cooldown, .duration_ms = 3000, .target_value = 0, .tolerance_pct = 20 },
-    };
-    for (steps, 0..) |step, i| validateMeasurementStep(step, i);
-    break :blk steps;
+    } });
+    break :blk seq.steps;
 };
 
 test "measurement sequence starts with zero cal" {

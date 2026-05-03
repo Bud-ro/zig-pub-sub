@@ -216,28 +216,32 @@ fn validateModuleDeps(
             ));
     }
 
-    // Transitive closure check: follow implication chains
-    // If A requires B and B requires C, then enabling A with C disabled is invalid.
-    // (This is already caught by the direct check above, but let's verify
-    // that no circular dependencies exist in the rules themselves.)
+    // Cycle detection: DFS from each rule's subject through all requirement edges
     for (rules) |start| {
-        var current = start.requirement;
-        var depth: u8 = 0;
-        while (depth < rules.len) : (depth += 1) {
-            if (current == start.subject)
+        var visited = [_]bool{false} ** 256;
+        var stack = [_]u8{0} ** 32;
+        stack[0] = @intFromEnum(start.requirement);
+        var stack_len: u8 = 1;
+
+        while (stack_len > 0) {
+            stack_len -= 1;
+            const current = stack[stack_len];
+
+            if (current == @intFromEnum(start.subject))
                 @compileError(std.fmt.comptimePrint(
                     "circular dependency involving module {}",
                     .{@intFromEnum(start.subject)},
                 ));
-            var found_next = false;
-            for (rules) |r| {
-                if (r.subject == current) {
-                    current = r.requirement;
-                    found_next = true;
-                    break;
+
+            if (!visited[current]) {
+                visited[current] = true;
+                for (rules) |r| {
+                    if (@intFromEnum(r.subject) == current) {
+                        stack[stack_len] = @intFromEnum(r.requirement);
+                        stack_len += 1;
+                    }
                 }
             }
-            if (!found_next) break;
         }
     }
 }

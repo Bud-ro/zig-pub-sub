@@ -20,6 +20,16 @@ const ModuleDef = struct {
     priority: u8,
     resources: ResourceProfile,
     can_be_disabled: bool,
+
+    pub fn validate(comptime self: ModuleDef) ?[]const u8 {
+        if (constraints.inRange(0, 1000, self.resources.cpu_pct_x10)) |err| return err;
+        if (self.priority == 0 and self.can_be_disabled)
+            return std.fmt.comptimePrint(
+                "critical module {} (priority 0) must not be disableable",
+                .{self.name_id},
+            );
+        return null;
+    }
 };
 
 const SystemBudget = struct {
@@ -29,59 +39,54 @@ const SystemBudget = struct {
     max_power_uw: u32,
 };
 
-fn validateResourceBudget(
-    comptime modules: []const ModuleDef,
-    comptime budget: SystemBudget,
-) void {
-    @setEvalBranchQuota(5000);
-    constraints.assert(constraints.lenInRange(1, 32, modules.len));
+fn ValidatedModuleSystem(comptime len: usize) type {
+    return struct {
+        modules: [len]ModuleDef,
+        budget: SystemBudget,
 
-    var ids: [modules.len]u8 = undefined;
-    var total_cpu: u32 = 0;
-    var total_ram: u32 = 0;
-    var total_flash: u32 = 0;
-    var total_power: u32 = 0;
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            @setEvalBranchQuota(5000);
+            if (constraints.lenInRange(1, 32, self.modules.len)) |err| return err;
 
-    for (modules, 0..) |m, i| {
-        ids[i] = m.name_id;
-        total_cpu += m.resources.cpu_pct_x10;
-        total_ram += m.resources.ram_bytes;
-        total_flash += m.resources.flash_bytes;
-        total_power += m.resources.power_uw;
+            var ids: [len]u8 = undefined;
+            var total_cpu: u32 = 0;
+            var total_ram: u32 = 0;
+            var total_flash: u32 = 0;
+            var total_power: u32 = 0;
 
-        constraints.assert(constraints.inRange(0, 1000, m.resources.cpu_pct_x10));
-    }
-    constraints.assert(constraints.noDuplicates(u8, &ids));
+            for (self.modules, 0..) |m, i| {
+                ids[i] = m.name_id;
+                total_cpu += m.resources.cpu_pct_x10;
+                total_ram += m.resources.ram_bytes;
+                total_flash += m.resources.flash_bytes;
+                total_power += m.resources.power_uw;
+            }
+            if (constraints.noDuplicates(u8, &ids)) |err| return err;
 
-    if (total_cpu > budget.max_cpu_pct_x10)
-        @compileError(std.fmt.comptimePrint(
-            "CPU usage {}‰ exceeds budget {}‰",
-            .{ total_cpu, budget.max_cpu_pct_x10 },
-        ));
-    if (total_ram > budget.max_ram_bytes)
-        @compileError(std.fmt.comptimePrint(
-            "RAM usage {} bytes exceeds budget {} bytes",
-            .{ total_ram, budget.max_ram_bytes },
-        ));
-    if (total_flash > budget.max_flash_bytes)
-        @compileError(std.fmt.comptimePrint(
-            "Flash usage {} bytes exceeds budget {} bytes",
-            .{ total_flash, budget.max_flash_bytes },
-        ));
-    if (total_power > budget.max_power_uw)
-        @compileError(std.fmt.comptimePrint(
-            "Power usage {}uW exceeds budget {}uW",
-            .{ total_power, budget.max_power_uw },
-        ));
+            if (total_cpu > self.budget.max_cpu_pct_x10)
+                return std.fmt.comptimePrint(
+                    "CPU usage {}‰ exceeds budget {}‰",
+                    .{ total_cpu, self.budget.max_cpu_pct_x10 },
+                );
+            if (total_ram > self.budget.max_ram_bytes)
+                return std.fmt.comptimePrint(
+                    "RAM usage {} bytes exceeds budget {} bytes",
+                    .{ total_ram, self.budget.max_ram_bytes },
+                );
+            if (total_flash > self.budget.max_flash_bytes)
+                return std.fmt.comptimePrint(
+                    "Flash usage {} bytes exceeds budget {} bytes",
+                    .{ total_flash, self.budget.max_flash_bytes },
+                );
+            if (total_power > self.budget.max_power_uw)
+                return std.fmt.comptimePrint(
+                    "Power usage {}uW exceeds budget {}uW",
+                    .{ total_power, self.budget.max_power_uw },
+                );
 
-    // High-priority modules must not be disableable
-    for (modules) |m| {
-        if (m.priority == 0 and m.can_be_disabled)
-            @compileError(std.fmt.comptimePrint(
-                "critical module {} (priority 0) must not be disableable",
-                .{m.name_id},
-            ));
-    }
+            return null;
+        }
+    };
 }
 
 fn computeHeadroom(
@@ -154,8 +159,7 @@ const system_modules = blk: {
             .power_uw = 10000,
         } },
     };
-    validateResourceBudget(&modules, system_budget);
-    break :blk modules;
+    break :blk contracts.validated(ValidatedModuleSystem(modules.len){ .modules = modules, .budget = system_budget }).modules;
 };
 
 test "system modules fit within all budget dimensions" {
@@ -206,53 +210,65 @@ const Rect = struct {
     y: u16,
     w: u16,
     h: u16,
+
+    pub fn validate(comptime self: Rect) ?[]const u8 {
+        if (constraints.nonZero(self.w)) |err| return err;
+        if (constraints.nonZero(self.h)) |err| return err;
+        return null;
+    }
 };
 
-fn validateTiling(comptime rects: []const Rect, comptime screen_w: u16, comptime screen_h: u16) void {
-    @setEvalBranchQuota(10_000);
-    constraints.assert(constraints.lenInRange(1, 32, rects.len));
+fn ValidatedTiling(comptime len: usize, comptime screen_w: u16, comptime screen_h: u16) type {
+    return struct {
+        rects: [len]Rect,
 
-    // All rects within screen bounds
-    for (rects) |r| {
-        constraints.assert(constraints.nonZero(r.w));
-        constraints.assert(constraints.nonZero(r.h));
-        if (r.x + r.w > screen_w)
-            @compileError(std.fmt.comptimePrint(
-                "rect at ({},{}) with size {}x{} exceeds screen width {}",
-                .{ r.x, r.y, r.w, r.h, screen_w },
-            ));
-        if (r.y + r.h > screen_h)
-            @compileError(std.fmt.comptimePrint(
-                "rect at ({},{}) with size {}x{} exceeds screen height {}",
-                .{ r.x, r.y, r.w, r.h, screen_h },
-            ));
-    }
+        pub fn validate(comptime self: @This()) ?[]const u8 {
+            @setEvalBranchQuota(10_000);
+            if (constraints.lenInRange(1, 32, self.rects.len)) |err| return err;
 
-    // No overlaps
-    for (0..rects.len) |i| {
-        for (i + 1..rects.len) |j| {
-            const a = rects[i];
-            const b = rects[j];
-            if (a.x < b.x + b.w and b.x < a.x + a.w and
-                a.y < b.y + b.h and b.y < a.y + a.h)
-                @compileError(std.fmt.comptimePrint(
-                    "rects at ({},{}) and ({},{}) overlap",
-                    .{ a.x, a.y, b.x, b.y },
-                ));
+            // All rects within screen bounds
+            for (self.rects) |r| {
+                if (r.x + r.w > screen_w)
+                    return std.fmt.comptimePrint(
+                        "rect at ({},{}) with size {}x{} exceeds screen width {}",
+                        .{ r.x, r.y, r.w, r.h, screen_w },
+                    );
+                if (r.y + r.h > screen_h)
+                    return std.fmt.comptimePrint(
+                        "rect at ({},{}) with size {}x{} exceeds screen height {}",
+                        .{ r.x, r.y, r.w, r.h, screen_h },
+                    );
+            }
+
+            // No overlaps
+            for (0..self.rects.len) |i| {
+                for (i + 1..self.rects.len) |j| {
+                    const a = self.rects[i];
+                    const b = self.rects[j];
+                    if (a.x < b.x + b.w and b.x < a.x + a.w and
+                        a.y < b.y + b.h and b.y < a.y + a.h)
+                        return std.fmt.comptimePrint(
+                            "rects at ({},{}) and ({},{}) overlap",
+                            .{ a.x, a.y, b.x, b.y },
+                        );
+                }
+            }
+
+            // Total area must equal screen area (complete tiling, no gaps)
+            var total_area: u32 = 0;
+            for (self.rects) |r| {
+                total_area += @as(u32, r.w) * r.h;
+            }
+            const screen_area: u32 = @as(u32, screen_w) * screen_h;
+            if (total_area != screen_area)
+                return std.fmt.comptimePrint(
+                    "total rect area {} does not equal screen area {} (gaps exist)",
+                    .{ total_area, screen_area },
+                );
+
+            return null;
         }
-    }
-
-    // Total area must equal screen area (complete tiling, no gaps)
-    var total_area: u32 = 0;
-    for (rects) |r| {
-        total_area += @as(u32, r.w) * r.h;
-    }
-    const screen_area: u32 = @as(u32, screen_w) * screen_h;
-    if (total_area != screen_area)
-        @compileError(std.fmt.comptimePrint(
-            "total rect area {} does not equal screen area {} (gaps exist)",
-            .{ total_area, screen_area },
-        ));
+    };
 }
 
 const dashboard_layout = blk: {
@@ -265,8 +281,7 @@ const dashboard_layout = blk: {
         .{ .x = 160, .y = 120, .w = 80, .h = 120 },
         .{ .x = 240, .y = 120, .w = 80, .h = 120 },
     };
-    validateTiling(&rects, 320, 240);
-    break :blk rects;
+    break :blk contracts.validated(ValidatedTiling(rects.len, 320, 240){ .rects = rects }).rects;
 };
 
 test "dashboard layout tiles 320x240 completely" {
