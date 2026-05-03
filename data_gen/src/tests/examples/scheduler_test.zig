@@ -30,7 +30,7 @@ const TimeSlot = struct {
         return self.start_us + self.duration_us;
     }
 
-    fn validate(comptime self: TimeSlot, comptime cycle_length_us: u32) ?[]const u8 {
+    fn contractValidate(comptime self: TimeSlot, comptime cycle_length_us: u32) ?[]const u8 {
         if (constraint.nonZero(self.duration_us)) |err| return err;
         if (self.end() > cycle_length_us)
             return std.fmt.comptimePrint(
@@ -56,7 +56,7 @@ const ScheduleValidator = struct {
     params: ScheduleParams,
     shared_resources: []const ResourceSharing,
 
-    fn validate(comptime self: ScheduleValidator) ?[]const u8 {
+    fn contractValidate(comptime self: ScheduleValidator) ?[]const u8 {
         const slots = self.slots;
         const min_gap_us = self.params.min_gap_us;
         const cycle_length_us = self.params.cycle_length_us;
@@ -64,7 +64,7 @@ const ScheduleValidator = struct {
         if (constraint.lenInRange(1, 64, slots.len)) |err| return err;
 
         for (slots) |slot| {
-            if (slot.validate(cycle_length_us)) |err| return err;
+            if (slot.contractValidate(cycle_length_us)) |err| return err;
         }
 
         // No overlap on same channel, with minimum gap
@@ -162,7 +162,7 @@ const cycle_schedule = blk: {
         .params = .{ .min_gap_us = 10, .cycle_length_us = 1000 },
         .shared_resources = &shared_hw,
     };
-    if (validator.validate()) |err| @compileError(err);
+    if (validator.contractValidate()) |err| @compileError(err);
     break :blk slots;
 };
 
@@ -231,7 +231,7 @@ const PeriodicTask = struct {
     duration_us: u32,
     offset_us: u32,
 
-    fn validate(comptime self: PeriodicTask) ?[]const u8 {
+    fn contractValidate(comptime self: PeriodicTask) ?[]const u8 {
         if (constraint.nonZero(self.period_us)) |err| return err;
         if (constraint.nonZero(self.duration_us)) |err| return err;
         if (self.duration_us >= self.period_us)
@@ -247,14 +247,14 @@ const PeriodicScheduleValidator = struct {
     shared: []const ResourceSharing,
     horizon_us: u32,
 
-    fn validate(comptime self: PeriodicScheduleValidator) ?[]const u8 {
+    fn contractValidate(comptime self: PeriodicScheduleValidator) ?[]const u8 {
         const tasks = self.tasks;
         const shared = self.shared;
         const horizon_us = self.horizon_us;
         @setEvalBranchQuota(100_000);
 
         for (tasks) |task| {
-            if (task.validate()) |err| return err;
+            if (task.contractValidate()) |err| return err;
         }
 
         // Expand all instances within horizon and check for conflicts
@@ -314,7 +314,7 @@ const periodic_tasks = blk: {
         .shared = &shared_hw,
         .horizon_us = validation_horizon_us,
     };
-    if (validator.validate()) |err| @compileError(err);
+    if (validator.contractValidate()) |err| @compileError(err);
     break :blk tasks;
 };
 

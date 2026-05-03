@@ -1,10 +1,10 @@
 //! Protocol for types that carry their own validation logic. Types opt in
-//! by declaring `pub fn validate(comptime self: T) ?[]const u8` which returns
-//! null on success or an error message string on failure.
+//! by declaring `pub fn contractValidate(comptime self: T) ?[]const u8`
+//! which returns null on success or an error message string on failure.
 //!
 //! assertValid/validated recursively walk struct fields and array elements,
-//! calling validate on each sub-value that has one. Users get automatic
-//! deep validation without manually calling child validates.
+//! calling contractValidate on each sub-value that has one. Users get
+//! automatic deep validation without manually calling child validates.
 
 const std = @import("std");
 
@@ -28,9 +28,8 @@ pub fn assertValid(comptime value: anytype) void {
 pub fn check(comptime value: anytype, comptime path: []const u8) ?[]const u8 {
     const T = @TypeOf(value);
 
-    // Call T's own validate if it has one
-    if (@hasDecl(T, "validate")) {
-        if (T.validate(value)) |msg| {
+    if (@hasDecl(T, "contractValidate")) {
+        if (T.contractValidate(value)) |msg| {
             return if (path.len == 0) msg else path ++ ": " ++ msg;
         }
     }

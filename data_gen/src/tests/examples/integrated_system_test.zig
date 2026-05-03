@@ -42,7 +42,7 @@ const ClockConfig = struct {
         return self.ahbHz() / self.apb2_divider;
     }
 
-    pub fn validate(comptime self: ClockConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: ClockConfig) ?[]const u8 {
         if (self.source == .hse or self.source == .pll) {
             if (self.hse_freq_hz < 4_000_000 or self.hse_freq_hz > 25_000_000)
                 return "hse_freq_hz out of range [4000000, 25000000]";
@@ -80,7 +80,7 @@ const MemRegion = struct {
     writable: bool,
     executable: bool,
 
-    pub fn validate(comptime self: MemRegion) ?[]const u8 {
+    pub fn contractValidate(comptime self: MemRegion) ?[]const u8 {
         if (constraint.nonZero(self.size)) |err| return err;
         if (constraint.isPowerOfTwo(self.size)) |err| return err;
         if (self.writable and self.executable)
@@ -92,9 +92,9 @@ const MemRegion = struct {
 const MemLayoutValidator = struct {
     regions: []const MemRegion,
 
-    pub fn validate(comptime self: MemLayoutValidator) ?[]const u8 {
+    pub fn contractValidate(comptime self: MemLayoutValidator) ?[]const u8 {
         for (self.regions) |r| {
-            if (r.validate()) |err| return err;
+            if (r.contractValidate()) |err| return err;
         }
         for (0..self.regions.len) |i| {
             for (i + 1..self.regions.len) |j| {
@@ -145,7 +145,7 @@ const UartValidator = struct {
     uart: UartConfig,
     apb_hz: u32,
 
-    pub fn validate(comptime self: UartValidator) ?[]const u8 {
+    pub fn contractValidate(comptime self: UartValidator) ?[]const u8 {
         return self.uart.validateWith(self.apb_hz);
     }
 };
@@ -170,7 +170,7 @@ const SpiValidator = struct {
     spi: SpiConfig,
     apb_hz: u32,
 
-    pub fn validate(comptime self: SpiValidator) ?[]const u8 {
+    pub fn contractValidate(comptime self: SpiValidator) ?[]const u8 {
         return self.spi.validateWith(self.apb_hz);
     }
 };
@@ -200,7 +200,7 @@ const AdcValidator = struct {
     adc: AdcConfig,
     apb_hz: u32,
 
-    pub fn validate(comptime self: AdcValidator) ?[]const u8 {
+    pub fn contractValidate(comptime self: AdcValidator) ?[]const u8 {
         return self.adc.validateWith(self.apb_hz);
     }
 };
@@ -216,7 +216,7 @@ const TaskConfig = struct {
     uses_spi: bool,
     uses_adc: bool,
 
-    pub fn validate(comptime self: TaskConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: TaskConfig) ?[]const u8 {
         if (constraint.nonZero(self.period_us)) |err| return err;
         if (constraint.nonZero(self.wcet_us)) |err| return err;
         if (constraint.isPowerOfTwo(self.stack_bytes)) |err| return err;
@@ -230,13 +230,13 @@ const TaskSetValidator = struct {
     tasks: []const TaskConfig,
     ram_bytes: u32,
 
-    pub fn validate(comptime self: TaskSetValidator) ?[]const u8 {
+    pub fn contractValidate(comptime self: TaskSetValidator) ?[]const u8 {
         if (constraint.lenInRange(1, 16, self.tasks.len)) |err| return err;
 
         var total_stack: u32 = 0;
         var total_util_x1000: u32 = 0;
         for (self.tasks) |t| {
-            if (t.validate()) |err| return err;
+            if (t.contractValidate()) |err| return err;
             total_stack += t.stack_bytes;
             total_util_x1000 += t.wcet_us * 1000 / t.period_us;
         }
@@ -266,18 +266,18 @@ const SystemConfig = struct {
     adc: AdcConfig,
     tasks: [5]TaskConfig,
 
-    pub fn validate(comptime self: SystemConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: SystemConfig) ?[]const u8 {
         const mem_validator = MemLayoutValidator{ .regions = &self.memory };
-        if (mem_validator.validate()) |err| return err;
+        if (mem_validator.contractValidate()) |err| return err;
 
         const uart_validator = UartValidator{ .uart = self.uart, .apb_hz = self.clock.apb1Hz() };
-        if (uart_validator.validate()) |err| return err;
+        if (uart_validator.contractValidate()) |err| return err;
 
         const spi_validator = SpiValidator{ .spi = self.spi, .apb_hz = self.clock.apb2Hz() };
-        if (spi_validator.validate()) |err| return err;
+        if (spi_validator.contractValidate()) |err| return err;
 
         const adc_validator = AdcValidator{ .adc = self.adc, .apb_hz = self.clock.apb2Hz() };
-        if (adc_validator.validate()) |err| return err;
+        if (adc_validator.contractValidate()) |err| return err;
 
         var ram_size: u32 = 0;
         for (self.memory) |region| {
@@ -285,7 +285,7 @@ const SystemConfig = struct {
                 ram_size += region.size;
         }
         const task_validator = TaskSetValidator{ .tasks = &self.tasks, .ram_bytes = ram_size };
-        if (task_validator.validate()) |err| return err;
+        if (task_validator.contractValidate()) |err| return err;
 
         // Cross-subsystem: ADC tasks must have the ADC peripheral enabled
         for (self.tasks) |task| {

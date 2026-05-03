@@ -13,7 +13,7 @@ const BitField = struct {
     bit_offset: u8,
     bit_width: u8,
 
-    pub fn validate(comptime self: BitField) ?[]const u8 {
+    pub fn contractValidate(comptime self: BitField) ?[]const u8 {
         if (self.bit_width == 0) return "bit_width must not be zero";
         if (self.bit_offset > 31) return "bit_offset out of range [0, 31]";
         if (self.bit_width < 1 or self.bit_width > 32) return "bit_width out of range [1, 32]";
@@ -32,7 +32,7 @@ const Register = struct {
     access: Access,
     fields: []const BitField,
 
-    pub fn validate(comptime self: Register) ?[]const u8 {
+    pub fn contractValidate(comptime self: Register) ?[]const u8 {
         if (self.width_bytes != 1 and self.width_bytes != 2 and self.width_bytes != 4)
             return "width_bytes must be one of 1, 2, 4";
         if (self.address > 0xFFFF) return "address out of range [0, 0xFFFF]";
@@ -71,7 +71,7 @@ const Register = struct {
 const RegisterMap = struct {
     regs: []const Register,
 
-    pub fn validate(comptime self: RegisterMap) ?[]const u8 {
+    pub fn contractValidate(comptime self: RegisterMap) ?[]const u8 {
         if (constraint.lenInRange(1, 128, self.regs.len)) |err| return err;
 
         var ids: [self.regs.len]u8 = undefined;

@@ -14,7 +14,7 @@ const FrameField = struct {
     offset: u8,
     size: u8,
 
-    pub fn validate(comptime self: FrameField) ?[]const u8 {
+    pub fn contractValidate(comptime self: FrameField) ?[]const u8 {
         if (constraint.nonZero(self.size)) |err| return err;
         return null;
     }
@@ -23,7 +23,7 @@ const FrameField = struct {
 const FrameDefinition = struct {
     fields: []const FrameField,
 
-    pub fn validate(comptime self: FrameDefinition) ?[]const u8 {
+    pub fn contractValidate(comptime self: FrameDefinition) ?[]const u8 {
         const fields = self.fields;
 
         if (fields.len < 3)
@@ -41,7 +41,7 @@ const FrameDefinition = struct {
         _ = &length_offset;
 
         for (fields) |field| {
-            if (field.validate()) |err| return err;
+            if (field.contractValidate()) |err| return err;
 
             if (field.field_type == .payload) {
                 has_payload = true;
@@ -110,7 +110,7 @@ const MessageDef = struct {
     is_broadcast: bool,
     priority: u8,
 
-    pub fn validate(comptime self: MessageDef) ?[]const u8 {
+    pub fn contractValidate(comptime self: MessageDef) ?[]const u8 {
         if (constraint.inRange(0, 128, self.payload_size)) |err| return err;
         if (constraint.inRange(0, 7, self.priority)) |err| return err;
 
@@ -127,7 +127,7 @@ const MessageDef = struct {
 const MessageRegistry = struct {
     msgs: []const MessageDef,
 
-    pub fn validate(comptime self: MessageRegistry) ?[]const u8 {
+    pub fn contractValidate(comptime self: MessageRegistry) ?[]const u8 {
         @setEvalBranchQuota(5000);
         const msgs = self.msgs;
 
@@ -136,7 +136,7 @@ const MessageRegistry = struct {
         var ids: [msgs.len]u8 = undefined;
         for (msgs, 0..) |msg, i| {
             ids[i] = msg.type_id;
-            if (msg.validate()) |err| return err;
+            if (msg.contractValidate()) |err| return err;
 
             // Validate response_type_id references an existing message
             if (msg.response_type_id) |resp_id| {
@@ -248,7 +248,7 @@ const BaudConfig = struct {
     parity: enum(u8) { none, even, odd },
     hw_flow_control: bool,
 
-    pub fn validate(comptime self: BaudConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: BaudConfig) ?[]const u8 {
         if (self.baud_rate != 9600 and self.baud_rate != 19200 and self.baud_rate != 38400 and
             self.baud_rate != 57600 and self.baud_rate != 115200 and self.baud_rate != 230400 and
             self.baud_rate != 460800 and self.baud_rate != 921600)

@@ -16,7 +16,7 @@ const CanBitTiming = struct {
     phase_seg2: u8,
     sjw: u8,
 
-    pub fn validate(comptime self: CanBitTiming) ?[]const u8 {
+    pub fn contractValidate(comptime self: CanBitTiming) ?[]const u8 {
         if (self.prescaler < 1 or self.prescaler > 1024) return "prescaler out of range [1, 1024]";
         if (self.prop_seg < 1 or self.prop_seg > 8) return "prop_seg out of range [1, 8]";
         if (self.phase_seg1 < 1 or self.phase_seg1 > 8) return "phase_seg1 out of range [1, 8]";
@@ -52,7 +52,7 @@ const CanNodeConfig = struct {
     silent_mode: bool,
     loopback: bool,
 
-    pub fn validate(comptime self: CanNodeConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: CanNodeConfig) ?[]const u8 {
         if (self.clock_hz == 0) return "clock_hz must not be zero";
 
         const baud = self.timing.baudRate(self.clock_hz);
@@ -72,7 +72,7 @@ fn CanNetwork(comptime N: usize) type {
     return struct {
         nodes: [N]CanNodeConfig,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (N < 2 or N > 16)
                 return std.fmt.comptimePrint("length {} is outside [2, 16]", .{N});
 
@@ -187,7 +187,7 @@ const CanFilter = struct {
     is_extended: bool,
     fifo: u1,
 
-    pub fn validate(comptime self: CanFilter) ?[]const u8 {
+    pub fn contractValidate(comptime self: CanFilter) ?[]const u8 {
         if (!self.is_extended) {
             if (self.can_id > 0x7FF)
                 return "standard CAN ID must be <= 0x7FF";
@@ -202,7 +202,7 @@ fn CanFilterBank(comptime N: usize) type {
     return struct {
         filters: [N]CanFilter,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
 
             if (N < 1 or N > 28)

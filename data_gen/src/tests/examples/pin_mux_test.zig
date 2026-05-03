@@ -52,7 +52,7 @@ const PinAssignment = struct {
 
     /// Per-element validation: ADC pins must have pull = none,
     /// I2C pins must have pull = up.
-    pub fn validate(comptime self: PinAssignment) ?[]const u8 {
+    pub fn contractValidate(comptime self: PinAssignment) ?[]const u8 {
         switch (self.function) {
             .adc_ch0, .adc_ch1, .adc_ch2, .adc_ch3 => {
                 if (self.pull != .none)
@@ -78,7 +78,7 @@ fn PinMuxConfig(comptime N: usize) type {
         assignments: [N]PinAssignment,
         capabilities: []const PinCapability,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(10_000);
             if (constraint.lenInRange(1, 32, N)) |err| return err;
 
@@ -154,7 +154,7 @@ fn PeripheralGroupConfig(comptime N: usize) type {
     return struct {
         assignments: [N]PinAssignment,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             // If any SPI pin is assigned, ALL SPI pins must be assigned
             var has_spi = false;
             var spi_count: u8 = 0;

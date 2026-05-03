@@ -5,7 +5,7 @@ const BoundedPair = struct {
     low: u16,
     high: u16,
 
-    pub fn validate(comptime self: BoundedPair) ?[]const u8 {
+    pub fn contractValidate(comptime self: BoundedPair) ?[]const u8 {
         if (self.low >= self.high) return "low must be less than high";
         if (self.low > 1000) return "low exceeds 1000";
         if (self.high > 1000) return "high exceeds 1000";
@@ -22,7 +22,7 @@ const Nested = struct {
     pair: BoundedPair,
     name_id: u8,
 
-    pub fn validate(comptime self: Nested) ?[]const u8 {
+    pub fn contractValidate(comptime self: Nested) ?[]const u8 {
         if (self.name_id == 0) return "name_id must not be zero";
         return null;
     }
@@ -49,7 +49,7 @@ test "assertValid passes valid BoundedPair" {
     }
 }
 
-test "assertValid passes plain struct (no validate)" {
+test "assertValid passes plain struct (no contractValidate)" {
     comptime {
         contract.assertValid(PlainStruct{ .x = 42, .y = 99 });
     }
@@ -165,7 +165,7 @@ test "check error message for nested array element failure" {
     }
 }
 
-test "own validate runs before recursive field checks" {
+test "own contractValidate runs before recursive field checks" {
     comptime {
         try std.testing.expectEqualStrings(
             "name_id must not be zero",

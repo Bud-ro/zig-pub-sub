@@ -10,7 +10,7 @@ const Component = struct {
     voltage_mv: u16,
     active: bool,
 
-    pub fn validate(comptime self: Component) ?[]const u8 {
+    pub fn contractValidate(comptime self: Component) ?[]const u8 {
         if (self.power_mw > 5000) return "power_mw out of range [0, 5000]";
         if (self.voltage_mv != 1800 and self.voltage_mv != 3300 and self.voltage_mv != 5000 and self.voltage_mv != 12000)
             return "voltage_mv must be one of 1800, 3300, 5000, 12000";
@@ -26,7 +26,7 @@ const Subsystem = struct {
     max_power_mw: u32,
     voltage_mv: u16,
 
-    pub fn validate(comptime self: Subsystem) ?[]const u8 {
+    pub fn contractValidate(comptime self: Subsystem) ?[]const u8 {
         if (self.max_power_mw > 15000) return "max_power_mw out of range [0, 15000]";
 
         var total_power: u32 = 0;
@@ -51,7 +51,7 @@ const System = struct {
     power_budget_mw: u32,
     name_id: u8,
 
-    pub fn validate(comptime self: System) ?[]const u8 {
+    pub fn contractValidate(comptime self: System) ?[]const u8 {
         if (self.power_budget_mw > 50000) return "power_budget_mw out of range [0, 50000]";
 
         var total_power: u32 = 0;
@@ -127,7 +127,7 @@ test "embedded system component IDs are unique within subsystems" {
     comptime {
         for (embedded_system.subsystems) |sub| {
             const wrapper: SubsystemComponentIds = .{ .subsystem = sub };
-            if (wrapper.validate()) |err| @compileError(err);
+            if (wrapper.contractValidate()) |err| @compileError(err);
         }
     }
 }
@@ -135,7 +135,7 @@ test "embedded system component IDs are unique within subsystems" {
 const SubsystemComponentIds = struct {
     subsystem: Subsystem,
 
-    pub fn validate(comptime self: SubsystemComponentIds) ?[]const u8 {
+    pub fn contractValidate(comptime self: SubsystemComponentIds) ?[]const u8 {
         var ids: [4]u8 = undefined;
         for (self.subsystem.components, 0..) |comp, i| {
             ids[i] = comp.name_id;
@@ -157,7 +157,7 @@ fn TaskGraph(comptime n: usize) type {
     return struct {
         tasks: [n]Task,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (constraint.lenInRange(1, 64, self.tasks.len)) |err| return err;
 
             var ids: [self.tasks.len]u8 = undefined;
@@ -193,7 +193,7 @@ const project_tasks = blk: {
         .{ .id = 7, .duration_hours = 12, .dependency_idx = 5 },
     };
     const wrapper: TaskGraph(tasks.len) = .{ .tasks = tasks };
-    if (wrapper.validate()) |err| @compileError(err);
+    if (wrapper.contractValidate()) |err| @compileError(err);
     break :blk tasks;
 };
 
@@ -210,7 +210,7 @@ test "task graph has valid dependency indices" {
 test "task graph has unique IDs" {
     comptime {
         const wrapper: TaskGraph(project_tasks.len) = .{ .tasks = project_tasks };
-        if (wrapper.validate()) |err| @compileError(err);
+        if (wrapper.contractValidate()) |err| @compileError(err);
     }
 }
 
@@ -229,7 +229,7 @@ fn ErdRegistry(comptime n: usize) type {
     return struct {
         specs: [n]ErdSpec,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (constraint.lenInRange(1, 256, self.specs.len)) |err| return err;
 
             var numbers: [self.specs.len]u16 = undefined;
@@ -264,14 +264,14 @@ const erd_registry = blk: {
         .{ .erd_number = 0x0005, .erd_type = .u8_type, .size_bytes = 1, .max_subs = 2 },
     };
     const wrapper: ErdRegistry(specs.len) = .{ .specs = specs };
-    if (wrapper.validate()) |err| @compileError(err);
+    if (wrapper.contractValidate()) |err| @compileError(err);
     break :blk specs;
 };
 
 test "ERD registry has unique numbers" {
     comptime {
         const wrapper: ErdRegistry(erd_registry.len) = .{ .specs = erd_registry };
-        if (wrapper.validate()) |err| @compileError(err);
+        if (wrapper.contractValidate()) |err| @compileError(err);
     }
 }
 

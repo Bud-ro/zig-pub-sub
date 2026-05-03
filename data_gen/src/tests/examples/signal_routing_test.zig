@@ -33,7 +33,7 @@ const RouteEntry = struct {
     attenuation_db: u8,
     invert: bool,
 
-    pub fn validate(comptime self: RouteEntry) ?[]const u8 {
+    pub fn contractValidate(comptime self: RouteEntry) ?[]const u8 {
         // Source and destination must be different
         if (self.source == self.destination)
             return "cannot route a signal to itself";
@@ -49,7 +49,7 @@ fn ValidatedRoutingMatrix(comptime len: usize) type {
     return struct {
         routes: [len]RouteEntry,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
             if (constraint.lenInRange(1, 64, self.routes.len)) |err| return err;
 
@@ -137,7 +137,7 @@ const CrossbarEntry = struct {
     output_channel: u4,
     gain_x10: u8,
 
-    pub fn validate(comptime self: CrossbarEntry) ?[]const u8 {
+    pub fn contractValidate(comptime self: CrossbarEntry) ?[]const u8 {
         if (constraint.inRange(1, 100, self.gain_x10)) |err| return err;
         return null;
     }
@@ -147,7 +147,7 @@ fn ValidatedCrossbar(comptime N: u4, comptime len: usize) type {
     return struct {
         entries: [len]CrossbarEntry,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (self.entries.len != N)
                 return std.fmt.comptimePrint(
                     "crossbar must have exactly {} entries for {}x{} switch",
@@ -215,7 +215,7 @@ const DmaAssignment = struct {
     circular: bool,
     mem_increment: bool,
 
-    pub fn validate(comptime self: DmaAssignment) ?[]const u8 {
+    pub fn contractValidate(comptime self: DmaAssignment) ?[]const u8 {
         if (constraint.inRange(0, 15, self.channel)) |err| return err;
 
         // ADC must use circular mode
@@ -230,7 +230,7 @@ fn ValidatedDmaAssignments(comptime len: usize) type {
     return struct {
         assignments: [len]DmaAssignment,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (constraint.lenInRange(1, 16, self.assignments.len)) |err| return err;
 
             // Each channel used at most once

@@ -9,7 +9,7 @@ const SampleRateConfig = struct {
     oversample_factor: u8,
     averaging_window: u16,
 
-    pub fn validate(comptime self: SampleRateConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: SampleRateConfig) ?[]const u8 {
         if (self.rate_hz != 100 and self.rate_hz != 200 and self.rate_hz != 500 and
             self.rate_hz != 1000 and self.rate_hz != 2000 and self.rate_hz != 5000 and self.rate_hz != 10000)
             return "rate_hz must be one of 100, 200, 500, 1000, 2000, 5000, 10000";
@@ -58,7 +58,7 @@ const TimingConfig = struct {
     retry_delay_ms: u16,
     max_retries: u8,
 
-    pub fn validate(comptime self: TimingConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: TimingConfig) ?[]const u8 {
         if (self.timeout_ms < 10 or self.timeout_ms > 30_000) return "timeout_ms out of range [10, 30000]";
         if (self.debounce_ms < 1 or self.debounce_ms > 500) return "debounce_ms out of range [1, 500]";
         if (self.periodic_interval_ms < 1 or self.periodic_interval_ms > 60_000) return "periodic_interval_ms out of range [1, 60000]";
@@ -128,7 +128,7 @@ const TickConfig = struct {
     tick_period_us: u32,
     ticks_per_ms: u32,
 
-    pub fn validate(comptime self: TickConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: TickConfig) ?[]const u8 {
         if (self.tick_period_us == 0) return "tick_period_us must not be zero";
         if (self.ticks_per_ms == 0) return "ticks_per_ms must not be zero";
         if (self.tick_period_us * self.ticks_per_ms != 1000)
@@ -173,7 +173,7 @@ const PwmConfig = struct {
     resolution_bits: u8,
     dead_time_ns: u16,
 
-    pub fn validate(comptime self: PwmConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: PwmConfig) ?[]const u8 {
         if (self.frequency_hz < 1_000 or self.frequency_hz > 1_000_000) return "frequency_hz out of range [1000, 1000000]";
         if (self.resolution_bits < 8 or self.resolution_bits > 16) return "resolution_bits out of range [8, 16]";
         if (self.dead_time_ns > 5000) return "dead_time_ns out of range [0, 5000]";
@@ -213,7 +213,7 @@ const TimingProfile = struct {
     timing: TimingConfig,
     tick: TickConfig,
 
-    pub fn validate(comptime self: TimingProfile) ?[]const u8 {
+    pub fn contractValidate(comptime self: TimingProfile) ?[]const u8 {
         const sample_period_ms = 1000 / self.sample_rate.rate_hz;
         if (self.timing.periodic_interval_ms % sample_period_ms != 0)
             return "periodic interval must be aligned to sample period";

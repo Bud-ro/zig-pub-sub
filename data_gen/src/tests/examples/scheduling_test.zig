@@ -14,7 +14,7 @@ const TaskDef = struct {
     priority: u8,
     stack_size: u16,
 
-    pub fn validate(comptime self: TaskDef) ?[]const u8 {
+    pub fn contractValidate(comptime self: TaskDef) ?[]const u8 {
         if (constraint.nonZero(self.period_ms)) |err| return err;
         if (constraint.nonZero(self.wcet_us)) |err| return err;
         if (constraint.isPowerOfTwo(self.stack_size)) |err| return err;
@@ -33,7 +33,7 @@ fn ValidatedTaskSet(comptime len: usize) type {
     return struct {
         tasks: [len]TaskDef,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
             if (constraint.lenInRange(1, 32, self.tasks.len)) |err| return err;
 
@@ -138,7 +138,7 @@ const MemRegion = struct {
     executable: bool,
     cacheable: bool,
 
-    pub fn validate(comptime self: MemRegion) ?[]const u8 {
+    pub fn contractValidate(comptime self: MemRegion) ?[]const u8 {
         if (constraint.nonZero(self.size)) |err| return err;
         if (constraint.isPowerOfTwo(self.size)) |err| return err;
 
@@ -167,7 +167,7 @@ fn ValidatedMemoryMap(comptime len: usize) type {
     return struct {
         regions: [len]MemRegion,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
             if (constraint.lenInRange(1, 32, self.regions.len)) |err| return err;
 
@@ -243,7 +243,7 @@ const IrqEntry = struct {
     handler_task_id: u8,
     preempts_below_priority: u8,
 
-    pub fn validate(comptime self: IrqEntry) ?[]const u8 {
+    pub fn contractValidate(comptime self: IrqEntry) ?[]const u8 {
         if (constraint.inRange(0, 15, self.priority)) |err| return err;
 
         if (self.preempts_below_priority > self.priority)
@@ -257,7 +257,7 @@ fn ValidatedIrqTable(comptime len: usize, comptime task_set_len: usize) type {
         entries: [len]IrqEntry,
         task_set_ref: [task_set_len]TaskDef,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (constraint.lenInRange(1, 64, self.entries.len)) |err| return err;
 
             var vectors: [len]u8 = undefined;

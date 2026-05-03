@@ -13,7 +13,7 @@ const Transition = struct {
     to: WifiState,
     timeout_ms: u32,
 
-    pub fn validate(comptime self: Transition) ?[]const u8 {
+    pub fn contractValidate(comptime self: Transition) ?[]const u8 {
         if (constraint.inRange(0, 60_000, self.timeout_ms)) |err| return err;
 
         if (self.from == self.to and self.event != .reset)
@@ -26,12 +26,12 @@ const Transition = struct {
 const TransitionTable = struct {
     transitions: []const Transition,
 
-    pub fn validate(comptime self: TransitionTable) ?[]const u8 {
+    pub fn contractValidate(comptime self: TransitionTable) ?[]const u8 {
         if (self.transitions.len == 0)
             return "transition table cannot be empty";
 
         for (self.transitions) |t| {
-            if (t.validate()) |err| return err;
+            if (t.contractValidate()) |err| return err;
         }
 
         for (0..self.transitions.len) |i| {
@@ -97,7 +97,7 @@ const MotorTransition = struct {
     to: MotorState,
     action_code: u8,
 
-    pub fn validate(comptime self: MotorTransition) ?[]const u8 {
+    pub fn contractValidate(comptime self: MotorTransition) ?[]const u8 {
         if (self.from == .fault and self.event != .fault_cleared)
             return "fault state can only transition on fault_cleared";
         return null;
@@ -107,7 +107,7 @@ const MotorTransition = struct {
 const MotorFSM = struct {
     transitions: []const MotorTransition,
 
-    pub fn validate(comptime self: MotorFSM) ?[]const u8 {
+    pub fn contractValidate(comptime self: MotorFSM) ?[]const u8 {
         for (0..self.transitions.len) |i| {
             for (i + 1..self.transitions.len) |j| {
                 if (self.transitions[i].from == self.transitions[j].from and self.transitions[i].event == self.transitions[j].event)
@@ -116,7 +116,7 @@ const MotorFSM = struct {
         }
 
         for (self.transitions) |t| {
-            if (t.validate()) |err| return err;
+            if (t.contractValidate()) |err| return err;
         }
 
         return null;
@@ -164,7 +164,7 @@ const PhaseTiming = struct {
     max_duration_ms: u32,
     next_state: PhaseState,
 
-    pub fn validate(comptime self: PhaseTiming) ?[]const u8 {
+    pub fn contractValidate(comptime self: PhaseTiming) ?[]const u8 {
         if (self.min_duration_ms >= self.max_duration_ms) return "min_duration_ms must be less than max_duration_ms";
         if (self.state == self.next_state)
             return "phase must transition to a different state";
@@ -175,7 +175,7 @@ const PhaseTiming = struct {
 const PhaseSequence = struct {
     phases: []const PhaseTiming,
 
-    pub fn validate(comptime self: PhaseSequence) ?[]const u8 {
+    pub fn contractValidate(comptime self: PhaseSequence) ?[]const u8 {
         if (self.phases[0].state != .init)
             return "must start with init phase";
 
@@ -183,7 +183,7 @@ const PhaseSequence = struct {
             return "must end transitioning to shutdown";
 
         for (self.phases) |p| {
-            if (p.validate()) |err| return err;
+            if (p.contractValidate()) |err| return err;
         }
 
         for (1..self.phases.len) |i| {

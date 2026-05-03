@@ -13,7 +13,7 @@ fn CostMatrix(comptime N: usize) type {
     return struct {
         matrix: [N][N]u16,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(10_000);
 
             // Diagonal must be zero
@@ -78,7 +78,7 @@ const latency_matrix = blk: {
         .{ 30, 25, 15, 8, 0 },
     };
     const wrapper: CostMatrix(5) = .{ .matrix = m };
-    if (wrapper.validate()) |err| @compileError(err);
+    if (wrapper.contractValidate()) |err| @compileError(err);
     break :blk m;
 };
 
@@ -122,7 +122,7 @@ const Edge = struct {
     b: u8,
     cost: u16,
 
-    pub fn validate(comptime self: Edge) ?[]const u8 {
+    pub fn contractValidate(comptime self: Edge) ?[]const u8 {
         if (constraint.nonZero(self.cost)) |err| return err;
         return null;
     }
@@ -132,7 +132,7 @@ fn SpanningTree(comptime N: u8, comptime edge_count: usize) type {
     return struct {
         edges: [edge_count]Edge,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (self.edges.len != N - 1)
                 return std.fmt.comptimePrint(
                     "spanning tree of {} nodes requires exactly {} edges, got {}",
@@ -145,7 +145,7 @@ fn SpanningTree(comptime N: u8, comptime edge_count: usize) type {
                     return "edge references node outside range";
                 if (e.a == e.b)
                     return "self-loop in spanning tree";
-                if (e.validate()) |err| return err;
+                if (e.contractValidate()) |err| return err;
             }
 
             // No duplicate edges
@@ -198,7 +198,7 @@ const network_tree = blk: {
     };
     const node_count = 5;
     const wrapper: SpanningTree(node_count, edges.len) = .{ .edges = edges };
-    if (wrapper.validate()) |err| @compileError(err);
+    if (wrapper.contractValidate()) |err| @compileError(err);
     break :blk edges;
 };
 
@@ -225,7 +225,7 @@ fn TreeGraphConsistency(comptime N: usize, comptime edge_count: usize) type {
         matrix: [N][N]u16,
         tree: [edge_count]Edge,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             for (self.tree) |e| {
                 if (self.matrix[e.a][e.b] != e.cost)
                     return std.fmt.comptimePrint(
@@ -244,7 +244,7 @@ test "spanning tree edges match latency matrix" {
             .matrix = latency_matrix,
             .tree = network_tree,
         };
-        if (wrapper.validate()) |err| @compileError(err);
+        if (wrapper.contractValidate()) |err| @compileError(err);
     }
 }
 
@@ -265,7 +265,7 @@ fn ClockTree(comptime N: usize) type {
     return struct {
         nodes: [N]ClockNode,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (constraint.lenInRange(1, 16, N)) |err| return err;
 
             if (self.nodes[0].parent_idx != null)
@@ -315,7 +315,7 @@ const clock_tree = blk: {
         .{ .name_id = 6, .parent_idx = 3, .divider = 3, .frequency_hz = 16_000_000 },
     };
     const wrapper: ClockTree(nodes.len) = .{ .nodes = nodes };
-    if (wrapper.validate()) |err| @compileError(err);
+    if (wrapper.contractValidate()) |err| @compileError(err);
     break :blk nodes;
 };
 

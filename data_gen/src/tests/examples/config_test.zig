@@ -8,7 +8,7 @@ const AppVersion = struct {
     minor: u8,
     patch: u16,
 
-    pub fn validate(comptime self: AppVersion) ?[]const u8 {
+    pub fn contractValidate(comptime self: AppVersion) ?[]const u8 {
         if (self.major > 99) return "major exceeds 99";
         if (self.minor > 99) return "minor exceeds 99";
         return null;
@@ -43,7 +43,7 @@ const NetworkConfig = struct {
     max_connections: u16,
     keepalive_seconds: u16,
 
-    pub fn validate(comptime self: NetworkConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: NetworkConfig) ?[]const u8 {
         if (self.port == 0) return "port must not be zero";
         if (self.mtu == 0 or (self.mtu & (self.mtu - 1)) != 0) return "mtu must be a power of two";
         if (self.mtu < 64 or self.mtu > 9000) return "mtu out of range [64, 9000]";
@@ -68,7 +68,7 @@ const FeatureFlags = struct {
     profiling: bool,
     assertions_enabled: bool,
 
-    pub fn validate(comptime self: FeatureFlags) ?[]const u8 {
+    pub fn contractValidate(comptime self: FeatureFlags) ?[]const u8 {
         if (self.debug_logging and self.release_optimized)
             return "debug_logging and release_optimized are mutually exclusive";
         if (self.release_optimized and self.assertions_enabled)
@@ -94,7 +94,7 @@ const SensorThresholds = struct {
     warning_high: i16,
     critical_high: i16,
 
-    pub fn validate(comptime self: SensorThresholds) ?[]const u8 {
+    pub fn contractValidate(comptime self: SensorThresholds) ?[]const u8 {
         if (self.critical_low >= self.warning_low) return "critical_low must be < warning_low";
         if (self.warning_low >= self.warning_high) return "warning_low must be < warning_high";
         if (self.warning_high >= self.critical_high) return "warning_high must be < critical_high";
@@ -118,7 +118,7 @@ const SystemConfig = struct {
     flags: FeatureFlags,
     thresholds: SensorThresholds,
 
-    pub fn validate(comptime self: SystemConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: SystemConfig) ?[]const u8 {
         if (self.flags.debug_logging and self.network.max_connections > 64)
             return "debug mode limits connections to 64";
         return null;

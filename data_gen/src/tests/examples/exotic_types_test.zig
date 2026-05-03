@@ -15,7 +15,7 @@ const StatusRegister = packed struct {
     gain: u5,
     reserved: u1,
 
-    pub fn validate(comptime self: StatusRegister) ?[]const u8 {
+    pub fn contractValidate(comptime self: StatusRegister) ?[]const u8 {
         if (self.busy == 1 and self.error_code != 0)
             return "cannot be busy with an active error";
 
@@ -72,7 +72,7 @@ const DacControl = packed struct {
     update_trigger: u1,
     _reserved2: u3 = 0,
 
-    pub fn validate(comptime self: DacControl) ?[]const u8 {
+    pub fn contractValidate(comptime self: DacControl) ?[]const u8 {
         if (self.power_down_mode != 0 and self.update_trigger == 1)
             return "cannot trigger update while powered down";
 
@@ -128,7 +128,7 @@ const SensorReading = extern struct {
     status_flags: u16,
     _pad2: [2]u8 = .{ 0, 0 },
 
-    pub fn validate(comptime self: SensorReading) ?[]const u8 {
+    pub fn contractValidate(comptime self: SensorReading) ?[]const u8 {
         if (self.channel_id > 15) return "channel_id out of range [0, 15]";
         if (self.timestamp_ms == 0) return "timestamp_ms must not be zero";
 
@@ -200,7 +200,7 @@ const Command = union(CommandTag) {
     reset: void,
     calibrate: CalibrateData,
 
-    pub fn validate(comptime self: Command) ?[]const u8 {
+    pub fn contractValidate(comptime self: Command) ?[]const u8 {
         switch (self) {
             .set_output => |data| {
                 if (constraint.inRange(0, 7, data.channel)) |err| return err;
@@ -226,12 +226,12 @@ const Command = union(CommandTag) {
 const CommandSequence = struct {
     cmds: []const Command,
 
-    pub fn validate(comptime self: CommandSequence) ?[]const u8 {
+    pub fn contractValidate(comptime self: CommandSequence) ?[]const u8 {
         if (constraint.lenInRange(1, 32, self.cmds.len)) |err| return err;
 
         // Validate each individual command
         for (self.cmds) |cmd| {
-            if (cmd.validate()) |err| return err;
+            if (cmd.contractValidate()) |err| return err;
         }
 
         // Reset must be followed by configure (if not last)
@@ -300,7 +300,7 @@ const GainTable = struct {
     row_labels: [4]u8,
     col_labels: [8]u8,
 
-    pub fn validate(comptime self: GainTable) ?[]const u8 {
+    pub fn contractValidate(comptime self: GainTable) ?[]const u8 {
         if (constraint.isSorted(u8, &self.row_labels)) |err| return err;
         if (constraint.noDuplicates(u8, &self.row_labels)) |err| return err;
         if (constraint.isSorted(u8, &self.col_labels)) |err| return err;

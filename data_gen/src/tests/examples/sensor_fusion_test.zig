@@ -19,7 +19,7 @@ const SensorWeight = struct {
     update_rate_hz: u16,
     latency_us: u32,
 
-    pub fn validate(comptime self: SensorWeight) ?[]const u8 {
+    pub fn contractValidate(comptime self: SensorWeight) ?[]const u8 {
         if (constraint.nonZero(self.weight_per1024)) |err| return err;
         if (constraint.nonZero(self.update_rate_hz)) |err| return err;
         return null;
@@ -29,7 +29,7 @@ const SensorWeight = struct {
 const FusionConfig = struct {
     sensors: [5]SensorWeight,
 
-    pub fn validate(comptime self: FusionConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: FusionConfig) ?[]const u8 {
         const sensors = &self.sensors;
         if (constraint.lenInRange(2, 8, sensors.len)) |err| return err;
 
@@ -114,7 +114,7 @@ const FilterStage = struct {
     sample_rate_hz: u16,
     gain_x100: u16,
 
-    pub fn validate(comptime self: FilterStage) ?[]const u8 {
+    pub fn contractValidate(comptime self: FilterStage) ?[]const u8 {
         if (self.order < 1 or self.order > 8) return "order out of range [1, 8]";
         if (self.cutoff_hz == 0) return "cutoff_hz must not be zero";
         if (self.sample_rate_hz == 0) return "sample_rate_hz must not be zero";
@@ -165,7 +165,7 @@ const MeasurementStep = struct {
     target_value: i16,
     tolerance_pct: u8,
 
-    pub fn validate(comptime self: MeasurementStep) ?[]const u8 {
+    pub fn contractValidate(comptime self: MeasurementStep) ?[]const u8 {
         if (constraint.nonZero(self.duration_ms)) |err| return err;
         if (constraint.inRange(1, 50, self.tolerance_pct)) |err| return err;
 
@@ -194,7 +194,7 @@ const MeasurementStep = struct {
 const MeasurementSequence = struct {
     steps: [7]MeasurementStep,
 
-    pub fn validate(comptime self: MeasurementSequence) ?[]const u8 {
+    pub fn contractValidate(comptime self: MeasurementSequence) ?[]const u8 {
         if (self.steps[0].phase != .zero_cal)
             return "measurement sequence must start with zero calibration";
         return null;

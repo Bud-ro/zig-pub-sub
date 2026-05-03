@@ -9,7 +9,7 @@ const LinPoint = struct {
     input: i16,
     output: i16,
 
-    pub fn validate(comptime self: LinPoint) ?[]const u8 {
+    pub fn contractValidate(comptime self: LinPoint) ?[]const u8 {
         if (constraint.inRange(-1000, 1000, self.input)) |err| return err;
         if (constraint.inRange(-1000, 1000, self.output)) |err| return err;
         return null;
@@ -20,7 +20,7 @@ fn ValidatedLinTable(comptime len: usize) type {
     return struct {
         table: [len]LinPoint,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (constraint.lenInRange(2, 64, self.table.len)) |err| return err;
 
             var inputs: [len]i16 = undefined;
@@ -69,7 +69,7 @@ const PolyCoeffs = struct {
     b: i32,
     c: i32,
 
-    pub fn validate(comptime self: PolyCoeffs) ?[]const u8 {
+    pub fn contractValidate(comptime self: PolyCoeffs) ?[]const u8 {
         if (self.a < -10000 or self.a > 10000) return "a out of range [-10000, 10000]";
         if (self.b < -10000 or self.b > 10000) return "b out of range [-10000, 10000]";
         if (self.c < -10000 or self.c > 10000) return "c out of range [-10000, 10000]";
@@ -85,7 +85,7 @@ fn BoundedPoly(comptime min_out: i32, comptime max_out: i32) type {
     return struct {
         p: PolyCoeffs,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             const boundary_inputs = [_]i32{ -100, -10, 0, 10, 100 };
             for (boundary_inputs) |x| {
                 const y = self.p.eval(x);
@@ -119,7 +119,7 @@ const ScalingConfig = struct {
     scale_numerator: u16,
     scale_denominator: u16,
 
-    pub fn validate(comptime self: ScalingConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: ScalingConfig) ?[]const u8 {
         if (self.input_min >= self.input_max) return "input_min must be less than input_max";
         if (self.output_min >= self.output_max) return "output_min must be less than output_max";
         if (self.scale_denominator == 0) return "scale_denominator must not be zero";
@@ -183,7 +183,7 @@ const CalEntry = struct {
     raw: u16,
     calibrated: u16,
 
-    pub fn validate(comptime self: CalEntry) ?[]const u8 {
+    pub fn contractValidate(comptime self: CalEntry) ?[]const u8 {
         if (constraint.inRange(0, 4095, self.raw)) |err| return err;
         if (constraint.inRange(0, 4095, self.calibrated)) |err| return err;
         return null;
@@ -194,7 +194,7 @@ fn ValidatedCalTable(comptime len: usize) type {
     return struct {
         table: [len]CalEntry,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             for (1..self.table.len) |i| {
                 if (self.table[i].raw <= self.table[i - 1].raw)
                     return "raw values must be strictly increasing";
@@ -242,7 +242,7 @@ const AdcCalibration = struct {
     offset: i16,
     reference_mv: u16,
 
-    pub fn validate(comptime self: AdcCalibration) ?[]const u8 {
+    pub fn contractValidate(comptime self: AdcCalibration) ?[]const u8 {
         if (self.channel > 15) return "channel out of range [0, 15]";
         if (self.gain < 512 or self.gain > 2048) return "gain out of range [512, 2048]";
         if (self.offset < -500 or self.offset > 500) return "offset out of range [-500, 500]";
@@ -256,7 +256,7 @@ fn ValidatedAdcChannels(comptime len: usize) type {
     return struct {
         channels: [len]AdcCalibration,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             var chan_ids: [len]u8 = undefined;
             for (self.channels, 0..) |ch, i| {
                 chan_ids[i] = ch.channel;

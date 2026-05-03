@@ -12,7 +12,7 @@ const CodeEntry = struct {
     code: u16,
     length: u4,
 
-    pub fn validate(comptime self: CodeEntry) ?[]const u8 {
+    pub fn contractValidate(comptime self: CodeEntry) ?[]const u8 {
         if (constraint.inRange(1, 15, self.length)) |err| return err;
 
         // Code must fit within declared length
@@ -29,7 +29,7 @@ const CodeEntry = struct {
 const PrefixFreeTable = struct {
     codes: []const CodeEntry,
 
-    pub fn validate(comptime self: PrefixFreeTable) ?[]const u8 {
+    pub fn contractValidate(comptime self: PrefixFreeTable) ?[]const u8 {
         @setEvalBranchQuota(10_000);
         if (constraint.lenInRange(2, 64, self.codes.len)) |err| return err;
 
@@ -72,7 +72,7 @@ const PrefixFreeTable = struct {
 const KraftCheck = struct {
     codes: []const CodeEntry,
 
-    pub fn validate(comptime self: KraftCheck) ?[]const u8 {
+    pub fn contractValidate(comptime self: KraftCheck) ?[]const u8 {
         // Kraft's inequality: sum(2^(-length_i)) <= 1
         // We compute as sum(2^(max_len - length_i)) <= 2^max_len
         var max_len: u4 = 0;
@@ -173,7 +173,7 @@ const InstrDef = struct {
     has_immediate: bool,
     cycles: u8,
 
-    pub fn validate(comptime self: InstrDef) ?[]const u8 {
+    pub fn contractValidate(comptime self: InstrDef) ?[]const u8 {
         if (constraint.nonZero(self.cycles)) |err| return err;
 
         const max_instr_bits: u8 = 32;
@@ -204,7 +204,7 @@ const InstrDef = struct {
 const InstructionSet = struct {
     instrs: []const InstrDef,
 
-    pub fn validate(comptime self: InstructionSet) ?[]const u8 {
+    pub fn contractValidate(comptime self: InstructionSet) ?[]const u8 {
         if (constraint.lenInRange(1, 32, self.instrs.len)) |err| return err;
 
         // All opcodes must be represented

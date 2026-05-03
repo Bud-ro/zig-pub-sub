@@ -14,7 +14,7 @@ const WashStep = struct {
     drum_rpm: u16,
     water_liters: u8,
 
-    pub fn validate(comptime self: WashStep) ?[]const u8 {
+    pub fn contractValidate(comptime self: WashStep) ?[]const u8 {
         if (self.duration_seconds < 1 or self.duration_seconds > 3600) return "duration_seconds out of range [1, 3600]";
 
         switch (self.phase) {
@@ -62,7 +62,7 @@ const WashStep = struct {
 const WashCycle = struct {
     steps: []const WashStep,
 
-    pub fn validate(comptime self: WashCycle) ?[]const u8 {
+    pub fn contractValidate(comptime self: WashCycle) ?[]const u8 {
         const cycle = self.steps;
 
         if (cycle.len < 3)
@@ -77,7 +77,7 @@ const WashCycle = struct {
         var total_water: u32 = 0;
         var has_wash = false;
         for (cycle) |step| {
-            if (step.validate()) |err| return err;
+            if (step.contractValidate()) |err| return err;
             total_water += step.water_liters;
             if (step.phase == .wash) has_wash = true;
         }
@@ -151,7 +151,7 @@ const ProcessStep = struct {
 const HeatTreatProcess = struct {
     steps: []const ProcessStep,
 
-    pub fn validate(comptime self: HeatTreatProcess) ?[]const u8 {
+    pub fn contractValidate(comptime self: HeatTreatProcess) ?[]const u8 {
         const s = self.steps;
 
         if (s.len < 2)
@@ -209,7 +209,7 @@ const Ingredient = struct {
     temp_c: u8,
     dispense_time_ms: u16,
 
-    pub fn validate(comptime self: Ingredient) ?[]const u8 {
+    pub fn contractValidate(comptime self: Ingredient) ?[]const u8 {
         if (constraint.inRange(1, 500, self.amount_ml)) |err| return err;
         if (constraint.inRange(4, 100, self.temp_c)) |err| return err;
         if (constraint.nonZero(self.dispense_time_ms)) |err| return err;
@@ -220,7 +220,7 @@ const Ingredient = struct {
 const BeverageRecipe = struct {
     ingredients: []const Ingredient,
 
-    pub fn validate(comptime self: BeverageRecipe) ?[]const u8 {
+    pub fn contractValidate(comptime self: BeverageRecipe) ?[]const u8 {
         const recipe = self.ingredients;
 
         if (constraint.lenInRange(1, 8, recipe.len)) |err| return err;
@@ -228,7 +228,7 @@ const BeverageRecipe = struct {
         var total_ml: u32 = 0;
         var ids: [recipe.len]u8 = undefined;
         for (recipe, 0..) |ing, i| {
-            if (ing.validate()) |err| return err;
+            if (ing.contractValidate()) |err| return err;
             total_ml += ing.amount_ml;
             ids[i] = ing.id;
         }

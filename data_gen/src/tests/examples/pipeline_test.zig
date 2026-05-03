@@ -35,7 +35,7 @@ const PipelineStage = struct {
     output_type: DataType,
     processing_budget_us: u16,
 
-    pub fn validate(comptime self: PipelineStage) ?[]const u8 {
+    pub fn contractValidate(comptime self: PipelineStage) ?[]const u8 {
         if (constraint.nonZero(self.processing_budget_us)) |err| return err;
 
         if (self.kind == .source and self.input_types.len != 0)
@@ -71,7 +71,7 @@ fn ValidatedPipeline(comptime n_stages: usize, comptime n_conns: usize) type {
         stages: [n_stages]PipelineStage,
         connections: [n_conns]PipelineConnection,
 
-        pub fn validate(comptime self: @This()) ?[]const u8 {
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(10_000);
             const stages = &self.stages;
             const connections = &self.connections;

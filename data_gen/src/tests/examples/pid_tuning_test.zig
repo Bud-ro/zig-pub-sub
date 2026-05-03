@@ -31,7 +31,7 @@ const PidConfig = struct {
     derivative_filter_coeff: u8,
     sample_period_ms: u16,
 
-    pub fn validate(comptime self: PidConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: PidConfig) ?[]const u8 {
         if (self.sample_period_ms == 0) return "sample_period_ms must not be zero";
         if (self.output_min >= self.output_max) return "output_min must be less than output_max";
 
@@ -149,7 +149,7 @@ const CascadedPid = struct {
     inner_setpoint_min: i16,
     inner_setpoint_max: i16,
 
-    pub fn validate(comptime self: CascadedPid) ?[]const u8 {
+    pub fn contractValidate(comptime self: CascadedPid) ?[]const u8 {
         if (self.outer.sample_period_ms <= self.inner.sample_period_ms)
             return "outer loop must run slower than inner loop";
 
@@ -201,7 +201,7 @@ const ZoneConfig = struct {
     setpoint: i16,
     deadband: u16,
 
-    pub fn validate(comptime self: ZoneConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: ZoneConfig) ?[]const u8 {
         if (self.deadband == 0) return "value must not be zero";
 
         if (self.setpoint < self.pid.output_min or self.setpoint > self.pid.output_max)
@@ -217,7 +217,7 @@ const ZoneConfig = struct {
 const MultiZone = struct {
     zones: []const ZoneConfig,
 
-    pub fn validate(comptime self: MultiZone) ?[]const u8 {
+    pub fn contractValidate(comptime self: MultiZone) ?[]const u8 {
         if (constraint.lenInRange(1, 16, self.zones.len)) |err| return err;
 
         var ids: [self.zones.len]u8 = undefined;

@@ -8,7 +8,7 @@ const generator = @import("data_gen").generator;
 const GammaTable = struct {
     table: [256]u8,
 
-    pub fn validate(comptime self: GammaTable) ?[]const u8 {
+    pub fn contractValidate(comptime self: GammaTable) ?[]const u8 {
         if (self.table[0] != 0)
             return "gamma table must start at 0";
         if (self.table[255] != 255)
@@ -57,7 +57,7 @@ const PriorityConfig = struct {
     weight: u16,
     max_queue_depth: u8,
 
-    pub fn validate(comptime self: PriorityConfig) ?[]const u8 {
+    pub fn contractValidate(comptime self: PriorityConfig) ?[]const u8 {
         if (constraint.nonZero(self.weight)) |err| return err;
         if (constraint.nonZero(self.max_queue_depth)) |err| return err;
         return null;
@@ -67,7 +67,7 @@ const PriorityConfig = struct {
 const PriorityMap = struct {
     entries: []const PriorityConfig,
 
-    pub fn validate(comptime self: PriorityMap) ?[]const u8 {
+    pub fn contractValidate(comptime self: PriorityMap) ?[]const u8 {
         const all_priorities = [_]Priority{ .critical, .high, .normal, .low, .background };
 
         if (self.entries.len != all_priorities.len)
@@ -93,7 +93,7 @@ const PriorityMap = struct {
         }
 
         for (self.entries) |entry| {
-            if (entry.validate()) |err| return err;
+            if (entry.contractValidate()) |err| return err;
         }
 
         return null;
@@ -133,7 +133,7 @@ const InterpPoint = struct {
     x: i32,
     y: i32,
 
-    pub fn validate(comptime self: InterpPoint) ?[]const u8 {
+    pub fn contractValidate(comptime self: InterpPoint) ?[]const u8 {
         if (constraint.inRange(-10000, 10000, self.y)) |err| return err;
         return null;
     }
@@ -142,7 +142,7 @@ const InterpPoint = struct {
 const InterpTable = struct {
     points: []const InterpPoint,
 
-    pub fn validate(comptime self: InterpTable) ?[]const u8 {
+    pub fn contractValidate(comptime self: InterpTable) ?[]const u8 {
         if (constraint.lenInRange(3, 128, self.points.len)) |err| return err;
 
         var xs: [self.points.len]i32 = undefined;
@@ -211,7 +211,7 @@ const Segment = struct {
     start_y: i16,
     end_y: i16,
 
-    pub fn validate(comptime self: Segment) ?[]const u8 {
+    pub fn contractValidate(comptime self: Segment) ?[]const u8 {
         if (constraint.lessThan(self.start_x, self.end_x)) |err| return err;
         return null;
     }
@@ -220,7 +220,7 @@ const Segment = struct {
 const PiecewiseMap = struct {
     segments: []const Segment,
 
-    pub fn validate(comptime self: PiecewiseMap) ?[]const u8 {
+    pub fn contractValidate(comptime self: PiecewiseMap) ?[]const u8 {
         if (self.segments.len == 0)
             return "piecewise map needs at least one segment";
 
