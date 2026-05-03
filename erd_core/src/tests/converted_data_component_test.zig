@@ -1,7 +1,6 @@
 const erd_core = @import("erd_core");
 const std = @import("std");
 const Erd = erd_core.Erd;
-const Subscription = erd_core.Subscription;
 const RamDataComponent = erd_core.data_component.Ram;
 const ConvertedDataComponentFn = erd_core.data_component.Converted;
 const ConvertedMapping = erd_core.data_component.ConvertedMapping;

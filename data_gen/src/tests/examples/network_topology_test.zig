@@ -1,6 +1,5 @@
 const std = @import("std");
 const constraint = @import("data_gen").constraint;
-const contract = @import("data_gen").contract;
 
 // --- Network Topology with Symmetric Cost Matrix ---
 // A communication cost matrix between N nodes.

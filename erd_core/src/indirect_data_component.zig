@@ -3,7 +3,6 @@
 //! If you want code to run on write, then you should use an ERD subscription or the converted data component
 
 const erd_core = @import("erd_core");
-const std = @import("std");
 const Erd = erd_core.Erd;
 const subscription_mixin = erd_core.data_component.subscription_mixin;
 

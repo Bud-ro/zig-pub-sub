@@ -1,5 +1,4 @@
 const std = @import("std");
-const constraint = @import("data_gen").constraint;
 const contract = @import("data_gen").contract;
 const transform = @import("data_gen").transform;
 

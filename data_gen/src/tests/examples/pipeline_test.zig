@@ -1,7 +1,6 @@
 const std = @import("std");
 const constraint = @import("data_gen").constraint;
 const contract = @import("data_gen").contract;
-const generator = @import("data_gen").generator;
 
 // --- Data Processing Pipeline (DAG) ---
 // Processing stages connected in a directed acyclic graph.

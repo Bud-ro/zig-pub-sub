@@ -1,7 +1,6 @@
 const std = @import("std");
 const constraint = @import("data_gen").constraint;
 const contract = @import("data_gen").contract;
-const generator = @import("data_gen").generator;
 
 // --- Integrated Embedded System Configuration ---
 // A complete system definition that composes pin mux, clock tree,

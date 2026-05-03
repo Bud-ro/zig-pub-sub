@@ -1,7 +1,5 @@
 const std = @import("std");
-const constraint = @import("data_gen").constraint;
 const contract = @import("data_gen").contract;
-const generator = @import("data_gen").generator;
 
 // --- Firmware Image Header with Computed Integrity ---
 // The header contains a checksum field whose value MUST equal

@@ -1,7 +1,6 @@
 const std = @import("std");
 const constraint = @import("data_gen").constraint;
 const contract = @import("data_gen").contract;
-const generator = @import("data_gen").generator;
 
 // --- Packed Structs with Sub-Byte Fields ---
 // Mirrors PackedFr from the app: bitfields that pack into exactly

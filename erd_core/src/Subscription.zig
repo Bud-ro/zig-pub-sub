@@ -6,7 +6,6 @@
 //! `Subscription`s with the same identity cannot be known to the same publisher.
 //! However `Subscription`s with the same identity may subscribe to several source.
 
-const Subscription = @This();
 pub const Callback = *const fn (context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void;
 
 pub const OnChangeArgs = struct {
