@@ -128,11 +128,9 @@ pub fn build(b: *std.Build) void {
         linter.addRule(.{ .builtin = .no_empty_block }, .{});
         linter.addRule(.{ .builtin = .no_hidden_allocations }, .{});
         linter.addRule(.{ .builtin = .no_inferred_error_unions }, .{});
-        linter.addRule(.{ .builtin = .no_literal_args }, .{});
         linter.addRule(.{ .builtin = .no_literal_only_bool_expression }, .{});
         linter.addRule(.{ .builtin = .no_orelse_unreachable }, .{});
         linter.addRule(.{ .builtin = .no_swallow_error }, .{});
-        linter.addRule(.{ .builtin = .no_todo }, .{});
         linter.addRule(.{ .builtin = .no_undefined }, .{});
         linter.addRule(.{ .builtin = .no_unused }, .{});
         linter.addRule(.{ .builtin = .require_braces }, .{});

@@ -2,11 +2,11 @@
 //! Binds ERD definitions to concrete data components, sets up the erd_core
 //! TimerModule, and bridges SDK software timers to erd_core's tick-based scheduler.
 
-const std = @import("std");
 const erd_core = @import("erd_core");
-const SystemErds = @import("system_erds.zig");
 const hardware = @import("hardware.zig");
 const sdk = @import("sdk.zig");
+const std = @import("std");
+const SystemErds = @import("system_erds.zig");
 
 pub const RamDataComponent = erd_core.data_component.Ram(&SystemErds.ram_definitions);
 

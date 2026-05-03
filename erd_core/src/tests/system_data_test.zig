@@ -1,5 +1,5 @@
-const std = @import("std");
 const erd_core = @import("erd_core");
+const std = @import("std");
 const Erd = erd_core.Erd;
 const SystemDataTestDouble = erd_core.testing.SystemDataTestDouble;
 const Subscription = erd_core.Subscription;

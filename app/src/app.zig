@@ -2,8 +2,8 @@
 //! This file binds ERD definitions to concrete data component implementations
 //! and provides the fully instantiated SystemData type for this application.
 
-const std = @import("std");
 const erd_core = @import("erd_core");
+const std = @import("std");
 const SystemErds = @import("system_erds.zig");
 
 fn always_42(data: *u16) void {

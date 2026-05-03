@@ -3,11 +3,11 @@
 //! Hardware (GPIO, peripherals) and Application (erd_core wiring, timers),
 //! then register `on_system_ready` for post-SDK-init work like WiFi.
 
-const sdk = @import("sdk.zig");
-const hardware = @import("hardware.zig");
 const application = @import("application.zig");
-const wifi = @import("wifi.zig");
+const hardware = @import("hardware.zig");
+const sdk = @import("sdk.zig");
 const uart = @import("uart.zig");
+const wifi = @import("wifi.zig");
 
 var app: application.Application = undefined;
 

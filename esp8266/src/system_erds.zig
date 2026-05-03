@@ -1,7 +1,7 @@
 //! ERD definitions for the ESP8266 application
 
-const std = @import("std");
 const erd_core = @import("erd_core");
+const std = @import("std");
 const Erd = erd_core.Erd;
 
 pub const WifiMode = enum(u8) { ap, station };

@@ -2,8 +2,8 @@
 //! Puts the ESP8266 in station mode and performs a full channel scan every 10 seconds.
 //! Results are printed to UART: SSID, channel, RSSI (dBm), and authentication mode.
 
-const std = @import("std");
 const sdk = @import("sdk.zig");
+const std = @import("std");
 const uart = @import("uart.zig");
 
 /// Initialize WiFi in station mode and kick off the first scan.

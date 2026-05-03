@@ -5,8 +5,8 @@
 //! It is intended to pass by value NOT by reference since most of it will fall away at
 //! comptime and you want to ensure direct accesses to underlying function calls
 
-const std = @import("std");
 const erd_core = @import("erd_core");
+const std = @import("std");
 const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 

@@ -33,8 +33,8 @@
 //!   This ensures no single task can starve the system (including 0 tick periodic `Timer`s)
 //!
 
-const std = @import("std");
 const sometimes = @import("sometimes");
+const std = @import("std");
 
 /// A tick is typically 1 millisecond. Can be longer. Smaller time-scales aren't practical
 /// due to implied timing constraints that cannot be guaranteed in such a system.

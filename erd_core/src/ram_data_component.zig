@@ -2,8 +2,8 @@
 //! `comptime` makes it so ERD reads and writes are direct,
 //! even when performed through higher level abstractions like system_data
 
-const std = @import("std");
 const erd_core = @import("erd_core");
+const std = @import("std");
 const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 const DataComponentSubscription = erd_core.data_component.subscription_mixin.DataComponentSubscription;

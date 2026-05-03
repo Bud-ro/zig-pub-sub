@@ -3,8 +3,8 @@
 //! Region spec: name:origin:length (hex, no 0x prefix)
 //! Example: elf-size firmware.elf RAM:3FFE8000:14000 IRAM:40100000:8000
 
-const std = @import("std");
 const elf_size = @import("root.zig");
+const std = @import("std");
 
 fn writeAll(data: []const u8) void {
     const stdout = std.io.getStdOut();

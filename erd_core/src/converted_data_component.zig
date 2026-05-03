@@ -8,8 +8,8 @@
 //! `post_system_data_init` to wire up the SystemData back-pointer and dependency
 //! subscriptions. Public APIs assert that `post_system_data_init` has been called.
 
-const std = @import("std");
 const erd_core = @import("erd_core");
+const std = @import("std");
 const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 const DataComponentSubscription = erd_core.data_component.subscription_mixin.DataComponentSubscription;

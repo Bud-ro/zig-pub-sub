@@ -1,5 +1,5 @@
-const std = @import("std");
 const erd_schema = @import("erd_schema");
+const std = @import("std");
 const erd_json = erd_schema.json;
 const Erd = @import("erd_core").Erd;
 

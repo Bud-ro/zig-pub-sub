@@ -1,5 +1,5 @@
-const std = @import("std");
 const erd_schema = @import("erd_schema");
+const std = @import("std");
 const SystemErds = @import("system_erds.zig");
 
 // zlinter-disable-next-line no_inferred_error_unions
