@@ -2,8 +2,9 @@ const std = @import("std");
 const erd_schema = @import("erd_schema");
 const SystemErds = @import("system_erds.zig");
 
+// zlinter-disable-next-line no_inferred_error_unions
 pub fn main() !void {
-    const max_json_size = comptime std.fmt.parseIntSizeSuffix("1MiB", 10) catch unreachable;
+    const max_json_size = comptime std.fmt.parseIntSizeSuffix("1MiB", 10) catch unreachable; // zlinter-disable-current-line no_swallow_error
     var buf: [max_json_size]u8 = undefined;
 
     var out = std.io.Writer.fixed(&buf);

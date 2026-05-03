@@ -215,7 +215,9 @@ test "double sub test" {
     try std.testing.expectEqual(3, system_data.read(.unaligned_u16));
 }
 
-fn whatever(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {}
+fn whatever(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
+    // intentionally empty
+}
 
 test "exact subscription enforcement" {
     var system_data = TestSystem.init();

@@ -197,7 +197,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
         /// A test only function used to verify that after initialization,
         /// all of your subscriptions arrays are fully saturated
-        pub fn verify_all_subs_are_saturated(this: *Self, comptime exceptions: []const SubException) !void {
+        pub fn verify_all_subs_are_saturated(this: *Self, comptime exceptions: []const SubException) error{ ErdWithNoSubsInExceptions, ErdWithUnexpectedSubCount }!void {
             var failed = false;
 
             inline for (exceptions) |e| {

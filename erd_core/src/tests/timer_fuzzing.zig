@@ -116,7 +116,9 @@ test "fuzz testing timer module" {
     }
 }
 
-fn do_nothing_callback(_: ?*anyopaque, _: *TimerModule, _: *Timer) void {}
+fn do_nothing_callback(_: ?*anyopaque, _: *TimerModule, _: *Timer) void {
+    // intentionally empty
+}
 
 fn stop_some_timer(ctx: ?*anyopaque, _timer_module: *TimerModule, _: *Timer) void {
     const rng: *std.Random = @ptrCast(@alignCast(ctx));

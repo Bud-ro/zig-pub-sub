@@ -505,21 +505,25 @@ test "can pause timer during periodic callback" {
 }
 
 test "One shot with null callback" {
+    // zlinter-disable no_comment_out_code
     // var timer_module = TimerModule{};
     // var timer1 = Timer{};
     // var context: u32 = 0;
 
     return error.SkipZigTest; // Test for compile error
     // timer_module.start_one_shot(&timer1, 0, &context, null);
+    // zlinter-enable no_comment_out_code
 }
 
 test "Periodic with null callback" {
+    // zlinter-disable no_comment_out_code
     // var timer_module = TimerModule{};
     // var timer1 = Timer{};
     // var context: u32 = 0;
 
     return error.SkipZigTest; // Test for compile error
     // timer_module.start_periodic(&timer1, 0, &context, null);
+    // zlinter-enable no_comment_out_code
 }
 
 test "IsRunning" {
@@ -1598,6 +1602,7 @@ test "elapsed ticks from a callback" {
 test "ticks since last started called without starting the timer" {
     return error.SkipZigTest; // This test actually depends on optimization level as well
 
+    // zlinter-disable no_comment_out_code
     // var timer_module = TimerModule{};
     // var timer1 = Timer{};
 
@@ -1606,4 +1611,5 @@ test "ticks since last started called without starting the timer" {
 
     // timer_module.increment_current_time(123);
     // try std.testing.expectEqual(123, timer_module.ticks_since_last_started(&timer1));
+    // zlinter-enable no_comment_out_code
 }

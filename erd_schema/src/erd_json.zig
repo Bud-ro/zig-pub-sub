@@ -9,6 +9,7 @@ pub const Options = struct {
     version: []const u8 = "0.1.0",
 };
 
+// zlinter-disable-next-line no_inferred_error_unions - error set depends on writer
 pub fn generate(erd_defs: anytype, writer: *std.io.Writer, comptime options: Options) !void {
     var jws: std.json.Stringify = .{
         .writer = writer,
@@ -17,6 +18,7 @@ pub fn generate(erd_defs: anytype, writer: *std.io.Writer, comptime options: Opt
     try serialize(erd_defs, &jws, options);
 }
 
+// zlinter-disable-next-line no_inferred_error_unions - error set depends on anytype jws
 pub fn serialize(erd_defs: anytype, jws: anytype, comptime options: Options) !void {
     const ErdDefs = @TypeOf(erd_defs);
     const erd_names = comptime std.meta.fieldNames(ErdDefs);

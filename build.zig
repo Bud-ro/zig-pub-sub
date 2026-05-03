@@ -1,4 +1,5 @@
 const std = @import("std");
+const zlinter = @import("zlinter");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -90,6 +91,56 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     b.installArtifact(app_exe);
+
+    // --- Lint step (zlinter) ---
+    const lint_step = b.step("lint", "Lint source code with zlinter");
+    lint_step.dependOn(step: {
+        var linter = zlinter.builder(b, .{});
+        linter.addPaths(.{
+            .include = &.{
+                b.path("."),
+            },
+            .exclude = &.{
+                b.path("erd_core/src/codegen_harness.zig"),
+                b.path("zig-out"),
+                b.path(".zig-cache"),
+                b.path("erd_core/zig-out"),
+                b.path("erd_core/.zig-cache"),
+                b.path("erd_schema/zig-out"),
+                b.path("erd_schema/.zig-cache"),
+                b.path("data_gen/zig-out"),
+                b.path("data_gen/.zig-cache"),
+                b.path("app/zig-out"),
+                b.path("app/.zig-cache"),
+                b.path("esp8266/zig-out"),
+                b.path("esp8266/.zig-cache"),
+            },
+        });
+        linter.addRule(.{ .builtin = .declaration_naming }, .{});
+        linter.addRule(.{ .builtin = .field_ordering }, .{});
+        linter.addRule(.{ .builtin = .field_naming }, .{});
+        linter.addRule(.{ .builtin = .file_naming }, .{});
+        linter.addRule(.{ .builtin = .function_naming }, .{});
+        linter.addRule(.{ .builtin = .import_ordering }, .{});
+        linter.addRule(.{ .builtin = .max_positional_args }, .{});
+        linter.addRule(.{ .builtin = .no_comment_out_code }, .{});
+        linter.addRule(.{ .builtin = .no_deprecated }, .{});
+        linter.addRule(.{ .builtin = .no_empty_block }, .{});
+        linter.addRule(.{ .builtin = .no_hidden_allocations }, .{});
+        linter.addRule(.{ .builtin = .no_inferred_error_unions }, .{});
+        linter.addRule(.{ .builtin = .no_literal_args }, .{});
+        linter.addRule(.{ .builtin = .no_literal_only_bool_expression }, .{});
+        linter.addRule(.{ .builtin = .no_orelse_unreachable }, .{});
+        linter.addRule(.{ .builtin = .no_swallow_error }, .{});
+        linter.addRule(.{ .builtin = .no_todo }, .{});
+        linter.addRule(.{ .builtin = .no_undefined }, .{});
+        linter.addRule(.{ .builtin = .no_unused }, .{});
+        linter.addRule(.{ .builtin = .require_braces }, .{});
+        linter.addRule(.{ .builtin = .require_doc_comment }, .{});
+        linter.addRule(.{ .builtin = .require_errdefer_dealloc }, .{});
+        linter.addRule(.{ .builtin = .switch_case_ordering }, .{});
+        break :step linter.build();
+    });
 
     // --- Codegen steps (delegate to erd_core) ---
     const codegen_check = b.addSystemCommand(&.{ b.graph.zig_exe, "build", "codegen-check" });

@@ -1,8 +1,8 @@
 const std = @import("std");
 
 // --- Types ---
-pub const Erd = @import("erd.zig");
-pub const Subscription = @import("subscription.zig");
+pub const Erd = @import("Erd.zig");
+pub const Subscription = @import("Subscription.zig");
 pub const SystemData = @import("system_data.zig").SystemData;
 
 // --- Namespaces ---
@@ -24,7 +24,7 @@ pub const testing = @import("testing.zig");
 
 pub const common = struct {
     pub const erd_logic = @import("common/erd_logic.zig");
-    pub const stopwatch = @import("common/stopwatch.zig");
+    pub const Stopwatch = @import("common/Stopwatch.zig");
     pub const timer_stats = @import("common/timer_stats.zig");
 };
 

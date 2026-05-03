@@ -54,6 +54,7 @@ const MAX_SECTIONS_PER_REGION = 32;
 const MAX_REGIONS = 16;
 
 /// Format a memory usage summary into the provided buffer. Returns the number of bytes written.
+// zlinter-disable-next-line no_inferred_error_unions
 pub fn format_summary(elf_path: []const u8, regions: []const MemoryRegion, out: []u8) !usize {
     const file = try std.fs.cwd().openFile(elf_path, .{});
     defer file.close();

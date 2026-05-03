@@ -191,8 +191,8 @@ pub const TimerModule = struct {
         if (was_active) {
             timer.timer_data = Timer.TimerData{ .remaining_ticks_if_paused = remaining_ticks_active_timer(timer, self.safely_get_current_time()) };
             self.paused_timers.prepend(&timer.node); // Order doesn't matter, pause list should be relatively small
-        } else {
-            // Do nothing, it was already paused
+        } else { // zlinter-disable-current-line no_swallow_error
+            std.debug.assert(!was_active);
         }
     }
 
@@ -206,8 +206,8 @@ pub const TimerModule = struct {
         const was_paused = try_remove(&self.paused_timers, &timer.node);
         if (was_paused) {
             self.insert_timer(timer, timer.timer_data.remaining_ticks_if_paused);
-        } else {
-            // Do nothing, it was already active
+        } else { // zlinter-disable-current-line no_swallow_error
+            std.debug.assert(!was_paused);
         }
     }
 
