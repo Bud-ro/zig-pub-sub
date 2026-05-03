@@ -147,7 +147,7 @@ pub fn build(b: *std.Build) void {
         linter.addRule(.{ .builtin = .require_doc_comment }, .{});
         linter.addRule(.{ .builtin = .require_errdefer_dealloc }, .{});
         linter.addRule(.{ .builtin = .switch_case_ordering }, .{});
-        linter.addRule(.{ .custom = .{ .name = "no_redundant_comptime", .path = "no_redundant_comptime.zig" } }, .{});
+        linter.addRule(.{ .custom = .{ .name = "no_redundant_comptime", .path = "zlinter_rules/no_redundant_comptime.zig" } }, .{});
         break :step linter.build();
     });
 

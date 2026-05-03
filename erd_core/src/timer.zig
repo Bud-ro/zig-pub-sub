@@ -87,6 +87,12 @@ pub const Timer = struct {
 };
 
 /// Tick-based software scheduler using sorted linked lists of Timer nodes.
+///
+/// NOTE: Assumes that `Timer`s used with it are exclusive. You may
+/// safely use multiple `TimerModule`s so long as a `Timer` is not
+/// passed to more than 1. Safely using a timer between two `TimerModule`s
+/// requires that it be stopped before ANY function (even trivial ones)
+/// are called on it by the other `TimerModule`.
 pub const TimerModule = struct {
     current_time: Ticks = 0,
     active_timers: std.SinglyLinkedList = .{},

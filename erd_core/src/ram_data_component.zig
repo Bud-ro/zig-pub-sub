@@ -128,12 +128,6 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             return std.mem.readInt(Int, a, .little) != std.mem.readInt(Int, b, .little);
         }
 
-        /// Write without change detection or publish (used during initialization).
-        pub fn writeNoCompare(self: *Self, erd: Erd, data: erd.T) void {
-            const idx = erd.data_component_idx;
-            self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = std.mem.toBytes(data);
-        }
-
         /// Runtime write with change detection using a dynamic data component index.
         pub fn runtimeWrite(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
             const idx = data_component_idx;
