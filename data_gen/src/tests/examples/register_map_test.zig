@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Hardware Register Map ---
 // Registers at specific byte addresses that must not overlap.
@@ -72,14 +72,14 @@ const RegisterMap = struct {
     regs: []const Register,
 
     pub fn validate(comptime self: RegisterMap) ?[]const u8 {
-        if (constraints.lenInRange(1, 128, self.regs.len)) |err| return err;
+        if (constraint.lenInRange(1, 128, self.regs.len)) |err| return err;
 
         var ids: [self.regs.len]u8 = undefined;
         for (self.regs, 0..) |reg, i| {
-            if (contracts.check(reg, "")) |err| return err;
+            if (contract.check(reg, "")) |err| return err;
             ids[i] = reg.name_id;
         }
-        if (constraints.noDuplicates(u8, &ids)) |err| return err;
+        if (constraint.noDuplicates(u8, &ids)) |err| return err;
 
         // Registers must not overlap in address space
         for (0..self.regs.len) |i| {
@@ -174,7 +174,7 @@ const peripheral_regs = blk: {
             },
         },
     };
-    contracts.assertValid(RegisterMap{ .regs = &regs });
+    contract.assertValid(RegisterMap{ .regs = &regs });
     break :blk regs;
 };
 
@@ -246,8 +246,8 @@ const gpio_regs = blk: {
             };
         }
     }.f;
-    const regs = generators.generateArray(Register, 24, gen);
-    contracts.assertValid(RegisterMap{ .regs = &regs });
+    const regs = generator.generateArray(Register, 24, gen);
+    contract.assertValid(RegisterMap{ .regs = &regs });
     break :blk regs;
 };
 

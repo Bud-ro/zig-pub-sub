@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Communication Protocol Frame Definition ---
 // Field layout with structural constraints: length fields must match,
@@ -15,7 +15,7 @@ const FrameField = struct {
     size: u8,
 
     pub fn validate(comptime self: FrameField) ?[]const u8 {
-        if (constraints.nonZero(self.size)) |err| return err;
+        if (constraint.nonZero(self.size)) |err| return err;
         return null;
     }
 };
@@ -87,7 +87,7 @@ const simple_protocol = blk: {
         .{ .field_type = .payload, .offset = 4, .size = 64 },
         .{ .field_type = .crc, .offset = 68, .size = 2 },
     };
-    contracts.assertValid(FrameDefinition{ .fields = &fields });
+    contract.assertValid(FrameDefinition{ .fields = &fields });
     break :blk fields;
 };
 
@@ -111,8 +111,8 @@ const MessageDef = struct {
     priority: u8,
 
     pub fn validate(comptime self: MessageDef) ?[]const u8 {
-        if (constraints.inRange(0, 128, self.payload_size)) |err| return err;
-        if (constraints.inRange(0, 7, self.priority)) |err| return err;
+        if (constraint.inRange(0, 128, self.payload_size)) |err| return err;
+        if (constraint.inRange(0, 7, self.priority)) |err| return err;
 
         if (self.is_broadcast and self.response_type_id != null)
             return std.fmt.comptimePrint(
@@ -131,7 +131,7 @@ const MessageRegistry = struct {
         @setEvalBranchQuota(5000);
         const msgs = self.msgs;
 
-        if (constraints.lenInRange(1, 64, msgs.len)) |err| return err;
+        if (constraint.lenInRange(1, 64, msgs.len)) |err| return err;
 
         var ids: [msgs.len]u8 = undefined;
         for (msgs, 0..) |msg, i| {
@@ -154,7 +154,7 @@ const MessageRegistry = struct {
                     );
             }
         }
-        if (constraints.noDuplicates(u8, &ids)) |err| return err;
+        if (constraint.noDuplicates(u8, &ids)) |err| return err;
 
         // Detect response cycles (no message should chain back to itself)
         for (msgs) |start| {
@@ -199,7 +199,7 @@ const message_registry = blk: {
         .{ .type_id = 0x82, .payload_size = 4, .response_type_id = null, .is_broadcast = false, .priority = 5 },
         .{ .type_id = 0x83, .payload_size = 64, .response_type_id = null, .is_broadcast = false, .priority = 3 },
     };
-    contracts.assertValid(MessageRegistry{ .msgs = &msgs });
+    contract.assertValid(MessageRegistry{ .msgs = &msgs });
     break :blk msgs;
 };
 
@@ -208,7 +208,7 @@ test "message registry has unique type IDs" {
         try std.testing.expectEqual(9, message_registry.len);
         var ids: [message_registry.len]u8 = undefined;
         for (message_registry, 0..) |msg, i| ids[i] = msg.type_id;
-        if (constraints.noDuplicates(u8, &ids)) |err| @compileError(err);
+        if (constraint.noDuplicates(u8, &ids)) |err| @compileError(err);
     }
 }
 
@@ -267,7 +267,7 @@ const BaudConfig = struct {
 
 test "baud config standard 115200 8N1" {
     comptime {
-        contracts.assertValid(BaudConfig{
+        contract.assertValid(BaudConfig{
             .baud_rate = 115200,
             .data_bits = 8,
             .stop_bits = 1,
@@ -279,7 +279,7 @@ test "baud config standard 115200 8N1" {
 
 test "baud config high speed with flow control" {
     comptime {
-        contracts.assertValid(BaudConfig{
+        contract.assertValid(BaudConfig{
             .baud_rate = 921600,
             .data_bits = 8,
             .stop_bits = 1,
@@ -291,7 +291,7 @@ test "baud config high speed with flow control" {
 
 test "baud config 7-bit with parity" {
     comptime {
-        contracts.assertValid(BaudConfig{
+        contract.assertValid(BaudConfig{
             .baud_rate = 9600,
             .data_bits = 7,
             .stop_bits = 2,

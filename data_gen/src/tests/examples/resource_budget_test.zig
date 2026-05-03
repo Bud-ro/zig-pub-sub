@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Multi-Dimensional Resource Budgeting ---
 // Each module consumes CPU, RAM, flash, and power simultaneously.
@@ -22,7 +22,7 @@ const ModuleDef = struct {
     can_be_disabled: bool,
 
     pub fn validate(comptime self: ModuleDef) ?[]const u8 {
-        if (constraints.inRange(0, 1000, self.resources.cpu_pct_x10)) |err| return err;
+        if (constraint.inRange(0, 1000, self.resources.cpu_pct_x10)) |err| return err;
         if (self.priority == 0 and self.can_be_disabled)
             return std.fmt.comptimePrint(
                 "critical module {} (priority 0) must not be disableable",
@@ -46,7 +46,7 @@ fn ValidatedModuleSystem(comptime len: usize) type {
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
-            if (constraints.lenInRange(1, 32, self.modules.len)) |err| return err;
+            if (constraint.lenInRange(1, 32, self.modules.len)) |err| return err;
 
             var ids: [len]u8 = undefined;
             var total_cpu: u32 = 0;
@@ -61,7 +61,7 @@ fn ValidatedModuleSystem(comptime len: usize) type {
                 total_flash += m.resources.flash_bytes;
                 total_power += m.resources.power_uw;
             }
-            if (constraints.noDuplicates(u8, &ids)) |err| return err;
+            if (constraint.noDuplicates(u8, &ids)) |err| return err;
 
             if (total_cpu > self.budget.max_cpu_pct_x10)
                 return std.fmt.comptimePrint(
@@ -159,7 +159,7 @@ const system_modules = blk: {
             .power_uw = 10000,
         } },
     };
-    break :blk contracts.validated(ValidatedModuleSystem(modules.len){ .modules = modules, .budget = system_budget }).modules;
+    break :blk contract.validated(ValidatedModuleSystem(modules.len){ .modules = modules, .budget = system_budget }).modules;
 };
 
 test "system modules fit within all budget dimensions" {
@@ -212,8 +212,8 @@ const Rect = struct {
     h: u16,
 
     pub fn validate(comptime self: Rect) ?[]const u8 {
-        if (constraints.nonZero(self.w)) |err| return err;
-        if (constraints.nonZero(self.h)) |err| return err;
+        if (constraint.nonZero(self.w)) |err| return err;
+        if (constraint.nonZero(self.h)) |err| return err;
         return null;
     }
 };
@@ -224,7 +224,7 @@ fn ValidatedTiling(comptime len: usize, comptime screen_w: u16, comptime screen_
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(10_000);
-            if (constraints.lenInRange(1, 32, self.rects.len)) |err| return err;
+            if (constraint.lenInRange(1, 32, self.rects.len)) |err| return err;
 
             // All rects within screen bounds
             for (self.rects) |r| {
@@ -281,7 +281,7 @@ const dashboard_layout = blk: {
         .{ .x = 160, .y = 120, .w = 80, .h = 120 },
         .{ .x = 240, .y = 120, .w = 80, .h = 120 },
     };
-    break :blk contracts.validated(ValidatedTiling(rects.len, 320, 240){ .rects = rects }).rects;
+    break :blk contract.validated(ValidatedTiling(rects.len, 320, 240){ .rects = rects }).rects;
 };
 
 test "dashboard layout tiles 320x240 completely" {

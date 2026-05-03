@@ -1,6 +1,6 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
 
 // --- Network Topology with Symmetric Cost Matrix ---
 // A communication cost matrix between N nodes.
@@ -123,7 +123,7 @@ const Edge = struct {
     cost: u16,
 
     pub fn validate(comptime self: Edge) ?[]const u8 {
-        if (constraints.nonZero(self.cost)) |err| return err;
+        if (constraint.nonZero(self.cost)) |err| return err;
         return null;
     }
 };
@@ -266,7 +266,7 @@ fn ClockTree(comptime N: usize) type {
         nodes: [N]ClockNode,
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
-            if (constraints.lenInRange(1, 16, N)) |err| return err;
+            if (constraint.lenInRange(1, 16, N)) |err| return err;
 
             if (self.nodes[0].parent_idx != null)
                 return "root clock must have no parent";
@@ -274,13 +274,13 @@ fn ClockTree(comptime N: usize) type {
             var ids: [N]u8 = undefined;
             for (self.nodes, 0..) |node, i| {
                 ids[i] = node.name_id;
-                if (constraints.nonZero(node.frequency_hz)) |err| return err;
+                if (constraint.nonZero(node.frequency_hz)) |err| return err;
 
                 if (node.parent_idx) |pidx| {
                     if (pidx >= i)
                         return "parent must appear before child in clock tree";
 
-                    if (constraints.nonZero(node.divider)) |err| return err;
+                    if (constraint.nonZero(node.divider)) |err| return err;
                     const parent_freq = self.nodes[pidx].frequency_hz;
                     const expected_freq = parent_freq / node.divider;
 
@@ -297,7 +297,7 @@ fn ClockTree(comptime N: usize) type {
                         );
                 }
             }
-            if (constraints.noDuplicates(u8, &ids)) |err| return err;
+            if (constraint.noDuplicates(u8, &ids)) |err| return err;
 
             return null;
         }

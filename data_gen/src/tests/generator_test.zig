@@ -1,5 +1,5 @@
 const std = @import("std");
-const generators = @import("data_gen").generators;
+const generator = @import("data_gen").generator;
 
 test "generateArray produces correct values" {
     const doubler = struct {
@@ -9,7 +9,7 @@ test "generateArray produces correct values" {
     }.f;
 
     comptime {
-        const arr = generators.generateArray(u32, 5, doubler);
+        const arr = generator.generateArray(u32, 5, doubler);
         try std.testing.expectEqual(5, arr.len);
         try std.testing.expectEqual(0, arr[0]);
         try std.testing.expectEqual(2, arr[1]);
@@ -26,7 +26,7 @@ test "generateArray with struct type" {
     }.f;
 
     comptime {
-        const arr = generators.generateArray(Entry, 4, gen);
+        const arr = generator.generateArray(Entry, 4, gen);
         try std.testing.expectEqual(4, arr.len);
         try std.testing.expectEqual(0, arr[0].idx);
         try std.testing.expectEqual(300, arr[3].value);

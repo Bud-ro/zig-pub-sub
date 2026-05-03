@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Linearization Table ---
 
@@ -10,8 +10,8 @@ const LinPoint = struct {
     output: i16,
 
     pub fn validate(comptime self: LinPoint) ?[]const u8 {
-        if (constraints.inRange(-1000, 1000, self.input)) |err| return err;
-        if (constraints.inRange(-1000, 1000, self.output)) |err| return err;
+        if (constraint.inRange(-1000, 1000, self.input)) |err| return err;
+        if (constraint.inRange(-1000, 1000, self.output)) |err| return err;
         return null;
     }
 };
@@ -21,14 +21,14 @@ fn ValidatedLinTable(comptime len: usize) type {
         table: [len]LinPoint,
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
-            if (constraints.lenInRange(2, 64, self.table.len)) |err| return err;
+            if (constraint.lenInRange(2, 64, self.table.len)) |err| return err;
 
             var inputs: [len]i16 = undefined;
             for (self.table, 0..) |pt, i| {
                 inputs[i] = pt.input;
             }
-            if (constraints.isSorted(i16, &inputs)) |err| return err;
-            if (constraints.noDuplicates(i16, &inputs)) |err| return err;
+            if (constraint.isSorted(i16, &inputs)) |err| return err;
+            if (constraint.noDuplicates(i16, &inputs)) |err| return err;
             return null;
         }
     };
@@ -50,7 +50,7 @@ const temp_linearization = blk: {
         .{ .input = 750, .output = 820 },
         .{ .input = 1000, .output = 1000 },
     };
-    break :blk contracts.validated(ValidatedLinTable(table.len){ .table = table }).table;
+    break :blk contract.validated(ValidatedLinTable(table.len){ .table = table }).table;
 };
 
 test "linearization table is sorted and unique" {
@@ -103,7 +103,7 @@ fn BoundedPoly(comptime min_out: i32, comptime max_out: i32) type {
 
 test "polynomial coefficients stay in bounds" {
     comptime {
-        const p = contracts.validated(BoundedPoly(-1000, 1100){ .p = .{ .a = 0, .b = 10, .c = 50 } }).p;
+        const p = contract.validated(BoundedPoly(-1000, 1100){ .p = .{ .a = 0, .b = 10, .c = 50 } }).p;
         try std.testing.expectEqual(50, p.eval(0));
         try std.testing.expectEqual(60, p.eval(1));
     }
@@ -133,7 +133,7 @@ const ScalingConfig = struct {
     }
 
     pub fn generate(comptime self: ScalingConfig) ScalingConfig {
-        contracts.assertValid(self);
+        contract.assertValid(self);
         return self;
     }
 };
@@ -184,8 +184,8 @@ const CalEntry = struct {
     calibrated: u16,
 
     pub fn validate(comptime self: CalEntry) ?[]const u8 {
-        if (constraints.inRange(0, 4095, self.raw)) |err| return err;
-        if (constraints.inRange(0, 4095, self.calibrated)) |err| return err;
+        if (constraint.inRange(0, 4095, self.raw)) |err| return err;
+        if (constraint.inRange(0, 4095, self.calibrated)) |err| return err;
         return null;
     }
 };
@@ -212,10 +212,10 @@ const cal_table = blk: {
             return .{ .raw = raw, .calibrated = calibrated };
         }
     }.f;
-    const table = generators.generateArray(CalEntry, 64, gen_fn);
+    const table = generator.generateArray(CalEntry, 64, gen_fn);
 
     @setEvalBranchQuota(100000);
-    break :blk contracts.validated(ValidatedCalTable(table.len){ .table = table }).table;
+    break :blk contract.validated(ValidatedCalTable(table.len){ .table = table }).table;
 };
 
 test "generated cal table has 64 entries" {
@@ -261,7 +261,7 @@ fn ValidatedAdcChannels(comptime len: usize) type {
             for (self.channels, 0..) |ch, i| {
                 chan_ids[i] = ch.channel;
             }
-            if (constraints.noDuplicates(u8, &chan_ids)) |err| return err;
+            if (constraint.noDuplicates(u8, &chan_ids)) |err| return err;
             return null;
         }
     };
@@ -269,7 +269,7 @@ fn ValidatedAdcChannels(comptime len: usize) type {
 
 test "ADC calibration for 4 channels" {
     comptime {
-        _ = contracts.validated(ValidatedAdcChannels(4){ .channels = .{
+        _ = contract.validated(ValidatedAdcChannels(4){ .channels = .{
             .{ .channel = 0, .gain = 1024, .offset = -12, .reference_mv = 3300 },
             .{ .channel = 1, .gain = 1024, .offset = 5, .reference_mv = 3300 },
             .{ .channel = 2, .gain = 2048, .offset = -3, .reference_mv = 5000 },

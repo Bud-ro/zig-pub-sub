@@ -1,6 +1,6 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
 
 // --- Power Rail Sequencing ---
 // Voltage rails must power up in a specific order with minimum timing
@@ -19,8 +19,8 @@ const RailSpec = struct {
     min_gap_after_dep_us: u32,
 
     pub fn validate(comptime self: RailSpec) ?[]const u8 {
-        if (constraints.nonZero(self.voltage_mv)) |err| return err;
-        if (constraints.nonZero(self.max_current_ma)) |err| return err;
+        if (constraint.nonZero(self.voltage_mv)) |err| return err;
+        if (constraint.nonZero(self.max_current_ma)) |err| return err;
         return null;
     }
 };
@@ -31,14 +31,14 @@ fn ValidatedPowerSequence(comptime len: usize) type {
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
-            if (constraints.lenInRange(2, 16, self.rails.len)) |err| return err;
+            if (constraint.lenInRange(2, 16, self.rails.len)) |err| return err;
 
             // Unique rail IDs
             var ids: [len]u8 = undefined;
             for (self.rails, 0..) |rail, i| {
                 ids[i] = @intFromEnum(rail.rail);
             }
-            if (constraints.noDuplicates(u8, &ids)) |err| return err;
+            if (constraint.noDuplicates(u8, &ids)) |err| return err;
 
             // Dependencies must reference rails that appear earlier in the sequence
             for (self.rails, 0..) |rail, i| {
@@ -169,7 +169,7 @@ const power_sequence = blk: {
             .min_gap_after_dep_us = 500,
         },
     };
-    break :blk contracts.validated(ValidatedPowerSequence(rails.len){ .rails = rails }).rails;
+    break :blk contract.validated(ValidatedPowerSequence(rails.len){ .rails = rails }).rails;
 };
 
 test "power sequence starts with battery" {
@@ -255,7 +255,7 @@ fn ValidatedInrushBudget(comptime len: usize) type {
 
 test "power sequence inrush within 3A supply budget" {
     comptime {
-        contracts.assertValid(ValidatedInrushBudget(power_sequence.len){
+        contract.assertValid(ValidatedInrushBudget(power_sequence.len){
             .rails = power_sequence,
             .supply_max_ma = 3000,
         });

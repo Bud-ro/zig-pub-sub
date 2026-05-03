@@ -1,5 +1,5 @@
 const std = @import("std");
-const contracts = @import("data_gen").contracts;
+const contract = @import("data_gen").contract;
 
 // --- CAN Bus Bit Timing ---
 // CAN bit timing is computed from clock prescaler, propagation segment,
@@ -78,7 +78,7 @@ fn CanNetwork(comptime N: usize) type {
 
             var ids: [N]u8 = undefined;
             for (self.nodes, 0..) |node, i| {
-                if (contracts.check(node, std.fmt.comptimePrint(".nodes[{}]", .{i}))) |err| return err;
+                if (contract.check(node, std.fmt.comptimePrint(".nodes[{}]", .{i}))) |err| return err;
                 ids[i] = node.node_id;
             }
 
@@ -150,7 +150,7 @@ const can_network = blk: {
             },
         },
     };
-    break :blk (contracts.validated(CanNetwork(3){ .nodes = nodes })).nodes;
+    break :blk (contract.validated(CanNetwork(3){ .nodes = nodes })).nodes;
 };
 
 test "CAN network all nodes at 500kbps" {
@@ -210,7 +210,7 @@ fn CanFilterBank(comptime N: usize) type {
 
             var fids: [N]u8 = undefined;
             for (self.filters, 0..) |f, i| {
-                if (contracts.check(f, std.fmt.comptimePrint(".filters[{}]", .{i}))) |err| return err;
+                if (contract.check(f, std.fmt.comptimePrint(".filters[{}]", .{i}))) |err| return err;
                 fids[i] = f.filter_id;
             }
 
@@ -259,7 +259,7 @@ const can_filters = blk: {
         .{ .filter_id = 2, .can_id = 0x300, .mask = 0x7FF, .is_extended = false, .fifo = 1 },
         .{ .filter_id = 3, .can_id = 0x400, .mask = 0x700, .is_extended = false, .fifo = 1 },
     };
-    break :blk (contracts.validated(CanFilterBank(4){ .filters = filters })).filters;
+    break :blk (contract.validated(CanFilterBank(4){ .filters = filters })).filters;
 };
 
 test "CAN filters have no redundant entries" {

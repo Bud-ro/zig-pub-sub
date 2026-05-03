@@ -1,158 +1,208 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
+const constraint = @import("data_gen").constraint;
 
-test "inRange accepts values within bounds" {
+test "equals passes on equal values" {
     comptime {
-        if (constraints.inRange(10, 100, 10)) |err| @compileError(err);
-        if (constraints.inRange(10, 100, 50)) |err| @compileError(err);
-        if (constraints.inRange(10, 100, 100)) |err| @compileError(err);
-        if (constraints.inRange(-100, 100, -100)) |err| @compileError(err);
-        if (constraints.inRange(-100, 100, 0)) |err| @compileError(err);
-        if (constraints.inRange(-100, 100, 100)) |err| @compileError(err);
+        if (constraint.equals(42, 42)) |err| @compileError(err);
+        if (constraint.equals(0, 0)) |err| @compileError(err);
     }
 }
 
-test "isInRange returns correct bool" {
+test "equals error message" {
     comptime {
-        try std.testing.expect(constraints.isInRange(0, 10, 5));
-        try std.testing.expect(constraints.isInRange(0, 10, 0));
-        try std.testing.expect(constraints.isInRange(0, 10, 10));
-        try std.testing.expect(!constraints.isInRange(0, 10, 11));
-        try std.testing.expect(!constraints.isInRange(-5, 5, -6));
+        try std.testing.expectEqualStrings("expected 10, got 20", constraint.equals(10, 20).?);
+    }
+}
+
+test "inRange accepts values within bounds" {
+    comptime {
+        if (constraint.inRange(10, 100, 10)) |err| @compileError(err);
+        if (constraint.inRange(10, 100, 50)) |err| @compileError(err);
+        if (constraint.inRange(10, 100, 100)) |err| @compileError(err);
+        if (constraint.inRange(-100, 100, -100)) |err| @compileError(err);
+        if (constraint.inRange(-100, 100, 0)) |err| @compileError(err);
+    }
+}
+
+test "inRange error message" {
+    comptime {
+        try std.testing.expectEqualStrings(
+            "value 101 is outside range [10, 100]",
+            constraint.inRange(10, 100, 101).?,
+        );
+        try std.testing.expectEqualStrings(
+            "value -5 is outside range [0, 10]",
+            constraint.inRange(0, 10, -5).?,
+        );
     }
 }
 
 test "oneOf accepts allowed values" {
     comptime {
-        if (constraints.oneOf(&.{ 100, 200, 500, 1000 }, 200)) |err| @compileError(err);
-        if (constraints.oneOf(&.{ 100, 200, 500, 1000 }, 1000)) |err| @compileError(err);
+        if (constraint.oneOf(&.{ 100, 200, 500, 1000 }, 200)) |err| @compileError(err);
+        if (constraint.oneOf(&.{ 100, 200, 500, 1000 }, 1000)) |err| @compileError(err);
     }
 }
 
-test "isOneOf returns correct bool" {
+test "oneOf error message" {
     comptime {
-        try std.testing.expect(constraints.isOneOf(&.{ 1, 2, 3 }, 2));
-        try std.testing.expect(!constraints.isOneOf(&.{ 1, 2, 3 }, 4));
-    }
-}
-
-test "exactLen passes on correct length" {
-    comptime {
-        if (constraints.exactLen(4, 4)) |err| @compileError(err);
-        if (constraints.exactLen(0, 0)) |err| @compileError(err);
-        if (constraints.exactLen(256, 256)) |err| @compileError(err);
+        try std.testing.expectEqualStrings(
+            "value 42 is not in the allowed set: [1, 2, 3]",
+            constraint.oneOf(&.{ 1, 2, 3 }, 42).?,
+        );
     }
 }
 
 test "lenInRange passes within bounds" {
     comptime {
-        if (constraints.lenInRange(2, 256, 2)) |err| @compileError(err);
-        if (constraints.lenInRange(2, 256, 128)) |err| @compileError(err);
-        if (constraints.lenInRange(2, 256, 256)) |err| @compileError(err);
+        if (constraint.lenInRange(2, 256, 2)) |err| @compileError(err);
+        if (constraint.lenInRange(2, 256, 128)) |err| @compileError(err);
+        if (constraint.lenInRange(2, 256, 256)) |err| @compileError(err);
+    }
+}
+
+test "lenInRange error message" {
+    comptime {
+        try std.testing.expectEqualStrings(
+            "length 1 is outside [2, 256]",
+            constraint.lenInRange(2, 256, 1).?,
+        );
     }
 }
 
 test "isSorted passes on sorted array" {
     comptime {
-        if (constraints.isSorted(i16, &.{ -10, 0, 5, 100 })) |err| @compileError(err);
-        if (constraints.isSorted(u32, &.{ 1, 2, 3, 4, 5 })) |err| @compileError(err);
-        if (constraints.isSorted(u8, &.{42})) |err| @compileError(err);
-        if (constraints.isSorted(u8, &.{})) |err| @compileError(err);
+        if (constraint.isSorted(i16, &.{ -10, 0, 5, 100 })) |err| @compileError(err);
+        if (constraint.isSorted(u32, &.{ 1, 2, 3, 4, 5 })) |err| @compileError(err);
+        if (constraint.isSorted(u8, &.{42})) |err| @compileError(err);
+        if (constraint.isSorted(u8, &.{})) |err| @compileError(err);
+    }
+}
+
+test "isSorted error message" {
+    comptime {
+        try std.testing.expectEqualStrings(
+            "array not sorted at index 2: 1 < 5",
+            constraint.isSorted(u8, &.{ 3, 5, 1 }).?,
+        );
     }
 }
 
 test "noDuplicates passes on unique array" {
     comptime {
-        if (constraints.noDuplicates(u32, &.{ 1, 2, 3, 4, 5 })) |err| @compileError(err);
-        if (constraints.noDuplicates(i8, &.{ -1, 0, 1 })) |err| @compileError(err);
-        if (constraints.noDuplicates(u8, &.{42})) |err| @compileError(err);
-        if (constraints.noDuplicates(u8, &.{})) |err| @compileError(err);
+        if (constraint.noDuplicates(u32, &.{ 1, 2, 3, 4, 5 })) |err| @compileError(err);
+        if (constraint.noDuplicates(i8, &.{ -1, 0, 1 })) |err| @compileError(err);
+        if (constraint.noDuplicates(u8, &.{42})) |err| @compileError(err);
+        if (constraint.noDuplicates(u8, &.{})) |err| @compileError(err);
+    }
+}
+
+test "noDuplicates error message" {
+    comptime {
+        try std.testing.expectEqualStrings(
+            "duplicate value at indices 0 and 2",
+            constraint.noDuplicates(u8, &.{ 5, 3, 5 }).?,
+        );
     }
 }
 
 test "isPowerOfTwo passes on powers of two" {
     comptime {
-        if (constraints.isPowerOfTwo(1)) |err| @compileError(err);
-        if (constraints.isPowerOfTwo(2)) |err| @compileError(err);
-        if (constraints.isPowerOfTwo(4)) |err| @compileError(err);
-        if (constraints.isPowerOfTwo(256)) |err| @compileError(err);
-        if (constraints.isPowerOfTwo(1024)) |err| @compileError(err);
+        if (constraint.isPowerOfTwo(1)) |err| @compileError(err);
+        if (constraint.isPowerOfTwo(2)) |err| @compileError(err);
+        if (constraint.isPowerOfTwo(4)) |err| @compileError(err);
+        if (constraint.isPowerOfTwo(256)) |err| @compileError(err);
+        if (constraint.isPowerOfTwo(1024)) |err| @compileError(err);
+    }
+}
+
+test "isPowerOfTwo error message" {
+    comptime {
+        try std.testing.expectEqualStrings("3 is not a power of two", constraint.isPowerOfTwo(3).?);
+        try std.testing.expectEqualStrings("0 is not a power of two", constraint.isPowerOfTwo(0).?);
     }
 }
 
 test "isMultipleOf passes on valid multiples" {
     comptime {
-        if (constraints.isMultipleOf(4, 8)) |err| @compileError(err);
-        if (constraints.isMultipleOf(4, 16)) |err| @compileError(err);
-        if (constraints.isMultipleOf(10, 100)) |err| @compileError(err);
-        if (constraints.isMultipleOf(1, 7)) |err| @compileError(err);
+        if (constraint.isMultipleOf(4, 8)) |err| @compileError(err);
+        if (constraint.isMultipleOf(4, 16)) |err| @compileError(err);
+        if (constraint.isMultipleOf(10, 100)) |err| @compileError(err);
+        if (constraint.isMultipleOf(1, 7)) |err| @compileError(err);
+        if (constraint.isMultipleOf(3, -6)) |err| @compileError(err);
+    }
+}
+
+test "isMultipleOf error message" {
+    comptime {
+        try std.testing.expectEqualStrings("7 is not a multiple of 4", constraint.isMultipleOf(4, 7).?);
+        try std.testing.expectEqualStrings("divisor must not be zero", constraint.isMultipleOf(0, 5).?);
     }
 }
 
 test "nonZero passes on non-zero values" {
     comptime {
-        if (constraints.nonZero(1)) |err| @compileError(err);
-        if (constraints.nonZero(42)) |err| @compileError(err);
-        if (constraints.nonZero(-1)) |err| @compileError(err);
+        if (constraint.nonZero(1)) |err| @compileError(err);
+        if (constraint.nonZero(42)) |err| @compileError(err);
+        if (constraint.nonZero(-1)) |err| @compileError(err);
     }
 }
 
-test "anyOf passes when at least one is true" {
+test "nonZero error message" {
     comptime {
-        if (constraints.anyOf(&.{ false, true, false })) |err| @compileError(err);
-        if (constraints.anyOf(&.{ true, false })) |err| @compileError(err);
-        if (constraints.anyOf(&.{true})) |err| @compileError(err);
+        try std.testing.expectEqualStrings("value must not be zero", constraint.nonZero(0).?);
     }
 }
 
 test "lessThan passes for strictly less values" {
     comptime {
-        if (constraints.lessThan(5, 10)) |err| @compileError(err);
-        if (constraints.lessThan(-10, 0)) |err| @compileError(err);
+        if (constraint.lessThan(5, 10)) |err| @compileError(err);
+        if (constraint.lessThan(-10, 0)) |err| @compileError(err);
+    }
+}
+
+test "lessThan error message" {
+    comptime {
+        try std.testing.expectEqualStrings("expected 10 < 5, but it is not", constraint.lessThan(10, 5).?);
     }
 }
 
 test "greaterThan passes for strictly greater values" {
     comptime {
-        if (constraints.greaterThan(10, 5)) |err| @compileError(err);
-        if (constraints.greaterThan(0, -10)) |err| @compileError(err);
+        if (constraint.greaterThan(10, 5)) |err| @compileError(err);
+        if (constraint.greaterThan(0, -10)) |err| @compileError(err);
     }
 }
 
-test "sumAtMost passes when sum is within budget" {
+test "greaterThan error message" {
     comptime {
-        if (constraints.sumAtMost(u32, &.{ 10, 20, 30 }, 100)) |err| @compileError(err);
-        if (constraints.sumAtMost(u32, &.{ 10, 20, 30 }, 60)) |err| @compileError(err);
-        if (constraints.sumAtMost(u16, &.{0}, 0)) |err| @compileError(err);
+        try std.testing.expectEqualStrings("expected 3 > 5, but it is not", constraint.greaterThan(3, 5).?);
     }
 }
 
-test "sumEquals passes when sum matches target" {
+test "anyOf passes when at least one constraint passes" {
     comptime {
-        if (constraints.sumEquals(u32, &.{ 25, 25, 50 }, 100)) |err| @compileError(err);
-        if (constraints.sumEquals(u16, &.{ 10, 20, 30, 40 }, 100)) |err| @compileError(err);
-    }
-}
-
-test "allElements passes when all elements satisfy check" {
-    const checkPositive = struct {
-        fn f(comptime v: i32) ?[]const u8 {
-            if (v <= 0) return "must be positive";
-            return null;
-        }
-    }.f;
-
-    comptime {
-        if (constraints.allElements(i32, &.{ 1, 2, 3, 100 }, checkPositive)) |err| @compileError(err);
-    }
-}
-
-test "anyOf with isInRange for OR composition" {
-    comptime {
-        const value: u32 = 95;
-        if (constraints.anyOf(&.{
-            constraints.isInRange(0, 10, value),
-            constraints.isInRange(90, 100, value),
+        if (constraint.anyOf(&.{
+            constraint.inRange(0, 10, 95),
+            constraint.inRange(90, 100, 95),
         })) |err| @compileError(err);
+
+        if (constraint.anyOf(&.{
+            constraint.equals(42, 42),
+            constraint.equals(42, 99),
+        })) |err| @compileError(err);
+    }
+}
+
+test "anyOf error message lists all failures" {
+    comptime {
+        const result = constraint.anyOf(&.{
+            constraint.inRange(0, 10, 50),
+            constraint.inRange(90, 100, 50),
+        }).?;
+        try std.testing.expectEqualStrings(
+            "no alternative satisfied:\n  - value 50 is outside range [0, 10]\n  - value 50 is outside range [90, 100]",
+            result,
+        );
     }
 }

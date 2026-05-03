@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Generated 256-entry u8 → u8 Lookup Table ---
 
@@ -25,8 +25,8 @@ const gamma_table = blk: {
         }
     }.f;
 
-    const validated = contracts.validated(GammaTable{
-        .table = generators.generateArray(u8, 256, gen),
+    const validated = contract.validated(GammaTable{
+        .table = generator.generateArray(u8, 256, gen),
     });
 
     break :blk validated.table;
@@ -58,8 +58,8 @@ const PriorityConfig = struct {
     max_queue_depth: u8,
 
     pub fn validate(comptime self: PriorityConfig) ?[]const u8 {
-        if (constraints.nonZero(self.weight)) |err| return err;
-        if (constraints.nonZero(self.max_queue_depth)) |err| return err;
+        if (constraint.nonZero(self.weight)) |err| return err;
+        if (constraint.nonZero(self.max_queue_depth)) |err| return err;
         return null;
     }
 };
@@ -108,7 +108,7 @@ const priority_config = blk: {
         .{ .priority = .low, .weight = 25, .max_queue_depth = 32 },
         .{ .priority = .background, .weight = 5, .max_queue_depth = 64 },
     };
-    contracts.assertValid(PriorityMap{ .entries = &map });
+    contract.assertValid(PriorityMap{ .entries = &map });
     break :blk map;
 };
 
@@ -134,7 +134,7 @@ const InterpPoint = struct {
     y: i32,
 
     pub fn validate(comptime self: InterpPoint) ?[]const u8 {
-        if (constraints.inRange(-10000, 10000, self.y)) |err| return err;
+        if (constraint.inRange(-10000, 10000, self.y)) |err| return err;
         return null;
     }
 };
@@ -143,14 +143,14 @@ const InterpTable = struct {
     points: []const InterpPoint,
 
     pub fn validate(comptime self: InterpTable) ?[]const u8 {
-        if (constraints.lenInRange(3, 128, self.points.len)) |err| return err;
+        if (constraint.lenInRange(3, 128, self.points.len)) |err| return err;
 
         var xs: [self.points.len]i32 = undefined;
         for (self.points, 0..) |pt, i| {
             xs[i] = pt.x;
         }
-        if (constraints.isSorted(i32, &xs)) |err| return err;
-        if (constraints.noDuplicates(i32, &xs)) |err| return err;
+        if (constraint.isSorted(i32, &xs)) |err| return err;
+        if (constraint.noDuplicates(i32, &xs)) |err| return err;
         return null;
     }
 };
@@ -169,7 +169,7 @@ const pressure_curve = blk: {
         .{ .x = 900, .y = 4600 },
         .{ .x = 1000, .y = 5600 },
     };
-    contracts.assertValid(InterpTable{ .points = &table });
+    contract.assertValid(InterpTable{ .points = &table });
     break :blk table;
 };
 
@@ -186,7 +186,7 @@ test "pressure curve is sorted with unique x values" {
 
 const DacLutEntry = struct { input: u16, output: u16 };
 
-const dac_lut = generators.generateArray(DacLutEntry, 11, struct {
+const dac_lut = generator.generateArray(DacLutEntry, 11, struct {
     fn f(comptime i: usize) DacLutEntry {
         const input: u16 = @intCast(i * 10);
         return .{ .input = input, .output = input * 40 + 100 };
@@ -212,7 +212,7 @@ const Segment = struct {
     end_y: i16,
 
     pub fn validate(comptime self: Segment) ?[]const u8 {
-        if (constraints.lessThan(self.start_x, self.end_x)) |err| return err;
+        if (constraint.lessThan(self.start_x, self.end_x)) |err| return err;
         return null;
     }
 };
@@ -241,7 +241,7 @@ const motor_torque_map = blk: {
         .{ .start_x = 500, .end_x = 2000, .start_y = 100, .end_y = 100 },
         .{ .start_x = 2000, .end_x = 5000, .start_y = 100, .end_y = 30 },
     };
-    contracts.assertValid(PiecewiseMap{ .segments = &segs });
+    contract.assertValid(PiecewiseMap{ .segments = &segs });
     break :blk segs;
 };
 

@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Rate-Monotonic Task Scheduling ---
 // Tasks with periods and priorities. Rate-monotonic: shorter period = higher priority.
@@ -15,10 +15,10 @@ const TaskDef = struct {
     stack_size: u16,
 
     pub fn validate(comptime self: TaskDef) ?[]const u8 {
-        if (constraints.nonZero(self.period_ms)) |err| return err;
-        if (constraints.nonZero(self.wcet_us)) |err| return err;
-        if (constraints.isPowerOfTwo(self.stack_size)) |err| return err;
-        if (constraints.inRange(64, 8192, self.stack_size)) |err| return err;
+        if (constraint.nonZero(self.period_ms)) |err| return err;
+        if (constraint.nonZero(self.wcet_us)) |err| return err;
+        if (constraint.isPowerOfTwo(self.stack_size)) |err| return err;
+        if (constraint.inRange(64, 8192, self.stack_size)) |err| return err;
 
         if (self.wcet_us >= @as(u32, self.period_ms) * 1000)
             return std.fmt.comptimePrint(
@@ -35,7 +35,7 @@ fn ValidatedTaskSet(comptime len: usize) type {
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
-            if (constraints.lenInRange(1, 32, self.tasks.len)) |err| return err;
+            if (constraint.lenInRange(1, 32, self.tasks.len)) |err| return err;
 
             var ids: [len]u8 = undefined;
             var priorities: [len]u8 = undefined;
@@ -43,8 +43,8 @@ fn ValidatedTaskSet(comptime len: usize) type {
                 ids[i] = task.id;
                 priorities[i] = task.priority;
             }
-            if (constraints.noDuplicates(u8, &ids)) |err| return err;
-            if (constraints.noDuplicates(u8, &priorities)) |err| return err;
+            if (constraint.noDuplicates(u8, &ids)) |err| return err;
+            if (constraint.noDuplicates(u8, &priorities)) |err| return err;
 
             // Rate-monotonic: shorter period must have higher priority (lower number)
             for (0..self.tasks.len) |i| {
@@ -96,7 +96,7 @@ const task_set = blk: {
         .{ .id = 5, .period_ms = 100, .wcet_us = 5000, .priority = 4, .stack_size = 2048 },
         .{ .id = 6, .period_ms = 1000, .wcet_us = 10000, .priority = 5, .stack_size = 4096 },
     };
-    break :blk contracts.validated(ValidatedTaskSet(tasks.len){ .tasks = tasks }).tasks;
+    break :blk contract.validated(ValidatedTaskSet(tasks.len){ .tasks = tasks }).tasks;
 };
 
 test "task set follows rate-monotonic priority assignment" {
@@ -139,8 +139,8 @@ const MemRegion = struct {
     cacheable: bool,
 
     pub fn validate(comptime self: MemRegion) ?[]const u8 {
-        if (constraints.nonZero(self.size)) |err| return err;
-        if (constraints.isPowerOfTwo(self.size)) |err| return err;
+        if (constraint.nonZero(self.size)) |err| return err;
+        if (constraint.isPowerOfTwo(self.size)) |err| return err;
 
         if (self.start_addr % self.size != 0)
             return std.fmt.comptimePrint(
@@ -169,13 +169,13 @@ fn ValidatedMemoryMap(comptime len: usize) type {
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
-            if (constraints.lenInRange(1, 32, self.regions.len)) |err| return err;
+            if (constraint.lenInRange(1, 32, self.regions.len)) |err| return err;
 
             var ids: [len]u8 = undefined;
             for (self.regions, 0..) |region, i| {
                 ids[i] = region.name_id;
             }
-            if (constraints.noDuplicates(u8, &ids)) |err| return err;
+            if (constraint.noDuplicates(u8, &ids)) |err| return err;
 
             for (0..self.regions.len) |i| {
                 for (i + 1..self.regions.len) |j| {
@@ -203,7 +203,7 @@ const memory_map = blk: {
         .{ .name_id = 5, .start_addr = 0x40002000, .size = 0x00001000, .readable = true, .writable = false, .executable = false, .cacheable = false },
         .{ .name_id = 6, .start_addr = 0xE0000000, .size = 0x00100000, .readable = true, .writable = true, .executable = false, .cacheable = false },
     };
-    break :blk contracts.validated(ValidatedMemoryMap(regions.len){ .regions = regions }).regions;
+    break :blk contract.validated(ValidatedMemoryMap(regions.len){ .regions = regions }).regions;
 };
 
 test "memory map regions do not overlap" {
@@ -244,7 +244,7 @@ const IrqEntry = struct {
     preempts_below_priority: u8,
 
     pub fn validate(comptime self: IrqEntry) ?[]const u8 {
-        if (constraints.inRange(0, 15, self.priority)) |err| return err;
+        if (constraint.inRange(0, 15, self.priority)) |err| return err;
 
         if (self.preempts_below_priority > self.priority)
             return "preemption threshold cannot exceed own priority";
@@ -258,7 +258,7 @@ fn ValidatedIrqTable(comptime len: usize, comptime task_set_len: usize) type {
         task_set_ref: [task_set_len]TaskDef,
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
-            if (constraints.lenInRange(1, 64, self.entries.len)) |err| return err;
+            if (constraint.lenInRange(1, 64, self.entries.len)) |err| return err;
 
             var vectors: [len]u8 = undefined;
             for (self.entries, 0..) |entry, i| {
@@ -278,7 +278,7 @@ fn ValidatedIrqTable(comptime len: usize, comptime task_set_len: usize) type {
                         .{ entry.vector, entry.handler_task_id },
                     );
             }
-            if (constraints.noDuplicates(u8, &vectors)) |err| return err;
+            if (constraint.noDuplicates(u8, &vectors)) |err| return err;
             return null;
         }
     };
@@ -291,7 +291,7 @@ const irq_table = blk: {
         .{ .vector = 5, .priority = 5, .handler_task_id = 3, .preempts_below_priority = 3 },
         .{ .vector = 10, .priority = 8, .handler_task_id = 5, .preempts_below_priority = 5 },
     };
-    break :blk contracts.validated(ValidatedIrqTable(entries.len, task_set.len){ .entries = entries, .task_set_ref = task_set }).entries;
+    break :blk contract.validated(ValidatedIrqTable(entries.len, task_set.len){ .entries = entries, .task_set_ref = task_set }).entries;
 };
 
 test "IRQ table has unique vectors" {

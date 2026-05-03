@@ -1,6 +1,6 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
 
 // --- WiFi State Machine ---
 
@@ -14,7 +14,7 @@ const Transition = struct {
     timeout_ms: u32,
 
     pub fn validate(comptime self: Transition) ?[]const u8 {
-        if (constraints.inRange(0, 60_000, self.timeout_ms)) |err| return err;
+        if (constraint.inRange(0, 60_000, self.timeout_ms)) |err| return err;
 
         if (self.from == self.to and self.event != .reset)
             return "self-transitions only allowed on reset events";
@@ -70,7 +70,7 @@ const wifi_transitions = blk: {
         .{ .from = .connected, .event = .disconnect, .to = .disconnected, .timeout_ms = 0 },
         .{ .from = .error_state, .event = .reset, .to = .disconnected, .timeout_ms = 1000 },
     };
-    contracts.assertValid(TransitionTable{ .transitions = &table });
+    contract.assertValid(TransitionTable{ .transitions = &table });
     break :blk table;
 };
 
@@ -134,7 +134,7 @@ const motor_fsm = blk: {
         .{ .from = .braking, .event = .overcurrent, .to = .fault, .action_code = 0xF0 },
         .{ .from = .fault, .event = .fault_cleared, .to = .idle, .action_code = 0xFF },
     };
-    contracts.assertValid(MotorFSM{ .transitions = &table });
+    contract.assertValid(MotorFSM{ .transitions = &table });
     break :blk table;
 };
 
@@ -202,7 +202,7 @@ const operation_phases = blk: {
         .{ .state = .active, .min_duration_ms = 5000, .max_duration_ms = 60000, .next_state = .cooldown },
         .{ .state = .cooldown, .min_duration_ms = 2000, .max_duration_ms = 10000, .next_state = .shutdown },
     };
-    contracts.assertValid(PhaseSequence{ .phases = &phases });
+    contract.assertValid(PhaseSequence{ .phases = &phases });
     break :blk phases;
 };
 

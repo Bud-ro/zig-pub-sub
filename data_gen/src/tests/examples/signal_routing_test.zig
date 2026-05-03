@@ -1,6 +1,6 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
 
 // --- Signal Routing Matrix ---
 // An NxM routing matrix connecting inputs to outputs.
@@ -39,7 +39,7 @@ const RouteEntry = struct {
             return "cannot route a signal to itself";
 
         // Attenuation sanity
-        if (constraints.inRange(0, 60, self.attenuation_db)) |err| return err;
+        if (constraint.inRange(0, 60, self.attenuation_db)) |err| return err;
 
         return null;
     }
@@ -51,7 +51,7 @@ fn ValidatedRoutingMatrix(comptime len: usize) type {
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
-            if (constraints.lenInRange(1, 64, self.routes.len)) |err| return err;
+            if (constraint.lenInRange(1, 64, self.routes.len)) |err| return err;
 
             // Each destination must appear at most once (single driver)
             for (0..self.routes.len) |i| {
@@ -92,7 +92,7 @@ const signal_routes = blk: {
         .{ .source = .timer1_pwm, .destination = .gpio2, .attenuation_db = 0, .invert = false },
         .{ .source = .uart_tx, .destination = .gpio3, .attenuation_db = 0, .invert = false },
     };
-    break :blk contracts.validated(ValidatedRoutingMatrix(routes.len){ .routes = routes }).routes;
+    break :blk contract.validated(ValidatedRoutingMatrix(routes.len){ .routes = routes }).routes;
 };
 
 test "signal routing has unique destinations" {
@@ -138,7 +138,7 @@ const CrossbarEntry = struct {
     gain_x10: u8,
 
     pub fn validate(comptime self: CrossbarEntry) ?[]const u8 {
-        if (constraints.inRange(1, 100, self.gain_x10)) |err| return err;
+        if (constraint.inRange(1, 100, self.gain_x10)) |err| return err;
         return null;
     }
 };
@@ -184,7 +184,7 @@ const audio_crossbar = blk: {
         .{ .input_channel = 2, .output_channel = 3, .gain_x10 = 10 },
         .{ .input_channel = 3, .output_channel = 1, .gain_x10 = 12 },
     };
-    break :blk contracts.validated(ValidatedCrossbar(4, entries.len){ .entries = entries }).entries;
+    break :blk contract.validated(ValidatedCrossbar(4, entries.len){ .entries = entries }).entries;
 };
 
 test "crossbar is a valid permutation" {
@@ -216,7 +216,7 @@ const DmaAssignment = struct {
     mem_increment: bool,
 
     pub fn validate(comptime self: DmaAssignment) ?[]const u8 {
-        if (constraints.inRange(0, 15, self.channel)) |err| return err;
+        if (constraint.inRange(0, 15, self.channel)) |err| return err;
 
         // ADC must use circular mode
         if (self.peripheral == .adc1 and !self.circular)
@@ -231,7 +231,7 @@ fn ValidatedDmaAssignments(comptime len: usize) type {
         assignments: [len]DmaAssignment,
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
-            if (constraints.lenInRange(1, 16, self.assignments.len)) |err| return err;
+            if (constraint.lenInRange(1, 16, self.assignments.len)) |err| return err;
 
             // Each channel used at most once
             var channels: [len]u8 = undefined;
@@ -240,8 +240,8 @@ fn ValidatedDmaAssignments(comptime len: usize) type {
                 channels[i] = a.channel;
                 periphs[i] = @intFromEnum(a.peripheral);
             }
-            if (constraints.noDuplicates(u8, &channels)) |err| return err;
-            if (constraints.noDuplicates(u8, &periphs)) |err| return err;
+            if (constraint.noDuplicates(u8, &channels)) |err| return err;
+            if (constraint.noDuplicates(u8, &periphs)) |err| return err;
 
             // TX/RX pairs must use different channels but same priority
             for (self.assignments) |a| {
@@ -272,7 +272,7 @@ const dma_config = blk: {
         .{ .channel = 5, .peripheral = .i2c1_tx, .priority = .low, .circular = false, .mem_increment = true },
         .{ .channel = 6, .peripheral = .i2c1_rx, .priority = .low, .circular = false, .mem_increment = true },
     };
-    break :blk contracts.validated(ValidatedDmaAssignments(assignments.len){ .assignments = assignments }).assignments;
+    break :blk contract.validated(ValidatedDmaAssignments(assignments.len){ .assignments = assignments }).assignments;
 };
 
 test "DMA assignments have unique channels and peripherals" {

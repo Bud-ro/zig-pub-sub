@@ -1,6 +1,6 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
 
 // --- Three-Level Power Budget: System → Subsystem → Component ---
 
@@ -61,7 +61,7 @@ const System = struct {
             sub_ids[i] = sub.name_id;
         }
 
-        if (constraints.noDuplicates(u8, &sub_ids)) |err| return err;
+        if (constraint.noDuplicates(u8, &sub_ids)) |err| return err;
 
         if (total_power > self.power_budget_mw)
             return std.fmt.comptimePrint(
@@ -72,7 +72,7 @@ const System = struct {
     }
 };
 
-const embedded_system = contracts.validated(System{
+const embedded_system = contract.validated(System{
     .name_id = 0,
     .power_budget_mw = 25000,
     .subsystems = .{
@@ -140,7 +140,7 @@ const SubsystemComponentIds = struct {
         for (self.subsystem.components, 0..) |comp, i| {
             ids[i] = comp.name_id;
         }
-        if (constraints.noDuplicates(u8, &ids)) |err| return err;
+        if (constraint.noDuplicates(u8, &ids)) |err| return err;
         return null;
     }
 };
@@ -158,13 +158,13 @@ fn TaskGraph(comptime n: usize) type {
         tasks: [n]Task,
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
-            if (constraints.lenInRange(1, 64, self.tasks.len)) |err| return err;
+            if (constraint.lenInRange(1, 64, self.tasks.len)) |err| return err;
 
             var ids: [self.tasks.len]u8 = undefined;
             for (self.tasks, 0..) |task, i| {
                 ids[i] = task.id;
-                if (constraints.nonZero(task.duration_hours)) |err| return err;
-                if (constraints.inRange(1, 100, task.duration_hours)) |err| return err;
+                if (constraint.nonZero(task.duration_hours)) |err| return err;
+                if (constraint.inRange(1, 100, task.duration_hours)) |err| return err;
 
                 if (task.dependency_idx) |dep_idx| {
                     if (dep_idx >= self.tasks.len)
@@ -176,7 +176,7 @@ fn TaskGraph(comptime n: usize) type {
                         return "dependency must reference an earlier task (no forward or self references)";
                 }
             }
-            if (constraints.noDuplicates(u8, &ids)) |err| return err;
+            if (constraint.noDuplicates(u8, &ids)) |err| return err;
             return null;
         }
     };
@@ -230,7 +230,7 @@ fn ErdRegistry(comptime n: usize) type {
         specs: [n]ErdSpec,
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
-            if (constraints.lenInRange(1, 256, self.specs.len)) |err| return err;
+            if (constraint.lenInRange(1, 256, self.specs.len)) |err| return err;
 
             var numbers: [self.specs.len]u16 = undefined;
             for (self.specs, 0..) |spec, i| {
@@ -246,9 +246,9 @@ fn ErdRegistry(comptime n: usize) type {
                 if (spec.erd_type != .struct_type and spec.size_bytes != expected_size)
                     return "size_bytes doesn't match type";
 
-                if (constraints.inRange(0, 16, spec.max_subs)) |err| return err;
+                if (constraint.inRange(0, 16, spec.max_subs)) |err| return err;
             }
-            if (constraints.noDuplicates(u16, &numbers)) |err| return err;
+            if (constraint.noDuplicates(u16, &numbers)) |err| return err;
             return null;
         }
     };

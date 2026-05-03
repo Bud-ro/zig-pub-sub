@@ -1,6 +1,6 @@
 const std = @import("std");
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- 128-entry Calibration Table ---
 
@@ -21,12 +21,12 @@ const large_cal_table = blk: {
             const raw: u16 = @intCast(i * 32);
             const offset: u16 = @intCast(i / 8);
             const entry = CalEntry{ .raw = raw, .calibrated = raw + offset };
-            contracts.assertValid(entry);
+            contract.assertValid(entry);
             return entry;
         }
     }.f;
     @setEvalBranchQuota(5000);
-    const table = generators.generateArray(CalEntry, 128, gen);
+    const table = generator.generateArray(CalEntry, 128, gen);
 
     for (1..table.len) |i| {
         if (table[i].raw <= table[i - 1].raw)
@@ -111,7 +111,7 @@ const sin_approx_table = blk: {
             }
         }
     }.f;
-    const table = generators.generateArray(i16, 256, gen);
+    const table = generator.generateArray(i16, 256, gen);
 
     for (table) |v| {
         const entry = SineEntry{ .value = v };
@@ -174,11 +174,11 @@ const motor_fleet = blk: {
                     break :blk pairs[i % 16];
                 },
             };
-            contracts.assertValid(cfg);
+            contract.assertValid(cfg);
             return cfg;
         }
     }.f;
-    break :blk generators.generateArray(MotorConfig, 16, gen);
+    break :blk generator.generateArray(MotorConfig, 16, gen);
 };
 
 test "16 motor configs all validated" {
@@ -200,7 +200,7 @@ test "motor fleet RPM increases with index" {
 
 // --- Linear ramp table ---
 
-const ramp_table = generators.generateArray(i32, 11, struct {
+const ramp_table = generator.generateArray(i32, 11, struct {
     fn f(comptime i: usize) i32 {
         return @intCast(i * 100);
     }

@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Firmware Image Header with Computed Integrity ---
 // The header contains a checksum field whose value MUST equal
@@ -38,8 +38,8 @@ const FirmwareHeader = struct {
         if (self.magic != 0xDEAD_BEEF)
             return "invalid magic number";
 
-        if (self.version_major < 0 or self.version_major > 99) return "version_major out of range [0, 99]";
-        if (self.version_minor < 0 or self.version_minor > 99) return "version_minor out of range [0, 99]";
+        if (self.version_major > 99) return "version_major out of range [0, 99]";
+        if (self.version_minor > 99) return "version_minor out of range [0, 99]";
         if (self.image_size == 0) return "image_size must not be zero";
         if (self.entry_point < self.load_address)
             return "entry point must be within the loaded image (>= load_address)";
@@ -67,7 +67,7 @@ const FirmwareHeader = struct {
     pub fn generate(comptime partial: FirmwareHeader) FirmwareHeader {
         var result = partial;
         result.checksum = partial.computeChecksum();
-        contracts.assertValid(result);
+        contract.assertValid(result);
         return result;
     }
 };

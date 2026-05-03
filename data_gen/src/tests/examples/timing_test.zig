@@ -1,6 +1,6 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
 
 // --- Sample Rate Configuration ---
 
@@ -23,7 +23,7 @@ const SampleRateConfig = struct {
     }
 
     pub fn generate(comptime self: SampleRateConfig) SampleRateConfig {
-        contracts.assertValid(self);
+        contract.assertValid(self);
         return self;
     }
 
@@ -79,7 +79,7 @@ const TimingConfig = struct {
     }
 
     pub fn generate(comptime self: TimingConfig) TimingConfig {
-        contracts.assertValid(self);
+        contract.assertValid(self);
         return self;
     }
 };
@@ -137,7 +137,7 @@ const TickConfig = struct {
     }
 
     pub fn generate(comptime self: TickConfig) TickConfig {
-        contracts.assertValid(self);
+        contract.assertValid(self);
         return self;
     }
 };
@@ -187,7 +187,7 @@ const PwmConfig = struct {
     }
 
     pub fn generate(comptime self: PwmConfig) PwmConfig {
-        contracts.assertValid(self);
+        contract.assertValid(self);
         return self;
     }
 };
@@ -223,7 +223,7 @@ const TimingProfile = struct {
 
 test "timing profile with aligned intervals" {
     comptime {
-        contracts.assertValid(TimingProfile{
+        contract.assertValid(TimingProfile{
             .name_id = 1,
             .sample_rate = SampleRateConfig.generate(.{ .rate_hz = 1000, .oversample_factor = 1, .averaging_window = 50 }),
             .timing = TimingConfig.generate(.{

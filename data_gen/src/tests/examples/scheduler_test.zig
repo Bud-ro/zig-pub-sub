@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Interval Scheduling on Shared Resources ---
 // Time slots assigned to named channels. No two slots on the same
@@ -31,7 +31,7 @@ const TimeSlot = struct {
     }
 
     fn validate(comptime self: TimeSlot, comptime cycle_length_us: u32) ?[]const u8 {
-        if (constraints.nonZero(self.duration_us)) |err| return err;
+        if (constraint.nonZero(self.duration_us)) |err| return err;
         if (self.end() > cycle_length_us)
             return std.fmt.comptimePrint(
                 "slot on channel {} at {}us extends past cycle boundary {}us",
@@ -61,7 +61,7 @@ const ScheduleValidator = struct {
         const min_gap_us = self.params.min_gap_us;
         const cycle_length_us = self.params.cycle_length_us;
         @setEvalBranchQuota(10_000);
-        if (constraints.lenInRange(1, 64, slots.len)) |err| return err;
+        if (constraint.lenInRange(1, 64, slots.len)) |err| return err;
 
         for (slots) |slot| {
             if (slot.validate(cycle_length_us)) |err| return err;
@@ -232,8 +232,8 @@ const PeriodicTask = struct {
     offset_us: u32,
 
     fn validate(comptime self: PeriodicTask) ?[]const u8 {
-        if (constraints.nonZero(self.period_us)) |err| return err;
-        if (constraints.nonZero(self.duration_us)) |err| return err;
+        if (constraint.nonZero(self.period_us)) |err| return err;
+        if (constraint.nonZero(self.duration_us)) |err| return err;
         if (self.duration_us >= self.period_us)
             return "task duration must be less than period";
         if (self.offset_us + self.duration_us > self.period_us)

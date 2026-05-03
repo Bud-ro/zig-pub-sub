@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const transforms = @import("data_gen").transforms;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const transform = @import("data_gen").transform;
 
 // --- ADC Voltage Scaling ---
 // User specifies voltage thresholds in volts. The system stores them
@@ -114,7 +114,7 @@ fn iirCoeffsFromCutoff(comptime p: IirParams) FilterCoeffs {
     const rc = 1.0 / (2.0 * 3.14159265358979 * p.cutoff_hz);
     const alpha_f = dt / (rc + dt);
 
-    const alpha = transforms.scaledNearest(u16, 65536, alpha_f);
+    const alpha = transform.scaledNearest(u16, 65536, alpha_f);
     const one_minus_alpha = 65536 - @as(u32, alpha);
 
     return FilterCoeffs{
@@ -146,7 +146,7 @@ const PwmChannel = struct {
     timer_period: u16,
 
     pub fn dutyPercent(comptime self: PwmChannel, comptime pct: comptime_float) u16 {
-        return transforms.percentOf(u16, self.timer_period, pct);
+        return transform.percentOf(u16, self.timer_period, pct);
     }
 };
 
@@ -235,7 +235,7 @@ fn makeSensorConfig(comptime p: SensorParams) SensorConfig {
         .filter_alpha = coeffs.alpha,
         .filter_beta = coeffs.one_minus_alpha,
     };
-    contracts.assertValid(config);
+    contract.assertValid(config);
     return config;
 }
 

@@ -1,5 +1,5 @@
 const std = @import("std");
-const contracts = @import("data_gen").contracts;
+const contract = @import("data_gen").contract;
 
 // --- Application Version ---
 
@@ -23,15 +23,15 @@ const AppVersion = struct {
 
 test "application version packs into u32" {
     comptime {
-        const v = contracts.validated(AppVersion{ .major = 1, .minor = 2, .patch = 345 });
+        const v = contract.validated(AppVersion{ .major = 1, .minor = 2, .patch = 345 });
         try std.testing.expectEqual(@as(u32, 0x01020159), v.toU32());
     }
 }
 
 test "application version boundary values" {
     comptime {
-        contracts.assertValid(AppVersion{ .major = 0, .minor = 0, .patch = 0 });
-        contracts.assertValid(AppVersion{ .major = 99, .minor = 99, .patch = 65535 });
+        contract.assertValid(AppVersion{ .major = 0, .minor = 0, .patch = 0 });
+        contract.assertValid(AppVersion{ .major = 99, .minor = 99, .patch = 65535 });
     }
 }
 
@@ -55,7 +55,7 @@ const NetworkConfig = struct {
 
 test "network config with power-of-two MTU" {
     comptime {
-        const cfg = contracts.validated(NetworkConfig{ .port = 8080, .mtu = 1024, .max_connections = 128, .keepalive_seconds = 30 });
+        const cfg = contract.validated(NetworkConfig{ .port = 8080, .mtu = 1024, .max_connections = 128, .keepalive_seconds = 30 });
         try std.testing.expectEqual(8080, cfg.port);
     }
 }
@@ -81,8 +81,8 @@ const FeatureFlags = struct {
 
 test "feature flags" {
     comptime {
-        contracts.assertValid(FeatureFlags{ .debug_logging = true, .release_optimized = false, .profiling = true, .assertions_enabled = true });
-        contracts.assertValid(FeatureFlags{ .debug_logging = false, .release_optimized = true, .profiling = false, .assertions_enabled = false });
+        contract.assertValid(FeatureFlags{ .debug_logging = true, .release_optimized = false, .profiling = true, .assertions_enabled = true });
+        contract.assertValid(FeatureFlags{ .debug_logging = false, .release_optimized = true, .profiling = false, .assertions_enabled = false });
     }
 }
 
@@ -106,7 +106,7 @@ const SensorThresholds = struct {
 
 test "sensor thresholds" {
     comptime {
-        contracts.assertValid(SensorThresholds{ .critical_low = -40, .warning_low = -10, .warning_high = 80, .critical_high = 100 });
+        contract.assertValid(SensorThresholds{ .critical_low = -40, .warning_low = -10, .warning_high = 80, .critical_high = 100 });
     }
 }
 
@@ -127,7 +127,7 @@ const SystemConfig = struct {
 
 test "system config — children validated automatically via recursion" {
     comptime {
-        contracts.assertValid(SystemConfig{
+        contract.assertValid(SystemConfig{
             .version = .{ .major = 2, .minor = 1, .patch = 0 },
             .network = .{ .port = 8080, .mtu = 1024, .max_connections = 64, .keepalive_seconds = 30 },
             .flags = .{ .debug_logging = true, .release_optimized = false, .profiling = true, .assertions_enabled = true },

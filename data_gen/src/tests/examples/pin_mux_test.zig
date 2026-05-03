@@ -1,6 +1,6 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
 
 // --- Pin Multiplexing ---
 // MCU pins can be assigned to alternate functions. Each physical pin
@@ -80,14 +80,14 @@ fn PinMuxConfig(comptime N: usize) type {
 
         pub fn validate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(10_000);
-            if (constraints.lenInRange(1, 32, N)) |err| return err;
+            if (constraint.lenInRange(1, 32, N)) |err| return err;
 
             // Each pin used at most once
             var pins: [N]u8 = undefined;
             for (self.assignments, 0..) |a, i| {
                 pins[i] = @intFromEnum(a.pin);
             }
-            if (constraints.noDuplicates(u8, &pins)) |err| return err;
+            if (constraint.noDuplicates(u8, &pins)) |err| return err;
 
             // Each non-GPIO function used at most once
             for (0..N) |i| {
@@ -229,13 +229,13 @@ const assignments = [_]PinAssignment{
     .{ .pin = .pb7, .function = .i2c1_sda, .pull = .up, .speed = .medium },
 };
 
-const app_pin_config = contracts.validated(PinMuxConfig(assignments.len){
+const app_pin_config = contract.validated(PinMuxConfig(assignments.len){
     .assignments = assignments,
     .capabilities = &pin_capabilities,
 }).assignments;
 
 comptime {
-    contracts.assertValid(PeripheralGroupConfig(assignments.len){
+    contract.assertValid(PeripheralGroupConfig(assignments.len){
         .assignments = assignments,
     });
 }

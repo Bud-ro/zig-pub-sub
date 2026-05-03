@@ -2,16 +2,16 @@
 //! Users define types with validate/generate functions. Constraints produce
 //! @compileError on violation and fall away to zero cost at runtime.
 
-pub const constraints = @import("constraints.zig");
-pub const contracts = @import("contracts.zig");
-pub const generators = @import("generators.zig");
-pub const transforms = @import("transforms.zig");
+pub const constraint = @import("constraint.zig");
+pub const contract = @import("contract.zig");
+pub const generator = @import("generator.zig");
+pub const transform = @import("transform.zig");
 
 test {
-    _ = constraints;
-    _ = contracts;
-    _ = generators;
-    _ = transforms;
+    _ = constraint;
+    _ = contract;
+    _ = generator;
+    _ = transform;
 
     _ = @import("tests/constraint_test.zig");
     _ = @import("tests/contract_test.zig");

@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Hamming(7,4) Code Table ---
 // Each 4-bit data word maps to a 7-bit codeword.
@@ -89,7 +89,7 @@ const hamming_table = blk: {
             return .{ .data = data, .codeword = hammingEncode(data) };
         }
     }.f;
-    const table = generators.generateArray(HammingEntry, 16, gen);
+    const table = generator.generateArray(HammingEntry, 16, gen);
     validateHammingTable(&table);
     break :blk table;
 };
@@ -182,7 +182,7 @@ test "CRC-8 CCITT config" {
             .reflect_in = false,
             .reflect_out = false,
         };
-        contracts.assertValid(crc8);
+        contract.assertValid(crc8);
         try std.testing.expectEqual(8, crc8.width);
     }
 }
@@ -197,7 +197,7 @@ test "CRC-16 CCITT config" {
             .reflect_in = false,
             .reflect_out = false,
         };
-        contracts.assertValid(crc16);
+        contract.assertValid(crc16);
     }
 }
 
@@ -211,6 +211,6 @@ test "CRC-32 IEEE config" {
             .reflect_in = true,
             .reflect_out = true,
         };
-        contracts.assertValid(crc32);
+        contract.assertValid(crc32);
     }
 }

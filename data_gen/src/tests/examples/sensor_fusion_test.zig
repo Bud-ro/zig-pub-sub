@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Sensor Fusion Pipeline ---
 // Multiple sensors feed into a fusion algorithm. Each sensor has
@@ -20,8 +20,8 @@ const SensorWeight = struct {
     latency_us: u32,
 
     pub fn validate(comptime self: SensorWeight) ?[]const u8 {
-        if (constraints.nonZero(self.weight_per1024)) |err| return err;
-        if (constraints.nonZero(self.update_rate_hz)) |err| return err;
+        if (constraint.nonZero(self.weight_per1024)) |err| return err;
+        if (constraint.nonZero(self.update_rate_hz)) |err| return err;
         return null;
     }
 };
@@ -31,7 +31,7 @@ const FusionConfig = struct {
 
     pub fn validate(comptime self: FusionConfig) ?[]const u8 {
         const sensors = &self.sensors;
-        if (constraints.lenInRange(2, 8, sensors.len)) |err| return err;
+        if (constraint.lenInRange(2, 8, sensors.len)) |err| return err;
 
         // Weights must sum to 1024 (representing 1.0)
         var weight_sum: u32 = 0;
@@ -82,7 +82,7 @@ const FusionConfig = struct {
 };
 
 const imu_fusion = blk: {
-    const config = contracts.validated(FusionConfig{ .sensors = .{
+    const config = contract.validated(FusionConfig{ .sensors = .{
         .{ .sensor = .accelerometer, .weight_per1024 = 400, .noise_variance_x1000 = 200, .update_rate_hz = 1000, .latency_us = 100 },
         .{ .sensor = .gyroscope, .weight_per1024 = 350, .noise_variance_x1000 = 150, .update_rate_hz = 1000, .latency_us = 100 },
         .{ .sensor = .magnetometer, .weight_per1024 = 150, .noise_variance_x1000 = 800, .update_rate_hz = 100, .latency_us = 2000 },
@@ -137,7 +137,7 @@ const FilterStage = struct {
 
 test "well-configured filter passes validation" {
     comptime {
-        contracts.assertValid(FilterStage{
+        contract.assertValid(FilterStage{
             .order = 4,
             .cutoff_hz = 1000,
             .sample_rate_hz = 8000,
@@ -148,7 +148,7 @@ test "well-configured filter passes validation" {
 
 test "high-order filter with low cutoff passes validation" {
     comptime {
-        contracts.assertValid(FilterStage{
+        contract.assertValid(FilterStage{
             .order = 8,
             .cutoff_hz = 500,
             .sample_rate_hz = 8000,
@@ -166,8 +166,8 @@ const MeasurementStep = struct {
     tolerance_pct: u8,
 
     pub fn validate(comptime self: MeasurementStep) ?[]const u8 {
-        if (constraints.nonZero(self.duration_ms)) |err| return err;
-        if (constraints.inRange(1, 50, self.tolerance_pct)) |err| return err;
+        if (constraint.nonZero(self.duration_ms)) |err| return err;
+        if (constraint.inRange(1, 50, self.tolerance_pct)) |err| return err;
 
         switch (self.phase) {
             .zero_cal => {
@@ -175,16 +175,16 @@ const MeasurementStep = struct {
                     return "zero calibration target must be 0";
             },
             .span_cal => {
-                if (constraints.nonZero(self.target_value)) |err| return err;
+                if (constraint.nonZero(self.target_value)) |err| return err;
             },
             .warmup => {
-                if (constraints.inRange(1000, 30000, self.duration_ms)) |err| return err;
+                if (constraint.inRange(1000, 30000, self.duration_ms)) |err| return err;
             },
             .measure => {
-                if (constraints.inRange(1, 10, self.tolerance_pct)) |err| return err;
+                if (constraint.inRange(1, 10, self.tolerance_pct)) |err| return err;
             },
             .cooldown => {
-                if (constraints.inRange(500, 10000, self.duration_ms)) |err| return err;
+                if (constraint.inRange(500, 10000, self.duration_ms)) |err| return err;
             },
         }
         return null;
@@ -202,7 +202,7 @@ const MeasurementSequence = struct {
 };
 
 const measurement_sequence = blk: {
-    const seq = contracts.validated(MeasurementSequence{ .steps = .{
+    const seq = contract.validated(MeasurementSequence{ .steps = .{
         .{ .phase = .zero_cal, .duration_ms = 500, .target_value = 0, .tolerance_pct = 5 },
         .{ .phase = .span_cal, .duration_ms = 500, .target_value = 1000, .tolerance_pct = 10 },
         .{ .phase = .warmup, .duration_ms = 5000, .target_value = 0, .tolerance_pct = 50 },
@@ -241,7 +241,7 @@ test "measurement phase tolerances are tight for measure steps" {
 
 const TempLutEntry = struct { input: i16, output: i16 };
 
-const temp_lut = generators.generateArray(TempLutEntry, 17, struct {
+const temp_lut = generator.generateArray(TempLutEntry, 17, struct {
     fn f(comptime i: usize) TempLutEntry {
         const raw: i16 = -40 + @as(i16, @intCast(i)) * 10;
         return .{ .input = raw, .output = raw + @divTrunc(raw * raw, 1000) };

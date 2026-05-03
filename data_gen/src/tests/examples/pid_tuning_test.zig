@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const transforms = @import("data_gen").transforms;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const transform = @import("data_gen").transform;
 
 // --- PID Controller Tuning ---
 // Users specify gains as floating-point values. The library transforms
@@ -16,9 +16,9 @@ const PidGains = struct {
 
     pub fn fromFloats(comptime kp: comptime_float, comptime ki: comptime_float, comptime kd: comptime_float) PidGains {
         return .{
-            .kp = transforms.fixedPoint(u16, 8, kp),
-            .ki = transforms.fixedPoint(u16, 8, ki),
-            .kd = transforms.fixedPoint(u16, 8, kd),
+            .kp = transform.fixedPoint(u16, 8, kp),
+            .ki = transform.fixedPoint(u16, 8, ki),
+            .kd = transform.fixedPoint(u16, 8, kd),
         };
     }
 };
@@ -72,7 +72,7 @@ const PidConfig = struct {
             .derivative_filter_coeff = p.derivative_filter_coeff,
             .sample_period_ms = p.sample_period_ms,
         };
-        contracts.assertValid(self);
+        contract.assertValid(self);
         return self;
     }
 };
@@ -167,7 +167,7 @@ const CascadedPid = struct {
 
 test "cascaded PID: speed/current control" {
     comptime {
-        contracts.assertValid(CascadedPid{
+        contract.assertValid(CascadedPid{
             .inner = PidConfig.init(.{
                 .kp = 10.0,
                 .ki = 2.0,
@@ -218,13 +218,13 @@ const MultiZone = struct {
     zones: []const ZoneConfig,
 
     pub fn validate(comptime self: MultiZone) ?[]const u8 {
-        if (constraints.lenInRange(1, 16, self.zones.len)) |err| return err;
+        if (constraint.lenInRange(1, 16, self.zones.len)) |err| return err;
 
         var ids: [self.zones.len]u8 = undefined;
         for (self.zones, 0..) |zone, i| {
             ids[i] = zone.zone_id;
         }
-        if (constraints.noDuplicates(u8, &ids)) |err| return err;
+        if (constraint.noDuplicates(u8, &ids)) |err| return err;
 
         for (1..self.zones.len) |i| {
             if (self.zones[i].pid.sample_period_ms != self.zones[0].pid.sample_period_ms)
@@ -248,7 +248,7 @@ test "multi-zone temperature control" {
             .sample_period_ms = 100,
         });
 
-        contracts.assertValid(MultiZone{ .zones = &.{
+        contract.assertValid(MultiZone{ .zones = &.{
             .{ .zone_id = 0, .pid = base_pid, .setpoint = 220, .deadband = 5 },
             .{ .zone_id = 1, .pid = base_pid, .setpoint = 180, .deadband = 5 },
             .{ .zone_id = 2, .pid = base_pid, .setpoint = 250, .deadband = 10 },

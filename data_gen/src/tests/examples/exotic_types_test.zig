@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Packed Structs with Sub-Byte Fields ---
 // Mirrors PackedFr from the app: bitfields that pack into exactly
@@ -31,7 +31,7 @@ const StatusRegister = packed struct {
 
 test "packed status register valid idle state" {
     comptime {
-        contracts.assertValid(StatusRegister{
+        contract.assertValid(StatusRegister{
             .busy = 0,
             .error_code = 0,
             .channel = 3,
@@ -44,7 +44,7 @@ test "packed status register valid idle state" {
 
 test "packed status register valid busy state" {
     comptime {
-        contracts.assertValid(StatusRegister{
+        contract.assertValid(StatusRegister{
             .busy = 1,
             .error_code = 0,
             .channel = 0,
@@ -85,7 +85,7 @@ const DacControl = packed struct {
 
 test "DAC control word normal output" {
     comptime {
-        contracts.assertValid(DacControl{
+        contract.assertValid(DacControl{
             .channel_select = 0,
             .power_down_mode = 0,
             .output_gain = 0,
@@ -98,7 +98,7 @@ test "DAC control word normal output" {
 
 test "DAC control word 2x gain limited range" {
     comptime {
-        contracts.assertValid(DacControl{
+        contract.assertValid(DacControl{
             .channel_select = 1,
             .power_down_mode = 0,
             .output_gain = 1,
@@ -129,7 +129,7 @@ const SensorReading = extern struct {
     _pad2: [2]u8 = .{ 0, 0 },
 
     pub fn validate(comptime self: SensorReading) ?[]const u8 {
-        if (self.channel_id < 0 or self.channel_id > 15) return "channel_id out of range [0, 15]";
+        if (self.channel_id > 15) return "channel_id out of range [0, 15]";
         if (self.timestamp_ms == 0) return "timestamp_ms must not be zero";
 
         // Scaled value must be a plausible transformation of raw
@@ -149,7 +149,7 @@ const SensorReading = extern struct {
 
 test "extern sensor reading valid" {
     comptime {
-        contracts.assertValid(SensorReading{
+        contract.assertValid(SensorReading{
             .timestamp_ms = 1000,
             .channel_id = 3,
             .value_raw = 512,
@@ -167,7 +167,7 @@ test "extern sensor reading is C-sized" {
 }
 
 // --- Tagged Unions ---
-// Different command types with variant-specific constraints.
+// Different command types with variant-specific constraint.
 
 const CommandTag = enum(u8) {
     set_output,
@@ -203,20 +203,20 @@ const Command = union(CommandTag) {
     pub fn validate(comptime self: Command) ?[]const u8 {
         switch (self) {
             .set_output => |data| {
-                if (constraints.inRange(0, 7, data.channel)) |err| return err;
-                if (constraints.inRange(0, 4095, data.value)) |err| return err;
+                if (constraint.inRange(0, 7, data.channel)) |err| return err;
+                if (constraint.inRange(0, 4095, data.value)) |err| return err;
             },
             .read_input => |channel| {
-                if (constraints.inRange(0, 15, channel)) |err| return err;
+                if (constraint.inRange(0, 15, channel)) |err| return err;
             },
             .configure => |data| {
-                if (constraints.inRange(0, 255, data.parameter_id)) |err| return err;
+                if (constraint.inRange(0, 255, data.parameter_id)) |err| return err;
             },
             .reset => {},
             .calibrate => |data| {
-                if (constraints.inRange(0, 7, data.channel)) |err| return err;
-                if (constraints.inRange(-1000, 1000, data.reference_value)) |err| return err;
-                if (constraints.oneOf(&.{ 1, 4, 8, 16, 32, 64 }, data.num_samples)) |err| return err;
+                if (constraint.inRange(0, 7, data.channel)) |err| return err;
+                if (constraint.inRange(-1000, 1000, data.reference_value)) |err| return err;
+                if (constraint.oneOf(&.{ 1, 4, 8, 16, 32, 64 }, data.num_samples)) |err| return err;
             },
         }
         return null;
@@ -227,7 +227,7 @@ const CommandSequence = struct {
     cmds: []const Command,
 
     pub fn validate(comptime self: CommandSequence) ?[]const u8 {
-        if (constraints.lenInRange(1, 32, self.cmds.len)) |err| return err;
+        if (constraint.lenInRange(1, 32, self.cmds.len)) |err| return err;
 
         // Validate each individual command
         for (self.cmds) |cmd| {
@@ -265,7 +265,7 @@ const init_sequence = blk: {
         .{ .set_output = .{ .channel = 0, .value = 2048 } },
         .{ .read_input = 5 },
     };
-    _ = contracts.validated(CommandSequence{ .cmds = &cmds });
+    _ = contract.validated(CommandSequence{ .cmds = &cmds });
     break :blk cmds;
 };
 
@@ -293,7 +293,7 @@ test "init sequence calibrate comes after configure" {
 }
 
 // --- Nested Arrays ---
-// 2D configuration tables with row and column constraints.
+// 2D configuration tables with row and column constraint.
 
 const GainTable = struct {
     values: [4][8]u8,
@@ -301,10 +301,10 @@ const GainTable = struct {
     col_labels: [8]u8,
 
     pub fn validate(comptime self: GainTable) ?[]const u8 {
-        if (constraints.isSorted(u8, &self.row_labels)) |err| return err;
-        if (constraints.noDuplicates(u8, &self.row_labels)) |err| return err;
-        if (constraints.isSorted(u8, &self.col_labels)) |err| return err;
-        if (constraints.noDuplicates(u8, &self.col_labels)) |err| return err;
+        if (constraint.isSorted(u8, &self.row_labels)) |err| return err;
+        if (constraint.noDuplicates(u8, &self.row_labels)) |err| return err;
+        if (constraint.isSorted(u8, &self.col_labels)) |err| return err;
+        if (constraint.noDuplicates(u8, &self.col_labels)) |err| return err;
 
         // Each row must be monotonically non-decreasing
         for (self.values) |row| {
@@ -325,14 +325,14 @@ const GainTable = struct {
         // All values in valid range
         for (self.values) |row| {
             for (row) |v| {
-                if (v < 0 or v > 64) return "gain table value out of range [0, 64]";
+                if (v > 64) return "gain table value out of range [0, 64]";
             }
         }
         return null;
     }
 };
 
-const gain_config = contracts.validated(GainTable{
+const gain_config = contract.validated(GainTable{
     .row_labels = .{ 10, 20, 50, 100 },
     .col_labels = .{ 1, 2, 3, 4, 5, 6, 7, 8 },
     .values = .{
@@ -360,6 +360,6 @@ test "gain table is monotonic in both dimensions" {
 
 test "gain table labels are sorted and unique" {
     comptime {
-        contracts.assertValid(gain_config);
+        contract.assertValid(gain_config);
     }
 }

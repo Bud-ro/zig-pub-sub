@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Washing Machine Cycle ---
 
@@ -100,7 +100,7 @@ const quick_wash = blk: {
         .{ .phase = .spin, .duration_seconds = 480, .water_temp_c = 0, .drum_rpm = 1200, .water_liters = 0 },
         .{ .phase = .drain, .duration_seconds = 60, .water_temp_c = 0, .drum_rpm = 0, .water_liters = 0 },
     };
-    break :blk contracts.validated(WashCycle{ .steps = &steps }).steps;
+    break :blk contract.validated(WashCycle{ .steps = &steps }).steps;
 };
 
 const heavy_duty = blk: {
@@ -115,7 +115,7 @@ const heavy_duty = blk: {
         .{ .phase = .spin, .duration_seconds = 600, .water_temp_c = 0, .drum_rpm = 1400, .water_liters = 0 },
         .{ .phase = .drain, .duration_seconds = 60, .water_temp_c = 0, .drum_rpm = 0, .water_liters = 0 },
     };
-    break :blk contracts.validated(WashCycle{ .steps = &steps }).steps;
+    break :blk contract.validated(WashCycle{ .steps = &steps }).steps;
 };
 
 test "quick wash cycle is valid" {
@@ -190,7 +190,7 @@ const annealing_process = blk: {
         .{ .phase = .cool_down, .target_temp_c = 200, .hold_time_seconds = 1800, .ramp_rate_c_per_min = 10 },
         .{ .phase = .cool_down, .target_temp_c = 25, .hold_time_seconds = 3600, .ramp_rate_c_per_min = 5 },
     };
-    break :blk contracts.validated(HeatTreatProcess{ .steps = &steps }).steps;
+    break :blk contract.validated(HeatTreatProcess{ .steps = &steps }).steps;
 };
 
 test "annealing process follows temperature limits" {
@@ -210,9 +210,9 @@ const Ingredient = struct {
     dispense_time_ms: u16,
 
     pub fn validate(comptime self: Ingredient) ?[]const u8 {
-        if (constraints.inRange(1, 500, self.amount_ml)) |err| return err;
-        if (constraints.inRange(4, 100, self.temp_c)) |err| return err;
-        if (constraints.nonZero(self.dispense_time_ms)) |err| return err;
+        if (constraint.inRange(1, 500, self.amount_ml)) |err| return err;
+        if (constraint.inRange(4, 100, self.temp_c)) |err| return err;
+        if (constraint.nonZero(self.dispense_time_ms)) |err| return err;
         return null;
     }
 };
@@ -223,7 +223,7 @@ const BeverageRecipe = struct {
     pub fn validate(comptime self: BeverageRecipe) ?[]const u8 {
         const recipe = self.ingredients;
 
-        if (constraints.lenInRange(1, 8, recipe.len)) |err| return err;
+        if (constraint.lenInRange(1, 8, recipe.len)) |err| return err;
 
         var total_ml: u32 = 0;
         var ids: [recipe.len]u8 = undefined;
@@ -232,8 +232,8 @@ const BeverageRecipe = struct {
             total_ml += ing.amount_ml;
             ids[i] = ing.id;
         }
-        if (constraints.noDuplicates(u8, &ids)) |err| return err;
-        if (constraints.inRange(100, 1000, total_ml)) |err| return err;
+        if (constraint.noDuplicates(u8, &ids)) |err| return err;
+        if (constraint.inRange(100, 1000, total_ml)) |err| return err;
 
         return null;
     }
@@ -244,7 +244,7 @@ const espresso = blk: {
         .{ .id = 1, .amount_ml = 30, .temp_c = 93, .dispense_time_ms = 25000 },
         .{ .id = 2, .amount_ml = 200, .temp_c = 85, .dispense_time_ms = 5000 },
     };
-    break :blk contracts.validated(BeverageRecipe{ .ingredients = &recipe }).ingredients;
+    break :blk contract.validated(BeverageRecipe{ .ingredients = &recipe }).ingredients;
 };
 
 test "espresso recipe has valid ingredients" {

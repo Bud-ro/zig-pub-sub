@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Data Processing Pipeline (DAG) ---
 // Processing stages connected in a directed acyclic graph.
@@ -36,7 +36,7 @@ const PipelineStage = struct {
     processing_budget_us: u16,
 
     pub fn validate(comptime self: PipelineStage) ?[]const u8 {
-        if (constraints.nonZero(self.processing_budget_us)) |err| return err;
+        if (constraint.nonZero(self.processing_budget_us)) |err| return err;
 
         if (self.kind == .source and self.input_types.len != 0)
             return std.fmt.comptimePrint(
@@ -76,15 +76,15 @@ fn ValidatedPipeline(comptime n_stages: usize, comptime n_conns: usize) type {
             const stages = &self.stages;
             const connections = &self.connections;
 
-            if (constraints.lenInRange(2, 32, stages.len)) |err| return err;
-            if (constraints.lenInRange(1, 64, connections.len)) |err| return err;
+            if (constraint.lenInRange(2, 32, stages.len)) |err| return err;
+            if (constraint.lenInRange(1, 64, connections.len)) |err| return err;
 
             // Unique stage IDs
             var stage_ids: [stages.len]u8 = undefined;
             for (stages, 0..) |stage, i| {
                 stage_ids[i] = stage.id;
             }
-            if (constraints.noDuplicates(u8, &stage_ids)) |err| return err;
+            if (constraint.noDuplicates(u8, &stage_ids)) |err| return err;
 
             // Validate connections
             for (connections) |conn| {
@@ -266,7 +266,7 @@ const validated_pipeline = blk: {
         .{ .from_stage = 8, .to_stage = 9, .data_type = .packed_report },
     };
 
-    break :blk contracts.validated(ValidatedPipeline(stages.len, conns.len){ .stages = stages, .connections = conns });
+    break :blk contract.validated(ValidatedPipeline(stages.len, conns.len){ .stages = stages, .connections = conns });
 };
 
 const dsp_stages = validated_pipeline.stages;

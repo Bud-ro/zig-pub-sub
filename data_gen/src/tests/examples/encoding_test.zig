@@ -1,6 +1,6 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
 
 // --- Prefix-Free Encoding Table ---
 // A set of binary codes where no code is a prefix of any other code.
@@ -13,7 +13,7 @@ const CodeEntry = struct {
     length: u4,
 
     pub fn validate(comptime self: CodeEntry) ?[]const u8 {
-        if (constraints.inRange(1, 15, self.length)) |err| return err;
+        if (constraint.inRange(1, 15, self.length)) |err| return err;
 
         // Code must fit within declared length
         const max_val: u16 = (@as(u16, 1) << self.length) - 1;
@@ -31,13 +31,13 @@ const PrefixFreeTable = struct {
 
     pub fn validate(comptime self: PrefixFreeTable) ?[]const u8 {
         @setEvalBranchQuota(10_000);
-        if (constraints.lenInRange(2, 64, self.codes.len)) |err| return err;
+        if (constraint.lenInRange(2, 64, self.codes.len)) |err| return err;
 
         var symbols: [self.codes.len]u8 = undefined;
         for (self.codes, 0..) |entry, i| {
             symbols[i] = entry.symbol;
         }
-        if (constraints.noDuplicates(u8, &symbols)) |err| return err;
+        if (constraint.noDuplicates(u8, &symbols)) |err| return err;
 
         // Prefix-free check: for every pair of codes, neither is a prefix of the other
         for (0..self.codes.len) |i| {
@@ -110,12 +110,12 @@ const huffman_table = blk: {
         .{ .symbol = 'h', .code = 0b1110, .length = 4 },
         .{ .symbol = 'l', .code = 0b1111, .length = 4 },
     };
-    break :blk contracts.validated(PrefixFreeTable{ .codes = &codes }).codes;
+    break :blk contract.validated(PrefixFreeTable{ .codes = &codes }).codes;
 };
 
 // Validate Kraft inequality separately (it's a different property)
 comptime {
-    contracts.assertValid(KraftCheck{ .codes = huffman_table });
+    contract.assertValid(KraftCheck{ .codes = huffman_table });
 }
 
 test "huffman table is prefix-free" {
@@ -144,7 +144,7 @@ test "huffman table has unique symbols" {
         for (huffman_table, 0..) |c, i| syms[i] = c.symbol;
         // noDuplicates is already checked by PrefixFreeTable.validate
         // but we verify it independently in this test
-        if (constraints.noDuplicates(u8, &syms)) |err| {
+        if (constraint.noDuplicates(u8, &syms)) |err| {
             @compileError(err);
         }
     }
@@ -174,7 +174,7 @@ const InstrDef = struct {
     cycles: u8,
 
     pub fn validate(comptime self: InstrDef) ?[]const u8 {
-        if (constraints.nonZero(self.cycles)) |err| return err;
+        if (constraint.nonZero(self.cycles)) |err| return err;
 
         const max_instr_bits: u8 = 32;
         const opcode_bits: u8 = 8;
@@ -205,7 +205,7 @@ const InstructionSet = struct {
     instrs: []const InstrDef,
 
     pub fn validate(comptime self: InstructionSet) ?[]const u8 {
-        if (constraints.lenInRange(1, 32, self.instrs.len)) |err| return err;
+        if (constraint.lenInRange(1, 32, self.instrs.len)) |err| return err;
 
         // All opcodes must be represented
         const all_opcodes = [_]Opcode{ .nop, .load, .store, .add, .sub, .jmp, .jz, .halt };
@@ -247,7 +247,7 @@ const isa = blk: {
         .{ .opcode = .jz, .operand_count = 1, .operand_bits = 4, .has_immediate = true, .cycles = 2 },
         .{ .opcode = .halt, .operand_count = 0, .operand_bits = 0, .has_immediate = false, .cycles = 1 },
     };
-    break :blk contracts.validated(InstructionSet{ .instrs = &instrs }).instrs;
+    break :blk contract.validated(InstructionSet{ .instrs = &instrs }).instrs;
 };
 
 test "ISA covers all opcodes" {

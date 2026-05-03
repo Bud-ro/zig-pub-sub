@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Integrated Embedded System Configuration ---
 // A complete system definition that composes pin mux, clock tree,
@@ -81,8 +81,8 @@ const MemRegion = struct {
     executable: bool,
 
     pub fn validate(comptime self: MemRegion) ?[]const u8 {
-        if (constraints.nonZero(self.size)) |err| return err;
-        if (constraints.isPowerOfTwo(self.size)) |err| return err;
+        if (constraint.nonZero(self.size)) |err| return err;
+        if (constraint.isPowerOfTwo(self.size)) |err| return err;
         if (self.writable and self.executable)
             return "W^X violation";
         return null;
@@ -118,9 +118,9 @@ const UartConfig = struct {
     dma_enabled: bool,
 
     pub fn validateWith(comptime self: UartConfig, comptime apb_hz: u32) ?[]const u8 {
-        if (constraints.oneOf(&.{ 9600, 19200, 57600, 115200, 460800, 921600 }, self.baud_rate)) |err| return err;
-        if (constraints.oneOf(&.{ 7, 8 }, self.data_bits)) |err| return err;
-        if (constraints.oneOf(&.{ 1, 2 }, self.stop_bits)) |err| return err;
+        if (constraint.oneOf(&.{ 9600, 19200, 57600, 115200, 460800, 921600 }, self.baud_rate)) |err| return err;
+        if (constraint.oneOf(&.{ 7, 8 }, self.data_bits)) |err| return err;
+        if (constraint.oneOf(&.{ 1, 2 }, self.stop_bits)) |err| return err;
 
         // Baud rate must be achievable from APB clock with < 2% error
         // UART divider = apb_hz / (16 * baud_rate)
@@ -159,7 +159,7 @@ const SpiConfig = struct {
     dma_enabled: bool,
 
     pub fn validateWith(comptime self: SpiConfig, comptime apb_hz: u32) ?[]const u8 {
-        if (constraints.nonZero(self.max_clock_hz)) |err| return err;
+        if (constraint.nonZero(self.max_clock_hz)) |err| return err;
         if (self.max_clock_hz > apb_hz / 2)
             return "SPI clock cannot exceed APB/2";
         return null;
@@ -184,9 +184,9 @@ const AdcConfig = struct {
     dma_circular: bool,
 
     pub fn validateWith(comptime self: AdcConfig, comptime apb_hz: u32) ?[]const u8 {
-        if (constraints.oneOf(&.{ 8, 10, 12 }, self.resolution_bits)) |err| return err;
-        if (constraints.inRange(100, 1_000_000, self.sample_rate_hz)) |err| return err;
-        if (constraints.inRange(1, 16, self.channels)) |err| return err;
+        if (constraint.oneOf(&.{ 8, 10, 12 }, self.resolution_bits)) |err| return err;
+        if (constraint.inRange(100, 1_000_000, self.sample_rate_hz)) |err| return err;
+        if (constraint.inRange(1, 16, self.channels)) |err| return err;
 
         const total_sample_rate = self.sample_rate_hz * self.channels;
         const max_rate = apb_hz / (self.resolution_bits + 12);
@@ -217,9 +217,9 @@ const TaskConfig = struct {
     uses_adc: bool,
 
     pub fn validate(comptime self: TaskConfig) ?[]const u8 {
-        if (constraints.nonZero(self.period_us)) |err| return err;
-        if (constraints.nonZero(self.wcet_us)) |err| return err;
-        if (constraints.isPowerOfTwo(self.stack_bytes)) |err| return err;
+        if (constraint.nonZero(self.period_us)) |err| return err;
+        if (constraint.nonZero(self.wcet_us)) |err| return err;
+        if (constraint.isPowerOfTwo(self.stack_bytes)) |err| return err;
         if (self.wcet_us >= self.period_us)
             return "WCET exceeds period";
         return null;
@@ -231,7 +231,7 @@ const TaskSetValidator = struct {
     ram_bytes: u32,
 
     pub fn validate(comptime self: TaskSetValidator) ?[]const u8 {
-        if (constraints.lenInRange(1, 16, self.tasks.len)) |err| return err;
+        if (constraint.lenInRange(1, 16, self.tasks.len)) |err| return err;
 
         var total_stack: u32 = 0;
         var total_util_x1000: u32 = 0;
@@ -305,7 +305,7 @@ const SystemConfig = struct {
     }
 };
 
-const my_system = contracts.validated(SystemConfig{
+const my_system = contract.validated(SystemConfig{
     .clock = ClockConfig{
         .source = .pll,
         .hse_freq_hz = 8_000_000,
@@ -393,6 +393,6 @@ test "system task stacks fit in RAM" {
 
 test "full system passes integrated validation" {
     comptime {
-        contracts.assertValid(my_system);
+        contract.assertValid(my_system);
     }
 }

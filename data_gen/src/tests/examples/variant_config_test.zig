@@ -1,7 +1,7 @@
 const std = @import("std");
-const constraints = @import("data_gen").constraints;
-const contracts = @import("data_gen").contracts;
-const generators = @import("data_gen").generators;
+const constraint = @import("data_gen").constraint;
+const contract = @import("data_gen").contract;
+const generator = @import("data_gen").generator;
 
 // --- Variant Configurations with Tightening Constraints ---
 // A base hardware config defines broad acceptable ranges.
@@ -92,7 +92,7 @@ const ServoConfig = struct {
     }
 };
 
-const drone_motor = contracts.validated(SmallBldcConfig{
+const drone_motor = contract.validated(SmallBldcConfig{
     .base = .{
         .rated_voltage_mv = 14800,
         .max_current_ma = 20000,
@@ -105,7 +105,7 @@ const drone_motor = contracts.validated(SmallBldcConfig{
     .max_throttle_pct = 100,
 });
 
-const cnc_servo = contracts.validated(ServoConfig{
+const cnc_servo = contract.validated(ServoConfig{
     .base = .{
         .rated_voltage_mv = 48000,
         .max_current_ma = 5000,
@@ -120,15 +120,15 @@ const cnc_servo = contracts.validated(ServoConfig{
 
 test "drone motor passes both base and variant validation" {
     comptime {
-        contracts.assertValid(drone_motor);
-        contracts.assertValid(drone_motor.base);
+        contract.assertValid(drone_motor);
+        contract.assertValid(drone_motor.base);
     }
 }
 
 test "cnc servo passes both base and variant validation" {
     comptime {
-        contracts.assertValid(cnc_servo);
-        contracts.assertValid(cnc_servo.base);
+        contract.assertValid(cnc_servo);
+        contract.assertValid(cnc_servo.base);
     }
 }
 
@@ -143,9 +143,9 @@ const AlarmLevel = struct {
     debounce_ms: u16,
 
     pub fn validate(comptime self: AlarmLevel) ?[]const u8 {
-        if (constraints.nonZero(self.threshold)) |err| return err;
-        if (constraints.inRange(@as(u8, 1), @as(u8, 8), self.severity)) |err| return err;
-        if (constraints.nonZero(self.debounce_ms)) |err| return err;
+        if (constraint.nonZero(self.threshold)) |err| return err;
+        if (constraint.inRange(@as(u8, 1), @as(u8, 8), self.severity)) |err| return err;
+        if (constraint.nonZero(self.debounce_ms)) |err| return err;
         return null;
     }
 };
@@ -196,9 +196,9 @@ const alarm_levels = blk: {
             };
         }
     }.f;
-    const levels = generators.generateArray(AlarmLevel, 8, gen);
+    const levels = generator.generateArray(AlarmLevel, 8, gen);
 
-    const wrapper = contracts.validated(AlarmLevels{ .levels = levels });
+    const wrapper = contract.validated(AlarmLevels{ .levels = levels });
     break :blk wrapper.levels;
 };
 
@@ -242,8 +242,8 @@ const ProductVariant = struct {
     price_cents: u32,
 
     pub fn validate(comptime self: ProductVariant) ?[]const u8 {
-        if (constraints.lenInRange(0, 6, self.features.len)) |err| return err;
-        if (constraints.nonZero(self.price_cents)) |err| return err;
+        if (constraint.lenInRange(0, 6, self.features.len)) |err| return err;
+        if (constraint.nonZero(self.price_cents)) |err| return err;
 
         // No duplicate features within a variant
         for (0..self.features.len) |fi| {
@@ -264,13 +264,13 @@ const ProductLine = struct {
 
     pub fn validate(comptime self: ProductLine) ?[]const u8 {
         @setEvalBranchQuota(5000);
-        if (constraints.lenInRange(2, 16, self.variants.len)) |err| return err;
+        if (constraint.lenInRange(2, 16, self.variants.len)) |err| return err;
 
         var skus: [self.variants.len]u16 = undefined;
         for (self.variants, 0..) |v, i| {
             skus[i] = v.sku_id;
         }
-        if (constraints.noDuplicates(u16, &skus)) |err| return err;
+        if (constraint.noDuplicates(u16, &skus)) |err| return err;
 
         // No two variants can have identical feature sets
         for (0..self.variants.len) |i| {
@@ -338,7 +338,7 @@ const product_line = blk: {
         .{ .sku_id = 1004, .motor = base_motor, .features = &.{ .wifi, .bluetooth, .lte, .gps }, .price_cents = 24900 },
         .{ .sku_id = 1005, .motor = base_motor, .features = &.{ .wifi, .bluetooth, .lte, .gps, .nfc, .zigbee }, .price_cents = 34900 },
     };
-    const validated = contracts.validated(ProductLine{ .variants = &variants });
+    const validated = contract.validated(ProductLine{ .variants = &variants });
     break :blk validated.variants;
 };
 

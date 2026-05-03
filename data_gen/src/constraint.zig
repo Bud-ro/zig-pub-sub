@@ -3,6 +3,14 @@
 
 const std = @import("std");
 
+/// Checks two values are equal.
+pub fn equals(comptime expected: anytype, comptime actual: anytype) ?[]const u8 {
+    if (actual != expected) {
+        return std.fmt.comptimePrint("expected {}, got {}", .{ expected, actual });
+    }
+    return null;
+}
+
 /// Checks value is within [min, max] inclusive.
 pub fn inRange(comptime min: anytype, comptime max: anytype, comptime value: anytype) ?[]const u8 {
     if (value < min or value > max) {
@@ -11,52 +19,23 @@ pub fn inRange(comptime min: anytype, comptime max: anytype, comptime value: any
     return null;
 }
 
-/// Returns true if value is in [min, max] inclusive.
-pub fn isInRange(comptime min: anytype, comptime max: anytype, comptime value: anytype) bool {
-    return value >= min and value <= max;
-}
-
 /// Checks value equals one of the allowed values.
 pub fn oneOf(comptime allowed: anytype, comptime value: anytype) ?[]const u8 {
-    if (!isOneOf(allowed, value)) {
-        var set_str: []const u8 = "";
-        for (allowed, 0..) |a, i| {
-            if (i > 0) set_str = set_str ++ ", ";
-            set_str = set_str ++ std.fmt.comptimePrint("{}", .{a});
-        }
-        return std.fmt.comptimePrint("value {} is not in the allowed set: [{s}]", .{ value, set_str });
-    }
-    return null;
-}
-
-/// Returns true if value equals one of the allowed values.
-pub fn isOneOf(comptime allowed: anytype, comptime value: anytype) bool {
     for (allowed) |a| {
-        if (value == a) return true;
+        if (value == a) return null;
     }
-    return false;
-}
-
-/// Checks array/slice length is exactly `expected`.
-pub fn exactLen(comptime expected: usize, comptime actual: usize) ?[]const u8 {
-    if (actual != expected) {
-        return std.fmt.comptimePrint("expected length {}, got {}", .{ expected, actual });
+    var set_str: []const u8 = "";
+    for (allowed, 0..) |a, i| {
+        if (i > 0) set_str = set_str ++ ", ";
+        set_str = set_str ++ std.fmt.comptimePrint("{}", .{a});
     }
-    return null;
+    return std.fmt.comptimePrint("value {} is not in the allowed set: [{s}]", .{ value, set_str });
 }
 
 /// Checks length is within [min, max] inclusive.
 pub fn lenInRange(comptime min: usize, comptime max: usize, comptime actual: usize) ?[]const u8 {
     if (actual < min or actual > max) {
         return std.fmt.comptimePrint("length {} is outside [{}, {}]", .{ actual, min, max });
-    }
-    return null;
-}
-
-/// Checks every element of a comptime array satisfies a check function.
-pub fn allElements(comptime T: type, comptime arr: []const T, comptime check: fn (comptime T) ?[]const u8) ?[]const u8 {
-    for (arr) |elem| {
-        if (check(elem)) |err| return err;
     }
     return null;
 }
@@ -112,14 +91,6 @@ pub fn nonZero(comptime value: anytype) ?[]const u8 {
     return null;
 }
 
-/// OR combinator: passes if at least one bool check is true.
-pub fn anyOf(comptime checks: []const bool) ?[]const u8 {
-    for (checks) |chk| {
-        if (chk) return null;
-    }
-    return "none of the constraint alternatives were satisfied";
-}
-
 /// Checks that a comptime value is strictly less than another.
 pub fn lessThan(comptime a: anytype, comptime b: anytype) ?[]const u8 {
     if (a >= b) {
@@ -136,26 +107,15 @@ pub fn greaterThan(comptime a: anytype, comptime b: anytype) ?[]const u8 {
     return null;
 }
 
-/// Checks that the sum of an array does not exceed a budget.
-pub fn sumAtMost(comptime T: type, comptime values: []const T, comptime budget: T) ?[]const u8 {
-    var total: T = 0;
-    for (values) |v| {
-        total += v;
+/// OR combinator: passes if at least one constraint result is null (passed).
+/// On failure, lists all individual failure reasons.
+pub fn anyOf(comptime checks: []const ?[]const u8) ?[]const u8 {
+    for (checks) |chk| {
+        if (chk == null) return null;
     }
-    if (total > budget) {
-        return std.fmt.comptimePrint("sum {} exceeds budget {}", .{ total, budget });
+    var msg: []const u8 = "no alternative satisfied:";
+    for (checks) |chk| {
+        msg = msg ++ "\n  - " ++ chk.?;
     }
-    return null;
-}
-
-/// Checks that the sum of an array equals an exact target.
-pub fn sumEquals(comptime T: type, comptime values: []const T, comptime target: T) ?[]const u8 {
-    var total: T = 0;
-    for (values) |v| {
-        total += v;
-    }
-    if (total != target) {
-        return std.fmt.comptimePrint("sum {} does not equal target {}", .{ total, target });
-    }
-    return null;
+    return msg;
 }
