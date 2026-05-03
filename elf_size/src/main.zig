@@ -7,12 +7,12 @@ const elf_size = @import("root.zig");
 const std = @import("std");
 
 fn writeAll(data: []const u8) void {
-    const stdout = std.io.getStdOut();
+    const stdout = std.fs.File.stdout();
     var buf: [4096]u8 = undefined;
     var w = stdout.writer(&buf);
     // zlinter-disable no_swallow_error
-    w.writeAll(data) catch {};
-    w.flush() catch {};
+    w.interface.writeAll(data) catch {};
+    w.interface.flush() catch {};
     // zlinter-enable no_swallow_error
 }
 
@@ -59,8 +59,8 @@ pub fn main() !void {
         defer file.close();
         var wbuf: [4096]u8 = undefined;
         var w = file.writer(&wbuf);
-        try w.writeAll(buf[0..len]);
-        try w.flush();
+        try w.interface.writeAll(buf[0..len]);
+        try w.interface.flush();
     }
 }
 

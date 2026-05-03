@@ -280,14 +280,14 @@ pub fn main() !void {
         defer file.close();
         var buf: [4096]u8 = undefined;
         var w = file.writer(&buf);
-        try w.writeAll(output.items);
-        try w.flush();
+        try w.interface.writeAll(output.items);
+        try w.interface.flush();
     } else {
-        const stdout = std.io.getStdOut();
+        const stdout = std.fs.File.stdout();
         var buf: [4096]u8 = undefined;
         var w = stdout.writer(&buf);
-        try w.writeAll(output.items);
-        try w.flush();
+        try w.interface.writeAll(output.items);
+        try w.interface.flush();
     }
 
     std.debug.print("{d} functions ({d} exported, {d} called), {d} instructions\n", .{
