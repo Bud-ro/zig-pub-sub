@@ -3,6 +3,7 @@ const std = @import("std");
 const Erd = erd_core.Erd;
 const TimerStats = erd_core.common.timer_stats;
 
+/// Identifies which data component owns an ERD.
 pub const ComponentId = enum(u8) {
     ram,
     indirect,
@@ -46,6 +47,7 @@ pub const ErdEnum = enum {
     erd_cool_plus_best,
 };
 
+/// Struct of all ERD field definitions for this application.
 pub const ErdDefinitions = struct {
     // zig fmt: off
     erd_application_version:  Erd = .{ .erd_number = 0x0000, .T = u32,                         .component_idx = Ram,      .subs = 0 },
@@ -100,6 +102,7 @@ pub const erd = blk: {
     break :blk _erds;
 };
 
+/// Count ERDs belonging to the given component.
 pub fn numErds(comptime id: ComponentId) comptime_int {
     const component_idx = @intFromEnum(id);
     var i = 0;
@@ -111,6 +114,7 @@ pub fn numErds(comptime id: ComponentId) comptime_int {
     return i;
 }
 
+/// Extract ERD definitions for a specific component as an array.
 pub fn componentDefinitions(comptime id: ComponentId) [numErds(id)]Erd {
     const component_idx = @intFromEnum(id);
     var _erds: [numErds(id)]Erd = undefined;
@@ -127,8 +131,11 @@ pub fn componentDefinitions(comptime id: ComponentId) [numErds(id)]Erd {
 }
 
 // Array versions of ERDs. For easier iteration.
+/// All RAM component ERD definitions as an array.
 pub const ram_definitions = componentDefinitions(.ram);
+/// All indirect component ERD definitions as an array.
 pub const indirect_definitions = componentDefinitions(.indirect);
+/// All converted component ERD definitions as an array.
 pub const converted_definitions = componentDefinitions(.converted);
 
 /// Enum to Erd mapper

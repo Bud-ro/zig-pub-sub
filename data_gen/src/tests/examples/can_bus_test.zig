@@ -16,6 +16,7 @@ const CanBitTiming = struct {
     phase_seg2: u8,
     sjw: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: CanBitTiming) ?[]const u8 {
         if (self.prescaler < 1 or self.prescaler > 1024) return "prescaler out of range [1, 1024]";
         if (self.prop_seg < 1 or self.prop_seg > 8) return "prop_seg out of range [1, 8]";
@@ -31,14 +32,17 @@ const CanBitTiming = struct {
         return null;
     }
 
+    /// Compute the total bit time in time quanta.
     pub fn bitTime(comptime self: CanBitTiming) u16 {
         return 1 + @as(u16, self.prop_seg) + self.phase_seg1 + self.phase_seg2;
     }
 
+    /// Compute the baud rate from clock and timing parameters.
     pub fn baudRate(comptime self: CanBitTiming, comptime clock_hz: u32) u32 {
         return clock_hz / (@as(u32, self.prescaler) * self.bitTime());
     }
 
+    /// Compute the sample point as a percentage of bit time.
     pub fn samplePointPct(comptime self: CanBitTiming) u8 {
         const before_sample = 1 + @as(u16, self.prop_seg) + self.phase_seg1;
         return @intCast(before_sample * 100 / self.bitTime());
@@ -52,6 +56,7 @@ const CanNodeConfig = struct {
     silent_mode: bool,
     loopback: bool,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: CanNodeConfig) ?[]const u8 {
         if (self.clock_hz == 0) return "clock_hz must not be zero";
 
@@ -72,6 +77,7 @@ fn CanNetwork(comptime n: usize) type {
     return struct {
         nodes: [n]CanNodeConfig,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (n < 2 or n > 16)
                 return std.fmt.comptimePrint("length {} is outside [2, 16]", .{n});
@@ -187,6 +193,7 @@ const CanFilter = struct {
     is_extended: bool,
     fifo: u1,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: CanFilter) ?[]const u8 {
         if (!self.is_extended) {
             if (self.can_id > 0x7FF)
@@ -202,6 +209,7 @@ fn CanFilterBank(comptime n: usize) type {
     return struct {
         filters: [n]CanFilter,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
 

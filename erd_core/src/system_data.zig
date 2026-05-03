@@ -10,6 +10,7 @@ const std = @import("std");
 const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 
+/// Construct a typed pub-sub system data aggregator from ERD definitions and components.
 pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_instance: ErdDefs, comptime Components: type) type {
     // Validate ErdEnum matches ErdDefs fields
     comptime {
@@ -35,6 +36,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
     return struct {
         const Self = @This();
 
+        /// Arguments passed to on-change subscription callbacks.
         pub const OnChangeArgs = Subscription.OnChangeArgs;
 
         /// A test only type used with verifyAllSubsAreSaturated
@@ -45,6 +47,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         scratch: std.heap.FixedBufferAllocator = undefined,
         scratch_buf: [2048]u8 align(@alignOf(usize)) = undefined, // TODO: Does this actually need to be aligned?
 
+        /// Initialize SystemData with the given component instances.
         pub fn init(components: Components) Self {
             var this = Self{};
             this.components = components;
@@ -73,9 +76,12 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             break :blk result;
         };
 
+        /// The enum type used to reference ERDs by name.
         pub const ErdEnumType = ErdEnum;
+        /// The comptime ERD definitions instance.
         pub const erds = erd_instance;
 
+        /// Convert an ErdEnum value to its corresponding Erd definition.
         pub fn erdFromEnum(comptime erd_enum: ErdEnum) Erd {
             return @field(erd_instance, @tagName(erd_enum));
         }
@@ -171,6 +177,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             }
         }
 
+        /// Remove a subscription from an ERD by callback identity.
         pub fn unsubscribe(this: *Self, comptime erd_enum: ErdEnum, fn_ptr: Subscription.Callback) void {
             const erd: Erd = erdFromEnum(erd_enum);
             comptime {

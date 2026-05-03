@@ -8,6 +8,7 @@ const generator = @import("data_gen").generator;
 const GammaTable = struct {
     table: [256]u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: GammaTable) ?[]const u8 {
         if (self.table[0] != 0)
             return "gamma table must start at 0";
@@ -57,6 +58,7 @@ const PriorityConfig = struct {
     weight: u16,
     max_queue_depth: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: PriorityConfig) ?[]const u8 {
         if (constraint.nonZero(self.weight)) |err| return err;
         if (constraint.nonZero(self.max_queue_depth)) |err| return err;
@@ -67,6 +69,7 @@ const PriorityConfig = struct {
 const PriorityMap = struct {
     entries: []const PriorityConfig,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: PriorityMap) ?[]const u8 {
         const all_priorities = [_]Priority{ .critical, .high, .normal, .low, .background };
 
@@ -133,6 +136,7 @@ const InterpPoint = struct {
     x: i32,
     y: i32,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: InterpPoint) ?[]const u8 {
         if (constraint.inRange(-10000, 10000, self.y)) |err| return err;
         return null;
@@ -142,6 +146,7 @@ const InterpPoint = struct {
 const InterpTable = struct {
     points: []const InterpPoint,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: InterpTable) ?[]const u8 {
         if (constraint.lenInRange(3, 128, self.points.len)) |err| return err;
 
@@ -211,6 +216,7 @@ const Segment = struct {
     start_y: i16,
     end_y: i16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: Segment) ?[]const u8 {
         if (constraint.lessThan(self.start_x, self.end_x)) |err| return err;
         return null;
@@ -220,6 +226,7 @@ const Segment = struct {
 const PiecewiseMap = struct {
     segments: []const Segment,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: PiecewiseMap) ?[]const u8 {
         if (self.segments.len == 0)
             return "piecewise map needs at least one segment";

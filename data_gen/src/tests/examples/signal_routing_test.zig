@@ -33,6 +33,7 @@ const RouteEntry = struct {
     attenuation_db: u8,
     invert: bool,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: RouteEntry) ?[]const u8 {
         // Source and destination must be different
         if (self.source == self.destination)
@@ -49,6 +50,7 @@ fn ValidatedRoutingMatrix(comptime len: usize) type {
     return struct {
         routes: [len]RouteEntry,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
             if (constraint.lenInRange(1, 64, self.routes.len)) |err| return err;
@@ -137,6 +139,7 @@ const CrossbarEntry = struct {
     output_channel: u4,
     gain_x10: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: CrossbarEntry) ?[]const u8 {
         if (constraint.inRange(1, 100, self.gain_x10)) |err| return err;
         return null;
@@ -147,6 +150,7 @@ fn ValidatedCrossbar(comptime n: u4, comptime len: usize) type {
     return struct {
         entries: [len]CrossbarEntry,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (self.entries.len != n)
                 return std.fmt.comptimePrint(
@@ -215,6 +219,7 @@ const DmaAssignment = struct {
     circular: bool,
     mem_increment: bool,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: DmaAssignment) ?[]const u8 {
         if (constraint.inRange(0, 15, self.channel)) |err| return err;
 
@@ -230,6 +235,7 @@ fn ValidatedDmaAssignments(comptime len: usize) type {
     return struct {
         assignments: [len]DmaAssignment,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (constraint.lenInRange(1, 16, self.assignments.len)) |err| return err;
 

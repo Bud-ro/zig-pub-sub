@@ -22,11 +22,13 @@ const erd_core = @import("erd_core");
 const std = @import("std");
 const Erd = erd_core.Erd;
 
+/// Options for configuring a RAM-backed test ERD.
 pub const RamErdOptions = struct {
     subs: comptime_int = 0,
     erd_number: ?Erd.ErdHandle = null,
 };
 
+/// Create an ERD definition for use in a test double.
 pub fn ramErd(comptime T: type, comptime opts: RamErdOptions) Erd {
     return .{
         .erd_number = opts.erd_number,
@@ -36,6 +38,7 @@ pub fn ramErd(comptime T: type, comptime opts: RamErdOptions) Erd {
     };
 }
 
+/// Create a test SystemData type from ERD definitions backed by a single RAM component.
 pub fn create(comptime ErdDefs: type) type { // zlinter-disable-current-line function_naming
     const erd_instance = buildErdInstance(ErdDefs);
     const erd_fields = std.meta.fieldNames(ErdDefs);
@@ -58,8 +61,10 @@ pub fn create(comptime ErdDefs: type) type { // zlinter-disable-current-line fun
     const SystemDataType = erd_core.SystemData(ErdDefs, ErdEnum, erd_instance, Components);
 
     return struct {
+        /// The concrete SystemData type for this test double.
         pub const SystemData = SystemDataType;
 
+        /// Initialize a zeroed SystemData instance ready for testing.
         pub fn init() SystemDataType {
             return SystemDataType.init(.{
                 .ram = RamDataComponentType.init(),

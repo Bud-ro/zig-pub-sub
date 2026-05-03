@@ -16,6 +16,7 @@ fn writeAll(data: []const u8) void {
     // zlinter-enable no_swallow_error
 }
 
+/// Entry point for the ELF memory usage summary tool.
 // zlinter-disable-next-line no_inferred_error_unions
 pub fn main() !void {
     var args = std.process.args();

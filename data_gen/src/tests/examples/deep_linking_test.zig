@@ -10,6 +10,7 @@ const Component = struct {
     voltage_mv: u16,
     active: bool,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: Component) ?[]const u8 {
         if (self.power_mw > 5000) return "power_mw out of range [0, 5000]";
         if (self.voltage_mv != 1800 and self.voltage_mv != 3300 and self.voltage_mv != 5000 and self.voltage_mv != 12000)
@@ -26,6 +27,7 @@ const Subsystem = struct {
     max_power_mw: u32,
     voltage_mv: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: Subsystem) ?[]const u8 {
         if (self.max_power_mw > 15000) return "max_power_mw out of range [0, 15000]";
 
@@ -51,6 +53,7 @@ const System = struct {
     power_budget_mw: u32,
     name_id: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: System) ?[]const u8 {
         if (self.power_budget_mw > 50000) return "power_budget_mw out of range [0, 50000]";
 
@@ -135,6 +138,7 @@ test "embedded system component IDs are unique within subsystems" {
 const SubsystemComponentIds = struct {
     subsystem: Subsystem,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: SubsystemComponentIds) ?[]const u8 {
         var ids: [4]u8 = undefined;
         for (self.subsystem.components, 0..) |comp, i| {
@@ -157,6 +161,7 @@ fn TaskGraph(comptime n: usize) type {
     return struct {
         tasks: [n]Task,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (constraint.lenInRange(1, 64, self.tasks.len)) |err| return err;
 
@@ -229,6 +234,7 @@ fn ErdRegistry(comptime n: usize) type {
     return struct {
         specs: [n]ErdSpec,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (constraint.lenInRange(1, 256, self.specs.len)) |err| return err;
 

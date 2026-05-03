@@ -126,6 +126,7 @@ fn extractFunc(all_lines: []const []const u8, start: usize, end: usize, args: Ex
     return count;
 }
 
+/// Entry point for the assembly stripping tool.
 // zlinter-disable-next-line no_inferred_error_unions
 pub fn main() !void {
     var gpa_state: std.heap.DebugAllocator(.{}) = .init;

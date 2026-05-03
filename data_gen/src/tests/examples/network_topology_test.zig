@@ -12,6 +12,7 @@ fn CostMatrix(comptime n: usize) type {
     return struct {
         matrix: [n][n]u16,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(10_000);
 
@@ -121,6 +122,7 @@ const Edge = struct {
     b: u8,
     cost: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: Edge) ?[]const u8 {
         if (constraint.nonZero(self.cost)) |err| return err;
         return null;
@@ -131,6 +133,7 @@ fn SpanningTree(comptime n: u8, comptime edge_count: usize) type {
     return struct {
         edges: [edge_count]Edge,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (self.edges.len != n - 1)
                 return std.fmt.comptimePrint(
@@ -224,6 +227,7 @@ fn TreeGraphConsistency(comptime n: usize, comptime edge_count: usize) type {
         matrix: [n][n]u16,
         tree: [edge_count]Edge,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             for (self.tree) |e| {
                 if (self.matrix[e.a][e.b] != e.cost)
@@ -264,6 +268,7 @@ fn ClockTree(comptime n: usize) type {
     return struct {
         nodes: [n]ClockNode,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (constraint.lenInRange(1, 16, n)) |err| return err;
 

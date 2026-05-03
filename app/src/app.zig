@@ -36,10 +36,14 @@ const converted_mappings = [_]ConvertedMapping{
     }),
 };
 
+/// Concrete RAM data component type for this application.
 pub const RamDataComponent = erd_core.data_component.Ram(&system_erds.ram_definitions);
+/// Concrete indirect data component type for this application.
 pub const IndirectDataComponent = erd_core.data_component.Indirect(&system_erds.indirect_definitions, indirect_mappings);
+/// Concrete converted data component type for this application.
 pub const ConvertedDataComponent = erd_core.data_component.Converted(&system_erds.converted_definitions, converted_mappings);
 
+/// Aggregate of all data components wired to SystemData.
 pub const Components = struct {
     ram: RamDataComponent,
     indirect: IndirectDataComponent,
@@ -56,12 +60,15 @@ pub const Components = struct {
     }
 };
 
+/// Fully instantiated SystemData type for this application.
 pub const SystemData = erd_core.SystemData(system_erds.ErdDefinitions, system_erds.ErdEnum, system_erds.erd, Components);
 
+/// Top-level application state holding the SystemData instance.
 pub const Application = struct {
     system_data: SystemData,
 };
 
+/// Initialize the application with all components and dependency subscriptions.
 pub fn init() Application {
     var app = Application{ .system_data = SystemData.init(.{
         .ram = RamDataComponent.init(),

@@ -11,6 +11,7 @@ const AdcScaling = struct {
     reference_mv: u16,
     resolution_bits: u8,
 
+    /// Convert a voltage to an ADC count.
     pub fn voltsToCount(comptime self: AdcScaling, comptime volts: comptime_float) u16 {
         const mv = volts * 1000.0;
         const counts_per_mv = @as(comptime_float, @floatFromInt((@as(u32, 1) << self.resolution_bits) - 1)) /
@@ -49,6 +50,7 @@ const TempSensor = struct {
     scale_mv_per_c: comptime_float,
     adc: AdcScaling,
 
+    /// Convert a temperature in Celsius to an ADC count.
     pub fn celsiusToCount(comptime self: TempSensor, comptime temp_c: comptime_float) u16 {
         const mv = (temp_c - self.offset_c) * self.scale_mv_per_c;
         const volts = mv / 1000.0;
@@ -75,6 +77,7 @@ const MotorTimingConfig = struct {
     tick_hz: comptime_float,
     poles: u8,
 
+    /// Convert RPM to timer ticks.
     pub fn rpmToTicks(comptime self: MotorTimingConfig, comptime rpm: comptime_float) u16 {
         const electrical_hz = rpm * @as(comptime_float, @floatFromInt(self.poles)) / 120.0;
         return @intCast(@as(comptime_int, @intFromFloat(self.tick_hz / electrical_hz)));
@@ -144,6 +147,7 @@ test "lower cutoff gives smaller alpha" {
 const PwmChannel = struct {
     timer_period: u16,
 
+    /// Convert a duty percentage to a compare value.
     pub fn dutyPercent(comptime self: PwmChannel, comptime pct: comptime_float) u16 {
         return transform.percentOf(u16, self.timer_period, pct);
     }
@@ -203,6 +207,7 @@ const SensorConfig = struct {
     filter_alpha: u16,
     filter_beta: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: SensorConfig) ?[]const u8 {
         if (self.alarm_low_counts >= self.alarm_high_counts) return "alarm_low_counts must be less than alarm_high_counts";
         if (self.sample_ticks == 0) return "sample_ticks must not be zero";

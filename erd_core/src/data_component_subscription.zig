@@ -30,8 +30,10 @@ pub fn validateComponents(comptime Components: type) void {
 pub fn DataComponentSubscription(comptime erds: []const Erd) type {
     return struct {
         const Self = @This();
+        /// Whether this component supports subscriptions.
         pub const supported = true;
 
+        /// Comptime-computed offsets into the flat subscription slot array per ERD.
         pub const sub_offsets = blk: {
             var _offsets: [erds.len]usize = undefined;
             var cur_offset: usize = 0;
@@ -52,6 +54,7 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
             return size;
         }
 
+        /// Add a subscription callback for an ERD. Deduplicates by callback identity.
         pub fn subscribe(self: *Self, erd: Erd, context: ?*anyopaque, fn_ptr: Subscription.Callback) void {
             std.debug.assert(erd.subs > 0);
             const offset = sub_offsets[erd.data_component_idx];
@@ -74,6 +77,7 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
             first_free.?.callback = fn_ptr;
         }
 
+        /// Remove a subscription callback for an ERD by identity.
         pub fn unsubscribe(self: *Self, erd: Erd, fn_ptr: Subscription.Callback) void {
             std.debug.assert(erd.subs > 0);
             const offset = sub_offsets[erd.data_component_idx];
@@ -91,13 +95,17 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
 /// Stub for components that do not support subscriptions.
 /// Any attempt to subscribe or unsubscribe is a compile error.
 pub const Unsupported = struct { // zlinter-disable-current-line declaration_naming
+    /// Whether this component supports subscriptions.
     pub const supported = false;
+    /// Empty offset array for interface compatibility.
     pub const sub_offsets = [_]usize{};
 
+    /// Compile error: this component does not support subscriptions.
     pub fn subscribe(_: *@This(), _: Erd, _: ?*anyopaque, _: Subscription.Callback) void {
         @compileError("This component does not support subscriptions");
     }
 
+    /// Compile error: this component does not support unsubscribe.
     pub fn unsubscribe(_: *@This(), _: Erd, _: Subscription.Callback) void {
         @compileError("This component does not support subscriptions");
     }

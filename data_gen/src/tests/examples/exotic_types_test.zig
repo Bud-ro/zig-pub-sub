@@ -14,6 +14,7 @@ const StatusRegister = packed struct {
     gain: u5,
     reserved: u1,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: StatusRegister) ?[]const u8 {
         if (self.busy == 1 and self.error_code != 0)
             return "cannot be busy with an active error";
@@ -71,6 +72,7 @@ const DacControl = packed struct {
     update_trigger: u1,
     _reserved2: u3 = 0,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: DacControl) ?[]const u8 {
         if (self.power_down_mode != 0 and self.update_trigger == 1)
             return "cannot trigger update while powered down";
@@ -127,6 +129,7 @@ const SensorReading = extern struct {
     status_flags: u16,
     _pad2: [2]u8 = .{ 0, 0 },
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: SensorReading) ?[]const u8 {
         if (self.channel_id > 15) return "channel_id out of range [0, 15]";
         if (self.timestamp_ms == 0) return "timestamp_ms must not be zero";
@@ -199,6 +202,7 @@ const Command = union(CommandTag) {
     reset: void,
     calibrate: CalibrateData,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: Command) ?[]const u8 {
         switch (self) {
             .set_output => |data| {
@@ -225,6 +229,7 @@ const Command = union(CommandTag) {
 const CommandSequence = struct {
     cmds: []const Command,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: CommandSequence) ?[]const u8 {
         if (constraint.lenInRange(1, 32, self.cmds.len)) |err| return err;
 
@@ -299,6 +304,7 @@ const GainTable = struct {
     row_labels: [4]u8,
     col_labels: [8]u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: GainTable) ?[]const u8 {
         if (constraint.isSorted(u8, &self.row_labels)) |err| return err;
         if (constraint.noDuplicates(u8, &self.row_labels)) |err| return err;

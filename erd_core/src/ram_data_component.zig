@@ -8,10 +8,12 @@ const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 const DataComponentSubscription = erd_core.data_component.subscription_mixin.DataComponentSubscription;
 
+/// Construct a RAM-backed data component with packed byte-array storage.
 pub fn RamDataComponent(comptime erds: []const Erd) type {
     return struct {
         const Self = @This();
 
+        /// Indicates this component supports writes.
         pub const supports_write = true;
         const Subs = DataComponentSubscription(erds);
 
@@ -20,6 +22,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         storage: [storeSize()]u8 align(@alignOf(usize)) = undefined,
         subs: Subs = .{},
 
+        /// Initialize storage to zero.
         pub fn init() Self {
             var self = Self{};
             @memset(self.storage[0..], 0);
@@ -70,6 +73,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             break :blk _idx;
         };
 
+        /// Read an ERD value from packed storage by comptime index.
         pub fn read(self: Self, erd: Erd) erd.T {
             const idx = erd.data_component_idx;
 
@@ -78,6 +82,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             return value;
         }
 
+        /// Runtime read using a dynamic data component index.
         pub fn runtimeRead(self: Self, data_component_idx: u16, data: *anyopaque) void {
             var data_slice: [*]u8 = @ptrCast(data);
             const size = data_size[data_component_idx];
@@ -123,11 +128,13 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             return std.mem.readInt(Int, a, .little) != std.mem.readInt(Int, b, .little);
         }
 
+        /// Write without change detection or publish (used during initialization).
         pub fn writeNoCompare(self: *Self, erd: Erd, data: erd.T) void {
             const idx = erd.data_component_idx;
             self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = std.mem.toBytes(data);
         }
 
+        /// Runtime write with change detection using a dynamic data component index.
         pub fn runtimeWrite(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
             const idx = data_component_idx;
 

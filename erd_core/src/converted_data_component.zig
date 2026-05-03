@@ -35,6 +35,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
     return struct {
         const Self = @This();
 
+        /// Indicates this component does not support direct writes.
         pub const supports_write = false;
         const Subs = DataComponentSubscription(erds);
 
@@ -73,18 +74,21 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
             return temp;
         }
 
+        /// Runtime read using a dynamic data component index.
         pub fn runtimeRead(self: Self, data_component_idx: u16, data: *anyopaque) void {
             std.debug.assert(self.is_fully_initialized);
             const fnPtr: *const fn ([*]u8, *anyopaque) void = @ptrCast(self.read_functions[data_component_idx]);
             fnPtr(@ptrCast(data), self.system_data_ref);
         }
 
+        /// Compile error: converted ERDs do not support writes.
         pub fn write(self: *Self, erd: Erd, data: erd.T) bool {
             _ = self;
             _ = data;
             @compileError("Converted ERD writes are not allowed");
         }
 
+        /// Compile error: converted ERDs do not support runtime writes.
         pub fn runtimeWrite(self: *Self, data_component_idx: u16, data: *const anyopaque) bool {
             _ = self;
             _ = data_component_idx;

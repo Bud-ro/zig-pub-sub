@@ -1,6 +1,7 @@
 const std = @import("std");
 
 // --- Namespaces ---
+/// ERD JSON serialization utilities.
 pub const json = @import("erd_json.zig");
 
 test {

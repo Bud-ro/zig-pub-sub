@@ -14,6 +14,7 @@ const timer = @import("erd_core").timer;
 const Timer = timer.Timer;
 const TimerModule = timer.TimerModule;
 
+/// Throughput and latency measurement results for the timer module.
 pub const StatMeasurement = struct {
     average_throughput_per_tick: u32,
     maximum_throughput_per_tick: u32,
@@ -21,6 +22,7 @@ pub const StatMeasurement = struct {
     maximum_latency: timer.Ticks,
 };
 
+/// Measures timer module throughput and latency by occupying the CPU with a 0-tick timer.
 pub fn TimerModuleStats(comptime SystemDataType: type) type {
     return struct {
         const Self = @This();
@@ -101,6 +103,7 @@ pub fn TimerModuleStats(comptime SystemDataType: type) type {
             onEnableChange(self, &init_data, system_data);
         }
 
+        /// Initialize the stats module and wire up the enable ERD subscription.
         pub fn init(
             self: *Self,
             system_data: *SystemDataType,

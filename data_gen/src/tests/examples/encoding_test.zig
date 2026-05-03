@@ -12,6 +12,7 @@ const CodeEntry = struct {
     code: u16,
     length: u4,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: CodeEntry) ?[]const u8 {
         if (constraint.inRange(1, 15, self.length)) |err| return err;
 
@@ -29,6 +30,7 @@ const CodeEntry = struct {
 const PrefixFreeTable = struct {
     codes: []const CodeEntry,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: PrefixFreeTable) ?[]const u8 {
         @setEvalBranchQuota(10_000);
         if (constraint.lenInRange(2, 64, self.codes.len)) |err| return err;
@@ -72,6 +74,7 @@ const PrefixFreeTable = struct {
 const KraftCheck = struct {
     codes: []const CodeEntry,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: KraftCheck) ?[]const u8 {
         // Kraft's inequality: sum(2^(-length_i)) <= 1
         // We compute as sum(2^(max_len - length_i)) <= 2^max_len
@@ -173,6 +176,7 @@ const InstrDef = struct {
     has_immediate: bool,
     cycles: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: InstrDef) ?[]const u8 {
         if (constraint.nonZero(self.cycles)) |err| return err;
 
@@ -204,6 +208,7 @@ const InstrDef = struct {
 const InstructionSet = struct {
     instrs: []const InstrDef,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: InstructionSet) ?[]const u8 {
         if (constraint.lenInRange(1, 32, self.instrs.len)) |err| return err;
 

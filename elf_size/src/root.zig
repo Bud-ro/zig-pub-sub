@@ -5,6 +5,7 @@
 
 const std = @import("std");
 
+/// A named memory region with base address and length for ELF section mapping.
 pub const MemoryRegion = struct {
     name: []const u8,
     origin: u32,

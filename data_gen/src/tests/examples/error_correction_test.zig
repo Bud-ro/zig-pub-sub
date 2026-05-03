@@ -149,6 +149,7 @@ const CrcConfig = struct {
     reflect_in: bool,
     reflect_out: bool,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: CrcConfig) ?[]const u8 {
         if (self.width != 8 and self.width != 16 and self.width != 32)
             return "width must be one of 8, 16, 32";

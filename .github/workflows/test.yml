@@ -50,6 +50,23 @@ jobs:
         run: zig build codegen-check
         working-directory: zig-pub-sub
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: zig-pub-sub
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+          use-cache: true
+          use-tool-cache: true
+
+      - name: Lint
+        run: zig build lint
+        working-directory: zig-pub-sub
+
   embedded:
     runs-on: ubuntu-latest
     steps:

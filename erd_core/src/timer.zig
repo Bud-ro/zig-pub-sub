@@ -41,6 +41,7 @@ const std = @import("std");
 /// u32 allows for ~50 day timers which is plenty.
 pub const Ticks = u32;
 
+/// A single software timer node in the TimerModule's sorted linked list.
 pub const Timer = struct {
     timer_data: TimerData = undefined,
     duration: Ticks = undefined,
@@ -50,6 +51,7 @@ pub const Timer = struct {
     callback: ?TimerCallback = null,
     node: std.SinglyLinkedList.Node = .{},
 
+    /// Timer state: either an absolute expiration tick or remaining ticks when paused.
     pub const TimerData = union {
         /// The tick at which the timer expires
         expiration: Ticks,
@@ -64,6 +66,7 @@ pub const Timer = struct {
     pub const longest_delay_before_servicing_timer = std.math.maxInt(u16);
     /// Max `Timer` length when taking into account disambiguation restriction
     pub const max_ticks: Ticks = std.math.maxInt(Ticks) - longest_delay_before_servicing_timer;
+    /// Callback invoked when the timer expires.
     pub const TimerCallback = *const fn (ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void;
 
     fn isPeriodic(self: *Timer) bool {
@@ -83,6 +86,7 @@ pub const Timer = struct {
     }
 };
 
+/// Tick-based software scheduler using sorted linked lists of Timer nodes.
 pub const TimerModule = struct {
     current_time: Ticks = 0,
     active_timers: std.SinglyLinkedList = .{},

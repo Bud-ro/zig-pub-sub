@@ -32,6 +32,7 @@ const FirmwareHeader = struct {
             (@as(u32, self.min_hw_rev) << 24 | @as(u32, self.flags) << 16 | @as(u32, self.reserved));
     }
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: FirmwareHeader) ?[]const u8 {
         if (self.magic != 0xDEAD_BEEF)
             return "invalid magic number";

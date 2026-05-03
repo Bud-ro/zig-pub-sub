@@ -62,28 +62,34 @@ pub fn setGpioFunc(pin: u5) void {
     mux.* = val;
 }
 
+/// Read the current mux register value for a GPIO pin.
 pub fn readMux(pin: u5) u32 {
     if (pin >= 16) return 0;
     const mux: *volatile u32 = @ptrFromInt(mux_addrs[pin]);
     return mux.*;
 }
 
+/// Configure a GPIO pin as output.
 pub fn setOutput(pin: u5) void {
     GPIO_ENABLE_W1TS.* = @as(u32, 1) << pin;
 }
 
+/// Configure a GPIO pin as input.
 pub fn setInput(pin: u5) void {
     GPIO_ENABLE_W1TC.* = @as(u32, 1) << pin;
 }
 
+/// Drive a GPIO pin high.
 pub fn setPin(pin: u5) void {
     GPIO_OUT_W1TS.* = @as(u32, 1) << pin;
 }
 
+/// Drive a GPIO pin low.
 pub fn clearPin(pin: u5) void {
     GPIO_OUT_W1TC.* = @as(u32, 1) << pin;
 }
 
+/// Read the current level of a GPIO pin.
 pub fn readPin(pin: u5) bool {
     return (GPIO_IN.* >> pin) & 1 != 0;
 }

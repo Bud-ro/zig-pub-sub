@@ -1,5 +1,6 @@
 const std = @import("std");
 
+/// Build configuration for the esp8266 firmware package.
 pub fn build(b: *std.Build) void {
     // Resolve dependency modules through the build system
     const xtensa_c_target = b.resolveTargetQuery(.{

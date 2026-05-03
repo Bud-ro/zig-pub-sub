@@ -20,6 +20,7 @@ const ModuleDef = struct {
     resources: ResourceProfile,
     can_be_disabled: bool,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: ModuleDef) ?[]const u8 {
         if (constraint.inRange(0, 1000, self.resources.cpu_pct_x10)) |err| return err;
         if (self.priority == 0 and self.can_be_disabled)
@@ -43,6 +44,7 @@ fn ValidatedModuleSystem(comptime len: usize) type {
         modules: [len]ModuleDef,
         budget: SystemBudget,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
             if (constraint.lenInRange(1, 32, self.modules.len)) |err| return err;
@@ -210,6 +212,7 @@ const Rect = struct {
     w: u16,
     h: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: Rect) ?[]const u8 {
         if (constraint.nonZero(self.w)) |err| return err;
         if (constraint.nonZero(self.h)) |err| return err;
@@ -221,6 +224,7 @@ fn ValidatedTiling(comptime len: usize, comptime screen_w: u16, comptime screen_
     return struct {
         rects: [len]Rect,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(10_000);
             if (constraint.lenInRange(1, 32, self.rects.len)) |err| return err;

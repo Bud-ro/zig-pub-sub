@@ -78,6 +78,7 @@ fn PinMuxConfig(comptime n: usize) type {
         assignments: [n]PinAssignment,
         capabilities: []const PinCapability,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(10_000);
             if (constraint.lenInRange(1, 32, n)) |err| return err;
@@ -154,6 +155,7 @@ fn PeripheralGroupConfig(comptime n: usize) type {
     return struct {
         assignments: [n]PinAssignment,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             // If any SPI pin is assigned, ALL SPI pins must be assigned
             var has_spi = false;

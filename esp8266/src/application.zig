@@ -8,14 +8,18 @@ const sdk = @import("sdk.zig");
 const std = @import("std");
 const system_erds = @import("system_erds.zig");
 
+/// Concrete RAM data component type for ESP8266.
 pub const RamDataComponent = erd_core.data_component.Ram(&system_erds.ram_definitions);
 
+/// Aggregate of all data components for ESP8266.
 pub const Components = struct {
     ram: RamDataComponent,
 };
 
+/// Fully instantiated SystemData type for ESP8266.
 pub const SystemData = erd_core.SystemData(system_erds.ErdDefinitions, system_erds.ErdEnum, system_erds.erd, Components);
 
+/// Top-level ESP8266 application state with timers and system data.
 pub const Application = struct {
     system_data: SystemData,
     tick_timer: sdk.ETSTimer,

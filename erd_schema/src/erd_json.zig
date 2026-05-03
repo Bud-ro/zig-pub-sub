@@ -4,12 +4,14 @@
 /// Each field of the struct must be an Erd type with `erd_number` and `T` fields.
 const std = @import("std");
 
+/// Configuration options for ERD JSON output.
 pub const Options = struct {
     namespace: []const u8 = "zig-pub-sub",
     version: []const u8 = "0.1.0",
 };
 
-// zlinter-disable-next-line no_inferred_error_unions - error set depends on writer
+/// Generate JSON representation of ERD definitions to the given writer.
+// zlinter-disable-next-line no_inferred_error_unions
 pub fn generate(erd_defs: anytype, writer: *std.io.Writer, comptime options: Options) !void {
     var jws: std.json.Stringify = .{
         .writer = writer,
@@ -18,7 +20,8 @@ pub fn generate(erd_defs: anytype, writer: *std.io.Writer, comptime options: Opt
     try serialize(erd_defs, &jws, options);
 }
 
-// zlinter-disable-next-line no_inferred_error_unions - error set depends on anytype jws
+/// Serialize ERD definitions into the provided JSON write stream.
+// zlinter-disable-next-line no_inferred_error_unions
 pub fn serialize(erd_defs: anytype, jws: anytype, comptime options: Options) !void {
     const ErdDefs = @TypeOf(erd_defs);
     const erd_names = comptime std.meta.fieldNames(ErdDefs);

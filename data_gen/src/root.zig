@@ -3,9 +3,13 @@
 //! ?[]const u8 (null = passed, string = error message) and compose with
 //! the contracts protocol for recursive struct validation.
 
+/// Constraint primitives for constraining generated values.
 pub const constraint = @import("constraint.zig");
+/// Contract protocol for recursive struct validation.
 pub const contract = @import("contract.zig");
+/// Comptime data generator that produces valid instances from constraints.
 pub const generator = @import("generator.zig");
+/// Transform functions applied to generated data after constraint satisfaction.
 pub const transform = @import("transform.zig");
 
 test {

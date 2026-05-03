@@ -13,6 +13,7 @@ const WashStep = struct {
     drum_rpm: u16,
     water_liters: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: WashStep) ?[]const u8 {
         if (self.duration_seconds < 1 or self.duration_seconds > 3600) return "duration_seconds out of range [1, 3600]";
 
@@ -61,6 +62,7 @@ const WashStep = struct {
 const WashCycle = struct {
     steps: []const WashStep,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: WashCycle) ?[]const u8 {
         const cycle = self.steps;
 
@@ -150,6 +152,7 @@ const ProcessStep = struct {
 const HeatTreatProcess = struct {
     steps: []const ProcessStep,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: HeatTreatProcess) ?[]const u8 {
         const s = self.steps;
 
@@ -208,6 +211,7 @@ const Ingredient = struct {
     temp_c: u8,
     dispense_time_ms: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: Ingredient) ?[]const u8 {
         if (constraint.inRange(1, 500, self.amount_ml)) |err| return err;
         if (constraint.inRange(4, 100, self.temp_c)) |err| return err;
@@ -219,6 +223,7 @@ const Ingredient = struct {
 const BeverageRecipe = struct {
     ingredients: []const Ingredient,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: BeverageRecipe) ?[]const u8 {
         const recipe = self.ingredients;
 
