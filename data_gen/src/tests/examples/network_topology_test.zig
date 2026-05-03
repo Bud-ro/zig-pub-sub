@@ -8,15 +8,15 @@ const constraint = @import("data_gen").constraint;
 // and the triangle inequality must hold:
 // cost[i][j] <= cost[i][k] + cost[k][j] for all i,j,k.
 
-fn CostMatrix(comptime N: usize) type {
+fn CostMatrix(comptime n: usize) type {
     return struct {
-        matrix: [N][N]u16,
+        matrix: [n][n]u16,
 
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(10_000);
 
             // Diagonal must be zero
-            for (0..N) |i| {
+            for (0..n) |i| {
                 if (self.matrix[i][i] != 0)
                     return std.fmt.comptimePrint(
                         "cost matrix diagonal[{}][{}] must be 0, got {}",
@@ -25,8 +25,8 @@ fn CostMatrix(comptime N: usize) type {
             }
 
             // Symmetry
-            for (0..N) |i| {
-                for (i + 1..N) |j| {
+            for (0..n) |i| {
+                for (i + 1..n) |j| {
                     if (self.matrix[i][j] != self.matrix[j][i])
                         return std.fmt.comptimePrint(
                             "cost matrix not symmetric: [{},{}]={} != [{},{}]={}",
@@ -36,8 +36,8 @@ fn CostMatrix(comptime N: usize) type {
             }
 
             // All non-diagonal entries must be positive
-            for (0..N) |i| {
-                for (0..N) |j| {
+            for (0..n) |i| {
+                for (0..n) |j| {
                     if (i != j and self.matrix[i][j] == 0)
                         return std.fmt.comptimePrint(
                             "non-diagonal cost[{}][{}] must be > 0",
@@ -47,9 +47,9 @@ fn CostMatrix(comptime N: usize) type {
             }
 
             // Triangle inequality
-            for (0..N) |i| {
-                for (0..N) |j| {
-                    for (0..N) |k| {
+            for (0..n) |i| {
+                for (0..n) |j| {
+                    for (0..n) |k| {
                         if (i == j or i == k or j == k) continue;
                         const direct: u32 = self.matrix[i][j];
                         const via_k: u32 = @as(u32, self.matrix[i][k]) + self.matrix[k][j];
@@ -127,20 +127,20 @@ const Edge = struct {
     }
 };
 
-fn SpanningTree(comptime N: u8, comptime edge_count: usize) type {
+fn SpanningTree(comptime n: u8, comptime edge_count: usize) type {
     return struct {
         edges: [edge_count]Edge,
 
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
-            if (self.edges.len != N - 1)
+            if (self.edges.len != n - 1)
                 return std.fmt.comptimePrint(
                     "spanning tree of {} nodes requires exactly {} edges, got {}",
-                    .{ N, N - 1, self.edges.len },
+                    .{ n, n - 1, self.edges.len },
                 );
 
             // All node indices in range
             for (self.edges) |e| {
-                if (e.a >= N or e.b >= N)
+                if (e.a >= n or e.b >= n)
                     return "edge references node outside range";
                 if (e.a == e.b)
                     return "self-loop in spanning tree";
@@ -159,7 +159,7 @@ fn SpanningTree(comptime N: u8, comptime edge_count: usize) type {
 
             // Connectivity check using union-find
             var parent: [256]u8 = undefined;
-            for (0..N) |i| parent[i] = @intCast(i);
+            for (0..n) |i| parent[i] = @intCast(i);
 
             for (self.edges) |e| {
                 var ra = e.a;
@@ -176,7 +176,7 @@ fn SpanningTree(comptime N: u8, comptime edge_count: usize) type {
             // Verify all nodes share a root
             var root = parent[0];
             while (parent[root] != root) root = parent[root];
-            for (1..N) |i| {
+            for (1..n) |i| {
                 var r: u8 = @intCast(i);
                 while (parent[r] != r) r = parent[r];
                 if (r != root)
@@ -219,9 +219,9 @@ test "spanning tree total cost" {
 // An adjacency matrix and a spanning tree must be consistent:
 // every edge in the tree must exist in the full graph (cost matches).
 
-fn TreeGraphConsistency(comptime N: usize, comptime edge_count: usize) type {
+fn TreeGraphConsistency(comptime n: usize, comptime edge_count: usize) type {
     return struct {
-        matrix: [N][N]u16,
+        matrix: [n][n]u16,
         tree: [edge_count]Edge,
 
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
@@ -260,17 +260,17 @@ const ClockNode = struct {
     frequency_hz: u32,
 };
 
-fn ClockTree(comptime N: usize) type {
+fn ClockTree(comptime n: usize) type {
     return struct {
-        nodes: [N]ClockNode,
+        nodes: [n]ClockNode,
 
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
-            if (constraint.lenInRange(1, 16, N)) |err| return err;
+            if (constraint.lenInRange(1, 16, n)) |err| return err;
 
             if (self.nodes[0].parent_idx != null)
                 return "root clock must have no parent";
 
-            var ids: [N]u8 = undefined;
+            var ids: [n]u8 = undefined;
             for (self.nodes, 0..) |node, i| {
                 ids[i] = node.name_id;
                 if (constraint.nonZero(node.frequency_hz)) |err| return err;

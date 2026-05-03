@@ -42,9 +42,9 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
             break :blk _offsets;
         };
 
-        slots: [total_sub_slots()]Subscription = @splat(.{ .context = null, .callback = null }),
+        slots: [totalSubSlots()]Subscription = @splat(.{ .context = null, .callback = null }),
 
-        fn total_sub_slots() usize {
+        fn totalSubSlots() usize {
             var size: usize = 0;
             for (erds) |erd| {
                 size += erd.subs;

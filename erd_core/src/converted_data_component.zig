@@ -5,8 +5,8 @@
 //! component recomputes and publishes to its own subscribers.
 //!
 //! After constructing a SystemData that contains this component, call
-//! `post_system_data_init` to wire up the SystemData back-pointer and dependency
-//! subscriptions. Public APIs assert that `post_system_data_init` has been called.
+//! `postSystemDataInit` to wire up the SystemData back-pointer and dependency
+//! subscriptions. Public APIs assert that `postSystemDataInit` has been called.
 
 const erd_core = @import("erd_core");
 const std = @import("std");
@@ -18,7 +18,7 @@ const DataComponentSubscription = erd_core.data_component.subscription_mixin.Dat
 pub const Mapping = struct {
     erd: Erd,
     fn_ptr: *const anyopaque,
-    /// ERDs this converted ERD depends on. `post_system_data_init` subscribes to each.
+    /// ERDs this converted ERD depends on. `postSystemDataInit` subscribes to each.
     dependencies: []const Erd,
 
     /// Create a mapping from an ERD to its compute function and dependencies.
@@ -38,12 +38,12 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         pub const supports_write = false;
         const Subs = DataComponentSubscription(erds);
 
-        read_functions: [erds.len]*const anyopaque = init_functions(),
+        read_functions: [erds.len]*const anyopaque = initFunctions(),
         subs: Subs = .{},
         system_data_ref: *anyopaque = undefined,
         is_fully_initialized: bool = false,
 
-        fn init_functions() [erds.len]*const anyopaque {
+        fn initFunctions() [erds.len]*const anyopaque {
             var fns: [erds.len]*const anyopaque = undefined;
             for (erd_mappings) |mapping| {
                 fns[mapping.erd.data_component_idx] = mapping.fn_ptr;
@@ -53,10 +53,10 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
 
         /// Wire up the SystemData back-pointer and subscribe to all dependency ERDs.
         /// Must be called after the SystemData is at its final memory location.
-        pub fn post_system_data_init(self: *Self, sd: anytype) void {
+        pub fn postSystemDataInit(self: *Self, sd: anytype) void {
             self.system_data_ref = @ptrCast(sd);
             inline for (erd_mappings) |mapping| {
-                const callback = make_callback(mapping.erd.data_component_idx);
+                const callback = makeCallback(mapping.erd.data_component_idx);
                 inline for (mapping.dependencies) |dep| {
                     sd.subscribe(@enumFromInt(dep.system_data_idx), @ptrCast(self), callback);
                 }
@@ -73,7 +73,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
             return temp;
         }
 
-        pub fn runtime_read(self: Self, data_component_idx: u16, data: *anyopaque) void {
+        pub fn runtimeRead(self: Self, data_component_idx: u16, data: *anyopaque) void {
             std.debug.assert(self.is_fully_initialized);
             const fnPtr: *const fn ([*]u8, *anyopaque) void = @ptrCast(self.read_functions[data_component_idx]);
             fnPtr(@ptrCast(data), self.system_data_ref);
@@ -85,7 +85,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
             @compileError("Converted ERD writes are not allowed");
         }
 
-        pub fn runtime_write(self: *Self, data_component_idx: u16, data: *const anyopaque) bool {
+        pub fn runtimeWrite(self: *Self, data_component_idx: u16, data: *const anyopaque) bool {
             _ = self;
             _ = data_component_idx;
             _ = data;
@@ -95,7 +95,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         /// Generate the on-change callback for a converted ERD.
         /// When a dependency changes, this callback recomputes the output
         /// and publishes to subscribers of the converted ERD.
-        fn make_callback(comptime erd_data_component_idx: comptime_int) Subscription.Callback {
+        fn makeCallback(comptime erd_data_component_idx: comptime_int) Subscription.Callback {
             return struct {
                 fn cb(context: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
                     const self: *Self = @ptrCast(@alignCast(context.?));
@@ -104,13 +104,13 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
                     var val: T = undefined;
                     fnPtr(&val, publisher);
                     if (erds[erd_data_component_idx].subs > 0) {
-                        self.do_publish(erd_data_component_idx, @ptrCast(&val), publisher);
+                        self.doPublish(erd_data_component_idx, @ptrCast(&val), publisher);
                     }
                 }
             }.cb;
         }
 
-        fn do_publish(self: *Self, comptime erd_data_component_idx: comptime_int, data: *const anyopaque, publisher: *anyopaque) void {
+        fn doPublish(self: *Self, comptime erd_data_component_idx: comptime_int, data: *const anyopaque, publisher: *anyopaque) void {
             const offset = Subs.sub_offsets[erd_data_component_idx];
             const count = erds[erd_data_component_idx].subs;
             for (self.subs.slots[offset .. offset + count]) |sub| {

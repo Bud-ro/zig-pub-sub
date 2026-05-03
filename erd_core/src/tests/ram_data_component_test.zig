@@ -115,7 +115,7 @@ test "runtime reads" {
     ram_data.write(erd_bool, true, &dummy_publisher);
 
     var bool_val: bool = undefined;
-    ram_data.runtime_read(erd_bool.data_component_idx, &bool_val);
+    ram_data.runtimeRead(erd_bool.data_component_idx, &bool_val);
 
     try std.testing.expectEqual(true, bool_val);
 }
@@ -124,7 +124,7 @@ test "runtime writes" {
     var ram_data = RamDataComponent.init();
 
     const very_true = true;
-    ram_data.runtime_write(erd_bool.data_component_idx, &very_true, &dummy_publisher);
+    ram_data.runtimeWrite(erd_bool.data_component_idx, &very_true, &dummy_publisher);
 
     const bool_val = ram_data.read(erd_bool);
     try std.testing.expectEqual(true, bool_val);

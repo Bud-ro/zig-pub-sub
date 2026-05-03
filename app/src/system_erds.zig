@@ -100,7 +100,7 @@ pub const erd = blk: {
     break :blk _erds;
 };
 
-pub fn num_erds(comptime id: ComponentId) comptime_int {
+pub fn numErds(comptime id: ComponentId) comptime_int {
     const component_idx = @intFromEnum(id);
     var i = 0;
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
@@ -111,9 +111,9 @@ pub fn num_erds(comptime id: ComponentId) comptime_int {
     return i;
 }
 
-pub fn component_definitions(comptime id: ComponentId) [num_erds(id)]Erd {
+pub fn componentDefinitions(comptime id: ComponentId) [numErds(id)]Erd {
     const component_idx = @intFromEnum(id);
-    var _erds: [num_erds(id)]Erd = undefined;
+    var _erds: [numErds(id)]Erd = undefined;
     var i = 0;
 
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
@@ -127,12 +127,12 @@ pub fn component_definitions(comptime id: ComponentId) [num_erds(id)]Erd {
 }
 
 // Array versions of ERDs. For easier iteration.
-pub const ram_definitions = component_definitions(.ram);
-pub const indirect_definitions = component_definitions(.indirect);
-pub const converted_definitions = component_definitions(.converted);
+pub const ram_definitions = componentDefinitions(.ram);
+pub const indirect_definitions = componentDefinitions(.indirect);
+pub const converted_definitions = componentDefinitions(.converted);
 
 /// Enum to Erd mapper
-pub fn erd_from_enum(comptime erd_enum: ErdEnum) Erd {
+pub fn erdFromEnum(comptime erd_enum: ErdEnum) Erd {
     return @field(erd, @tagName(erd_enum));
 }
 

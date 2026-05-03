@@ -11,17 +11,17 @@ pub fn init() void {
     _ = sdk.wifi_set_opmode_current(sdk.STATION_MODE);
 
     uart.puts("WiFi station mode - starting scan\r\n");
-    start_scan();
+    startScan();
 }
 
-fn start_scan() void {
-    _ = sdk.wifi_station_scan(null, on_scan_done);
+fn startScan() void {
+    _ = sdk.wifi_station_scan(null, onScanDone);
 }
 
-fn on_scan_done(arg: ?*anyopaque, status: u32) callconv(sdk.cc) void {
+fn onScanDone(arg: ?*anyopaque, status: u32) callconv(sdk.cc) void {
     if (status != 0 or arg == null) {
         uart.puts("Scan failed\r\n");
-        schedule_next_scan();
+        scheduleNextScan();
         return;
     }
 
@@ -69,17 +69,17 @@ fn on_scan_done(arg: ?*anyopaque, status: u32) callconv(sdk.cc) void {
     uart.dec(count);
     uart.puts(" networks\r\n");
 
-    schedule_next_scan();
+    scheduleNextScan();
 }
 
 var scan_timer: sdk.ETSTimer = std.mem.zeroes(sdk.ETSTimer);
 
-fn schedule_next_scan() void {
+fn scheduleNextScan() void {
     sdk.ets_timer_disarm(&scan_timer);
-    sdk.ets_timer_setfn(&scan_timer, do_scan_timer, null);
-    sdk.timer_arm_ms(&scan_timer, 10000, false);
+    sdk.ets_timer_setfn(&scan_timer, doScanTimer, null);
+    sdk.timerArmMs(&scan_timer, 10000, false);
 }
 
-fn do_scan_timer(_: ?*anyopaque) callconv(sdk.cc) void {
-    start_scan();
+fn doScanTimer(_: ?*anyopaque) callconv(sdk.cc) void {
+    startScan();
 }

@@ -9,7 +9,7 @@ const std = @import("std");
 /// T is the storage type (e.g. u16, i16), frac_bits is the number of fractional bits.
 /// Compile error if the value is not exactly representable, suggesting the two nearest values.
 pub fn fixedPoint(comptime T: type, comptime frac_bits: comptime_int, comptime value: comptime_float) T {
-    const scale = comptime_pow2(frac_bits);
+    const scale = comptimePow2(frac_bits);
     const scaled_value = value * scale;
     const truncated = @as(comptime_int, @intFromFloat(@floor(scaled_value)));
 
@@ -23,8 +23,8 @@ pub fn fixedPoint(comptime T: type, comptime frac_bits: comptime_int, comptime v
     }
 
     const info = @typeInfo(T).int;
-    const min_val = if (info.signedness == .signed) -(comptime_pow2(info.bits - 1)) else 0;
-    const max_val = comptime_pow2(if (info.signedness == .signed) info.bits - 1 else info.bits) - 1;
+    const min_val = if (info.signedness == .signed) -(comptimePow2(info.bits - 1)) else 0;
+    const max_val = comptimePow2(if (info.signedness == .signed) info.bits - 1 else info.bits) - 1;
 
     if (truncated < min_val or truncated > max_val) {
         @compileError(std.fmt.comptimePrint(
@@ -76,6 +76,6 @@ pub fn percentOf(comptime T: type, comptime max: comptime_int, comptime pct: com
     return @intCast(rounded);
 }
 
-fn comptime_pow2(comptime exp: comptime_int) comptime_float {
+fn comptimePow2(comptime exp: comptime_int) comptime_float {
     return @floatFromInt(@as(u128, 1) << @intCast(exp));
 }

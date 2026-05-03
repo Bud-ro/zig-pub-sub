@@ -364,9 +364,9 @@ test "isStdlibFunc matches stdlib prefixes" {
     try testing.expect(isStdlibFunc("posix.abort"));
     try testing.expect(isStdlibFunc("mem.eql__anon_3258"));
     try testing.expect(!isStdlibFunc("ram_data_component.RamDataComponent.publish"));
-    try testing.expect(!isStdlibFunc("system_data.SystemData.runtime_read"));
+    try testing.expect(!isStdlibFunc("system_data.SystemData.runtimeRead"));
     try testing.expect(!isStdlibFunc("codegen_foo"));
-    try testing.expect(!isStdlibFunc("timer.TimerModule.try_remove"));
+    try testing.expect(!isStdlibFunc("timer.TimerModule.tryRemove"));
 }
 
 test "isDirective filters assembler directives" {

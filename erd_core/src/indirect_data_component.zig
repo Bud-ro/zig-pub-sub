@@ -21,10 +21,10 @@ pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: 
 
         pub const supports_write = false;
 
-        read_functions: [erds.len]*const anyopaque = init_functions(),
+        read_functions: [erds.len]*const anyopaque = initFunctions(),
         subs: subscription_mixin.Unsupported = .{},
 
-        fn init_functions() [erds.len]*const anyopaque {
+        fn initFunctions() [erds.len]*const anyopaque {
             var fns: [erds.len]*const anyopaque = undefined;
             for (erd_mappings) |mapping| {
                 fns[mapping.erd.data_component_idx] = mapping.fn_ptr;
@@ -40,7 +40,7 @@ pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: 
             return temp;
         }
 
-        pub fn runtime_read(self: Self, data_component_idx: u16, data: *anyopaque) void {
+        pub fn runtimeRead(self: Self, data_component_idx: u16, data: *anyopaque) void {
             const fnPtr: *const fn ([*]u8) void = @ptrCast(self.read_functions[data_component_idx]);
             fnPtr(@ptrCast(data));
         }
@@ -52,7 +52,7 @@ pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: 
             @compileError("Indirect ERD writes are not allowed");
         }
 
-        pub fn runtime_write(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
+        pub fn runtimeWrite(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
             _ = self;
             _ = data_component_idx;
             _ = data;

@@ -73,26 +73,26 @@ const PinCapability = struct {
     allowed_functions: []const Function,
 };
 
-fn PinMuxConfig(comptime N: usize) type {
+fn PinMuxConfig(comptime n: usize) type {
     return struct {
-        assignments: [N]PinAssignment,
+        assignments: [n]PinAssignment,
         capabilities: []const PinCapability,
 
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(10_000);
-            if (constraint.lenInRange(1, 32, N)) |err| return err;
+            if (constraint.lenInRange(1, 32, n)) |err| return err;
 
             // Each pin used at most once
-            var pins: [N]u8 = undefined;
+            var pins: [n]u8 = undefined;
             for (self.assignments, 0..) |a, i| {
                 pins[i] = @intFromEnum(a.pin);
             }
             if (constraint.noDuplicates(u8, &pins)) |err| return err;
 
             // Each non-GPIO function used at most once
-            for (0..N) |i| {
+            for (0..n) |i| {
                 if (self.assignments[i].function == .gpio) continue;
-                for (i + 1..N) |j| {
+                for (i + 1..n) |j| {
                     if (self.assignments[i].function == self.assignments[j].function)
                         return std.fmt.comptimePrint(
                             "function {} assigned to multiple pins",
@@ -150,9 +150,9 @@ fn PinMuxConfig(comptime N: usize) type {
     };
 }
 
-fn PeripheralGroupConfig(comptime N: usize) type {
+fn PeripheralGroupConfig(comptime n: usize) type {
     return struct {
-        assignments: [N]PinAssignment,
+        assignments: [n]PinAssignment,
 
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             // If any SPI pin is assigned, ALL SPI pins must be assigned

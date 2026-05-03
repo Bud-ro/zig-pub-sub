@@ -36,7 +36,7 @@ pub fn main() !void {
             continue;
         }
         if (count >= 16) break;
-        regions[count] = parse_region(arg) orelse {
+        regions[count] = parseRegion(arg) orelse {
             writeAll("Invalid region spec\n");
             return;
         };
@@ -49,7 +49,7 @@ pub fn main() !void {
     }
 
     var buf: [4096]u8 = undefined;
-    const len = try elf_size.format_summary(elf_path, regions[0..count], &buf);
+    const len = try elf_size.formatSummary(elf_path, regions[0..count], &buf);
 
     writeAll(buf[0..len]);
 
@@ -63,7 +63,7 @@ pub fn main() !void {
     }
 }
 
-fn parse_region(spec: []const u8) ?elf_size.MemoryRegion {
+fn parseRegion(spec: []const u8) ?elf_size.MemoryRegion {
     var it = std.mem.splitScalar(u8, spec, ':');
     const name = it.next() orelse return null;
     const origin_str = it.next() orelse return null;

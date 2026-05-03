@@ -11,20 +11,20 @@ const erds = [_]Erd{
 const erd_always_42 = erds[0];
 const erd_plus_one = erds[1];
 
-fn always_42(data: *u16) void {
+fn always42(data: *u16) void {
     data.* = 42;
 }
 
-fn plus_one(data: *u16) void {
+fn plusOne(data: *u16) void {
     var should_be_42: u16 = undefined;
-    always_42(&should_be_42);
+    always42(&should_be_42);
 
     data.* = should_be_42 + 1;
 }
 
 const mappings = [_]IndirectMapping{
-    .map(erd_always_42, always_42),
-    .map(erd_plus_one, plus_one),
+    .map(erd_always_42, always42),
+    .map(erd_plus_one, plusOne),
 };
 
 const IndirectDataComponent = erd_core.data_component.Indirect(&erds, mappings);
@@ -51,8 +51,8 @@ test "indirect data component runtime read" {
     var should_be_42: u16 = undefined;
     var should_be_43: u16 = undefined;
 
-    indirect_data.runtime_read(erd_always_42.data_component_idx, &should_be_42);
-    indirect_data.runtime_read(erd_plus_one.data_component_idx, &should_be_43);
+    indirect_data.runtimeRead(erd_always_42.data_component_idx, &should_be_42);
+    indirect_data.runtimeRead(erd_plus_one.data_component_idx, &should_be_43);
 
     try std.testing.expectEqual(42, should_be_42);
     try std.testing.expectEqual(42 + 1, should_be_43);
@@ -63,6 +63,6 @@ test "indirect data component runtime write" {
 
     // zlinter-disable no_comment_out_code
     // var indirect_data = IndirectDataComponent{};
-    // _ = indirect_data.runtime_write(erd_always_42.data_component_idx, &41);
+    // _ = indirect_data.runtimeWrite(erd_always_42.data_component_idx, &41);
     // zlinter-enable no_comment_out_code
 }

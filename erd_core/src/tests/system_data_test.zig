@@ -24,15 +24,15 @@ test "ram data component read and write" {
 test "runtime read/write matches data components" {
     var system_data = TestSystem.init();
     var ver: u32 = undefined;
-    system_data.runtime_read(0, &ver);
+    system_data.runtimeRead(0, &ver);
     try std.testing.expectEqual(0, ver);
 
     system_data.write(.application_version, 1234);
-    system_data.runtime_read(0, &ver);
+    system_data.runtimeRead(0, &ver);
     try std.testing.expectEqual(1234, ver);
 }
 
-fn example_do(system_data: *SystemData) !void {
+fn exampleDo(system_data: *SystemData) !void {
     const new_ver: u32 = 0x87654321;
     system_data.write(.application_version, new_ver);
 }
@@ -40,17 +40,17 @@ fn example_do(system_data: *SystemData) !void {
 test "mutable system_data passing without error" {
     var system_data = TestSystem.init();
 
-    try example_do(&system_data);
+    try exampleDo(&system_data);
     try std.testing.expectEqual(0x87654321, system_data.read(.application_version));
 }
 
 var persisted_system_data: *SystemData = undefined;
-fn example_callback_effect() !void {
+fn exampleCallbackEffect() !void {
     const new_ver: u32 = 0xCAFEBABE;
     persisted_system_data.write(.application_version, new_ver);
 }
 
-fn example_init(system_data: *SystemData) void {
+fn exampleInit(system_data: *SystemData) void {
     if (!@inComptime()) {
         persisted_system_data = system_data;
     } else {
@@ -61,13 +61,13 @@ fn example_init(system_data: *SystemData) void {
 test "retain reference to system_data" {
     var system_data = TestSystem.init();
 
-    example_init(&system_data);
+    exampleInit(&system_data);
 
-    try example_callback_effect();
+    try exampleCallbackEffect();
     try std.testing.expectEqual(0xCAFEBABE, system_data.read(.application_version));
 }
 
-fn turn_off_bool_and_bump_version(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
+fn turnOffBoolAndBumpVersion(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
     var system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
     system_data.write(.some_bool, false);
@@ -77,14 +77,14 @@ fn turn_off_bool_and_bump_version(_: ?*anyopaque, _: ?*const anyopaque, publishe
 test "subscription_test" {
     var system_data = TestSystem.init();
 
-    system_data.subscribe(.some_bool, null, turn_off_bool_and_bump_version);
-    defer system_data.unsubscribe(.some_bool, turn_off_bool_and_bump_version);
+    system_data.subscribe(.some_bool, null, turnOffBoolAndBumpVersion);
+    defer system_data.unsubscribe(.some_bool, turnOffBoolAndBumpVersion);
 
     system_data.write(.some_bool, true);
     try std.testing.expectEqual(false, system_data.read(.some_bool));
     try std.testing.expectEqual(2, system_data.read(.application_version));
 
-    system_data.unsubscribe(.some_bool, turn_off_bool_and_bump_version);
+    system_data.unsubscribe(.some_bool, turnOffBoolAndBumpVersion);
     system_data.write(.some_bool, true);
     try std.testing.expectEqual(true, system_data.read(.some_bool));
     try std.testing.expectEqual(2, system_data.read(.application_version));
@@ -92,18 +92,18 @@ test "subscription_test" {
 
 test "re-subscribe" {
     var system_data = TestSystem.init();
-    system_data.subscribe(.some_bool, null, turn_off_bool_and_bump_version);
-    system_data.subscribe(.some_bool, null, turn_off_bool_and_bump_version);
-    system_data.subscribe(.some_bool, null, turn_off_bool_and_bump_version);
-    system_data.subscribe(.some_bool, null, turn_off_bool_and_bump_version);
-    system_data.subscribe(.some_bool, null, turn_off_bool_and_bump_version);
+    system_data.subscribe(.some_bool, null, turnOffBoolAndBumpVersion);
+    system_data.subscribe(.some_bool, null, turnOffBoolAndBumpVersion);
+    system_data.subscribe(.some_bool, null, turnOffBoolAndBumpVersion);
+    system_data.subscribe(.some_bool, null, turnOffBoolAndBumpVersion);
+    system_data.subscribe(.some_bool, null, turnOffBoolAndBumpVersion);
 
     system_data.write(.some_bool, true);
     try std.testing.expectEqual(false, system_data.read(.some_bool));
     try std.testing.expectEqual(2, system_data.read(.application_version));
 }
 
-fn forward_context(context: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
+fn forwardContext(context: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
     var system_data: *SystemData = @ptrCast(@alignCast(publisher));
     const a: *u8 = @ptrCast(context.?);
 
@@ -114,13 +114,13 @@ test "subscription with context" {
     var system_data = TestSystem.init();
 
     var a: u8 = 17;
-    system_data.subscribe(.some_bool, &a, forward_context);
+    system_data.subscribe(.some_bool, &a, forwardContext);
     system_data.write(.some_bool, true);
 
     try std.testing.expectEqual(17, system_data.read(.unaligned_u16));
 }
 
-fn context_must_match_args(context: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
+fn contextMustMatchArgs(context: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
     const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     var system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
@@ -134,7 +134,7 @@ test "subscription with args" {
     var system_data = TestSystem.init();
 
     var a: u16 = 1;
-    system_data.subscribe(.unaligned_u16, &a, context_must_match_args);
+    system_data.subscribe(.unaligned_u16, &a, contextMustMatchArgs);
     system_data.write(.unaligned_u16, 1);
     try std.testing.expect(true == system_data.read(.some_bool));
 
@@ -147,11 +147,11 @@ test "subscription with args" {
     try std.testing.expect(false == system_data.read(.some_bool));
 }
 
-fn switch_on_system_data_idx(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
+fn switchOnSystemDataIdx(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
     const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     var system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
-    if (args.system_data_idx != SystemData.erd_from_enum(.some_bool).system_data_idx) {
+    if (args.system_data_idx != SystemData.erdFromEnum(.some_bool).system_data_idx) {
         system_data.write(.best_u16, system_data.read(.best_u16) + 1);
     }
 
@@ -159,8 +159,8 @@ fn switch_on_system_data_idx(_: ?*anyopaque, _args: ?*const anyopaque, publisher
         // Ideally I'd like to type this instead:
         // .cool_u16 => system_data.write(.some_bool, true)
         // TODO: That probably requires unifying `system_data_idx` and `ErdEnum` to be the same thing
-        SystemData.erd_from_enum(.cool_u16).system_data_idx => system_data.write(.some_bool, true),
-        SystemData.erd_from_enum(.unaligned_u16).system_data_idx => system_data.write(.some_bool, false),
+        SystemData.erdFromEnum(.cool_u16).system_data_idx => system_data.write(.some_bool, true),
+        SystemData.erdFromEnum(.unaligned_u16).system_data_idx => system_data.write(.some_bool, false),
         else => {},
     }
 }
@@ -168,9 +168,9 @@ fn switch_on_system_data_idx(_: ?*anyopaque, _args: ?*const anyopaque, publisher
 test "subscription args using system_data_idx" {
     var system_data = TestSystem.init();
 
-    system_data.subscribe(.cool_u16, null, switch_on_system_data_idx);
-    system_data.subscribe(.some_bool, null, switch_on_system_data_idx);
-    system_data.subscribe(.unaligned_u16, null, switch_on_system_data_idx);
+    system_data.subscribe(.cool_u16, null, switchOnSystemDataIdx);
+    system_data.subscribe(.some_bool, null, switchOnSystemDataIdx);
+    system_data.subscribe(.unaligned_u16, null, switchOnSystemDataIdx);
 
     try std.testing.expectEqual(0, system_data.read(.best_u16));
 
@@ -191,7 +191,7 @@ test "subscription args using system_data_idx" {
     try std.testing.expectEqual(true, system_data.read(.some_bool));
 }
 
-fn bump_some_u16(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
+fn bumpSomeU16(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
     var system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
     system_data.write(.unaligned_u16, system_data.read(.unaligned_u16) + 1);
@@ -199,15 +199,15 @@ fn bump_some_u16(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) vo
 
 test "double sub test" {
     var system_data = TestSystem.init();
-    system_data.subscribe(.some_bool, null, turn_off_bool_and_bump_version);
-    system_data.subscribe(.some_bool, null, bump_some_u16);
+    system_data.subscribe(.some_bool, null, turnOffBoolAndBumpVersion);
+    system_data.subscribe(.some_bool, null, bumpSomeU16);
 
     system_data.write(.some_bool, true);
     try std.testing.expectEqual(false, system_data.read(.some_bool));
     try std.testing.expectEqual(2, system_data.read(.application_version));
     try std.testing.expectEqual(2, system_data.read(.unaligned_u16));
 
-    system_data.unsubscribe(.some_bool, turn_off_bool_and_bump_version);
+    system_data.unsubscribe(.some_bool, turnOffBoolAndBumpVersion);
     system_data.write(.some_bool, true);
     try std.testing.expectEqual(true, system_data.read(.some_bool));
     try std.testing.expectEqual(2, system_data.read(.application_version));
@@ -222,7 +222,7 @@ test "exact subscription enforcement" {
     var system_data = TestSystem.init();
 
     system_data.subscribe(.some_bool, null, whatever);
-    system_data.subscribe(.some_bool, null, bump_some_u16);
+    system_data.subscribe(.some_bool, null, bumpSomeU16);
     system_data.subscribe(.unaligned_u16, null, whatever);
     system_data.subscribe(.cool_u16, null, whatever);
 
@@ -231,15 +231,15 @@ test "exact subscription enforcement" {
     const exceptions = [_]SystemData.SubException{
         .{ .erd_enum = .some_bool, .missing = 1 },
     };
-    try system_data.verify_all_subs_are_saturated(&exceptions);
+    try system_data.verifyAllSubsAreSaturated(&exceptions);
 }
 
-fn scratch_allocating(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
+fn scratchAllocating(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
     const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     var system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
     const val: *const u16 = @ptrCast(@alignCast(args.data));
-    const allocated = system_data.scratch_alloc(u32, val.*);
+    const allocated = system_data.scratchAlloc(u32, val.*);
     for (allocated, 1..) |*item, i| {
         item.* = @intCast(i);
     }
@@ -250,19 +250,19 @@ fn scratch_allocating(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyo
 test "scratch allocations" {
     var system_data: SystemData = TestSystem.init();
 
-    system_data.subscribe(.unaligned_u16, null, scratch_allocating);
+    system_data.subscribe(.unaligned_u16, null, scratchAllocating);
     system_data.write(.unaligned_u16, 7);
     try std.testing.expectEqual(7, system_data.read(.application_version));
 
-    system_data.scratch_reset();
+    system_data.scratchReset();
 
     system_data.write(.unaligned_u16, 5);
     try std.testing.expectEqual(5, system_data.read(.application_version));
 
-    const more_allocation = system_data.scratch_alloc(u8, system_data.read(.application_version));
+    const more_allocation = system_data.scratchAlloc(u8, system_data.read(.application_version));
     try std.testing.expect(system_data.scratch.ownsSlice(more_allocation));
 
-    system_data.scratch_reset();
+    system_data.scratchReset();
     // NOTE: The below doesn't fail, but depending on optimization level may yield different results!
     // One must be very careful since this data is now considered freed, but there's no runtime check on it.
     // system_data.write(.application_version, more_allocation[0]);

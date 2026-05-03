@@ -143,15 +143,15 @@ const CrossbarEntry = struct {
     }
 };
 
-fn ValidatedCrossbar(comptime N: u4, comptime len: usize) type {
+fn ValidatedCrossbar(comptime n: u4, comptime len: usize) type {
     return struct {
         entries: [len]CrossbarEntry,
 
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
-            if (self.entries.len != N)
+            if (self.entries.len != n)
                 return std.fmt.comptimePrint(
                     "crossbar must have exactly {} entries for {}x{} switch",
-                    .{ N, N, N },
+                    .{ n, n, n },
                 );
 
             // Each input used exactly once
@@ -164,11 +164,11 @@ fn ValidatedCrossbar(comptime N: u4, comptime len: usize) type {
                 }
             }
 
-            // All channels in range [0, N)
+            // All channels in range [0, n)
             for (self.entries) |e| {
-                if (e.input_channel >= N)
+                if (e.input_channel >= n)
                     return "input channel out of range";
-                if (e.output_channel >= N)
+                if (e.output_channel >= n)
                     return "output channel out of range";
             }
 

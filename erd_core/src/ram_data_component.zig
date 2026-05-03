@@ -17,7 +17,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
 
         // TODO: Add a flag that reorders fields to efficiently pack this
         // and another that guarantees alignment for faster R/W.
-        storage: [store_size()]u8 align(@alignOf(usize)) = undefined,
+        storage: [storeSize()]u8 align(@alignOf(usize)) = undefined,
         subs: Subs = .{},
 
         pub fn init() Self {
@@ -46,7 +46,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             break :blk _data_size;
         };
 
-        fn store_size() usize {
+        fn storeSize() usize {
             var size: usize = 0;
             for (erds) |erd| {
                 size += @sizeOf(erd.T);
@@ -78,7 +78,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             return value;
         }
 
-        pub fn runtime_read(self: Self, data_component_idx: u16, data: *anyopaque) void {
+        pub fn runtimeRead(self: Self, data_component_idx: u16, data: *anyopaque) void {
             var data_slice: [*]u8 = @ptrCast(data);
             const size = data_size[data_component_idx];
 
@@ -123,12 +123,12 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             return std.mem.readInt(Int, a, .little) != std.mem.readInt(Int, b, .little);
         }
 
-        pub fn write_no_compare(self: *Self, erd: Erd, data: erd.T) void {
+        pub fn writeNoCompare(self: *Self, erd: Erd, data: erd.T) void {
             const idx = erd.data_component_idx;
             self.storage[ram_offsets[idx] .. ram_offsets[idx] + @sizeOf(erd.T)].* = std.mem.toBytes(data);
         }
 
-        pub fn runtime_write(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
+        pub fn runtimeWrite(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
             const idx = data_component_idx;
 
             const data_slice: [*]const u8 = @ptrCast(data);

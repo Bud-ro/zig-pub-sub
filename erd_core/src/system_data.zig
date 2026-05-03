@@ -37,7 +37,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
 
         pub const OnChangeArgs = Subscription.OnChangeArgs;
 
-        /// A test only type used with verify_all_subs_are_saturated
+        /// A test only type used with verifyAllSubsAreSaturated
         pub const SubException = struct { erd_enum: ErdEnum, missing: comptime_int };
 
         components: Components = undefined,
@@ -53,7 +53,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         }
 
         /// Returns a column from erd_instance as an array of type []T
-        fn erd_collect(T: type, column_name: []const u8) [system_erds_length]T {
+        fn erdCollect(T: type, column_name: []const u8) [system_erds_length]T {
             var field_values: [system_erds_length]T = undefined;
             for (std.meta.fieldNames(ErdDefs), 0..) |erd_name, i| {
                 field_values[i] = @field(@field(erd_instance, erd_name), column_name);
@@ -62,8 +62,8 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             return field_values;
         }
 
-        const component_idx_from_system_idx = erd_collect(u8, "component_idx");
-        const data_component_idx_from_system_idx = erd_collect(u16, "data_component_idx");
+        const component_idx_from_system_idx = erdCollect(u8, "component_idx");
+        const data_component_idx_from_system_idx = erdCollect(u16, "data_component_idx");
 
         const supports_write_from_component_idx: [component_fields.len]bool = blk: {
             var result: [component_fields.len]bool = undefined;
@@ -76,14 +76,14 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         pub const ErdEnumType = ErdEnum;
         pub const erds = erd_instance;
 
-        pub fn erd_from_enum(comptime erd_enum: ErdEnum) Erd {
+        pub fn erdFromEnum(comptime erd_enum: ErdEnum) Erd {
             return @field(erd_instance, @tagName(erd_enum));
         }
 
         /// Read an ERD by-value using comptime information (the `Erd` type)
-        /// Due to the performance and code size benefits, this should be preferred over `runtime_read`.
-        pub fn read(this: Self, comptime erd_enum: ErdEnum) erd_from_enum(erd_enum).T {
-            const erd: Erd = erd_from_enum(erd_enum);
+        /// Due to the performance and code size benefits, this should be preferred over `runtimeRead`.
+        pub fn read(this: Self, comptime erd_enum: ErdEnum) erdFromEnum(erd_enum).T {
+            const erd: Erd = erdFromEnum(erd_enum);
             inline for (component_fields, 0..) |field, i| {
                 if (erd.component_idx == i) {
                     return @field(this.components, field.name).read(erd);
@@ -97,23 +97,23 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         /// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
         /// - Reading an ERD using info from an on-change callback
         // noinline so the dispatch logic is shared across all call sites.
-        pub noinline fn runtime_read(this: Self, system_data_idx: u16, data: *anyopaque) void {
+        pub noinline fn runtimeRead(this: Self, system_data_idx: u16, data: *anyopaque) void {
             const component_idx = component_idx_from_system_idx[system_data_idx];
             const data_component_idx = data_component_idx_from_system_idx[system_data_idx];
 
             inline for (component_fields, 0..) |field, i| {
                 if (component_idx == i) {
-                    @field(this.components, field.name).runtime_read(data_component_idx, data);
+                    @field(this.components, field.name).runtimeRead(data_component_idx, data);
                     return;
                 }
             }
         }
 
         /// Write to an ERD by-value using comptime information (the `Erd` type)
-        /// Due to the performance and code size benefits, this should be preferred over `runtime_write`.
+        /// Due to the performance and code size benefits, this should be preferred over `runtimeWrite`.
         /// The owning data component handles change detection and publishes to subscribers.
-        pub fn write(this: *Self, comptime erd_enum: ErdEnum, data: erd_from_enum(erd_enum).T) void {
-            const erd: Erd = erd_from_enum(erd_enum);
+        pub fn write(this: *Self, comptime erd_enum: ErdEnum, data: erdFromEnum(erd_enum).T) void {
+            const erd: Erd = erdFromEnum(erd_enum);
 
             comptime {
                 if (!supports_write_from_component_idx[erd.component_idx]) {
@@ -135,7 +135,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         ///
         /// NOTE: `data` must be aligned!
         // noinline so the dispatch logic is shared across all call sites.
-        pub noinline fn runtime_write(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
+        pub noinline fn runtimeWrite(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
             const component_idx = component_idx_from_system_idx[system_data_idx];
             const data_component_idx = data_component_idx_from_system_idx[system_data_idx];
 
@@ -144,7 +144,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
                     if (!supports_write_from_component_idx[i]) {
                         unreachable;
                     }
-                    @field(this.components, field.name).runtime_write(data_component_idx, data, @ptrCast(this));
+                    @field(this.components, field.name).runtimeWrite(data_component_idx, data, @ptrCast(this));
                 }
             }
         }
@@ -158,7 +158,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
             context: ?*anyopaque,
             fn_ptr: Subscription.Callback,
         ) void {
-            const erd: Erd = erd_from_enum(erd_enum);
+            const erd: Erd = erdFromEnum(erd_enum);
             comptime {
                 std.debug.assert(erd.subs > 0);
             }
@@ -172,7 +172,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         }
 
         pub fn unsubscribe(this: *Self, comptime erd_enum: ErdEnum, fn_ptr: Subscription.Callback) void {
-            const erd: Erd = erd_from_enum(erd_enum);
+            const erd: Erd = erdFromEnum(erd_enum);
             comptime {
                 std.debug.assert(erd.subs > 0);
             }
@@ -186,18 +186,18 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         }
 
         /// Returns a slice allocated to the scratch buffer.
-        pub fn scratch_alloc(this: *Self, comptime T: type, n: usize) []T {
+        pub fn scratchAlloc(this: *Self, comptime T: type, n: usize) []T {
             return this.scratch.allocator().alloc(T, n) catch @panic("We ran out of scratch memory!!!");
         }
 
         /// Call this at the end of a run to complete in your main-loop
-        pub fn scratch_reset(this: *Self) void {
+        pub fn scratchReset(this: *Self) void {
             this.scratch.reset();
         }
 
         /// A test only function used to verify that after initialization,
         /// all of your subscriptions arrays are fully saturated
-        pub fn verify_all_subs_are_saturated(this: *Self, comptime exceptions: []const SubException) error{ ErdWithNoSubsInExceptions, ErdWithUnexpectedSubCount }!void {
+        pub fn verifyAllSubsAreSaturated(this: *Self, comptime exceptions: []const SubException) error{ ErdWithNoSubsInExceptions, ErdWithUnexpectedSubCount }!void {
             var failed = false;
 
             inline for (exceptions) |e| {

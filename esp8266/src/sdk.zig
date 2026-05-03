@@ -31,7 +31,7 @@ pub extern fn ets_timer_arm_new(ptimer: *ETSTimer, time: u32, repeat_flag: bool,
 pub extern fn ets_timer_disarm(ptimer: *ETSTimer) void;
 
 /// Convenience wrapper: arm a timer in milliseconds.
-pub fn timer_arm_ms(ptimer: *ETSTimer, ms: u32, repeat: bool) void {
+pub fn timerArmMs(ptimer: *ETSTimer, ms: u32, repeat: bool) void {
     ets_timer_arm_new(ptimer, ms, repeat, true);
 }
 

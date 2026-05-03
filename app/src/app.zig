@@ -6,31 +6,31 @@ const erd_core = @import("erd_core");
 const std = @import("std");
 const system_erds = @import("system_erds.zig");
 
-fn always_42(data: *u16) void {
+fn always42(data: *u16) void {
     data.* = 42;
 }
 
-fn plus_one(data: *u16) void {
+fn plusOne(data: *u16) void {
     var should_be_42: u16 = undefined;
-    always_42(&should_be_42);
+    always42(&should_be_42);
 
     data.* = should_be_42 + 1;
 }
 
 const IndirectMapping = erd_core.data_component.IndirectMapping;
 const indirect_mappings = [_]IndirectMapping{
-    .map(system_erds.erd.erd_always_42, always_42),
-    .map(system_erds.erd.erd_another_erd_plus_one, plus_one),
+    .map(system_erds.erd.erd_always_42, always42),
+    .map(system_erds.erd.erd_another_erd_plus_one, plusOne),
 };
 
-fn compute_cool_plus_best(result: *u16, ctx: *anyopaque) void {
+fn computeCoolPlusBest(result: *u16, ctx: *anyopaque) void {
     const sd: *SystemData = @ptrCast(@alignCast(ctx));
     result.* = sd.read(.erd_cool_u16) + sd.read(.erd_best_u16);
 }
 
 const ConvertedMapping = erd_core.data_component.ConvertedMapping;
 const converted_mappings = [_]ConvertedMapping{
-    .map(system_erds.erd.erd_cool_plus_best, compute_cool_plus_best, &.{
+    .map(system_erds.erd.erd_cool_plus_best, computeCoolPlusBest, &.{
         system_erds.erd.erd_cool_u16,
         system_erds.erd.erd_best_u16,
     }),
@@ -68,6 +68,6 @@ pub fn init() Application {
         .indirect = .{},
         .converted = .{},
     }) };
-    app.system_data.components.converted.post_system_data_init(&app.system_data);
+    app.system_data.components.converted.postSystemDataInit(&app.system_data);
     return app;
 }

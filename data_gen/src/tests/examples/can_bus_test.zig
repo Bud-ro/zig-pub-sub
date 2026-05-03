@@ -68,23 +68,23 @@ const CanNodeConfig = struct {
     }
 };
 
-fn CanNetwork(comptime N: usize) type {
+fn CanNetwork(comptime n: usize) type {
     return struct {
-        nodes: [N]CanNodeConfig,
+        nodes: [n]CanNodeConfig,
 
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
-            if (N < 2 or N > 16)
-                return std.fmt.comptimePrint("length {} is outside [2, 16]", .{N});
+            if (n < 2 or n > 16)
+                return std.fmt.comptimePrint("length {} is outside [2, 16]", .{n});
 
-            var ids: [N]u8 = undefined;
+            var ids: [n]u8 = undefined;
             for (self.nodes, 0..) |node, i| {
                 if (contract.check(node, std.fmt.comptimePrint(".nodes[{}]", .{i}))) |err| return err;
                 ids[i] = node.node_id;
             }
 
             // Check for duplicate node IDs
-            for (0..N) |i| {
-                for (i + 1..N) |j| {
+            for (0..n) |i| {
+                for (i + 1..n) |j| {
                     if (ids[i] == ids[j]) {
                         return std.fmt.comptimePrint("duplicate value at indices {} and {}", .{ i, j });
                     }
@@ -198,25 +198,25 @@ const CanFilter = struct {
     }
 };
 
-fn CanFilterBank(comptime N: usize) type {
+fn CanFilterBank(comptime n: usize) type {
     return struct {
-        filters: [N]CanFilter,
+        filters: [n]CanFilter,
 
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
 
-            if (N < 1 or N > 28)
-                return std.fmt.comptimePrint("length {} is outside [1, 28]", .{N});
+            if (n < 1 or n > 28)
+                return std.fmt.comptimePrint("length {} is outside [1, 28]", .{n});
 
-            var fids: [N]u8 = undefined;
+            var fids: [n]u8 = undefined;
             for (self.filters, 0..) |f, i| {
                 if (contract.check(f, std.fmt.comptimePrint(".filters[{}]", .{i}))) |err| return err;
                 fids[i] = f.filter_id;
             }
 
             // Check for duplicate filter IDs
-            for (0..N) |i| {
-                for (i + 1..N) |j| {
+            for (0..n) |i| {
+                for (i + 1..n) |j| {
                     if (fids[i] == fids[j]) {
                         return std.fmt.comptimePrint("duplicate value at indices {} and {}", .{ i, j });
                     }
@@ -224,8 +224,8 @@ fn CanFilterBank(comptime N: usize) type {
             }
 
             // Check for fully redundant filters (one filter's acceptance set is a subset of another's)
-            for (0..N) |i| {
-                for (i + 1..N) |j| {
+            for (0..n) |i| {
+                for (i + 1..n) |j| {
                     if (self.filters[i].is_extended != self.filters[j].is_extended) continue;
                     const a_id = self.filters[i].can_id;
                     const a_mask = self.filters[i].mask;

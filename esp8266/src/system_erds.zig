@@ -59,7 +59,7 @@ pub const erd: ErdDefinitions = blk: {
     break :blk _erds;
 };
 
-pub fn num_erds(comptime id: ComponentId) comptime_int {
+pub fn numErds(comptime id: ComponentId) comptime_int {
     const component_idx = @intFromEnum(id);
     var i = 0;
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
@@ -68,9 +68,9 @@ pub fn num_erds(comptime id: ComponentId) comptime_int {
     return i;
 }
 
-pub fn component_definitions(comptime id: ComponentId) [num_erds(id)]Erd {
+pub fn componentDefinitions(comptime id: ComponentId) [numErds(id)]Erd {
     const component_idx = @intFromEnum(id);
-    var _erds: [num_erds(id)]Erd = undefined;
+    var _erds: [numErds(id)]Erd = undefined;
     var i = 0;
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
         if (@field(erd, erd_name).component_idx == component_idx) {
@@ -81,4 +81,4 @@ pub fn component_definitions(comptime id: ComponentId) [num_erds(id)]Erd {
     return _erds;
 }
 
-pub const ram_definitions = component_definitions(.ram);
+pub const ram_definitions = componentDefinitions(.ram);

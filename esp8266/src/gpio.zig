@@ -51,7 +51,7 @@ const gpio_funcs = [16]u32{
 /// Each ESP8266 pin has a different function number for GPIO mode;
 /// the mapping is encoded in `gpio_funcs`. FUNC select bits: bit 4 (low),
 /// bits 8-9 (high). Bit 7 enables the internal pullup.
-pub fn set_gpio_func(pin: u5) void {
+pub fn setGpioFunc(pin: u5) void {
     if (pin >= 16) return;
     const mux: *volatile u32 = @ptrFromInt(mux_addrs[pin]);
     var val = mux.* & ~FUNC_MASK;
@@ -62,28 +62,28 @@ pub fn set_gpio_func(pin: u5) void {
     mux.* = val;
 }
 
-pub fn read_mux(pin: u5) u32 {
+pub fn readMux(pin: u5) u32 {
     if (pin >= 16) return 0;
     const mux: *volatile u32 = @ptrFromInt(mux_addrs[pin]);
     return mux.*;
 }
 
-pub fn set_output(pin: u5) void {
+pub fn setOutput(pin: u5) void {
     GPIO_ENABLE_W1TS.* = @as(u32, 1) << pin;
 }
 
-pub fn set_input(pin: u5) void {
+pub fn setInput(pin: u5) void {
     GPIO_ENABLE_W1TC.* = @as(u32, 1) << pin;
 }
 
-pub fn set_pin(pin: u5) void {
+pub fn setPin(pin: u5) void {
     GPIO_OUT_W1TS.* = @as(u32, 1) << pin;
 }
 
-pub fn clear_pin(pin: u5) void {
+pub fn clearPin(pin: u5) void {
     GPIO_OUT_W1TC.* = @as(u32, 1) << pin;
 }
 
-pub fn read_pin(pin: u5) bool {
+pub fn readPin(pin: u5) bool {
     return (GPIO_IN.* >> pin) & 1 != 0;
 }
