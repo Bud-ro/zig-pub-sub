@@ -5,6 +5,7 @@ const BoundedPair = struct {
     low: u16,
     high: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: BoundedPair) ?[]const u8 {
         if (self.low >= self.high) return "low must be less than high";
         if (self.low > 1000) return "low exceeds 1000";
@@ -22,6 +23,7 @@ const Nested = struct {
     pair: BoundedPair,
     name_id: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: Nested) ?[]const u8 {
         if (self.name_id == 0) return "name_id must not be zero";
         return null;
@@ -207,6 +209,7 @@ test "check validates nested array of arrays" {
     const Inner = struct {
         val: u8,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (self.val == 0) return "val must not be zero";
             return null;

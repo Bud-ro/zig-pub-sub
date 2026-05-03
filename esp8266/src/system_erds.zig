@@ -1,15 +1,19 @@
 //! ERD definitions for the ESP8266 application
 
-const std = @import("std");
 const erd_core = @import("erd_core");
+const std = @import("std");
 const Erd = erd_core.Erd;
 
+/// WiFi operating mode.
 pub const WifiMode = enum(u8) { ap, station };
+/// WiFi connection status.
 pub const WifiStatus = enum(u8) { disconnected, connecting, connected, got_ip };
 
+/// Identifies which data component owns an ERD.
 pub const ComponentId = enum(u8) { ram };
 const Ram = @intFromEnum(ComponentId.ram);
 
+/// Enum for referencing ESP8266 ERDs by name.
 pub const ErdEnum = enum {
     comptime {
         const erd_fields = std.meta.fieldNames(ErdDefinitions);
@@ -28,6 +32,7 @@ pub const ErdEnum = enum {
     erd_http_request_count,
 };
 
+/// Struct of all ERD field definitions for ESP8266.
 pub const ErdDefinitions = struct {
     // zig fmt: off
     erd_uptime_seconds:     Erd = .{ .erd_number = 0x0001, .T = u32,        .component_idx = Ram, .subs = 0 },
@@ -39,6 +44,7 @@ pub const ErdDefinitions = struct {
     // zig fmt: on
 };
 
+/// ERD definitions with autofilled component and system data indexes.
 pub const erd: ErdDefinitions = blk: {
     var _erds = ErdDefinitions{};
     var max_component_idx: comptime_int = 0;
@@ -59,7 +65,8 @@ pub const erd: ErdDefinitions = blk: {
     break :blk _erds;
 };
 
-pub fn num_erds(comptime id: ComponentId) comptime_int {
+/// Count ERDs belonging to the given component.
+pub fn numErds(comptime id: ComponentId) comptime_int {
     const component_idx = @intFromEnum(id);
     var i = 0;
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
@@ -68,9 +75,10 @@ pub fn num_erds(comptime id: ComponentId) comptime_int {
     return i;
 }
 
-pub fn component_definitions(comptime id: ComponentId) [num_erds(id)]Erd {
+/// Extract ERD definitions for a specific component as an array.
+pub fn componentDefinitions(comptime id: ComponentId) [numErds(id)]Erd {
     const component_idx = @intFromEnum(id);
-    var _erds: [num_erds(id)]Erd = undefined;
+    var _erds: [numErds(id)]Erd = undefined;
     var i = 0;
     for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
         if (@field(erd, erd_name).component_idx == component_idx) {
@@ -81,4 +89,5 @@ pub fn component_definitions(comptime id: ComponentId) [num_erds(id)]Erd {
     return _erds;
 }
 
-pub const ram_definitions = component_definitions(.ram);
+/// All RAM component ERD definitions as an array.
+pub const ram_definitions = componentDefinitions(.ram);

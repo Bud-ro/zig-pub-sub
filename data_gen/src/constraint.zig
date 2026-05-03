@@ -41,7 +41,7 @@ pub fn lenInRange(comptime min: usize, comptime max: usize, comptime actual: usi
 }
 
 /// Checks array is sorted in ascending order.
-pub fn isSorted(comptime T: type, comptime arr: []const T) ?[]const u8 {
+pub fn isSorted(T: type, comptime arr: []const T) ?[]const u8 {
     if (arr.len < 2) return null;
     for (1..arr.len) |i| {
         if (arr[i] < arr[i - 1]) {
@@ -52,7 +52,7 @@ pub fn isSorted(comptime T: type, comptime arr: []const T) ?[]const u8 {
 }
 
 /// Checks no duplicate values in the array.
-pub fn noDuplicates(comptime T: type, comptime arr: []const T) ?[]const u8 {
+pub fn noDuplicates(T: type, comptime arr: []const T) ?[]const u8 {
     for (0..arr.len) |i| {
         for (i + 1..arr.len) |j| {
             if (arr[i] == arr[j]) {

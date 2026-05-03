@@ -54,7 +54,7 @@ pub fn check(comptime value: anytype, comptime path: []const u8) ?[]const u8 {
     return null;
 }
 
-fn checkInner(comptime T: type, comptime value: T, comptime path: []const u8) ?[]const u8 {
+fn checkInner(T: type, comptime value: T, comptime path: []const u8) ?[]const u8 {
     switch (@typeInfo(T)) {
         .@"struct", .array => return check(value, path),
         else => return null,

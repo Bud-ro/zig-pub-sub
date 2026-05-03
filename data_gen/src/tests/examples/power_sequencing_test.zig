@@ -18,6 +18,7 @@ const RailSpec = struct {
     depends_on: ?RailId,
     min_gap_after_dep_us: u32,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: RailSpec) ?[]const u8 {
         if (constraint.nonZero(self.voltage_mv)) |err| return err;
         if (constraint.nonZero(self.max_current_ma)) |err| return err;
@@ -29,6 +30,7 @@ fn ValidatedPowerSequence(comptime len: usize) type {
     return struct {
         rails: [len]RailSpec,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
             if (constraint.lenInRange(2, 16, self.rails.len)) |err| return err;
@@ -222,6 +224,7 @@ fn ValidatedInrushBudget(comptime len: usize) type {
         rails: [len]RailSpec,
         supply_max_ma: u32,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             // At each step, compute worst-case concurrent inrush (current rail + any
             // rail whose stable_time overlaps with current rail's enable time)

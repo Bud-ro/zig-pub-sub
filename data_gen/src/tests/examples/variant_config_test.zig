@@ -17,6 +17,7 @@ const BaseMotorConfig = struct {
     pole_pairs: u8,
     max_rpm: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: BaseMotorConfig) ?[]const u8 {
         if (self.rated_voltage_mv < 3000 or self.rated_voltage_mv > 48000) return "rated_voltage_mv out of range [3000, 48000]";
         if (self.max_current_ma < 100 or self.max_current_ma > 50000) return "max_current_ma out of range [100, 50000]";
@@ -39,6 +40,7 @@ const SmallBldcConfig = struct {
     kv_rating: u16, // RPM per volt
     max_throttle_pct: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: SmallBldcConfig) ?[]const u8 {
         if (self.base.rated_voltage_mv < 11000 or self.base.rated_voltage_mv > 25200)
             return "rated_voltage_mv out of range [11000, 25200] for SmallBldc";
@@ -72,6 +74,7 @@ const ServoConfig = struct {
     encoder_ppr: u16,
     position_loop_hz: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: ServoConfig) ?[]const u8 {
         if (self.base.rated_voltage_mv < 24000 or self.base.rated_voltage_mv > 48000)
             return "rated_voltage_mv out of range [24000, 48000] for Servo";
@@ -142,6 +145,7 @@ const AlarmLevel = struct {
     severity: u8,
     debounce_ms: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: AlarmLevel) ?[]const u8 {
         if (constraint.nonZero(self.threshold)) |err| return err;
         if (constraint.inRange(@as(u8, 1), @as(u8, 8), self.severity)) |err| return err;
@@ -153,6 +157,7 @@ const AlarmLevel = struct {
 const AlarmLevels = struct {
     levels: [8]AlarmLevel,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: AlarmLevels) ?[]const u8 {
         // Running constraint: each level > 120% of previous
         for (1..self.levels.len) |i| {
@@ -241,6 +246,7 @@ const ProductVariant = struct {
     features: []const Feature,
     price_cents: u32,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: ProductVariant) ?[]const u8 {
         if (constraint.lenInRange(0, 6, self.features.len)) |err| return err;
         if (constraint.nonZero(self.price_cents)) |err| return err;
@@ -262,6 +268,7 @@ const ProductVariant = struct {
 const ProductLine = struct {
     variants: []const ProductVariant,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: ProductLine) ?[]const u8 {
         @setEvalBranchQuota(5000);
         if (constraint.lenInRange(2, 16, self.variants.len)) |err| return err;

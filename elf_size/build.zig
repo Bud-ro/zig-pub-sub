@@ -1,5 +1,6 @@
 const std = @import("std");
 
+/// Build configuration for the elf_size package.
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});

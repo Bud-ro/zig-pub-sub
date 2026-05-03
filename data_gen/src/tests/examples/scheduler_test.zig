@@ -1,7 +1,5 @@
 const std = @import("std");
 const constraint = @import("data_gen").constraint;
-const contract = @import("data_gen").contract;
-const generator = @import("data_gen").generator;
 
 // --- Interval Scheduling on Shared Resources ---
 // Time slots assigned to named channels. No two slots on the same
@@ -124,12 +122,6 @@ const ScheduleValidator = struct {
         return null;
     }
 };
-
-fn computeUtilization(comptime slots: []const TimeSlot, comptime cycle_us: u32) u32 {
-    var total: u32 = 0;
-    for (slots) |slot| total += slot.duration_us;
-    return (total * 1000) / cycle_us; // per-mille
-}
 
 const shared_hw = [_]ResourceSharing{
     .{ .a = .spi_transfer, .b = .i2c_transfer },

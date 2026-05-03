@@ -8,8 +8,8 @@ const std = @import("std");
 /// Converts a comptime float to fixed-point representation.
 /// T is the storage type (e.g. u16, i16), frac_bits is the number of fractional bits.
 /// Compile error if the value is not exactly representable, suggesting the two nearest values.
-pub fn fixedPoint(comptime T: type, comptime frac_bits: comptime_int, comptime value: comptime_float) T {
-    const scale = comptime_pow2(frac_bits);
+pub fn fixedPoint(T: type, frac_bits: comptime_int, value: comptime_float) T {
+    const scale = comptimePow2(frac_bits);
     const scaled_value = value * scale;
     const truncated = @as(comptime_int, @intFromFloat(@floor(scaled_value)));
 
@@ -23,8 +23,8 @@ pub fn fixedPoint(comptime T: type, comptime frac_bits: comptime_int, comptime v
     }
 
     const info = @typeInfo(T).int;
-    const min_val = if (info.signedness == .signed) -(comptime_pow2(info.bits - 1)) else 0;
-    const max_val = comptime_pow2(if (info.signedness == .signed) info.bits - 1 else info.bits) - 1;
+    const min_val = if (info.signedness == .signed) -(comptimePow2(info.bits - 1)) else 0;
+    const max_val = comptimePow2(if (info.signedness == .signed) info.bits - 1 else info.bits) - 1;
 
     if (truncated < min_val or truncated > max_val) {
         @compileError(std.fmt.comptimePrint(
@@ -38,7 +38,7 @@ pub fn fixedPoint(comptime T: type, comptime frac_bits: comptime_int, comptime v
 
 /// Converts a comptime float by multiplying by a scale factor and flooring to an integer.
 /// Compile error if the result is not exact (i.e., the value has more precision than the scale allows).
-pub fn scaled(comptime T: type, comptime scale: comptime_int, comptime value: comptime_float) T {
+pub fn scaled(T: type, scale: comptime_int, value: comptime_float) T {
     const result = value * @as(comptime_float, @floatFromInt(scale));
     const truncated = @as(comptime_int, @intFromFloat(@floor(result)));
 
@@ -56,7 +56,7 @@ pub fn scaled(comptime T: type, comptime scale: comptime_int, comptime value: co
 
 /// Converts a comptime float by multiplying by a scale factor, allowing inexact values.
 /// Returns the nearest representable value (rounds to nearest).
-pub fn scaledNearest(comptime T: type, comptime scale: comptime_int, comptime value: comptime_float) T {
+pub fn scaledNearest(T: type, scale: comptime_int, value: comptime_float) T {
     const result = value * @as(comptime_float, @floatFromInt(scale));
     const rounded = @as(comptime_int, @intFromFloat(@round(result)));
     return @intCast(rounded);
@@ -64,7 +64,7 @@ pub fn scaledNearest(comptime T: type, comptime scale: comptime_int, comptime va
 
 /// Converts a percentage (0-100) to a fraction of a given max value.
 /// Example: percentOf(u8, 255, 50.0) = 128 (50% of 255, nearest).
-pub fn percentOf(comptime T: type, comptime max: comptime_int, comptime pct: comptime_float) T {
+pub fn percentOf(T: type, max: comptime_int, pct: comptime_float) T {
     const result = pct / 100.0 * @as(comptime_float, @floatFromInt(max));
     const rounded = @as(comptime_int, @intFromFloat(@round(result)));
     if (rounded < 0 or rounded > max) {
@@ -76,6 +76,6 @@ pub fn percentOf(comptime T: type, comptime max: comptime_int, comptime pct: com
     return @intCast(rounded);
 }
 
-fn comptime_pow2(comptime exp: comptime_int) comptime_float {
+fn comptimePow2(exp: comptime_int) comptime_float {
     return @floatFromInt(@as(u128, 1) << @intCast(exp));
 }

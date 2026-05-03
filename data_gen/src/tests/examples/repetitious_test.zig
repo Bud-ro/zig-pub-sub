@@ -8,6 +8,7 @@ const CalEntry = struct {
     raw: u16,
     calibrated: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: CalEntry) ?[]const u8 {
         if (self.raw > 65535) return "raw out of range [0, 65535]";
         if (self.calibrated > 65535) return "calibrated out of range [0, 65535]";
@@ -88,6 +89,7 @@ test "64 repeated timer configs are identical" {
 const SineEntry = struct {
     value: i16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: SineEntry) ?[]const u8 {
         if (self.value < -512 or self.value > 512) return "sine value out of range [-512, 512]";
         return null;
@@ -152,6 +154,7 @@ const MotorConfig = struct {
     rated_current_ma: u16,
     pole_pairs: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: MotorConfig) ?[]const u8 {
         if (self.max_rpm < 100 or self.max_rpm > 30000) return "max_rpm out of range [100, 30000]";
         if (self.rated_current_ma < 100 or self.rated_current_ma > 50000) return "rated_current_ma out of range [100, 50000]";

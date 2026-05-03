@@ -16,6 +16,7 @@ const CanBitTiming = struct {
     phase_seg2: u8,
     sjw: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: CanBitTiming) ?[]const u8 {
         if (self.prescaler < 1 or self.prescaler > 1024) return "prescaler out of range [1, 1024]";
         if (self.prop_seg < 1 or self.prop_seg > 8) return "prop_seg out of range [1, 8]";
@@ -31,14 +32,17 @@ const CanBitTiming = struct {
         return null;
     }
 
+    /// Compute the total bit time in time quanta.
     pub fn bitTime(comptime self: CanBitTiming) u16 {
         return 1 + @as(u16, self.prop_seg) + self.phase_seg1 + self.phase_seg2;
     }
 
+    /// Compute the baud rate from clock and timing parameters.
     pub fn baudRate(comptime self: CanBitTiming, comptime clock_hz: u32) u32 {
         return clock_hz / (@as(u32, self.prescaler) * self.bitTime());
     }
 
+    /// Compute the sample point as a percentage of bit time.
     pub fn samplePointPct(comptime self: CanBitTiming) u8 {
         const before_sample = 1 + @as(u16, self.prop_seg) + self.phase_seg1;
         return @intCast(before_sample * 100 / self.bitTime());
@@ -52,6 +56,7 @@ const CanNodeConfig = struct {
     silent_mode: bool,
     loopback: bool,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: CanNodeConfig) ?[]const u8 {
         if (self.clock_hz == 0) return "clock_hz must not be zero";
 
@@ -68,23 +73,24 @@ const CanNodeConfig = struct {
     }
 };
 
-fn CanNetwork(comptime N: usize) type {
+fn CanNetwork(comptime n: usize) type {
     return struct {
-        nodes: [N]CanNodeConfig,
+        nodes: [n]CanNodeConfig,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
-            if (N < 2 or N > 16)
-                return std.fmt.comptimePrint("length {} is outside [2, 16]", .{N});
+            if (n < 2 or n > 16)
+                return std.fmt.comptimePrint("length {} is outside [2, 16]", .{n});
 
-            var ids: [N]u8 = undefined;
+            var ids: [n]u8 = undefined;
             for (self.nodes, 0..) |node, i| {
                 if (contract.check(node, std.fmt.comptimePrint(".nodes[{}]", .{i}))) |err| return err;
                 ids[i] = node.node_id;
             }
 
             // Check for duplicate node IDs
-            for (0..N) |i| {
-                for (i + 1..N) |j| {
+            for (0..n) |i| {
+                for (i + 1..n) |j| {
                     if (ids[i] == ids[j]) {
                         return std.fmt.comptimePrint("duplicate value at indices {} and {}", .{ i, j });
                     }
@@ -187,6 +193,7 @@ const CanFilter = struct {
     is_extended: bool,
     fifo: u1,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: CanFilter) ?[]const u8 {
         if (!self.is_extended) {
             if (self.can_id > 0x7FF)
@@ -198,25 +205,26 @@ const CanFilter = struct {
     }
 };
 
-fn CanFilterBank(comptime N: usize) type {
+fn CanFilterBank(comptime n: usize) type {
     return struct {
-        filters: [N]CanFilter,
+        filters: [n]CanFilter,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
 
-            if (N < 1 or N > 28)
-                return std.fmt.comptimePrint("length {} is outside [1, 28]", .{N});
+            if (n < 1 or n > 28)
+                return std.fmt.comptimePrint("length {} is outside [1, 28]", .{n});
 
-            var fids: [N]u8 = undefined;
+            var fids: [n]u8 = undefined;
             for (self.filters, 0..) |f, i| {
                 if (contract.check(f, std.fmt.comptimePrint(".filters[{}]", .{i}))) |err| return err;
                 fids[i] = f.filter_id;
             }
 
             // Check for duplicate filter IDs
-            for (0..N) |i| {
-                for (i + 1..N) |j| {
+            for (0..n) |i| {
+                for (i + 1..n) |j| {
                     if (fids[i] == fids[j]) {
                         return std.fmt.comptimePrint("duplicate value at indices {} and {}", .{ i, j });
                     }
@@ -224,8 +232,8 @@ fn CanFilterBank(comptime N: usize) type {
             }
 
             // Check for fully redundant filters (one filter's acceptance set is a subset of another's)
-            for (0..N) |i| {
-                for (i + 1..N) |j| {
+            for (0..n) |i| {
+                for (i + 1..n) |j| {
                     if (self.filters[i].is_extended != self.filters[j].is_extended) continue;
                     const a_id = self.filters[i].can_id;
                     const a_mask = self.filters[i].mask;

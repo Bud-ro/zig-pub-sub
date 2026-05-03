@@ -26,7 +26,7 @@ system_data_idx: u16 = undefined,
 pub const ErdHandle = u16; // TODO: Evaluate if this should be an non-exhaustive enum `ErdHandle = enum { _ };`
 
 /// Allows ERDs to be printed as `0xXXXX`
-pub fn format(self: *const Erd, writer: *std.io.Writer) !void {
+pub fn format(self: *const Erd, writer: *std.io.Writer) std.io.Writer.Error!void {
     if (self.erd_number) |number| {
         return try writer.print("0x{x:0>4}", .{number});
     } else {

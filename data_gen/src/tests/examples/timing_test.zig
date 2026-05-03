@@ -1,5 +1,4 @@
 const std = @import("std");
-const constraint = @import("data_gen").constraint;
 const contract = @import("data_gen").contract;
 
 // --- Sample Rate Configuration ---
@@ -9,6 +8,7 @@ const SampleRateConfig = struct {
     oversample_factor: u8,
     averaging_window: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: SampleRateConfig) ?[]const u8 {
         if (self.rate_hz != 100 and self.rate_hz != 200 and self.rate_hz != 500 and
             self.rate_hz != 1000 and self.rate_hz != 2000 and self.rate_hz != 5000 and self.rate_hz != 10000)
@@ -22,6 +22,7 @@ const SampleRateConfig = struct {
         return null;
     }
 
+    /// Generate a derived configuration from constraints.
     pub fn generate(comptime self: SampleRateConfig) SampleRateConfig {
         contract.assertValid(self);
         return self;
@@ -58,6 +59,7 @@ const TimingConfig = struct {
     retry_delay_ms: u16,
     max_retries: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: TimingConfig) ?[]const u8 {
         if (self.timeout_ms < 10 or self.timeout_ms > 30_000) return "timeout_ms out of range [10, 30000]";
         if (self.debounce_ms < 1 or self.debounce_ms > 500) return "debounce_ms out of range [1, 500]";
@@ -78,6 +80,7 @@ const TimingConfig = struct {
         return null;
     }
 
+    /// Generate a derived configuration from constraints.
     pub fn generate(comptime self: TimingConfig) TimingConfig {
         contract.assertValid(self);
         return self;
@@ -128,6 +131,7 @@ const TickConfig = struct {
     tick_period_us: u32,
     ticks_per_ms: u32,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: TickConfig) ?[]const u8 {
         if (self.tick_period_us == 0) return "tick_period_us must not be zero";
         if (self.ticks_per_ms == 0) return "ticks_per_ms must not be zero";
@@ -136,6 +140,7 @@ const TickConfig = struct {
         return null;
     }
 
+    /// Generate a derived configuration from constraints.
     pub fn generate(comptime self: TickConfig) TickConfig {
         contract.assertValid(self);
         return self;
@@ -173,6 +178,7 @@ const PwmConfig = struct {
     resolution_bits: u8,
     dead_time_ns: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: PwmConfig) ?[]const u8 {
         if (self.frequency_hz < 1_000 or self.frequency_hz > 1_000_000) return "frequency_hz out of range [1000, 1000000]";
         if (self.resolution_bits < 8 or self.resolution_bits > 16) return "resolution_bits out of range [8, 16]";
@@ -186,6 +192,7 @@ const PwmConfig = struct {
         return null;
     }
 
+    /// Generate a derived configuration from constraints.
     pub fn generate(comptime self: PwmConfig) PwmConfig {
         contract.assertValid(self);
         return self;
@@ -213,6 +220,7 @@ const TimingProfile = struct {
     timing: TimingConfig,
     tick: TickConfig,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: TimingProfile) ?[]const u8 {
         const sample_period_ms = 1000 / self.sample_rate.rate_hz;
         if (self.timing.periodic_interval_ms % sample_period_ms != 0)

@@ -3,6 +3,7 @@
 //! ?[]const u8 (null = passed, string = error message) and compose with
 //! the contracts protocol for recursive struct validation.
 
+// zlinter-disable require_doc_comment
 pub const constraint = @import("constraint.zig");
 pub const contract = @import("contract.zig");
 pub const generator = @import("generator.zig");

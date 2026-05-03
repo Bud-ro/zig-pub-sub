@@ -1,7 +1,6 @@
 const std = @import("std");
 const constraint = @import("data_gen").constraint;
 const contract = @import("data_gen").contract;
-const generator = @import("data_gen").generator;
 
 // --- Integrated Embedded System Configuration ---
 // A complete system definition that composes pin mux, clock tree,
@@ -21,6 +20,7 @@ const ClockConfig = struct {
     apb1_divider: u8,
     apb2_divider: u8,
 
+    /// Compute the system clock frequency in Hz.
     pub fn sysClockHz(comptime self: ClockConfig) u32 {
         const base = switch (self.source) {
             .hsi => 16_000_000,
@@ -30,18 +30,22 @@ const ClockConfig = struct {
         return base;
     }
 
+    /// Compute the AHB bus clock frequency in Hz.
     pub fn ahbHz(comptime self: ClockConfig) u32 {
         return self.sysClockHz() / self.ahb_divider;
     }
 
+    /// Compute the APB1 bus clock frequency in Hz.
     pub fn apb1Hz(comptime self: ClockConfig) u32 {
         return self.ahbHz() / self.apb1_divider;
     }
 
+    /// Compute the APB2 bus clock frequency in Hz.
     pub fn apb2Hz(comptime self: ClockConfig) u32 {
         return self.ahbHz() / self.apb2_divider;
     }
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: ClockConfig) ?[]const u8 {
         if (self.source == .hse or self.source == .pll) {
             if (self.hse_freq_hz < 4_000_000 or self.hse_freq_hz > 25_000_000)
@@ -80,6 +84,7 @@ const MemRegion = struct {
     writable: bool,
     executable: bool,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: MemRegion) ?[]const u8 {
         if (constraint.nonZero(self.size)) |err| return err;
         if (constraint.isPowerOfTwo(self.size)) |err| return err;
@@ -92,6 +97,7 @@ const MemRegion = struct {
 const MemLayoutValidator = struct {
     regions: []const MemRegion,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: MemLayoutValidator) ?[]const u8 {
         for (self.regions) |r| {
             if (r.contractValidate()) |err| return err;
@@ -117,6 +123,7 @@ const UartConfig = struct {
     parity: bool,
     dma_enabled: bool,
 
+    /// Validate with additional context parameters.
     pub fn validateWith(comptime self: UartConfig, comptime apb_hz: u32) ?[]const u8 {
         if (constraint.oneOf(&.{ 9600, 19200, 57600, 115200, 460800, 921600 }, self.baud_rate)) |err| return err;
         if (constraint.oneOf(&.{ 7, 8 }, self.data_bits)) |err| return err;
@@ -145,6 +152,7 @@ const UartValidator = struct {
     uart: UartConfig,
     apb_hz: u32,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: UartValidator) ?[]const u8 {
         return self.uart.validateWith(self.apb_hz);
     }
@@ -158,6 +166,7 @@ const SpiConfig = struct {
     bit_order: enum(u1) { msb_first, lsb_first },
     dma_enabled: bool,
 
+    /// Validate with additional context parameters.
     pub fn validateWith(comptime self: SpiConfig, comptime apb_hz: u32) ?[]const u8 {
         if (constraint.nonZero(self.max_clock_hz)) |err| return err;
         if (self.max_clock_hz > apb_hz / 2)
@@ -170,6 +179,7 @@ const SpiValidator = struct {
     spi: SpiConfig,
     apb_hz: u32,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: SpiValidator) ?[]const u8 {
         return self.spi.validateWith(self.apb_hz);
     }
@@ -183,6 +193,7 @@ const AdcConfig = struct {
     channels: u8,
     dma_circular: bool,
 
+    /// Validate with additional context parameters.
     pub fn validateWith(comptime self: AdcConfig, comptime apb_hz: u32) ?[]const u8 {
         if (constraint.oneOf(&.{ 8, 10, 12 }, self.resolution_bits)) |err| return err;
         if (constraint.inRange(100, 1_000_000, self.sample_rate_hz)) |err| return err;
@@ -200,6 +211,7 @@ const AdcValidator = struct {
     adc: AdcConfig,
     apb_hz: u32,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: AdcValidator) ?[]const u8 {
         return self.adc.validateWith(self.apb_hz);
     }
@@ -216,6 +228,7 @@ const TaskConfig = struct {
     uses_spi: bool,
     uses_adc: bool,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: TaskConfig) ?[]const u8 {
         if (constraint.nonZero(self.period_us)) |err| return err;
         if (constraint.nonZero(self.wcet_us)) |err| return err;
@@ -230,6 +243,7 @@ const TaskSetValidator = struct {
     tasks: []const TaskConfig,
     ram_bytes: u32,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: TaskSetValidator) ?[]const u8 {
         if (constraint.lenInRange(1, 16, self.tasks.len)) |err| return err;
 
@@ -266,6 +280,7 @@ const SystemConfig = struct {
     adc: AdcConfig,
     tasks: [5]TaskConfig,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: SystemConfig) ?[]const u8 {
         const mem_validator = MemLayoutValidator{ .regions = &self.memory };
         if (mem_validator.contractValidate()) |err| return err;

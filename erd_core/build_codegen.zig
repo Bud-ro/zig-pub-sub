@@ -1,5 +1,6 @@
 const std = @import("std");
 
+/// Configure codegen snapshot build steps for assembly verification.
 pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, sometimes_disabled_mod: *std.Build.Module, core_mod: *std.Build.Module) void {
     const strip_asm = b.addExecutable(.{
         .name = "strip_asm",

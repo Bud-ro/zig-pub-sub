@@ -5,6 +5,7 @@
 
 const std = @import("std");
 
+/// A named memory region with base address and length for ELF section mapping.
 pub const MemoryRegion = struct {
     name: []const u8,
     origin: u32,
@@ -17,6 +18,7 @@ const SectionInfo = struct {
     size: u32 = 0,
 };
 
+// zlinter-disable declaration_naming - ELF convention
 const ELF_MAGIC = "\x7fELF";
 
 const Elf32_Ehdr = extern struct {
@@ -52,9 +54,11 @@ const Elf32_Shdr = extern struct {
 const SHF_ALLOC = 0x2;
 const MAX_SECTIONS_PER_REGION = 32;
 const MAX_REGIONS = 16;
+// zlinter-enable declaration_naming
 
 /// Format a memory usage summary into the provided buffer. Returns the number of bytes written.
-pub fn format_summary(elf_path: []const u8, regions: []const MemoryRegion, out: []u8) !usize {
+// zlinter-disable-next-line no_inferred_error_unions
+pub fn formatSummary(elf_path: []const u8, regions: []const MemoryRegion, out: []u8) !usize {
     const file = try std.fs.cwd().openFile(elf_path, .{});
     defer file.close();
 
@@ -130,19 +134,19 @@ pub fn format_summary(elf_path: []const u8, regions: []const MemoryRegion, out: 
             while (sname_len < s.name.len and s.name[sname_len] != 0) : (sname_len += 1) {}
 
             pos += emit(out[pos..], "  ");
-            pos += emit_padded(out[pos..], s.name[0..sname_len], 20);
-            pos += emit_u32_right(out[pos..], s.size, 8);
+            pos += emitPadded(out[pos..], s.name[0..sname_len], 20);
+            pos += emitU32Right(out[pos..], s.size, 8);
             pos += emit(out[pos..], " bytes\n");
         }
 
         pos += emit(out[pos..], "  ");
-        pos += emit_u32_right(out[pos..], used, 8);
+        pos += emitU32Right(out[pos..], used, 8);
         pos += emit(out[pos..], " bytes used  (");
-        pos += emit_pct(out[pos..], pct_used);
+        pos += emitPct(out[pos..], pct_used);
         pos += emit(out[pos..], ")\n  ");
-        pos += emit_u32_right(out[pos..], free, 8);
+        pos += emitU32Right(out[pos..], free, 8);
         pos += emit(out[pos..], " bytes free  (");
-        pos += emit_pct(out[pos..], pct_free);
+        pos += emitPct(out[pos..], pct_free);
         pos += emit(out[pos..], ")\n\n");
     }
 
@@ -155,7 +159,7 @@ fn emit(buf: []u8, s: []const u8) usize {
     return s.len;
 }
 
-fn emit_padded(buf: []u8, s: []const u8, width: usize) usize {
+fn emitPadded(buf: []u8, s: []const u8, width: usize) usize {
     var pos: usize = 0;
     pos += emit(buf[pos..], s);
     while (pos < width) {
@@ -166,7 +170,7 @@ fn emit_padded(buf: []u8, s: []const u8, width: usize) usize {
     return pos;
 }
 
-fn emit_u32(buf: []u8, val: u32) usize {
+fn emitU32(buf: []u8, val: u32) usize {
     if (val == 0) {
         buf[0] = '0';
         return 1;
@@ -183,9 +187,9 @@ fn emit_u32(buf: []u8, val: u32) usize {
     return i;
 }
 
-fn emit_u32_right(buf: []u8, val: u32, width: usize) usize {
+fn emitU32Right(buf: []u8, val: u32, width: usize) usize {
     var tmp: [10]u8 = undefined;
-    const len = emit_u32(&tmp, val);
+    const len = emitU32(&tmp, val);
     var pos: usize = 0;
     if (len < width) {
         var pad = width - len;
@@ -199,9 +203,9 @@ fn emit_u32_right(buf: []u8, val: u32, width: usize) usize {
     return pos;
 }
 
-fn emit_pct(buf: []u8, pct_x100: u64) usize {
+fn emitPct(buf: []u8, pct_x100: u64) usize {
     var pos: usize = 0;
-    pos += emit_u32(buf[pos..], @truncate(pct_x100 / 100));
+    pos += emitU32(buf[pos..], @truncate(pct_x100 / 100));
     if (pos < buf.len) {
         buf[pos] = '.';
         pos += 1;
@@ -211,7 +215,7 @@ fn emit_pct(buf: []u8, pct_x100: u64) usize {
         buf[pos] = '0';
         pos += 1;
     }
-    pos += emit_u32(buf[pos..], frac);
+    pos += emitU32(buf[pos..], frac);
     if (pos < buf.len) {
         buf[pos] = '%';
         pos += 1;

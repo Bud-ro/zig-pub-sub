@@ -14,6 +14,7 @@ const timer = @import("erd_core").timer;
 const Timer = timer.Timer;
 const TimerModule = timer.TimerModule;
 
+/// Throughput and latency measurement results for the timer module.
 pub const StatMeasurement = struct {
     average_throughput_per_tick: u32,
     maximum_throughput_per_tick: u32,
@@ -21,7 +22,8 @@ pub const StatMeasurement = struct {
     maximum_latency: timer.Ticks,
 };
 
-pub fn TimerModuleStats(comptime SystemDataType: type) type {
+/// Measures timer module throughput and latency by occupying the CPU with a 0-tick timer.
+pub fn TimerModuleStats(SystemDataType: type) type {
     return struct {
         const Self = @This();
 
@@ -34,11 +36,11 @@ pub fn TimerModuleStats(comptime SystemDataType: type) type {
         enable_erd_idx: u16,
         output_erd_idx: u16,
 
-        fn save_measurement(ctx: ?*anyopaque, _: *TimerModule, _: *Timer) void {
+        fn saveMeasurement(ctx: ?*anyopaque, _: *TimerModule, _: *Timer) void {
             const self: *Self = @ptrCast(@alignCast(ctx));
 
             var current_stats: StatMeasurement = undefined;
-            self.system_data.runtime_read(self.output_erd_idx, &current_stats);
+            self.system_data.runtimeRead(self.output_erd_idx, &current_stats);
 
             const updated_stats = StatMeasurement{
                 .average_throughput_per_tick = (current_stats.average_throughput_per_tick + self.current_throughput) / 2, // Effectively an EWMA
@@ -46,21 +48,21 @@ pub fn TimerModuleStats(comptime SystemDataType: type) type {
                 .average_latency = (current_stats.average_latency + self.highest_latency_this_tick) / 2, // Effectively an EWMA
                 .maximum_latency = @max(current_stats.maximum_latency, self.highest_latency_this_tick),
             };
-            self.system_data.runtime_write(self.output_erd_idx, &updated_stats);
+            self.system_data.runtimeWrite(self.output_erd_idx, &updated_stats);
 
             self.current_throughput = 0;
             self.highest_latency_this_tick = 0;
         }
 
-        fn measure_throughput(ctx: ?*anyopaque, timer_module: *TimerModule, _: *Timer) void {
+        fn measureThroughput(ctx: ?*anyopaque, timer_module: *TimerModule, _: *Timer) void {
             const self: *Self = @ptrCast(@alignCast(ctx));
 
             self.current_throughput += 1;
-            const latency = timer_module.ticks_since_last_started(&self.throughput_timer);
+            const latency = timer_module.ticksSinceLastStarted(&self.throughput_timer);
             self.highest_latency_this_tick = @max(latency, self.highest_latency_this_tick);
         }
 
-        fn on_enable_change(ctx: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
+        fn onEnableChange(ctx: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
             const args: *const SystemDataType.OnChangeArgs = @ptrCast(@alignCast(_args.?));
             var system_data: *SystemDataType = @ptrCast(@alignCast(publisher));
             const self: *Self = @ptrCast(@alignCast(ctx));
@@ -71,10 +73,10 @@ pub fn TimerModuleStats(comptime SystemDataType: type) type {
                 self.highest_latency_this_tick = 0;
 
                 const clear_stats = std.mem.zeroes(StatMeasurement);
-                system_data.runtime_write(self.output_erd_idx, &clear_stats);
+                system_data.runtimeWrite(self.output_erd_idx, &clear_stats);
 
-                self.timer_module.start_periodic(&self.throughput_timer, 0, self, measure_throughput);
-                self.timer_module.start_periodic(&self.save_measurement_timer, 1, self, save_measurement);
+                self.timer_module.startPeriodic(&self.throughput_timer, 0, self, measureThroughput);
+                self.timer_module.startPeriodic(&self.save_measurement_timer, 1, self, saveMeasurement);
             } else {
                 self.timer_module.stop(&self.throughput_timer);
                 self.timer_module.stop(&self.save_measurement_timer);
@@ -82,7 +84,7 @@ pub fn TimerModuleStats(comptime SystemDataType: type) type {
         }
 
         // TODO: runtime_subscribe
-        fn inner_init(
+        fn innerInit(
             self: *Self,
             system_data: *SystemDataType,
             timer_module: *TimerModule,
@@ -95,12 +97,13 @@ pub fn TimerModuleStats(comptime SystemDataType: type) type {
             self.output_erd_idx = output_erd_idx;
 
             var is_enabled: bool = undefined;
-            system_data.runtime_read(enable_erd_idx, &is_enabled);
+            system_data.runtimeRead(enable_erd_idx, &is_enabled);
 
             const init_data: SystemDataType.OnChangeArgs = .{ .data = &is_enabled, .system_data_idx = enable_erd_idx };
-            on_enable_change(self, &init_data, system_data);
+            onEnableChange(self, &init_data, system_data);
         }
 
+        /// Initialize the stats module and wire up the enable ERD subscription.
         pub fn init(
             self: *Self,
             system_data: *SystemDataType,
@@ -109,17 +112,17 @@ pub fn TimerModuleStats(comptime SystemDataType: type) type {
             comptime output_erd: SystemDataType.ErdEnumType,
         ) void {
             comptime {
-                std.debug.assert(SystemDataType.erd_from_enum(enable_erd).T == bool);
-                std.debug.assert(SystemDataType.erd_from_enum(output_erd).T == StatMeasurement);
+                std.debug.assert(SystemDataType.erdFromEnum(enable_erd).T == bool);
+                std.debug.assert(SystemDataType.erdFromEnum(output_erd).T == StatMeasurement);
             }
 
-            system_data.subscribe(enable_erd, self, on_enable_change);
+            system_data.subscribe(enable_erd, self, onEnableChange);
 
-            self.inner_init(
+            self.innerInit(
                 system_data,
                 timer_module,
-                SystemDataType.erd_from_enum(enable_erd).system_data_idx,
-                SystemDataType.erd_from_enum(output_erd).system_data_idx,
+                SystemDataType.erdFromEnum(enable_erd).system_data_idx,
+                SystemDataType.erdFromEnum(output_erd).system_data_idx,
             );
         }
     };
@@ -142,7 +145,7 @@ test "does nothing if disabled" {
     var instance: TestTimerModuleStats = undefined;
 
     instance.init(&system_data, &timer_module, .enable, .stats);
-    timer_module.increment_current_time(1);
+    timer_module.incrementCurrentTime(1);
     try std.testing.expect(!timer_module.run());
 }
 
@@ -173,7 +176,7 @@ test "throughput is measured" {
     }
     try std.testing.expectEqual(std.mem.zeroes(StatMeasurement), system_data.read(.stats));
 
-    timer_module.increment_current_time(1);
+    timer_module.incrementCurrentTime(1);
     try std.testing.expect(timer_module.run());
     try std.testing.expectEqual(std.mem.zeroes(StatMeasurement), system_data.read(.stats));
 
@@ -185,7 +188,7 @@ test "throughput is measured" {
         try std.testing.expect(timer_module.run());
     }
 
-    timer_module.increment_current_time(1);
+    timer_module.incrementCurrentTime(1);
     try std.testing.expect(timer_module.run());
     try std.testing.expect(timer_module.run());
     try std.testing.expectEqual(74, system_data.read(.stats).average_throughput_per_tick);
@@ -195,7 +198,7 @@ test "throughput is measured" {
         try std.testing.expect(timer_module.run());
     }
 
-    timer_module.increment_current_time(1);
+    timer_module.incrementCurrentTime(1);
     try std.testing.expect(timer_module.run());
     try std.testing.expect(timer_module.run());
     try std.testing.expectEqual(87, system_data.read(.stats).average_throughput_per_tick);
@@ -213,38 +216,38 @@ test "latency is measured" {
     try std.testing.expectEqual(std.mem.zeroes(StatMeasurement), system_data.read(.stats));
 
     for (0..10) |_| {
-        timer_module.increment_current_time(1);
+        timer_module.incrementCurrentTime(1);
         try std.testing.expect(timer_module.run());
         try std.testing.expect(timer_module.run());
         try std.testing.expectEqual(0, system_data.read(.stats).average_latency);
         try std.testing.expectEqual(1, system_data.read(.stats).maximum_latency);
     }
 
-    timer_module.increment_current_time(10);
+    timer_module.incrementCurrentTime(10);
     try std.testing.expect(timer_module.run());
     try std.testing.expect(timer_module.run());
     try std.testing.expectEqual(5, system_data.read(.stats).average_latency);
     try std.testing.expectEqual(10, system_data.read(.stats).maximum_latency);
 
-    timer_module.increment_current_time(10);
+    timer_module.incrementCurrentTime(10);
     try std.testing.expect(timer_module.run());
     try std.testing.expect(timer_module.run());
     try std.testing.expectEqual(7, system_data.read(.stats).average_latency);
     try std.testing.expectEqual(10, system_data.read(.stats).maximum_latency);
 
-    timer_module.increment_current_time(10);
+    timer_module.incrementCurrentTime(10);
     try std.testing.expect(timer_module.run());
     try std.testing.expect(timer_module.run());
     try std.testing.expectEqual(8, system_data.read(.stats).average_latency);
     try std.testing.expectEqual(10, system_data.read(.stats).maximum_latency);
 
-    timer_module.increment_current_time(10);
+    timer_module.incrementCurrentTime(10);
     try std.testing.expect(timer_module.run());
     try std.testing.expect(timer_module.run());
     try std.testing.expectEqual(9, system_data.read(.stats).average_latency);
     try std.testing.expectEqual(10, system_data.read(.stats).maximum_latency);
 
-    timer_module.increment_current_time(10);
+    timer_module.incrementCurrentTime(10);
     try std.testing.expect(timer_module.run());
     try std.testing.expect(timer_module.run());
     try std.testing.expectEqual(9, system_data.read(.stats).average_latency);

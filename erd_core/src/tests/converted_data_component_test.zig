@@ -1,7 +1,6 @@
-const std = @import("std");
 const erd_core = @import("erd_core");
+const std = @import("std");
 const Erd = erd_core.Erd;
-const Subscription = erd_core.Subscription;
 const RamDataComponent = erd_core.data_component.Ram;
 const ConvertedDataComponentFn = erd_core.data_component.Converted;
 const ConvertedMapping = erd_core.data_component.ConvertedMapping;
@@ -36,8 +35,8 @@ const erd_instance = blk: {
 
 const ErdEnum = std.meta.FieldEnum(ErdDefs);
 
-fn collect_component_erds(comptime component_idx: comptime_int) [count_component_erds(component_idx)]Erd {
-    var result: [count_component_erds(component_idx)]Erd = undefined;
+fn collectComponentErds(component_idx: comptime_int) [countComponentErds(component_idx)]Erd {
+    var result: [countComponentErds(component_idx)]Erd = undefined;
     var i: usize = 0;
     for (std.meta.fieldNames(ErdDefs)) |name| {
         if (@field(erd_instance, name).component_idx == component_idx) {
@@ -48,7 +47,7 @@ fn collect_component_erds(comptime component_idx: comptime_int) [count_component
     return result;
 }
 
-fn count_component_erds(comptime component_idx: comptime_int) comptime_int {
+fn countComponentErds(component_idx: comptime_int) comptime_int {
     var count: comptime_int = 0;
     for (std.meta.fieldNames(ErdDefs)) |name| {
         if (@field(erd_instance, name).component_idx == component_idx) {
@@ -58,27 +57,27 @@ fn count_component_erds(comptime component_idx: comptime_int) comptime_int {
     return count;
 }
 
-const ram_erds = collect_component_erds(Ram);
-const converted_erds = collect_component_erds(Converted);
+const ram_erds = collectComponentErds(Ram);
+const converted_erds = collectComponentErds(Converted);
 
 const RamComponent = RamDataComponent(&ram_erds);
 
-fn compute_sum(result: *u16, ctx: *anyopaque) void {
+fn computeSum(result: *u16, ctx: *anyopaque) void {
     const sd: *SystemData = @ptrCast(@alignCast(ctx));
     result.* = sd.read(.dep_a) + sd.read(.dep_b);
 }
 
-fn compute_no_subs(result: *u16, ctx: *anyopaque) void {
+fn computeNoSubs(result: *u16, ctx: *anyopaque) void {
     const sd: *SystemData = @ptrCast(@alignCast(ctx));
     result.* = sd.read(.dep_a) * 2;
 }
 
 const converted_mappings = [_]ConvertedMapping{
-    .map(erd_instance.sum_ab, compute_sum, &.{
+    .map(erd_instance.sum_ab, computeSum, &.{
         erd_instance.dep_a,
         erd_instance.dep_b,
     }),
-    .map(erd_instance.no_subs, compute_no_subs, &.{
+    .map(erd_instance.no_subs, computeNoSubs, &.{
         erd_instance.dep_a,
     }),
 };
@@ -92,17 +91,17 @@ const Components = struct {
 
 const SystemData = SystemDataFn(ErdDefs, ErdEnum, erd_instance, Components);
 
-fn setup_system(sd: *SystemData) void {
+fn setupSystem(sd: *SystemData) void {
     sd.* = SystemData.init(.{
         .ram = RamComponent.init(),
         .converted = .{},
     });
-    sd.components.converted.post_system_data_init(sd);
+    sd.components.converted.postSystemDataInit(sd);
 }
 
 test "read always recomputes" {
     var sd: SystemData = undefined;
-    setup_system(&sd);
+    setupSystem(&sd);
 
     try std.testing.expectEqual(0, sd.read(.sum_ab));
 
@@ -117,7 +116,7 @@ test "read always recomputes" {
 var subscriber_received_value: u16 = 0;
 var subscriber_call_count: u32 = 0;
 
-fn test_subscriber(_: ?*anyopaque, _args: ?*const anyopaque, _: *anyopaque) void {
+fn testSubscriber(_: ?*anyopaque, _args: ?*const anyopaque, _: *anyopaque) void {
     const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     const val: *const u16 = @ptrCast(@alignCast(args.data));
     subscriber_received_value = val.*;
@@ -128,9 +127,9 @@ test "dependency change publishes to converted ERD subscribers" {
     subscriber_received_value = 0;
     subscriber_call_count = 0;
     var sd: SystemData = undefined;
-    setup_system(&sd);
+    setupSystem(&sd);
 
-    sd.subscribe(.sum_ab, null, test_subscriber);
+    sd.subscribe(.sum_ab, null, testSubscriber);
 
     sd.write(.dep_a, 10);
     try std.testing.expectEqual(10, subscriber_received_value);
@@ -144,9 +143,9 @@ test "dependency change publishes to converted ERD subscribers" {
 test "same value write does not trigger converted publish" {
     subscriber_call_count = 0;
     var sd: SystemData = undefined;
-    setup_system(&sd);
+    setupSystem(&sd);
 
-    sd.subscribe(.sum_ab, null, test_subscriber);
+    sd.subscribe(.sum_ab, null, testSubscriber);
 
     sd.write(.dep_a, 0);
     try std.testing.expectEqual(0, subscriber_call_count);
@@ -155,20 +154,20 @@ test "same value write does not trigger converted publish" {
 test "unsubscribe from converted ERD" {
     subscriber_call_count = 0;
     var sd: SystemData = undefined;
-    setup_system(&sd);
+    setupSystem(&sd);
 
-    sd.subscribe(.sum_ab, null, test_subscriber);
+    sd.subscribe(.sum_ab, null, testSubscriber);
     sd.write(.dep_a, 1);
     try std.testing.expectEqual(1, subscriber_call_count);
 
-    sd.unsubscribe(.sum_ab, test_subscriber);
+    sd.unsubscribe(.sum_ab, testSubscriber);
     sd.write(.dep_a, 2);
     try std.testing.expectEqual(1, subscriber_call_count);
 }
 
 test "converted ERD with no subscribers still computes on read" {
     var sd: SystemData = undefined;
-    setup_system(&sd);
+    setupSystem(&sd);
 
     sd.write(.dep_a, 7);
     try std.testing.expectEqual(14, sd.read(.no_subs));
@@ -176,7 +175,7 @@ test "converted ERD with no subscribers still computes on read" {
 
 var cascaded_value: u16 = 0;
 
-fn cascade_subscriber(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
+fn cascadeSubscriber(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
     const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     const val: *const u16 = @ptrCast(@alignCast(args.data));
     var sd: *SystemData = @ptrCast(@alignCast(publisher));
@@ -188,9 +187,9 @@ fn cascade_subscriber(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyo
 test "converted subscriber can write other ERDs" {
     cascaded_value = 0;
     var sd: SystemData = undefined;
-    setup_system(&sd);
+    setupSystem(&sd);
 
-    sd.subscribe(.sum_ab, null, cascade_subscriber);
+    sd.subscribe(.sum_ab, null, cascadeSubscriber);
 
     sd.write(.dep_a, 3);
     sd.write(.dep_b, 4);

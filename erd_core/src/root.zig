@@ -1,11 +1,12 @@
+//! Core ERD/pub-sub framework — generic data components, system data, timer, subscriptions.
+
+// zlinter-disable require_doc_comment
 const std = @import("std");
 
-// --- Types ---
-pub const Erd = @import("erd.zig");
-pub const Subscription = @import("subscription.zig");
+pub const Erd = @import("Erd.zig");
+pub const Subscription = @import("Subscription.zig");
 pub const SystemData = @import("system_data.zig").SystemData;
 
-// --- Namespaces ---
 pub const data_component = struct {
     pub const Ram = @import("ram_data_component.zig").RamDataComponent;
 
@@ -18,13 +19,12 @@ pub const data_component = struct {
     pub const subscription_mixin = @import("data_component_subscription.zig");
 };
 
-pub const timer = @import("timer.zig");
-
 pub const testing = @import("testing.zig");
+pub const timer = @import("timer.zig");
 
 pub const common = struct {
     pub const erd_logic = @import("common/erd_logic.zig");
-    pub const stopwatch = @import("common/stopwatch.zig");
+    pub const Stopwatch = @import("common/Stopwatch.zig");
     pub const timer_stats = @import("common/timer_stats.zig");
 };
 

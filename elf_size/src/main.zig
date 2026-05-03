@@ -3,14 +3,21 @@
 //! Region spec: name:origin:length (hex, no 0x prefix)
 //! Example: elf-size firmware.elf RAM:3FFE8000:14000 IRAM:40100000:8000
 
-const std = @import("std");
 const elf_size = @import("root.zig");
+const std = @import("std");
 
 fn writeAll(data: []const u8) void {
-    const file = std.fs.File{ .handle = std.posix.STDOUT_FILENO };
-    file.writeAll(data) catch {};
+    const stdout = std.fs.File.stdout();
+    var buf: [4096]u8 = undefined;
+    var w = stdout.writer(&buf);
+    // zlinter-disable no_swallow_error
+    w.interface.writeAll(data) catch {};
+    w.interface.flush() catch {};
+    // zlinter-enable no_swallow_error
 }
 
+/// Entry point for the ELF memory usage summary tool.
+// zlinter-disable-next-line no_inferred_error_unions
 pub fn main() !void {
     var args = std.process.args();
     _ = args.next();
@@ -30,7 +37,7 @@ pub fn main() !void {
             continue;
         }
         if (count >= 16) break;
-        regions[count] = parse_region(arg) orelse {
+        regions[count] = parseRegion(arg) orelse {
             writeAll("Invalid region spec\n");
             return;
         };
@@ -43,18 +50,21 @@ pub fn main() !void {
     }
 
     var buf: [4096]u8 = undefined;
-    const len = try elf_size.format_summary(elf_path, regions[0..count], &buf);
+    const len = try elf_size.formatSummary(elf_path, regions[0..count], &buf);
 
     writeAll(buf[0..len]);
 
     if (output_path) |path| {
         const file = try std.fs.cwd().createFile(path, .{});
         defer file.close();
-        try file.writeAll(buf[0..len]);
+        var wbuf: [4096]u8 = undefined;
+        var w = file.writer(&wbuf);
+        try w.interface.writeAll(buf[0..len]);
+        try w.interface.flush();
     }
 }
 
-fn parse_region(spec: []const u8) ?elf_size.MemoryRegion {
+fn parseRegion(spec: []const u8) ?elf_size.MemoryRegion {
     var it = std.mem.splitScalar(u8, spec, ':');
     const name = it.next() orelse return null;
     const origin_str = it.next() orelse return null;

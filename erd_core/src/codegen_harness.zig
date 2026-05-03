@@ -141,30 +141,30 @@ export fn codegen_write_u16_with_subs(sd: *SmallSD, val: u16) void {
 // ===========================================================================
 
 export fn codegen_runtime_read(sd: *SmallSD, idx: u16, out: *anyopaque) void {
-    sd.runtime_read(idx, out);
+    sd.runtimeRead(idx, out);
 }
 
 export fn codegen_runtime_write(sd: *SmallSD, idx: u16, data: *const anyopaque) void {
-    sd.runtime_write(idx, data);
+    sd.runtimeWrite(idx, data);
 }
 
 // Multiple runtime calls to verify the dispatch logic is shared (not inlined
 // per call site). Each call should be just argument setup + call, with the
 // heavy table-lookup/memcmp/publish logic living in one shared function body.
 export fn codegen_runtime_read_two(sd: *SmallSD, idx_a: u16, out_a: *anyopaque, idx_b: u16, out_b: *anyopaque) void {
-    sd.runtime_read(idx_a, out_a);
-    sd.runtime_read(idx_b, out_b);
+    sd.runtimeRead(idx_a, out_a);
+    sd.runtimeRead(idx_b, out_b);
 }
 
 export fn codegen_runtime_write_two(sd: *SmallSD, idx_a: u16, data_a: *const anyopaque, idx_b: u16, data_b: *const anyopaque) void {
-    sd.runtime_write(idx_a, data_a);
-    sd.runtime_write(idx_b, data_b);
+    sd.runtimeWrite(idx_a, data_a);
+    sd.runtimeWrite(idx_b, data_b);
 }
 
 export fn codegen_runtime_write_three(sd: *SmallSD, idx_a: u16, data_a: *const anyopaque, idx_b: u16, data_b: *const anyopaque, idx_c: u16, data_c: *const anyopaque) void {
-    sd.runtime_write(idx_a, data_a);
-    sd.runtime_write(idx_b, data_b);
-    sd.runtime_write(idx_c, data_c);
+    sd.runtimeWrite(idx_a, data_a);
+    sd.runtimeWrite(idx_b, data_b);
+    sd.runtimeWrite(idx_c, data_c);
 }
 
 // ===========================================================================
@@ -253,7 +253,7 @@ fn timer_callback_read_write(ctx: ?*anyopaque, _: *timer.TimerModule, _: *timer.
 }
 
 export fn codegen_setup_timer_callback(sd: *SmallSD, tm: *timer.TimerModule, t: *timer.Timer) void {
-    tm.start_periodic(t, 100, sd, timer_callback_read_write);
+    tm.startPeriodic(t, 100, sd, timer_callback_read_write);
 }
 
 // Force the timer callback to be emitted even if the linker would discard it

@@ -8,6 +8,10 @@
         .erd_schema = .{ .path = "erd_schema" },
         .data_gen = .{ .path = "data_gen" },
         .app = .{ .path = "app" },
+        .zlinter = .{
+            .url = "https://github.com/KurtWagner/zlinter/archive/dec36928ed64c6cd3210da2826c2c3dbfbdcd938.tar.gz",
+            .hash = "zlinter-0.0.1-OjQ08TuoCwBIlAcC63Trz6UXYqgL7t4lHN16nxEAtJiz",
+        },
     },
 
     .paths = .{

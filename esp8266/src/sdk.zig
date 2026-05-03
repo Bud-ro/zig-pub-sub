@@ -17,7 +17,7 @@ pub const ETSTimer = extern struct {
     timer_next: ?*ETSTimer,
     timer_expire: u32,
     timer_period: u32,
-    timer_func: ?*const fn (?*anyopaque) callconv(cc) void,
+    timer_func: ?*const fn (?*anyopaque) callconv(cc) void, // zlinter-disable-current-line field_naming
     timer_arg: ?*anyopaque,
 };
 
@@ -31,7 +31,7 @@ pub extern fn ets_timer_arm_new(ptimer: *ETSTimer, time: u32, repeat_flag: bool,
 pub extern fn ets_timer_disarm(ptimer: *ETSTimer) void;
 
 /// Convenience wrapper: arm a timer in milliseconds.
-pub fn timer_arm_ms(ptimer: *ETSTimer, ms: u32, repeat: bool) void {
+pub fn timerArmMs(ptimer: *ETSTimer, ms: u32, repeat: bool) void {
     ets_timer_arm_new(ptimer, ms, repeat, true);
 }
 
@@ -49,18 +49,28 @@ pub extern fn system_restart() void;
 
 // ---- WiFi mode (user_interface.h) ----
 
+// zlinter-disable declaration_naming - C SDK convention
+/// WiFi station mode flag.
 pub const STATION_MODE: u8 = 0x01;
+/// WiFi soft-AP mode flag.
 pub const SOFTAP_MODE: u8 = 0x02;
+/// WiFi station + soft-AP combined mode flag.
 pub const STATIONAP_MODE: u8 = 0x03;
 
+/// Station network interface index.
 pub const STATION_IF: u8 = 0;
+/// Soft-AP network interface index.
 pub const SOFTAP_IF: u8 = 1;
 
 /// Station connection status values from `wifi_station_get_connect_status()`.
 pub const STATION_IDLE: u8 = 0;
+/// Station is currently connecting.
 pub const STATION_CONNECTING: u8 = 1;
+/// Station connection failed.
 pub const STATION_CONNECT_FAIL: u8 = 4;
+/// Station has obtained an IP address.
 pub const STATION_GOT_IP: u8 = 5;
+// zlinter-enable declaration_naming
 
 /// Set WiFi operating mode and persist to flash.
 pub extern fn wifi_set_opmode(opmode: u8) bool;
@@ -110,10 +120,12 @@ pub extern fn wifi_softap_set_config_current(config: *SoftApConfig) bool;
 
 // ---- IP info (user_interface.h) ----
 
+/// IPv4 address as a 32-bit integer (network byte order).
 pub const IpAddr = extern struct {
     addr: u32,
 };
 
+/// IP configuration for a network interface (IP, netmask, gateway).
 pub const IpInfo = extern struct {
     ip: IpAddr,
     netmask: IpAddr,
@@ -125,6 +137,7 @@ pub extern fn wifi_get_ip_info(if_index: u8, info: *IpInfo) bool;
 
 // ---- WiFi scan (user_interface.h) ----
 
+/// Callback type invoked when a WiFi scan completes.
 pub const ScanDoneCb = *const fn (?*anyopaque, u32) callconv(cc) void;
 
 /// Start an async WiFi scan. Results delivered via callback as a linked list of `BssInfo`.

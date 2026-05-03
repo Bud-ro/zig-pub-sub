@@ -1,7 +1,6 @@
 const std = @import("std");
 const constraint = @import("data_gen").constraint;
 const contract = @import("data_gen").contract;
-const generator = @import("data_gen").generator;
 
 // --- Data Processing Pipeline (DAG) ---
 // Processing stages connected in a directed acyclic graph.
@@ -35,6 +34,7 @@ const PipelineStage = struct {
     output_type: DataType,
     processing_budget_us: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: PipelineStage) ?[]const u8 {
         if (constraint.nonZero(self.processing_budget_us)) |err| return err;
 
@@ -71,6 +71,7 @@ fn ValidatedPipeline(comptime n_stages: usize, comptime n_conns: usize) type {
         stages: [n_stages]PipelineStage,
         connections: [n_conns]PipelineConnection,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(10_000);
             const stages = &self.stages;

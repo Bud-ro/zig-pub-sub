@@ -4,8 +4,10 @@
 
 const std = @import("std");
 
+// zlinter-disable declaration_naming - hardware register names
 const UART0_FIFO: *volatile u32 = @ptrFromInt(0x60000000);
 const UART0_STATUS: *volatile u32 = @ptrFromInt(0x60000004);
+// zlinter-enable declaration_naming
 
 /// Write a single byte, blocking until the TX FIFO has space.
 pub fn putc(c: u8) void {

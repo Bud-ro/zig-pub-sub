@@ -1,7 +1,6 @@
 const std = @import("std");
 const constraint = @import("data_gen").constraint;
 const contract = @import("data_gen").contract;
-const generator = @import("data_gen").generator;
 
 // --- Rate-Monotonic Task Scheduling ---
 // Tasks with periods and priorities. Rate-monotonic: shorter period = higher priority.
@@ -14,6 +13,7 @@ const TaskDef = struct {
     priority: u8,
     stack_size: u16,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: TaskDef) ?[]const u8 {
         if (constraint.nonZero(self.period_ms)) |err| return err;
         if (constraint.nonZero(self.wcet_us)) |err| return err;
@@ -33,6 +33,7 @@ fn ValidatedTaskSet(comptime len: usize) type {
     return struct {
         tasks: [len]TaskDef,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
             if (constraint.lenInRange(1, 32, self.tasks.len)) |err| return err;
@@ -138,6 +139,7 @@ const MemRegion = struct {
     executable: bool,
     cacheable: bool,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: MemRegion) ?[]const u8 {
         if (constraint.nonZero(self.size)) |err| return err;
         if (constraint.isPowerOfTwo(self.size)) |err| return err;
@@ -167,6 +169,7 @@ fn ValidatedMemoryMap(comptime len: usize) type {
     return struct {
         regions: [len]MemRegion,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             @setEvalBranchQuota(5000);
             if (constraint.lenInRange(1, 32, self.regions.len)) |err| return err;
@@ -243,6 +246,7 @@ const IrqEntry = struct {
     handler_task_id: u8,
     preempts_below_priority: u8,
 
+    /// Validate constraints for this type.
     pub fn contractValidate(comptime self: IrqEntry) ?[]const u8 {
         if (constraint.inRange(0, 15, self.priority)) |err| return err;
 
@@ -257,6 +261,7 @@ fn ValidatedIrqTable(comptime len: usize, comptime task_set_len: usize) type {
         entries: [len]IrqEntry,
         task_set_ref: [task_set_len]TaskDef,
 
+        /// Validate constraints for this type.
         pub fn contractValidate(comptime self: @This()) ?[]const u8 {
             if (constraint.lenInRange(1, 64, self.entries.len)) |err| return err;
 

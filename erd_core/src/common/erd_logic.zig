@@ -1,6 +1,6 @@
 //! This module supports multiple different operations on ERDs of the same type
 //!
-//! Each instance of this creates its own `init` and `on_change` functions
+//! Each instance of this creates its own `init` and `onChange` functions
 //! and also takes `n * @sizeof(Subscription) = 8n/16n` bytes of RAM.
 //! As an upside, comptime read/writes are performed and the operator is comptime known so
 //! there is an O(0) lookup.
@@ -23,7 +23,7 @@ const ErdLogicOperator = enum {
 // TODO: Should this really be this generic? It probably leads to a lot of code bloat. I'd much prefer
 // this to use the same machine code for all instances (or at least one set for the unary operators, and one set for binary operators).
 /// Constructs an ErdLogic type
-pub fn ErdLogic(comptime SystemDataType: type, comptime operator: ErdLogicOperator, comptime erds: []const SystemDataType.ErdEnumType, outputErd: SystemDataType.ErdEnumType) type {
+pub fn ErdLogic(SystemDataType: type, comptime operator: ErdLogicOperator, comptime erds: []const SystemDataType.ErdEnumType, outputErd: SystemDataType.ErdEnumType) type {
     comptime {
         switch (operator) {
             ._bitwise_not, ._not => std.debug.assert(erds.len == 1), // Unary operators
@@ -33,16 +33,16 @@ pub fn ErdLogic(comptime SystemDataType: type, comptime operator: ErdLogicOperat
         if (erds.len > 1) {
             var window = std.mem.window(SystemDataType.ErdEnumType, erds, 2, 1);
             while (window.next()) |erd_pair| {
-                std.debug.assert(SystemDataType.erd_from_enum(erd_pair[0]).T == SystemDataType.erd_from_enum(erd_pair[1]).T);
+                std.debug.assert(SystemDataType.erdFromEnum(erd_pair[0]).T == SystemDataType.erdFromEnum(erd_pair[1]).T);
             }
         }
 
-        std.debug.assert(SystemDataType.erd_from_enum(erds[0]).T == SystemDataType.erd_from_enum(outputErd).T);
+        std.debug.assert(SystemDataType.erdFromEnum(erds[0]).T == SystemDataType.erdFromEnum(outputErd).T);
     }
 
     return struct {
         // TODO: Utilize args here to improve the code
-        fn on_change(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
+        fn onChange(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
             var system_data: *SystemDataType = @ptrCast(@alignCast(publisher));
 
             if (erds.len == 1) {
@@ -79,10 +79,10 @@ pub fn ErdLogic(comptime SystemDataType: type, comptime operator: ErdLogicOperat
 
         fn init(system_data: *SystemDataType) void {
             inline for (erds) |erd| {
-                system_data.subscribe(erd, null, on_change);
+                system_data.subscribe(erd, null, onChange);
             }
 
-            on_change(null, null, system_data);
+            onChange(null, null, system_data);
         }
     };
 }

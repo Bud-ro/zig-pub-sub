@@ -2,30 +2,33 @@
 //! that handle reads. Writes are not supported.
 //! If you want code to run on write, then you should use an ERD subscription or the converted data component
 
-const std = @import("std");
 const erd_core = @import("erd_core");
 const Erd = erd_core.Erd;
 const subscription_mixin = erd_core.data_component.subscription_mixin;
 
+/// Binds an indirect ERD to its read function pointer.
 pub const Mapping = struct {
     erd: Erd,
     fn_ptr: *const anyopaque,
 
+    /// Create a mapping from an ERD to its read function.
     pub fn map(comptime erd: Erd, func: *const fn (*erd.T) void) Mapping {
         return .{ .erd = erd, .fn_ptr = func };
     }
 };
 
+/// Read-only data component that computes values via function pointers.
 pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: [erds.len]Mapping) type {
     return struct {
         const Self = @This();
 
+        /// Indicates this component does not support writes.
         pub const supports_write = false;
 
-        read_functions: [erds.len]*const anyopaque = init_functions(),
+        read_functions: [erds.len]*const anyopaque = initFunctions(),
         subs: subscription_mixin.Unsupported = .{},
 
-        fn init_functions() [erds.len]*const anyopaque {
+        fn initFunctions() [erds.len]*const anyopaque {
             var fns: [erds.len]*const anyopaque = undefined;
             for (erd_mappings) |mapping| {
                 fns[mapping.erd.data_component_idx] = mapping.fn_ptr;
@@ -33,19 +36,22 @@ pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: 
             return fns;
         }
 
+        /// Compute and return the ERD value by calling its mapped function.
         pub fn read(self: Self, erd: Erd) erd.T {
-            const fn_ptr: *const fn (*erd.T) void = @ptrCast(self.read_functions[erd.data_component_idx]);
+            const fnPtr: *const fn (*erd.T) void = @ptrCast(self.read_functions[erd.data_component_idx]);
 
             var temp: erd.T = undefined;
-            fn_ptr(&temp);
+            fnPtr(&temp);
             return temp;
         }
 
-        pub fn runtime_read(self: Self, data_component_idx: u16, data: *anyopaque) void {
-            const fn_ptr: *const fn ([*]u8) void = @ptrCast(self.read_functions[data_component_idx]);
-            fn_ptr(@ptrCast(data));
+        /// Runtime read using a dynamic data component index.
+        pub fn runtimeRead(self: Self, data_component_idx: u16, data: *anyopaque) void {
+            const fnPtr: *const fn ([*]u8) void = @ptrCast(self.read_functions[data_component_idx]);
+            fnPtr(@ptrCast(data));
         }
 
+        /// Compile error: indirect ERDs do not support writes.
         pub fn write(self: *Self, erd: Erd, data: erd.T, publisher: *anyopaque) void {
             _ = self;
             _ = data;
@@ -53,7 +59,8 @@ pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: 
             @compileError("Indirect ERD writes are not allowed");
         }
 
-        pub fn runtime_write(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
+        /// Compile error: indirect ERDs do not support runtime writes.
+        pub fn runtimeWrite(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
             _ = self;
             _ = data_component_idx;
             _ = data;

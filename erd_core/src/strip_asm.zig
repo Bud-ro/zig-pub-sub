@@ -86,14 +86,16 @@ fn isRegister(name: []const u8) bool {
     return false;
 }
 
-fn extractFunc(
-    all_lines: []const []const u8,
-    start: usize,
-    end: usize,
+const ExtractFuncArgs = struct {
     branch_targets: *const std.StringHashMapUnmanaged(void),
-    output: ?*std.ArrayListUnmanaged(u8),
+    output: ?*std.ArrayList(u8),
     gpa: std.mem.Allocator,
-) !usize {
+};
+
+fn extractFunc(all_lines: []const []const u8, start: usize, end: usize, args: ExtractFuncArgs) !usize {
+    const branch_targets = args.branch_targets;
+    const output = args.output;
+    const gpa = args.gpa;
     var count: usize = 0;
     for (all_lines[start..end]) |raw_line| {
         const line = std.mem.trim(u8, raw_line, " \t\r");
@@ -124,8 +126,10 @@ fn extractFunc(
     return count;
 }
 
+/// Entry point for the assembly stripping tool.
+// zlinter-disable-next-line no_inferred_error_unions
 pub fn main() !void {
-    var gpa_state: std.heap.GeneralPurposeAllocator(.{}) = .init;
+    var gpa_state: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa_state.deinit();
     const gpa = gpa_state.allocator();
 
@@ -143,7 +147,7 @@ pub fn main() !void {
     const input = try std.fs.cwd().readFileAlloc(gpa, input_path, 64 * 1024 * 1024);
     defer gpa.free(input);
 
-    var line_list: std.ArrayListUnmanaged([]const u8) = .empty;
+    var line_list: std.ArrayList([]const u8) = .empty;
     defer line_list.deinit(gpa);
     {
         var iter = std.mem.splitScalar(u8, input, '\n');
@@ -197,7 +201,7 @@ pub fn main() !void {
     // functions plus one level of helpers they call, without chasing into stdlib.
     var needed_funcs: std.StringHashMapUnmanaged(void) = .empty;
     defer needed_funcs.deinit(gpa);
-    var work_queue: std.ArrayListUnmanaged([]const u8) = .empty;
+    var work_queue: std.ArrayList([]const u8) = .empty;
     defer work_queue.deinit(gpa);
 
     {
@@ -228,9 +232,9 @@ pub fn main() !void {
     }
 
     // Collect functions in source order, split into exported vs helpers
-    var ordered_exports: std.ArrayListUnmanaged([]const u8) = .empty;
+    var ordered_exports: std.ArrayList([]const u8) = .empty;
     defer ordered_exports.deinit(gpa);
-    var ordered_helpers: std.ArrayListUnmanaged([]const u8) = .empty;
+    var ordered_helpers: std.ArrayList([]const u8) = .empty;
     defer ordered_helpers.deinit(gpa);
 
     for (all_lines) |raw_line| {
@@ -245,7 +249,7 @@ pub fn main() !void {
     }
 
     // Pass 3: emit assembly
-    var output: std.ArrayListUnmanaged(u8) = .empty;
+    var output: std.ArrayList(u8) = .empty;
     defer output.deinit(gpa);
 
     var total_instr: usize = 0;
@@ -255,7 +259,7 @@ pub fn main() !void {
         const end = func_ends.get(name).?;
         try output.appendSlice(gpa, name);
         try output.appendSlice(gpa, ":\n");
-        total_instr += try extractFunc(all_lines, func.start + 1, end, &branch_targets, &output, gpa);
+        total_instr += try extractFunc(all_lines, func.start + 1, end, .{ .branch_targets = &branch_targets, .output = &output, .gpa = gpa });
         try output.append(gpa, '\n');
     }
 
@@ -266,7 +270,7 @@ pub fn main() !void {
             const end = func_ends.get(name).?;
             try output.appendSlice(gpa, name);
             try output.appendSlice(gpa, ":\n");
-            total_instr += try extractFunc(all_lines, func.start + 1, end, &branch_targets, &output, gpa);
+            total_instr += try extractFunc(all_lines, func.start + 1, end, .{ .branch_targets = &branch_targets, .output = &output, .gpa = gpa });
             try output.append(gpa, '\n');
         }
     }
@@ -274,9 +278,16 @@ pub fn main() !void {
     if (output_path) |path| {
         const file = try std.fs.cwd().createFile(path, .{});
         defer file.close();
-        try file.writeAll(output.items);
+        var buf: [4096]u8 = undefined;
+        var w = file.writer(&buf);
+        try w.interface.writeAll(output.items);
+        try w.interface.flush();
     } else {
-        try std.fs.File.stdout().writeAll(output.items);
+        const stdout = std.fs.File.stdout();
+        var buf: [4096]u8 = undefined;
+        var w = stdout.writer(&buf);
+        try w.interface.writeAll(output.items);
+        try w.interface.flush();
     }
 
     std.debug.print("{d} functions ({d} exported, {d} called), {d} instructions\n", .{
@@ -354,9 +365,9 @@ test "isStdlibFunc matches stdlib prefixes" {
     try testing.expect(isStdlibFunc("posix.abort"));
     try testing.expect(isStdlibFunc("mem.eql__anon_3258"));
     try testing.expect(!isStdlibFunc("ram_data_component.RamDataComponent.publish"));
-    try testing.expect(!isStdlibFunc("system_data.SystemData.runtime_read"));
+    try testing.expect(!isStdlibFunc("system_data.SystemData.runtimeRead"));
     try testing.expect(!isStdlibFunc("codegen_foo"));
-    try testing.expect(!isStdlibFunc("timer.TimerModule.try_remove"));
+    try testing.expect(!isStdlibFunc("timer.TimerModule.tryRemove"));
 }
 
 test "isDirective filters assembler directives" {

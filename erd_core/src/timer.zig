@@ -16,7 +16,7 @@
 //! }
 //! ```
 //!
-//! Additionally, user-code must advance the time via `timer_module.increment_current_time(ticks);`.
+//! Additionally, user-code must advance the time via `timer_module.incrementCurrentTime(ticks);`.
 //! Ideally this should be done via an interrupt.
 //!
 //! Guarantees:
@@ -33,23 +33,25 @@
 //!   This ensures no single task can starve the system (including 0 tick periodic `Timer`s)
 //!
 
-const std = @import("std");
 const sometimes = @import("sometimes");
+const std = @import("std");
 
 /// A tick is typically 1 millisecond. Can be longer. Smaller time-scales aren't practical
 /// due to implied timing constraints that cannot be guaranteed in such a system.
 /// u32 allows for ~50 day timers which is plenty.
 pub const Ticks = u32;
 
+/// A single software timer node in the TimerModule's sorted linked list.
 pub const Timer = struct {
     timer_data: TimerData = undefined,
     duration: Ticks = undefined,
     /// ctx is an `?*align(2) anyopaque` pointer where the lowest bit
-    /// is used to store `is_periodic`. Supports full u32 timer range and `fn elapsed_ticks`
+    /// is used to store `isPeriodic`. Supports full u32 timer range and `fn elapsedTicks`
     ctx: usize = undefined,
     callback: ?TimerCallback = null,
     node: std.SinglyLinkedList.Node = .{},
 
+    /// Timer state: either an absolute expiration tick or remaining ticks when paused.
     pub const TimerData = union {
         /// The tick at which the timer expires
         expiration: Ticks,
@@ -64,13 +66,14 @@ pub const Timer = struct {
     pub const longest_delay_before_servicing_timer = std.math.maxInt(u16);
     /// Max `Timer` length when taking into account disambiguation restriction
     pub const max_ticks: Ticks = std.math.maxInt(Ticks) - longest_delay_before_servicing_timer;
+    /// Callback invoked when the timer expires.
     pub const TimerCallback = *const fn (ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void;
 
-    fn is_periodic(self: *Timer) bool {
+    fn isPeriodic(self: *Timer) bool {
         return (self.ctx & 1) == 1;
     }
 
-    fn set_is_periodic(self: *Timer, state: bool) void {
+    fn setIsPeriodic(self: *Timer, state: bool) void {
         if (state) {
             self.ctx |= @as(usize, 1);
         } else {
@@ -78,11 +81,18 @@ pub const Timer = struct {
         }
     }
 
-    fn get_ctx_ptr(self: *Timer) ?*anyopaque {
+    fn getCtxPtr(self: *Timer) ?*anyopaque {
         return @ptrFromInt(self.ctx & ~@as(usize, 1));
     }
 };
 
+/// Tick-based software scheduler using sorted linked lists of Timer nodes.
+///
+/// NOTE: Assumes that `Timer`s used with it are exclusive. You may
+/// safely use multiple `TimerModule`s so long as a `Timer` is not
+/// passed to more than 1. Safely using a timer between two `TimerModule`s
+/// requires that it be stopped before ANY function (even trivial ones)
+/// are called on it by the other `TimerModule`.
 pub const TimerModule = struct {
     current_time: Ticks = 0,
     active_timers: std.SinglyLinkedList = .{},
@@ -91,7 +101,7 @@ pub const TimerModule = struct {
     /// Services the callbacks for a single expired timer
     /// Returns `true` if a `Timer` expired, otherwise returns `false`
     pub fn run(self: *TimerModule) bool {
-        const time_at_start_of_rtc = self.safely_get_current_time();
+        const time_at_start_of_rtc = self.safelyGetCurrentTime();
 
         if (self.active_timers.first) |next_expiring| {
             var timer: *Timer = @fieldParentPtr("node", next_expiring);
@@ -105,14 +115,14 @@ pub const TimerModule = struct {
 
             var front_node: ?*std.SinglyLinkedList.Node = null;
             if (timer_is_expired) {
-                if (!timer.is_periodic()) {
+                if (!timer.isPeriodic()) {
                     // One-shot timers should not be considered running during their callback
                     front_node = self.active_timers.popFirst().?;
                 }
 
-                const _callback = timer.callback;
+                const savedCallback = timer.callback;
                 timer.callback = null;
-                _callback.?(timer.get_ctx_ptr(), self, timer);
+                savedCallback.?(timer.getCtxPtr(), self, timer);
 
                 // Timer was not manually restarted during the callback
                 if (timer.callback == null) {
@@ -120,9 +130,9 @@ pub const TimerModule = struct {
                         front_node = self.active_timers.popFirst().?;
                         std.debug.assert(front_node == next_expiring);
                     }
-                    if (timer.is_periodic()) {
-                        self.insert_timer(timer, timer.duration);
-                        timer.callback = _callback; // Don't forget to restore the callback!
+                    if (timer.isPeriodic()) {
+                        self.insertTimer(timer, timer.duration);
+                        timer.callback = savedCallback; // Don't forget to restore the callback!
                     }
                 }
                 return true; // Only perform one timer callback per RTC
@@ -136,29 +146,29 @@ pub const TimerModule = struct {
     /// NOTE: `ctx` must be align(2) to allow an `bool` due to optimization reasons
     /// If you get an error, declare your variable as `align(2)` or use a container
     /// struct with larger alignment
-    pub fn start_one_shot(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
+    pub fn startOneShot(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
         sometimes.assert(&@src(), self.active_timers.first == &timer.node); // Re-starting a periodic as a one-shot
         if (timer.callback != null or self.active_timers.first == &timer.node) {
-            self.remove_timer(timer);
+            self.removeTimer(timer);
         }
         std.debug.assert(duration <= Timer.max_ticks);
 
         timer.ctx = @intFromPtr(ctx);
         timer.callback = callback;
         timer.duration = duration;
-        timer.set_is_periodic(false);
+        timer.setIsPeriodic(false);
 
-        self.insert_timer(timer, duration);
+        self.insertTimer(timer, duration);
     }
 
     /// Starts a periodic timer, with first expiration set to current time + period
     /// NOTE: `ctx` must be align(2) to allow an `bool` due to optimization reasons
     /// If you get an error, declare your variable as `align(2)` or use a container
     /// struct with larger alignment
-    pub fn start_periodic(self: *TimerModule, timer: *Timer, period: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
+    pub fn startPeriodic(self: *TimerModule, timer: *Timer, period: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
         sometimes.assert(&@src(), self.active_timers.first == &timer.node); // Re-starting a periodic as a periodic
         if (timer.callback != null or self.active_timers.first == &timer.node) {
-            self.remove_timer(timer);
+            self.removeTimer(timer);
         }
 
         std.debug.assert(period <= Timer.max_ticks);
@@ -166,16 +176,16 @@ pub const TimerModule = struct {
         timer.ctx = @intFromPtr(ctx);
         timer.callback = callback;
         timer.duration = period;
-        timer.set_is_periodic(true);
+        timer.setIsPeriodic(true);
 
-        self.insert_timer(timer, period);
+        self.insertTimer(timer, period);
     }
 
     /// Stops an active or paused timer
     pub fn stop(self: *TimerModule, timer: *Timer) void {
-        timer.set_is_periodic(false);
+        timer.setIsPeriodic(false);
         if (timer.callback != null) {
-            self.remove_timer(timer);
+            self.removeTimer(timer);
         }
     }
 
@@ -187,12 +197,13 @@ pub const TimerModule = struct {
             return;
         }
 
-        const was_active = try_remove(&self.active_timers, &timer.node);
+        const was_active = tryRemove(&self.active_timers, &timer.node);
         if (was_active) {
-            timer.timer_data = Timer.TimerData{ .remaining_ticks_if_paused = remaining_ticks_active_timer(timer, self.safely_get_current_time()) };
+            timer.timer_data = Timer.TimerData{ .remaining_ticks_if_paused = remainingTicksActiveTimer(timer, self.safelyGetCurrentTime()) };
             self.paused_timers.prepend(&timer.node); // Order doesn't matter, pause list should be relatively small
         } else {
-            // Do nothing, it was already paused
+            // Do nothing, it was already paused or not started
+            std.debug.assert(self.isPaused(timer) or !self.isRunning(timer));
         }
     }
 
@@ -203,21 +214,22 @@ pub const TimerModule = struct {
             return;
         }
 
-        const was_paused = try_remove(&self.paused_timers, &timer.node);
+        const was_paused = tryRemove(&self.paused_timers, &timer.node);
         if (was_paused) {
-            self.insert_timer(timer, timer.timer_data.remaining_ticks_if_paused);
+            self.insertTimer(timer, timer.timer_data.remaining_ticks_if_paused);
         } else {
-            // Do nothing, it was already active
+            // Do nothing, it was already active or not started
+            std.debug.assert(self.isActive(timer) or !self.isRunning(timer));
         }
     }
 
     /// Returns true if a timer is active or paused
-    pub fn is_running(self: *TimerModule, timer: *Timer) bool {
-        return is_active(self, timer) or is_paused(self, timer);
+    pub fn isRunning(self: *TimerModule, timer: *Timer) bool {
+        return isActive(self, timer) or isPaused(self, timer);
     }
 
     /// Returns true if a timer is active
-    pub fn is_active(self: *TimerModule, timer: *Timer) bool {
+    pub fn isActive(self: *TimerModule, timer: *Timer) bool {
         var current_elem = self.active_timers.first;
         while (current_elem != null) {
             if (current_elem == &timer.node) {
@@ -229,7 +241,7 @@ pub const TimerModule = struct {
     }
 
     /// Returns true if a timer is paused
-    pub fn is_paused(self: *TimerModule, timer: *Timer) bool {
+    pub fn isPaused(self: *TimerModule, timer: *Timer) bool {
         var current_elem = self.paused_timers.first;
         while (current_elem != null) {
             if (current_elem == &timer.node) {
@@ -241,28 +253,28 @@ pub const TimerModule = struct {
     }
 
     /// Returns the elapsed ticks for a timer. Does not report overdue ticks.
-    /// Use `ticks_since_last_started` instead if overdue ticks need to be counted.
-    pub fn elapsed_ticks(timer_module: *TimerModule, timer: *Timer) Ticks {
+    /// Use `ticksSinceLastStarted` instead if overdue ticks need to be counted.
+    pub fn elapsedTicks(timer_module: *TimerModule, timer: *Timer) Ticks {
         if (timer.callback == null) {
             return 0;
         } else {
-            return timer.duration - timer_module.remaining_ticks(timer);
+            return timer.duration - timer_module.remainingTicks(timer);
         }
     }
 
     /// For a timer that has been started at least once, returns the ticks since it was last started.
     /// Result is undefined for timers that have never been started or were started `Timer.max_ticks` ticks ago.
     /// NOTE: Periodic timers automatically re-**start** themselves.
-    pub fn ticks_since_last_started(timer_module: *TimerModule, timer: *Timer) Ticks {
-        if (is_paused(timer_module, timer)) {
-            @panic("It is invalid to get ticks_since_last_started for a paused timer");
+    pub fn ticksSinceLastStarted(timer_module: *TimerModule, timer: *Timer) Ticks {
+        if (isPaused(timer_module, timer)) {
+            @panic("It is invalid to get ticksSinceLastStarted for a paused timer");
         }
 
         const timer_start = timer.timer_data.expiration -% timer.duration;
-        return timer_module.safely_get_current_time() -% timer_start;
+        return timer_module.safelyGetCurrentTime() -% timer_start;
     }
 
-    fn remaining_ticks_active_timer(timer: *Timer, current_time: Ticks) Ticks {
+    fn remainingTicksActiveTimer(timer: *Timer, current_time: Ticks) Ticks {
         if ((timer.timer_data.expiration -% current_time) <= Timer.max_ticks) {
             const duration = timer.timer_data.expiration -% current_time;
             return duration;
@@ -272,23 +284,23 @@ pub const TimerModule = struct {
     }
 
     /// Returns the remaining ticks on a timer, returns 0 if the timer is not running
-    pub fn remaining_ticks(timer_module: *TimerModule, timer: *Timer) Ticks {
+    pub fn remainingTicks(timer_module: *TimerModule, timer: *Timer) Ticks {
         if (timer.callback == null) {
             return 0;
         } else {
-            if (is_paused(timer_module, timer)) {
+            if (isPaused(timer_module, timer)) {
                 return timer.timer_data.remaining_ticks_if_paused;
             } else {
-                return remaining_ticks_active_timer(timer, timer_module.safely_get_current_time());
+                return remainingTicksActiveTimer(timer, timer_module.safelyGetCurrentTime());
             }
         }
     }
 
-    /// Returns `remaining_ticks` for the head of the linked list
-    pub fn ticks_until_next_ready(timer_module: *TimerModule) Ticks {
+    /// Returns `remainingTicks` for the head of the linked list
+    pub fn ticksUntilNextReady(timer_module: *TimerModule) Ticks {
         if (timer_module.active_timers.first) |firstNode| {
             const timer: *Timer = @fieldParentPtr("node", firstNode);
-            return remaining_ticks_active_timer(timer, timer_module.safely_get_current_time());
+            return remainingTicksActiveTimer(timer, timer_module.safelyGetCurrentTime());
         } else {
             @branchHint(.cold);
             return std.math.maxInt(Ticks); // > max_ticks, signals that no timers exist
@@ -297,15 +309,15 @@ pub const TimerModule = struct {
 
     /// Inserts a timer after all other timers with equal or less remaining ticks
     /// Inserting after timers with equal remaining ticks improves fairness
-    fn insert_timer(self: *TimerModule, timer: *Timer, ticks: Ticks) void {
+    fn insertTimer(self: *TimerModule, timer: *Timer, ticks: Ticks) void {
         std.debug.assert(ticks <= Timer.max_ticks);
 
-        const current_time = self.safely_get_current_time();
+        const current_time = self.safelyGetCurrentTime();
         timer.timer_data = Timer.TimerData{ .expiration = current_time +% ticks };
 
         if (self.active_timers.first) |head| {
             const head_timer: *Timer = @fieldParentPtr("node", head);
-            const head_remaining_ticks = remaining_ticks_active_timer(head_timer, current_time);
+            const head_remaining_ticks = remainingTicksActiveTimer(head_timer, current_time);
 
             if (ticks < head_remaining_ticks) {
                 self.active_timers.prepend(&timer.node);
@@ -313,7 +325,7 @@ pub const TimerModule = struct {
                 var node_to_insert_after = head;
                 while (node_to_insert_after.next) |next| {
                     const _timer: *Timer = @fieldParentPtr("node", next);
-                    const next_remaining_ticks = remaining_ticks_active_timer(_timer, current_time);
+                    const next_remaining_ticks = remainingTicksActiveTimer(_timer, current_time);
                     if (next_remaining_ticks <= ticks) {
                         node_to_insert_after = next;
                     } else {
@@ -329,7 +341,7 @@ pub const TimerModule = struct {
     }
 
     /// std.SinglyLinkedList remove, but returns a bool and is valid to call when the node isn't in the list
-    fn try_remove(list: *std.SinglyLinkedList, node: *std.SinglyLinkedList.Node) bool {
+    fn tryRemove(list: *std.SinglyLinkedList, node: *std.SinglyLinkedList.Node) bool {
         if (list.first == null) {
             return false;
         } else if (list.first == node) {
@@ -349,11 +361,11 @@ pub const TimerModule = struct {
     }
 
     /// If this is called, a timer MUST be in either the active list or paused list
-    fn remove_timer(self: *TimerModule, timer: *Timer) void {
+    fn removeTimer(self: *TimerModule, timer: *Timer) void {
         std.debug.assert(timer.callback != null or self.active_timers.first == &timer.node);
-        const removed_from_active = try_remove(&self.active_timers, &timer.node);
+        const removed_from_active = tryRemove(&self.active_timers, &timer.node);
         if (!removed_from_active) {
-            const removed_from_paused = try_remove(&self.paused_timers, &timer.node);
+            const removed_from_paused = tryRemove(&self.paused_timers, &timer.node);
             // If we fail to remove something, check that we didn't screw up and that it's the the user's fault
             // for failing to initialize their memory. All they lose out on is a bit of performance on init so no need
             // to hard-fault.
@@ -366,12 +378,12 @@ pub const TimerModule = struct {
     }
 
     /// Can be called in the interrupt context. NOTE: this can happen while a call to `run` is happening.
-    pub fn increment_current_time(self: *TimerModule, ticks_to_increment_by: Ticks) void {
+    pub fn incrementCurrentTime(self: *TimerModule, ticks_to_increment_by: Ticks) void {
         self.current_time +%= ticks_to_increment_by;
     }
 
     /// Repeatedly reads the current_time until two consecutive reads are identical
-    pub fn safely_get_current_time(self: *const TimerModule) Ticks {
+    pub fn safelyGetCurrentTime(self: *const TimerModule) Ticks {
         // TODO: A lot of embedded platforms won't support atomic access to a u32.
         // The natural way to do so would be via a spin-loop, I just need to figure out
         // how to specify that to where it isn't optimized away.

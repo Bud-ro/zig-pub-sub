@@ -6,9 +6,10 @@
 //! `Subscription`s with the same identity cannot be known to the same publisher.
 //! However `Subscription`s with the same identity may subscribe to several source.
 
-const Subscription = @This();
+/// Function pointer type for subscription callbacks.
 pub const Callback = *const fn (context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void;
 
+/// Payload delivered to on-change callbacks with the ERD index and data pointer.
 pub const OnChangeArgs = struct {
     system_data_idx: u16,
     data: *const anyopaque,

@@ -2,51 +2,55 @@
 //! This file binds ERD definitions to concrete data component implementations
 //! and provides the fully instantiated SystemData type for this application.
 
-const std = @import("std");
 const erd_core = @import("erd_core");
-const SystemErds = @import("system_erds.zig");
+const std = @import("std");
+const system_erds = @import("system_erds.zig");
 
-fn always_42(data: *u16) void {
+fn always42(data: *u16) void {
     data.* = 42;
 }
 
-fn plus_one(data: *u16) void {
+fn plusOne(data: *u16) void {
     var should_be_42: u16 = undefined;
-    always_42(&should_be_42);
+    always42(&should_be_42);
 
     data.* = should_be_42 + 1;
 }
 
 const IndirectMapping = erd_core.data_component.IndirectMapping;
 const indirect_mappings = [_]IndirectMapping{
-    .map(SystemErds.erd.erd_always_42, always_42),
-    .map(SystemErds.erd.erd_another_erd_plus_one, plus_one),
+    .map(system_erds.erd.erd_always_42, always42),
+    .map(system_erds.erd.erd_another_erd_plus_one, plusOne),
 };
 
-fn compute_cool_plus_best(result: *u16, ctx: *anyopaque) void {
+fn computeCoolPlusBest(result: *u16, ctx: *anyopaque) void {
     const sd: *SystemData = @ptrCast(@alignCast(ctx));
     result.* = sd.read(.erd_cool_u16) + sd.read(.erd_best_u16);
 }
 
 const ConvertedMapping = erd_core.data_component.ConvertedMapping;
 const converted_mappings = [_]ConvertedMapping{
-    .map(SystemErds.erd.erd_cool_plus_best, compute_cool_plus_best, &.{
-        SystemErds.erd.erd_cool_u16,
-        SystemErds.erd.erd_best_u16,
+    .map(system_erds.erd.erd_cool_plus_best, computeCoolPlusBest, &.{
+        system_erds.erd.erd_cool_u16,
+        system_erds.erd.erd_best_u16,
     }),
 };
 
-pub const RamDataComponent = erd_core.data_component.Ram(&SystemErds.ram_definitions);
-pub const IndirectDataComponent = erd_core.data_component.Indirect(&SystemErds.indirect_definitions, indirect_mappings);
-pub const ConvertedDataComponent = erd_core.data_component.Converted(&SystemErds.converted_definitions, converted_mappings);
+/// Concrete RAM data component type for this application.
+pub const RamDataComponent = erd_core.data_component.Ram(&system_erds.ram_definitions);
+/// Concrete indirect data component type for this application.
+pub const IndirectDataComponent = erd_core.data_component.Indirect(&system_erds.indirect_definitions, indirect_mappings);
+/// Concrete converted data component type for this application.
+pub const ConvertedDataComponent = erd_core.data_component.Converted(&system_erds.converted_definitions, converted_mappings);
 
+/// Aggregate of all data components wired to SystemData.
 pub const Components = struct {
     ram: RamDataComponent,
     indirect: IndirectDataComponent,
     converted: ConvertedDataComponent,
 
     comptime {
-        const Id = SystemErds.ComponentId;
+        const Id = system_erds.ComponentId;
         if (std.meta.fields(Components)[@intFromEnum(Id.ram)].type != RamDataComponent)
             @compileError("ComponentId.ram does not match RamDataComponent position in Components");
         if (std.meta.fields(Components)[@intFromEnum(Id.indirect)].type != IndirectDataComponent)
@@ -56,18 +60,21 @@ pub const Components = struct {
     }
 };
 
-pub const SystemData = erd_core.SystemData(SystemErds.ErdDefinitions, SystemErds.ErdEnum, SystemErds.erd, Components);
+/// Fully instantiated SystemData type for this application.
+pub const SystemData = erd_core.SystemData(system_erds.ErdDefinitions, system_erds.ErdEnum, system_erds.erd, Components);
 
+/// Top-level application state holding the SystemData instance.
 pub const Application = struct {
     system_data: SystemData,
 };
 
+/// Initialize the application with all components and dependency subscriptions.
 pub fn init() Application {
     var app = Application{ .system_data = SystemData.init(.{
         .ram = RamDataComponent.init(),
         .indirect = .{},
         .converted = .{},
     }) };
-    app.system_data.components.converted.post_system_data_init(&app.system_data);
+    app.system_data.components.converted.postSystemDataInit(&app.system_data);
     return app;
 }
