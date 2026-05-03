@@ -35,12 +35,14 @@
     - [ ] Reads/writes done using public ERD handles
     - [ ] Forwarded pub sub at this layer as well, only for ERDs that have `ErdHandle`s
 - [ ] JSON Serializer for SystemErds
-- [ ] Zig alternative to Lua for generating parametric data
+- [x] Zig alternative to Lua for generating parametric data
 - [ ] Rename this project to embedded starter kit
 - [x] Timer Module with linked lists
   - [x] Timer Module memory/speed optimization using pointer alignment abuse
   - [x] Add support for paused timers
 - [x] ~~Timer Module using struct of arrays, and pseudo-linked list~~
+- [ ] Add zlinter
+  - [ ] Add "redundant comptime" rule
 - [ ] Build ELF for Cortex-M
   - [ ] Linker script
   - [ ] Flash just the application
