@@ -15,7 +15,7 @@ const PidGains = struct {
     kd: u16,
 
     /// Create gains from floating-point coefficients.
-    pub fn fromFloats(comptime kp: comptime_float, comptime ki: comptime_float, comptime kd: comptime_float) PidGains {
+    pub fn fromFloats(kp: comptime_float, ki: comptime_float, kd: comptime_float) PidGains {
         return .{
             .kp = transform.fixedPoint(u16, 8, kp),
             .ki = transform.fixedPoint(u16, 8, ki),

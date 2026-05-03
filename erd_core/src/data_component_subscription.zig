@@ -17,7 +17,7 @@ const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 
 /// Validates that every component in `Components` has a `subs` field.
-pub fn validateComponents(comptime Components: type) void {
+pub fn validateComponents(Components: type) void {
     for (std.meta.fields(Components)) |field| {
         if (!@hasField(field.type, "subs")) {
             @compileError(std.fmt.comptimePrint("Component {s} must have a subs field (use DataComponentSubscription or Unsupported)", .{field.name}));

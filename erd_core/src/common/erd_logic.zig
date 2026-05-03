@@ -23,7 +23,7 @@ const ErdLogicOperator = enum {
 // TODO: Should this really be this generic? It probably leads to a lot of code bloat. I'd much prefer
 // this to use the same machine code for all instances (or at least one set for the unary operators, and one set for binary operators).
 /// Constructs an ErdLogic type
-pub fn ErdLogic(comptime SystemDataType: type, comptime operator: ErdLogicOperator, comptime erds: []const SystemDataType.ErdEnumType, outputErd: SystemDataType.ErdEnumType) type {
+pub fn ErdLogic(SystemDataType: type, comptime operator: ErdLogicOperator, comptime erds: []const SystemDataType.ErdEnumType, outputErd: SystemDataType.ErdEnumType) type {
     comptime {
         switch (operator) {
             ._bitwise_not, ._not => std.debug.assert(erds.len == 1), // Unary operators

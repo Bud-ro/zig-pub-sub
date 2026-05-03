@@ -12,7 +12,7 @@ const AdcScaling = struct {
     resolution_bits: u8,
 
     /// Convert a voltage to an ADC count.
-    pub fn voltsToCount(comptime self: AdcScaling, comptime volts: comptime_float) u16 {
+    pub fn voltsToCount(comptime self: AdcScaling, volts: comptime_float) u16 {
         const mv = volts * 1000.0;
         const counts_per_mv = @as(comptime_float, @floatFromInt((@as(u32, 1) << self.resolution_bits) - 1)) /
             @as(comptime_float, @floatFromInt(self.reference_mv));
@@ -51,7 +51,7 @@ const TempSensor = struct {
     adc: AdcScaling,
 
     /// Convert a temperature in Celsius to an ADC count.
-    pub fn celsiusToCount(comptime self: TempSensor, comptime temp_c: comptime_float) u16 {
+    pub fn celsiusToCount(comptime self: TempSensor, temp_c: comptime_float) u16 {
         const mv = (temp_c - self.offset_c) * self.scale_mv_per_c;
         const volts = mv / 1000.0;
         return self.adc.voltsToCount(volts);
@@ -78,7 +78,7 @@ const MotorTimingConfig = struct {
     poles: u8,
 
     /// Convert RPM to timer ticks.
-    pub fn rpmToTicks(comptime self: MotorTimingConfig, comptime rpm: comptime_float) u16 {
+    pub fn rpmToTicks(comptime self: MotorTimingConfig, rpm: comptime_float) u16 {
         const electrical_hz = rpm * @as(comptime_float, @floatFromInt(self.poles)) / 120.0;
         return @intCast(@as(comptime_int, @intFromFloat(self.tick_hz / electrical_hz)));
     }
@@ -148,7 +148,7 @@ const PwmChannel = struct {
     timer_period: u16,
 
     /// Convert a duty percentage to a compare value.
-    pub fn dutyPercent(comptime self: PwmChannel, comptime pct: comptime_float) u16 {
+    pub fn dutyPercent(comptime self: PwmChannel, pct: comptime_float) u16 {
         return transform.percentOf(u16, self.timer_period, pct);
     }
 };
@@ -173,10 +173,10 @@ test "PWM duty cycle high resolution timer" {
 // --- Voltage Divider: User specifies desired voltage, system computes DAC output ---
 
 fn dacOutputForVdiv(
-    comptime target_v: comptime_float,
-    comptime r_top: comptime_float,
-    comptime r_bottom: comptime_float,
-    comptime dac_ref_v: comptime_float,
+    target_v: comptime_float,
+    r_top: comptime_float,
+    r_bottom: comptime_float,
+    dac_ref_v: comptime_float,
     comptime dac_bits: u8,
 ) u16 {
     const dac_voltage = target_v * (r_top + r_bottom) / r_bottom;

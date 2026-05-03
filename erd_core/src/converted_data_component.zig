@@ -99,7 +99,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         /// Generate the on-change callback for a converted ERD.
         /// When a dependency changes, this callback recomputes the output
         /// and publishes to subscribers of the converted ERD.
-        fn makeCallback(comptime erd_data_component_idx: comptime_int) Subscription.Callback {
+        fn makeCallback(erd_data_component_idx: comptime_int) Subscription.Callback {
             return struct {
                 fn cb(context: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
                     const self: *Self = @ptrCast(@alignCast(context.?));
@@ -114,7 +114,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
             }.cb;
         }
 
-        fn doPublish(self: *Self, comptime erd_data_component_idx: comptime_int, data: *const anyopaque, publisher: *anyopaque) void {
+        fn doPublish(self: *Self, erd_data_component_idx: comptime_int, data: *const anyopaque, publisher: *anyopaque) void {
             const offset = Subs.sub_offsets[erd_data_component_idx];
             const count = erds[erd_data_component_idx].subs;
             for (self.subs.slots[offset .. offset + count]) |sub| {

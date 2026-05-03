@@ -23,7 +23,7 @@ pub const StatMeasurement = struct {
 };
 
 /// Measures timer module throughput and latency by occupying the CPU with a 0-tick timer.
-pub fn TimerModuleStats(comptime SystemDataType: type) type {
+pub fn TimerModuleStats(SystemDataType: type) type {
     return struct {
         const Self = @This();
 

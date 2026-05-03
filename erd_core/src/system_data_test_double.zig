@@ -29,7 +29,7 @@ pub const RamErdOptions = struct {
 };
 
 /// Create an ERD definition for use in a test double.
-pub fn ramErd(comptime T: type, comptime opts: RamErdOptions) Erd {
+pub fn ramErd(T: type, comptime opts: RamErdOptions) Erd {
     return .{
         .erd_number = opts.erd_number,
         .T = T,
@@ -39,7 +39,7 @@ pub fn ramErd(comptime T: type, comptime opts: RamErdOptions) Erd {
 }
 
 /// Create a test SystemData type from ERD definitions backed by a single RAM component.
-pub fn create(comptime ErdDefs: type) type { // zlinter-disable-current-line function_naming
+pub fn create(ErdDefs: type) type { // zlinter-disable-current-line function_naming
     const erd_instance = buildErdInstance(ErdDefs);
     const erd_fields = std.meta.fieldNames(ErdDefs);
 
@@ -73,7 +73,7 @@ pub fn create(comptime ErdDefs: type) type { // zlinter-disable-current-line fun
     };
 }
 
-fn buildErdInstance(comptime ErdDefs: type) ErdDefs {
+fn buildErdInstance(ErdDefs: type) ErdDefs {
     var erds = ErdDefs{};
 
     var data_component_idx: u16 = 0;

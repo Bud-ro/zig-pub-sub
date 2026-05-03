@@ -35,7 +35,7 @@ const erd_instance = blk: {
 
 const ErdEnum = std.meta.FieldEnum(ErdDefs);
 
-fn collectComponentErds(comptime component_idx: comptime_int) [countComponentErds(component_idx)]Erd {
+fn collectComponentErds(component_idx: comptime_int) [countComponentErds(component_idx)]Erd {
     var result: [countComponentErds(component_idx)]Erd = undefined;
     var i: usize = 0;
     for (std.meta.fieldNames(ErdDefs)) |name| {
@@ -47,7 +47,7 @@ fn collectComponentErds(comptime component_idx: comptime_int) [countComponentErd
     return result;
 }
 
-fn countComponentErds(comptime component_idx: comptime_int) comptime_int {
+fn countComponentErds(component_idx: comptime_int) comptime_int {
     var count: comptime_int = 0;
     for (std.meta.fieldNames(ErdDefs)) |name| {
         if (@field(erd_instance, name).component_idx == component_idx) {

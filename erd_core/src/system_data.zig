@@ -11,7 +11,7 @@ const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 
 /// Construct a typed pub-sub system data aggregator from ERD definitions and components.
-pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_instance: ErdDefs, comptime Components: type) type {
+pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, Components: type) type {
     // Validate ErdEnum matches ErdDefs fields
     comptime {
         const erd_fields = std.meta.fieldNames(ErdDefs);
@@ -193,7 +193,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         }
 
         /// Returns a slice allocated to the scratch buffer.
-        pub fn scratchAlloc(this: *Self, comptime T: type, n: usize) []T {
+        pub fn scratchAlloc(this: *Self, T: type, n: usize) []T {
             return this.scratch.allocator().alloc(T, n) catch @panic("We ran out of scratch memory!!!");
         }
 
