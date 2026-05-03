@@ -1,3 +1,5 @@
+//! ERD serialization — transforms Zig ERD types into consumable JSON output.
+
 // zlinter-disable require_doc_comment
 const std = @import("std");
 

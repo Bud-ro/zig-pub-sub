@@ -1,3 +1,8 @@
+//! Comptime constraint-based data generation for embedded system configurations.
+//! Users define types with contractValidate functions. Constraints return
+//! ?[]const u8 (null = passed, string = error message) and compose with
+//! the contracts protocol for recursive struct validation.
+
 // zlinter-disable require_doc_comment
 pub const constraint = @import("constraint.zig");
 pub const contract = @import("contract.zig");

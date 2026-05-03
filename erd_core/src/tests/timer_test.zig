@@ -1,4 +1,4 @@
-// zlinter-disable declaration_naming
+// zlinter-disable declaration_naming no_comment_out_code
 const std = @import("std");
 const timer = @import("erd_core").timer;
 const TimerModule = timer.TimerModule;
@@ -506,25 +506,21 @@ test "can pause timer during periodic callback" {
 }
 
 test "One shot with null callback" {
-    // zlinter-disable no_comment_out_code
     // var timer_module = TimerModule{};
     // var timer1 = Timer{};
     // var context: u32 = 0;
 
     return error.SkipZigTest; // Test for compile error
     // timer_module.startOneShot(&timer1, 0, &context, null);
-    // zlinter-enable no_comment_out_code
 }
 
 test "Periodic with null callback" {
-    // zlinter-disable no_comment_out_code
     // var timer_module = TimerModule{};
     // var timer1 = Timer{};
     // var context: u32 = 0;
 
     return error.SkipZigTest; // Test for compile error
     // timer_module.startPeriodic(&timer1, 0, &context, null);
-    // zlinter-enable no_comment_out_code
 }
 
 test "IsRunning" {
@@ -1603,7 +1599,6 @@ test "elapsed ticks from a callback" {
 test "ticks since last started called without starting the timer" {
     return error.SkipZigTest; // This test actually depends on optimization level as well
 
-    // zlinter-disable no_comment_out_code
     // var timer_module = TimerModule{};
     // var timer1 = Timer{};
 
@@ -1612,5 +1607,4 @@ test "ticks since last started called without starting the timer" {
 
     // timer_module.incrementCurrentTime(123);
     // try std.testing.expectEqual(123, timer_module.ticksSinceLastStarted(&timer1));
-    // zlinter-enable no_comment_out_code
 }

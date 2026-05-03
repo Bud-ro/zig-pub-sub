@@ -1,3 +1,5 @@
+//! Core ERD/pub-sub framework — generic data components, system data, timer, subscriptions.
+
 // zlinter-disable require_doc_comment
 const std = @import("std");
 

@@ -1,3 +1,4 @@
+// zlinter-disable no_comment_out_code
 const erd_core = @import("erd_core");
 const std = @import("std");
 const Erd = erd_core.Erd;
@@ -39,10 +40,8 @@ test "indirect data component read" {
 test "indirect data component write" {
     return error.SkipZigTest; // Test for compile error
 
-    // zlinter-disable no_comment_out_code
     // var indirect_data = IndirectDataComponent{};
     // _ = indirect_data.write(erd_always_42, 41);
-    // zlinter-enable no_comment_out_code
 }
 
 test "indirect data component runtime read" {
@@ -61,8 +60,6 @@ test "indirect data component runtime read" {
 test "indirect data component runtime write" {
     return error.SkipZigTest; // Test for compile error
 
-    // zlinter-disable no_comment_out_code
     // var indirect_data = IndirectDataComponent{};
     // _ = indirect_data.runtimeWrite(erd_always_42.data_component_idx, &41);
-    // zlinter-enable no_comment_out_code
 }
