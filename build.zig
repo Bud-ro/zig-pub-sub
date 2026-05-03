@@ -152,6 +152,10 @@ pub fn build(b: *std.Build) void {
         linter.addRule(.{ .custom = .{ .name = "no_equal_arguments", .path = "zlinter_rules/no_equal_arguments.zig" } }, .{});
         linter.addRule(.{ .custom = .{ .name = "no_boolean_literal_compare", .path = "zlinter_rules/no_boolean_literal_compare.zig" } }, .{});
         linter.addRule(.{ .custom = .{ .name = "missing_test_assertion", .path = "zlinter_rules/missing_test_assertion.zig" } }, .{});
+        linter.addRule(.{ .custom = .{ .name = "no_self_comparison", .path = "zlinter_rules/no_self_comparison.zig" } }, .{});
+        linter.addRule(.{ .custom = .{ .name = "no_self_assignment", .path = "zlinter_rules/no_self_assignment.zig" } }, .{});
+        linter.addRule(.{ .custom = .{ .name = "no_duplicate_conditions", .path = "zlinter_rules/no_duplicate_conditions.zig" } }, .{});
+        linter.addRule(.{ .custom = .{ .name = "no_identical_binary_operands", .path = "zlinter_rules/no_identical_binary_operands.zig" } }, .{});
         break :step linter.build();
     });
 
