@@ -176,3 +176,53 @@ test "own contractValidate runs before recursive field checks" {
         );
     }
 }
+
+test "check validates bare array of structs" {
+    comptime {
+        try std.testing.expectEqual(
+            @as(?[]const u8, null),
+            contract.check([3]BoundedPair{
+                .{ .low = 1, .high = 10 },
+                .{ .low = 20, .high = 30 },
+                .{ .low = 100, .high = 200 },
+            }, ""),
+        );
+    }
+}
+
+test "check error message for bare array element failure" {
+    comptime {
+        try std.testing.expectEqualStrings(
+            "[1]: low must be less than high",
+            contract.check([3]BoundedPair{
+                .{ .low = 1, .high = 10 },
+                .{ .low = 50, .high = 5 },
+                .{ .low = 100, .high = 200 },
+            }, "").?,
+        );
+    }
+}
+
+test "check validates nested array of arrays" {
+    const Inner = struct {
+        val: u8,
+
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
+            if (self.val == 0) return "val must not be zero";
+            return null;
+        }
+    };
+    comptime {
+        try std.testing.expectEqualStrings(
+            ".rows[1][2]: val must not be zero",
+            contract.check(struct {
+                rows: [2][3]Inner,
+            }{
+                .rows = .{
+                    .{ .{ .val = 1 }, .{ .val = 2 }, .{ .val = 3 } },
+                    .{ .{ .val = 4 }, .{ .val = 5 }, .{ .val = 0 } },
+                },
+            }, "").?,
+        );
+    }
+}

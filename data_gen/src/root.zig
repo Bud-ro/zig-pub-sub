@@ -1,6 +1,7 @@
 //! Comptime constraint-based data generation for embedded system configurations.
-//! Users define types with validate/generate functions. Constraints produce
-//! @compileError on violation and fall away to zero cost at runtime.
+//! Users define types with contractValidate functions. Constraints return
+//! ?[]const u8 (null = passed, string = error message) and compose with
+//! the contracts protocol for recursive struct validation.
 
 pub const constraint = @import("constraint.zig");
 pub const contract = @import("contract.zig");

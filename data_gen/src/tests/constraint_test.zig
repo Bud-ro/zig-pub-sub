@@ -123,6 +123,15 @@ test "isPowerOfTwo error message" {
     }
 }
 
+test "isPowerOfTwo rejects signed integers" {
+    comptime {
+        try std.testing.expectEqualStrings(
+            "isPowerOfTwo requires an unsigned integer",
+            constraint.isPowerOfTwo(@as(i8, 4)).?,
+        );
+    }
+}
+
 test "isMultipleOf passes on valid multiples" {
     comptime {
         if (constraint.isMultipleOf(4, 8)) |err| @compileError(err);

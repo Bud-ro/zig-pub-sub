@@ -28,20 +28,24 @@ pub fn assertValid(comptime value: anytype) void {
 pub fn check(comptime value: anytype, comptime path: []const u8) ?[]const u8 {
     const T = @TypeOf(value);
 
-    if (@hasDecl(T, "contractValidate")) {
-        if (T.contractValidate(value)) |msg| {
-            return if (path.len == 0) msg else path ++ ": " ++ msg;
-        }
-    }
-
-    // Recursively validate struct fields
     switch (@typeInfo(T)) {
         .@"struct" => |info| {
+            if (@hasDecl(T, "contractValidate")) {
+                if (T.contractValidate(value)) |msg| {
+                    return if (path.len == 0) msg else path ++ ": " ++ msg;
+                }
+            }
             inline for (info.fields) |field| {
                 const field_val = @field(value, field.name);
                 const field_path = if (path.len == 0) "." ++ field.name else path ++ "." ++ field.name;
-
-                if (checkField(field.type, field_val, field_path)) |err| return err;
+                if (checkInner(field.type, field_val, field_path)) |err| return err;
+            }
+        },
+        .array => |arr_info| {
+            @setEvalBranchQuota(value.len * 1000 + 4000);
+            for (0..value.len) |idx| {
+                const elem_path = path ++ std.fmt.comptimePrint("[{}]", .{idx});
+                if (checkInner(arr_info.child, value[idx], elem_path)) |err| return err;
             }
         },
         else => {},
@@ -50,20 +54,9 @@ pub fn check(comptime value: anytype, comptime path: []const u8) ?[]const u8 {
     return null;
 }
 
-fn checkField(comptime FieldT: type, comptime field_val: FieldT, comptime field_path: []const u8) ?[]const u8 {
-    switch (@typeInfo(FieldT)) {
-        .@"struct" => {
-            if (check(field_val, field_path)) |err| return err;
-        },
-        .array => |arr_info| {
-            if (@typeInfo(arr_info.child) == .@"struct") {
-                for (0..field_val.len) |idx| {
-                    const elem_path = field_path ++ std.fmt.comptimePrint("[{}]", .{idx});
-                    if (check(field_val[idx], elem_path)) |err| return err;
-                }
-            }
-        },
-        else => {},
+fn checkInner(comptime T: type, comptime value: T, comptime path: []const u8) ?[]const u8 {
+    switch (@typeInfo(T)) {
+        .@"struct", .array => return check(value, path),
+        else => return null,
     }
-    return null;
 }

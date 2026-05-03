@@ -36,7 +36,7 @@ pub fn fixedPoint(comptime T: type, comptime frac_bits: comptime_int, comptime v
     return @intCast(truncated);
 }
 
-/// Converts a comptime float by multiplying by a scale factor and truncating to an integer.
+/// Converts a comptime float by multiplying by a scale factor and flooring to an integer.
 /// Compile error if the result is not exact (i.e., the value has more precision than the scale allows).
 pub fn scaled(comptime T: type, comptime scale: comptime_int, comptime value: comptime_float) T {
     const result = value * @as(comptime_float, @floatFromInt(scale));
@@ -77,10 +77,5 @@ pub fn percentOf(comptime T: type, comptime max: comptime_int, comptime pct: com
 }
 
 fn comptime_pow2(comptime exp: comptime_int) comptime_float {
-    var result: comptime_float = 1.0;
-    var i: comptime_int = 0;
-    while (i < exp) : (i += 1) {
-        result *= 2.0;
-    }
-    return result;
+    return @floatFromInt(@as(u128, 1) << @intCast(exp));
 }
