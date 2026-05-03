@@ -95,14 +95,8 @@ pub fn isPowerOfTwo(comptime value: anytype) ?[]const u8 {
     return null;
 }
 
-/// Checks value is a multiple of divisor. Both must be unsigned.
+/// Checks value is a multiple of divisor.
 pub fn isMultipleOf(comptime divisor: anytype, comptime value: anytype) ?[]const u8 {
-    const DT = @TypeOf(divisor);
-    const VT = @TypeOf(value);
-    if (@typeInfo(DT) == .int and @typeInfo(DT).int.signedness == .signed)
-        @compileError("isMultipleOf requires unsigned integers");
-    if (@typeInfo(VT) == .int and @typeInfo(VT).int.signedness == .signed)
-        @compileError("isMultipleOf requires unsigned integers");
     if (divisor == 0) return "divisor must not be zero";
     if (value % divisor != 0) {
         return std.fmt.comptimePrint("{} is not a multiple of {}", .{ value, divisor });
