@@ -48,7 +48,7 @@ fn run(
                 .severity = config.severity,
                 .start = .startOfToken(tree.*, full_if.ast.if_token),
                 .end = .endOfNode(tree.*, else_node),
-                .message = "if/else branches have identical bodies",
+                .message = try std.fmt.allocPrint(gpa, "if/else branches have identical bodies", .{}),
             });
         }
     }

@@ -1016,7 +1016,7 @@ test "resume ticks are accurate" {
     try std.testing.expectEqualSlices(u8, &[_]u8{1}, calls.items);
 }
 
-test "invalid pause ignored" {
+test "invalid pause ignored" { // zlinter-disable-current-line missing_test_assertion
     var timer_module = TimerModule{};
     var timer1 = Timer{};
 
@@ -1183,7 +1183,7 @@ test "timers are not starved when timers are already expired" {
     try std.testing.expectEqualSlices(u8, &[_]u8{ 1, 2, 3, 4 }, calls.items);
 }
 
-test "stopped timers can be stopped" {
+test "stopped timers can be stopped" { // zlinter-disable-current-line missing_test_assertion
     var timer_module = TimerModule{};
     var timer1 = Timer{};
 

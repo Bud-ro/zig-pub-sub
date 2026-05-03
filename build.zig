@@ -151,6 +151,7 @@ pub fn build(b: *std.Build) void {
         linter.addRule(.{ .custom = .{ .name = "no_equal_then_else", .path = "zlinter_rules/no_equal_then_else.zig" } }, .{});
         linter.addRule(.{ .custom = .{ .name = "no_equal_arguments", .path = "zlinter_rules/no_equal_arguments.zig" } }, .{});
         linter.addRule(.{ .custom = .{ .name = "no_boolean_literal_compare", .path = "zlinter_rules/no_boolean_literal_compare.zig" } }, .{});
+        linter.addRule(.{ .custom = .{ .name = "missing_test_assertion", .path = "zlinter_rules/missing_test_assertion.zig" } }, .{});
         break :step linter.build();
     });
 
