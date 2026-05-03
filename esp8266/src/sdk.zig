@@ -49,6 +49,7 @@ pub extern fn system_restart() void;
 
 // ---- WiFi mode (user_interface.h) ----
 
+// zlinter-disable declaration_naming - C SDK convention
 pub const STATION_MODE: u8 = 0x01;
 pub const SOFTAP_MODE: u8 = 0x02;
 pub const STATIONAP_MODE: u8 = 0x03;
@@ -61,6 +62,7 @@ pub const STATION_IDLE: u8 = 0;
 pub const STATION_CONNECTING: u8 = 1;
 pub const STATION_CONNECT_FAIL: u8 = 4;
 pub const STATION_GOT_IP: u8 = 5;
+// zlinter-enable declaration_naming
 
 /// Set WiFi operating mode and persist to flash.
 pub extern fn wifi_set_opmode(opmode: u8) bool;

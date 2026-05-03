@@ -4,7 +4,7 @@
 const gpio = @import("gpio.zig");
 
 /// GPIO2 — built-in blue LED on most ESP-12F modules (active-low).
-const LED_PIN: u5 = 2;
+const LED_PIN: u5 = 2; // zlinter-disable-current-line declaration_naming
 
 /// Configure GPIO pins and set initial peripheral state.
 pub fn init() void {

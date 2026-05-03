@@ -3,6 +3,7 @@
 //! digital I/O. Pin mux addresses and function numbers vary per pin —
 //! see ESP8266 Technical Reference, Chapter 5.
 
+// zlinter-disable declaration_naming - hardware register names follow ESP8266 convention
 const GPIO_OUT_W1TS: *volatile u32 = @ptrFromInt(0x60000304);
 const GPIO_OUT_W1TC: *volatile u32 = @ptrFromInt(0x60000308);
 const GPIO_ENABLE_W1TS: *volatile u32 = @ptrFromInt(0x60000310);
@@ -10,6 +11,7 @@ const GPIO_ENABLE_W1TC: *volatile u32 = @ptrFromInt(0x60000314);
 const GPIO_IN: *volatile u32 = @ptrFromInt(0x60000318);
 
 const FUNC_MASK: u32 = (1 << 4) | (0x3 << 8);
+// zlinter-enable declaration_naming
 
 const mux_addrs = [16]u32{
     0x60000834, // GPIO0

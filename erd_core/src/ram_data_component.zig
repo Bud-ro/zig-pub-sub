@@ -93,22 +93,22 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         ///   in read-modify-write patterns
         pub fn write(self: *Self, erd: Erd, data: erd.T, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
-            const N = @sizeOf(erd.T);
+            const n = @sizeOf(erd.T);
             const data_bytes = std.mem.toBytes(data);
 
             if (erd.subs == 0) {
-                self.storage[ram_offsets[idx]..][0..N].* = data_bytes;
+                self.storage[ram_offsets[idx]..][0..n].* = data_bytes;
                 return;
             }
 
-            const changed = if (N <= 8) blk: {
-                const stored: *[N]u8 = self.storage[ram_offsets[idx]..][0..N];
+            const changed = if (n <= 8) blk: {
+                const stored: *[n]u8 = self.storage[ram_offsets[idx]..][0..n];
                 const data_changed = bytesChanged(stored, &data_bytes);
                 stored.* = data_bytes;
                 break :blk data_changed;
             } else blk: {
                 const old = self.read(erd);
-                self.storage[ram_offsets[idx]..][0..N].* = data_bytes;
+                self.storage[ram_offsets[idx]..][0..n].* = data_bytes;
                 break :blk !std.meta.eql(old, data);
             };
 

@@ -205,7 +205,7 @@ fn ValidatedCalTable(comptime len: usize) type {
 }
 
 const cal_table = blk: {
-    const gen_fn = struct {
+    const gen_fn = struct { // zlinter-disable-current-line declaration_naming
         fn f(comptime i: usize) CalEntry {
             const raw: u16 = @intCast(i * 16);
             const calibrated: u16 = @intCast(i * 16 + i / 4);

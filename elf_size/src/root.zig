@@ -17,6 +17,7 @@ const SectionInfo = struct {
     size: u32 = 0,
 };
 
+// zlinter-disable declaration_naming - ELF convention
 const ELF_MAGIC = "\x7fELF";
 
 const Elf32_Ehdr = extern struct {
@@ -52,6 +53,7 @@ const Elf32_Shdr = extern struct {
 const SHF_ALLOC = 0x2;
 const MAX_SECTIONS_PER_REGION = 32;
 const MAX_REGIONS = 16;
+// zlinter-enable declaration_naming
 
 /// Format a memory usage summary into the provided buffer. Returns the number of bytes written.
 // zlinter-disable-next-line no_inferred_error_unions

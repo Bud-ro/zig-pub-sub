@@ -1,6 +1,6 @@
 const erd_schema = @import("erd_schema");
 const std = @import("std");
-const SystemErds = @import("system_erds.zig");
+const system_erds = @import("system_erds.zig");
 
 // zlinter-disable-next-line no_inferred_error_unions
 pub fn main() !void {
@@ -8,6 +8,6 @@ pub fn main() !void {
     var buf: [max_json_size]u8 = undefined;
 
     var out = std.io.Writer.fixed(&buf);
-    try erd_schema.json.generate(SystemErds.erd, &out, .{});
+    try erd_schema.json.generate(system_erds.erd, &out, .{});
     std.log.debug("System Erds as JSON Object:\n{s}", .{out.buffered()});
 }

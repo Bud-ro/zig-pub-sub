@@ -26,7 +26,7 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
     }
 
     const component_fields = std.meta.fields(Components);
-    const SystemErdsLength: usize = std.meta.fields(ErdDefs).len;
+    const system_erds_length: usize = std.meta.fields(ErdDefs).len;
 
     comptime {
         erd_core.data_component.subscription_mixin.validateComponents(Components);
@@ -53,8 +53,8 @@ pub fn SystemData(comptime ErdDefs: type, comptime ErdEnum: type, comptime erd_i
         }
 
         /// Returns a column from erd_instance as an array of type []T
-        fn erd_collect(T: type, column_name: []const u8) [SystemErdsLength]T {
-            var field_values: [SystemErdsLength]T = undefined;
+        fn erd_collect(T: type, column_name: []const u8) [system_erds_length]T {
+            var field_values: [system_erds_length]T = undefined;
             for (std.meta.fieldNames(ErdDefs), 0..) |erd_name, i| {
                 field_values[i] = @field(@field(erd_instance, erd_name), column_name);
             }

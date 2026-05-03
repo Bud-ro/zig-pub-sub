@@ -4,7 +4,7 @@
 
 const erd_core = @import("erd_core");
 const std = @import("std");
-const SystemErds = @import("system_erds.zig");
+const system_erds = @import("system_erds.zig");
 
 fn always_42(data: *u16) void {
     data.* = 42;
@@ -19,8 +19,8 @@ fn plus_one(data: *u16) void {
 
 const IndirectMapping = erd_core.data_component.IndirectMapping;
 const indirect_mappings = [_]IndirectMapping{
-    .map(SystemErds.erd.erd_always_42, always_42),
-    .map(SystemErds.erd.erd_another_erd_plus_one, plus_one),
+    .map(system_erds.erd.erd_always_42, always_42),
+    .map(system_erds.erd.erd_another_erd_plus_one, plus_one),
 };
 
 fn compute_cool_plus_best(result: *u16, ctx: *anyopaque) void {
@@ -30,15 +30,15 @@ fn compute_cool_plus_best(result: *u16, ctx: *anyopaque) void {
 
 const ConvertedMapping = erd_core.data_component.ConvertedMapping;
 const converted_mappings = [_]ConvertedMapping{
-    .map(SystemErds.erd.erd_cool_plus_best, compute_cool_plus_best, &.{
-        SystemErds.erd.erd_cool_u16,
-        SystemErds.erd.erd_best_u16,
+    .map(system_erds.erd.erd_cool_plus_best, compute_cool_plus_best, &.{
+        system_erds.erd.erd_cool_u16,
+        system_erds.erd.erd_best_u16,
     }),
 };
 
-pub const RamDataComponent = erd_core.data_component.Ram(&SystemErds.ram_definitions);
-pub const IndirectDataComponent = erd_core.data_component.Indirect(&SystemErds.indirect_definitions, indirect_mappings);
-pub const ConvertedDataComponent = erd_core.data_component.Converted(&SystemErds.converted_definitions, converted_mappings);
+pub const RamDataComponent = erd_core.data_component.Ram(&system_erds.ram_definitions);
+pub const IndirectDataComponent = erd_core.data_component.Indirect(&system_erds.indirect_definitions, indirect_mappings);
+pub const ConvertedDataComponent = erd_core.data_component.Converted(&system_erds.converted_definitions, converted_mappings);
 
 pub const Components = struct {
     ram: RamDataComponent,
@@ -46,7 +46,7 @@ pub const Components = struct {
     converted: ConvertedDataComponent,
 
     comptime {
-        const Id = SystemErds.ComponentId;
+        const Id = system_erds.ComponentId;
         if (std.meta.fields(Components)[@intFromEnum(Id.ram)].type != RamDataComponent)
             @compileError("ComponentId.ram does not match RamDataComponent position in Components");
         if (std.meta.fields(Components)[@intFromEnum(Id.indirect)].type != IndirectDataComponent)
@@ -56,7 +56,7 @@ pub const Components = struct {
     }
 };
 
-pub const SystemData = erd_core.SystemData(SystemErds.ErdDefinitions, SystemErds.ErdEnum, SystemErds.erd, Components);
+pub const SystemData = erd_core.SystemData(system_erds.ErdDefinitions, system_erds.ErdEnum, system_erds.erd, Components);
 
 pub const Application = struct {
     system_data: SystemData,

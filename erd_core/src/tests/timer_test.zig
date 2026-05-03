@@ -1,3 +1,4 @@
+// zlinter-disable declaration_naming
 const std = @import("std");
 const timer = @import("erd_core").timer;
 const TimerModule = timer.TimerModule;

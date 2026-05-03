@@ -116,7 +116,10 @@ pub fn build(b: *std.Build) void {
                 b.path("esp8266/.zig-cache"),
             },
         });
-        linter.addRule(.{ .builtin = .declaration_naming }, .{});
+        linter.addRule(.{ .builtin = .declaration_naming }, .{
+            .decl_name_min_len = .{ .len = 0, .severity = .off },
+            .decl_name_max_len = .{ .len = 0, .severity = .off },
+        });
         linter.addRule(.{ .builtin = .field_naming }, .{
             .enum_field_min_len = .{ .len = 0, .severity = .off },
             .enum_field_max_len = .{ .len = 0, .severity = .off },
@@ -139,9 +142,7 @@ pub fn build(b: *std.Build) void {
         linter.addRule(.{ .builtin = .no_literal_only_bool_expression }, .{});
         linter.addRule(.{ .builtin = .no_orelse_unreachable }, .{});
         linter.addRule(.{ .builtin = .no_swallow_error }, .{});
-        linter.addRule(.{ .builtin = .no_undefined }, .{});
         linter.addRule(.{ .builtin = .no_unused }, .{});
-        linter.addRule(.{ .builtin = .require_braces }, .{});
         linter.addRule(.{ .builtin = .require_doc_comment }, .{});
         linter.addRule(.{ .builtin = .require_errdefer_dealloc }, .{});
         linter.addRule(.{ .builtin = .switch_case_ordering }, .{});

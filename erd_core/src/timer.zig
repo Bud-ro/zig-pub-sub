@@ -110,9 +110,9 @@ pub const TimerModule = struct {
                     front_node = self.active_timers.popFirst().?;
                 }
 
-                const _callback = timer.callback;
+                const savedCallback = timer.callback;
                 timer.callback = null;
-                _callback.?(timer.get_ctx_ptr(), self, timer);
+                savedCallback.?(timer.get_ctx_ptr(), self, timer);
 
                 // Timer was not manually restarted during the callback
                 if (timer.callback == null) {
@@ -122,7 +122,7 @@ pub const TimerModule = struct {
                     }
                     if (timer.is_periodic()) {
                         self.insert_timer(timer, timer.duration);
-                        timer.callback = _callback; // Don't forget to restore the callback!
+                        timer.callback = savedCallback; // Don't forget to restore the callback!
                     }
                 }
                 return true; // Only perform one timer callback per RTC

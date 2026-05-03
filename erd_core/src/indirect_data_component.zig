@@ -33,16 +33,16 @@ pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: 
         }
 
         pub fn read(self: Self, erd: Erd) erd.T {
-            const fn_ptr: *const fn (*erd.T) void = @ptrCast(self.read_functions[erd.data_component_idx]);
+            const fnPtr: *const fn (*erd.T) void = @ptrCast(self.read_functions[erd.data_component_idx]);
 
             var temp: erd.T = undefined;
-            fn_ptr(&temp);
+            fnPtr(&temp);
             return temp;
         }
 
         pub fn runtime_read(self: Self, data_component_idx: u16, data: *anyopaque) void {
-            const fn_ptr: *const fn ([*]u8) void = @ptrCast(self.read_functions[data_component_idx]);
-            fn_ptr(@ptrCast(data));
+            const fnPtr: *const fn ([*]u8) void = @ptrCast(self.read_functions[data_component_idx]);
+            fnPtr(@ptrCast(data));
         }
 
         pub fn write(self: *Self, erd: Erd, data: erd.T, publisher: *anyopaque) void {

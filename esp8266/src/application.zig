@@ -6,15 +6,15 @@ const erd_core = @import("erd_core");
 const hardware = @import("hardware.zig");
 const sdk = @import("sdk.zig");
 const std = @import("std");
-const SystemErds = @import("system_erds.zig");
+const system_erds = @import("system_erds.zig");
 
-pub const RamDataComponent = erd_core.data_component.Ram(&SystemErds.ram_definitions);
+pub const RamDataComponent = erd_core.data_component.Ram(&system_erds.ram_definitions);
 
 pub const Components = struct {
     ram: RamDataComponent,
 };
 
-pub const SystemData = erd_core.SystemData(SystemErds.ErdDefinitions, SystemErds.ErdEnum, SystemErds.erd, Components);
+pub const SystemData = erd_core.SystemData(system_erds.ErdDefinitions, system_erds.ErdEnum, system_erds.erd, Components);
 
 pub const Application = struct {
     system_data: SystemData,

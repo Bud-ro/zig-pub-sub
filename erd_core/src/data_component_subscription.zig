@@ -90,7 +90,7 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
 
 /// Stub for components that do not support subscriptions.
 /// Any attempt to subscribe or unsubscribe is a compile error.
-pub const Unsupported = struct {
+pub const Unsupported = struct { // zlinter-disable-current-line declaration_naming
     pub const supported = false;
     pub const sub_offsets = [_]usize{};
 

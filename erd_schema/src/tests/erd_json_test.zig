@@ -48,7 +48,7 @@ test "generates JSON for ERDs with erd_numbers, skipping null" {
 }
 
 test "empty ERD definitions produce empty erds array" {
-    const EmptyErds = struct {};
+    const EmptyErds = struct {}; // zlinter-disable-current-line declaration_naming
     var out: std.io.Writer.Allocating = .init(std.testing.allocator);
     defer out.deinit();
 

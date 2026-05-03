@@ -67,16 +67,16 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         /// Recompute and return the value of a converted ERD.
         pub fn read(self: Self, erd: Erd) erd.T {
             std.debug.assert(self.is_fully_initialized);
-            const fn_ptr: *const fn (*erd.T, *anyopaque) void = @ptrCast(self.read_functions[erd.data_component_idx]);
+            const fnPtr: *const fn (*erd.T, *anyopaque) void = @ptrCast(self.read_functions[erd.data_component_idx]);
             var temp: erd.T = undefined;
-            fn_ptr(&temp, self.system_data_ref);
+            fnPtr(&temp, self.system_data_ref);
             return temp;
         }
 
         pub fn runtime_read(self: Self, data_component_idx: u16, data: *anyopaque) void {
             std.debug.assert(self.is_fully_initialized);
-            const fn_ptr: *const fn ([*]u8, *anyopaque) void = @ptrCast(self.read_functions[data_component_idx]);
-            fn_ptr(@ptrCast(data), self.system_data_ref);
+            const fnPtr: *const fn ([*]u8, *anyopaque) void = @ptrCast(self.read_functions[data_component_idx]);
+            fnPtr(@ptrCast(data), self.system_data_ref);
         }
 
         pub fn write(self: *Self, erd: Erd, data: erd.T) bool {
@@ -100,9 +100,9 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
                 fn cb(context: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
                     const self: *Self = @ptrCast(@alignCast(context.?));
                     const T = erds[erd_data_component_idx].T;
-                    const fn_ptr: *const fn (*T, *anyopaque) void = @ptrCast(self.read_functions[erd_data_component_idx]);
+                    const fnPtr: *const fn (*T, *anyopaque) void = @ptrCast(self.read_functions[erd_data_component_idx]);
                     var val: T = undefined;
-                    fn_ptr(&val, publisher);
+                    fnPtr(&val, publisher);
                     if (erds[erd_data_component_idx].subs > 0) {
                         self.do_publish(erd_data_component_idx, @ptrCast(&val), publisher);
                     }
