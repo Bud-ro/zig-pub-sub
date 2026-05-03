@@ -148,6 +148,9 @@ pub fn build(b: *std.Build) void {
         linter.addRule(.{ .builtin = .require_errdefer_dealloc }, .{});
         linter.addRule(.{ .builtin = .switch_case_ordering }, .{});
         linter.addRule(.{ .custom = .{ .name = "no_redundant_comptime", .path = "zlinter_rules/no_redundant_comptime.zig" } }, .{});
+        linter.addRule(.{ .custom = .{ .name = "no_equal_then_else", .path = "zlinter_rules/no_equal_then_else.zig" } }, .{});
+        linter.addRule(.{ .custom = .{ .name = "no_equal_arguments", .path = "zlinter_rules/no_equal_arguments.zig" } }, .{});
+        linter.addRule(.{ .custom = .{ .name = "no_boolean_literal_compare", .path = "zlinter_rules/no_boolean_literal_compare.zig" } }, .{});
         break :step linter.build();
     });
 

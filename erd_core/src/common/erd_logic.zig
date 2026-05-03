@@ -82,7 +82,7 @@ pub fn ErdLogic(SystemDataType: type, comptime operator: ErdLogicOperator, compt
                 system_data.subscribe(erd, null, onChange);
             }
 
-            onChange(null, null, system_data);
+            onChange(null, null, system_data); // zlinter-disable-current-line no_equal_arguments
         }
     };
 }

@@ -136,15 +136,15 @@ test "subscription with args" {
     var a: u16 = 1;
     system_data.subscribe(.unaligned_u16, &a, contextMustMatchArgs);
     system_data.write(.unaligned_u16, 1);
-    try std.testing.expect(true == system_data.read(.some_bool));
+    try std.testing.expect(system_data.read(.some_bool));
 
     system_data.write(.unaligned_u16, 2);
-    try std.testing.expect(false == system_data.read(.some_bool));
+    try std.testing.expect(!system_data.read(.some_bool));
 
     a = 2;
     system_data.write(.unaligned_u16, 2);
     // NOTE: Stays false because no publish
-    try std.testing.expect(false == system_data.read(.some_bool));
+    try std.testing.expect(!system_data.read(.some_bool));
 }
 
 fn switchOnSystemDataIdx(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {

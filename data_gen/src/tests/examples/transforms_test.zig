@@ -1,3 +1,4 @@
+// zlinter-disable no_equal_arguments
 const std = @import("std");
 const contract = @import("data_gen").contract;
 const transform = @import("data_gen").transform;

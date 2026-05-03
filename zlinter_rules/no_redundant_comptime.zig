@@ -4,6 +4,7 @@
 //! `@TypeOf(...)` are always comptime. Writing `comptime T: type` is equivalent
 //! to `T: type` — the `comptime` keyword adds nothing and is misleading.
 
+// zlinter-disable require_doc_comment
 const std = @import("std");
 const zlinter = @import("zlinter");
 const shims = zlinter.shims;

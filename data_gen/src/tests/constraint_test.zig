@@ -1,3 +1,4 @@
+// zlinter-disable no_equal_arguments
 const std = @import("std");
 const constraint = @import("data_gen").constraint;
 
