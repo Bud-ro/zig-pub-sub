@@ -50,7 +50,7 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
             const run_nm = b.addSystemCommand(&.{
                 "sh", "-c",
                 \\printf '# size (bytes)\tfunction\n'
-                \\nm --print-size --size-sort "$1" | grep ' T ' | grep -v '\.\|^.\{17\}__' | while IFS=' ' read -r _ size _ name; do printf '%d\t%s\n' "0x$size" "$name"; done
+                \\nm --print-size --size-sort "$1" | grep ' T [a-z]' | while IFS=' ' read -r _ size _ name; do printf '%d\t%s\n' "0x$size" "$name"; done
                 ,
                 "--",
             });

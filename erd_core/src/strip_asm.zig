@@ -15,14 +15,6 @@ fn isFuncLabel(raw_line: []const u8) ?[]const u8 {
     return name;
 }
 
-fn isExportedFunc(name: []const u8) bool {
-    if (name.len == 0) return false;
-    if (std.mem.indexOfScalar(u8, name, '.') != null) return false;
-    if (std.mem.startsWith(u8, name, "__")) return false;
-    if (name[0] == '"') return false;
-    return true;
-}
-
 fn isDirective(line: []const u8) bool {
     const prefixes = [_][]const u8{
         ".loc\t",  ".cfi_",   ".Ltmp",  ".Lfunc",
@@ -70,10 +62,13 @@ fn extractCallTarget(line: []const u8) ?[]const u8 {
     return target_str;
 }
 
+/// Exclude stdlib/runtime symbols from the called-functions section.
 fn isStdlibFunc(name: []const u8) bool {
     const bare = if (name.len > 0 and name[0] == '"') name[1..] else name;
     const prefixes = [_][]const u8{
-        "debug.", "Thread.", "Io.", "fs.", "mem.", "os.", "posix.",
+        "std.",    "debug.", "Thread.", "Io.",
+        "fs.",     "mem.",   "os.",     "posix.",
+        "builtin",
     };
     for (prefixes) |prefix| {
         if (std.mem.startsWith(u8, bare, prefix)) return true;
@@ -171,14 +166,20 @@ pub fn main() !void {
     }
     const all_lines = line_list.items;
 
-    // Pass 1: collect branch targets and ALL function labels
+    // Pass 1: collect branch targets, function labels, and .globl exports
     var branch_targets: std.StringHashMapUnmanaged(void) = .empty;
     defer branch_targets.deinit(gpa);
     var all_funcs: std.StringHashMapUnmanaged(FuncRange) = .empty;
     defer all_funcs.deinit(gpa);
+    var globl_exports: std.StringHashMapUnmanaged(void) = .empty;
+    defer globl_exports.deinit(gpa);
 
     for (all_lines, 0..) |raw_line, line_num| {
         const line = std.mem.trim(u8, raw_line, " \t\r");
+        if (std.mem.startsWith(u8, line, ".globl\t") or std.mem.startsWith(u8, line, ".globl ")) {
+            const sym = std.mem.trim(u8, line[".globl".len..], " \t");
+            if (sym.len > 0) try globl_exports.put(gpa, sym, {});
+        }
         var search = line;
         while (findBranchTarget(search)) |result| {
             search = result.rest;
@@ -226,7 +227,7 @@ pub fn main() !void {
 
     for (all_lines) |raw_line| {
         if (isFuncLabel(raw_line)) |name| {
-            if (isExportedFunc(name)) {
+            if (globl_exports.contains(name)) {
                 try ordered_exports.append(gpa, name);
                 var targets: std.ArrayListUnmanaged([]const u8) = .{};
                 const func = all_funcs.get(name).?;
@@ -406,16 +407,6 @@ test "isFuncLabel rejects indented, dot, and non-label lines" {
     try testing.expectEqual(null, isFuncLabel("  label:  extra"));
 }
 
-test "isExportedFunc matches simple names without dots or __ prefix" {
-    try testing.expect(isExportedFunc("read_u32"));
-    try testing.expect(isExportedFunc("my_helper"));
-    try testing.expect(!isExportedFunc("codegen_harness.accumulate_callback"));
-    try testing.expect(!isExportedFunc("ram_data_component.RamDataComponent.publish"));
-    try testing.expect(!isExportedFunc("__anon_1234"));
-    try testing.expect(!isExportedFunc("__jmptab_999"));
-    try testing.expect(!isExportedFunc(""));
-}
-
 test "findBranchTarget extracts .LBB labels" {
     const result = findBranchTarget("        je\t.LBB5_3").?;
     try testing.expectEqualStrings(".LBB5_3", result.label);
@@ -457,12 +448,14 @@ test "isStdlibFunc matches stdlib prefixes" {
     try testing.expect(isStdlibFunc("debug.FullPanic((function 'defaultPanic')).outOfBounds"));
     try testing.expect(isStdlibFunc("\"debug.FullPanic((function 'defaultPanic')).unwrapNull\""));
     try testing.expect(isStdlibFunc("Thread.Mutex.FutexImpl.lockSlow"));
+    try testing.expect(isStdlibFunc("Io.File.writeAll"));
     try testing.expect(isStdlibFunc("fs.File.writeAll"));
     try testing.expect(isStdlibFunc("posix.abort"));
     try testing.expect(isStdlibFunc("mem.eql__anon_3258"));
+    try testing.expect(isStdlibFunc("std.process.exit"));
     try testing.expect(!isStdlibFunc("ram_data_component.RamDataComponent.publish"));
     try testing.expect(!isStdlibFunc("system_data.SystemData.runtimeRead"));
-    try testing.expect(!isStdlibFunc("codegen_foo"));
+    try testing.expect(!isStdlibFunc("read_u32"));
     try testing.expect(!isStdlibFunc("timer.TimerModule.tryRemove"));
 }
 
