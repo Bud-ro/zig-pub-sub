@@ -1,58 +1,54 @@
 write_u16_with_subs:
-        push	rbp
-        mov	rbp, rsp
-        sub	rsp, 16
-        mov	word ptr [rbp - 2], si
+        push	rax
+        mov	word ptr [rsp + 6], si
         cmp	word ptr [rdi + 7], si
         mov	word ptr [rdi + 7], si
-        je	.LBB318_2
-        lea	rdx, [rbp - 2]
+        je	.LBB46_2
+        lea	rdx, [rsp + 6]
         mov	esi, 3
         mov	rcx, rdi
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
-.LBB318_2:
-        add	rsp, 16
-        pop	rbp
+.LBB46_2:
+        pop	rax
         ret
 
 ; --- called functions ---
 
 "ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish":
         push	rbp
-        mov	rbp, rsp
         push	r15
         push	r14
         push	r13
         push	r12
         push	rbx
         sub	rsp, 24
-        mov	qword ptr [rbp - 48], rcx
         movzx	r12d, si
         movzx	r13d, byte ptr [r12 + __anon_0]
         test	r13, r13
         je	.LBB5_4
+        mov	rbx, rcx
         mov	r14, rdx
         mov	rax, qword ptr [8*r12 + __anon_1]
         shl	r13d, 4
         shl	rax, 4
-        lea	r15, [rdi + rax]
-        add	r15, 24
-        xor	ebx, ebx
+        lea	rbp, [rdi + rax]
+        add	rbp, 24
+        xor	r15d, r15d
         jmp	.LBB5_2
 .LBB5_3:
-        add	rbx, 16
-        cmp	r13, rbx
+        add	r15, 16
+        cmp	r13, r15
         je	.LBB5_4
 .LBB5_2:
-        mov	rax, qword ptr [r15 + rbx]
+        mov	rax, qword ptr [rbp + r15]
         test	rax, rax
         je	.LBB5_3
-        mov	rdi, qword ptr [r15 + rbx - 8]
+        mov	rdi, qword ptr [rbp + r15 - 8]
         movzx	ecx, word ptr [r12 + r12 + __anon_2]
-        mov	word ptr [rbp - 56], cx
-        mov	qword ptr [rbp - 64], r14
-        lea	rsi, [rbp - 64]
-        mov	rdx, qword ptr [rbp - 48]
+        mov	word ptr [rsp + 16], cx
+        mov	qword ptr [rsp + 8], r14
+        lea	rsi, [rsp + 8]
+        mov	rdx, rbx
         call	rax
         jmp	.LBB5_3
 .LBB5_4:

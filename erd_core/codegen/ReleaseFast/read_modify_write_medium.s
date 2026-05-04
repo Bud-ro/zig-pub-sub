@@ -1,24 +1,21 @@
 read_modify_write_medium:
-        push	rbp
-        mov	rbp, rsp
-        sub	rsp, 32
+        sub	rsp, 24
         mov	eax, dword ptr [rdi + 272]
         mov	ecx, dword ptr [rdi + 276]
         add	eax, 1
         shl	rcx, 32
         or	rcx, rax
         movups	xmm0, xmmword ptr [rdi + 256]
-        movaps	xmmword ptr [rbp - 32], xmm0
-        mov	qword ptr [rbp - 16], rcx
+        movaps	xmmword ptr [rsp], xmm0
+        mov	qword ptr [rsp + 16], rcx
         cmp	qword ptr [rdi + 272], rcx
         mov	qword ptr [rdi + 272], rcx
-        je	.LBB297_2
-        lea	rsi, [rbp - 32]
+        je	.LBB25_2
+        mov	rsi, rsp
         mov	rdx, rdi
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
-.LBB297_2:
-        add	rsp, 32
-        pop	rbp
+.LBB25_2:
+        add	rsp, 24
         ret
 
 ; --- called functions ---
@@ -27,16 +24,13 @@ read_modify_write_medium:
         mov	rax, qword ptr [rdi + 296]
         test	rax, rax
         je	.LBB3_2
-        push	rbp
-        mov	rbp, rsp
-        sub	rsp, 16
+        sub	rsp, 24
         mov	rdi, qword ptr [rdi + 288]
-        mov	word ptr [rbp - 8], 1
-        mov	qword ptr [rbp - 16], rsi
-        lea	rsi, [rbp - 16]
+        mov	word ptr [rsp + 16], 1
+        mov	qword ptr [rsp + 8], rsi
+        lea	rsi, [rsp + 8]
         call	rax
-        add	rsp, 16
-        pop	rbp
+        add	rsp, 24
 .LBB3_2:
         ret
 

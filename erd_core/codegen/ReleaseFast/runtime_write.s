@@ -1,14 +1,10 @@
 runtime_write:
-        push	rbp
-        mov	rbp, rsp
-        pop	rbp
         jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
 
 ; --- called functions ---
 
 "system_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite":
         push	rbp
-        mov	rbp, rsp
         push	r15
         push	r14
         push	r13
@@ -31,7 +27,7 @@ runtime_write:
         cmp	rsi, rcx
         sete	r9b
         or	r9b, r8b
-        je	.LBB312_1
+        je	.LBB40_1
         mov	rsi, rdx
         mov	rdx, rax
         add	rsp, 24
@@ -42,70 +38,68 @@ runtime_write:
         pop	r15
         pop	rbp
         jmp	memcpy@PLT
-.LBB312_1:
+.LBB40_1:
         cmp	ax, 16
-        ja	.LBB312_11
+        ja	.LBB40_11
         cmp	ax, 3
-        ja	.LBB312_6
-        movzx	r12d, byte ptr [rdx]
+        ja	.LBB40_6
+        movzx	ebp, byte ptr [rdx]
         movzx	ecx, byte ptr [rdx + rax - 1]
-        mov	byte ptr [rbp - 56], cl
-        movzx	ecx, byte ptr [rdi + rax - 1]
-        mov	byte ptr [rbp - 52], cl
+        mov	byte ptr [rsp + 12], cl
+        movzx	r12d, byte ptr [rdi + rax - 1]
         mov	ecx, eax
         shr	ecx
         movzx	esi, byte ptr [rdx + rcx]
-        mov	byte ptr [rbp - 48], sil
+        mov	byte ptr [rsp + 8], sil
         movzx	ecx, byte ptr [rdi + rcx]
-        mov	byte ptr [rbp - 44], cl
+        mov	byte ptr [rsp + 4], cl
         movzx	r13d, byte ptr [rdi]
         mov	r15, rdx
         mov	rsi, rdx
         mov	rdx, rax
         call	memcpy@PLT
-        cmp	r12b, r13b
-        jne	.LBB312_16
-        movzx	eax, byte ptr [rbp - 52]
-        cmp	byte ptr [rbp - 56], al
-        jne	.LBB312_16
-        movzx	eax, byte ptr [rbp - 44]
-        cmp	byte ptr [rbp - 48], al
-        je	.LBB312_10
-        jmp	.LBB312_16
-.LBB312_11:
+        cmp	bpl, r13b
+        jne	.LBB40_16
+        cmp	byte ptr [rsp + 12], r12b
+        jne	.LBB40_16
+        movzx	eax, byte ptr [rsp + 4]
+        cmp	byte ptr [rsp + 8], al
+        je	.LBB40_10
+        jmp	.LBB40_16
+.LBB40_11:
         lea	r8, [rax - 1]
         shr	r8, 4
         xor	r9d, r9d
-.LBB312_13:
+.LBB40_13:
         movdqu	xmm0, xmmword ptr [rsi + r9]
         movdqu	xmm1, xmmword ptr [rcx + r9]
         pcmpeqb	xmm1, xmm0
         pmovmskb	r10d, xmm1
         xor	r10d, 65535
-        jne	.LBB312_14
+        jne	.LBB40_14
         add	r9, 16
         add	r8, -1
-        jne	.LBB312_13
+        jne	.LBB40_13
         movdqu	xmm0, xmmword ptr [rsi + rax - 16]
         movdqu	xmm1, xmmword ptr [rcx + rax - 16]
         pcmpeqb	xmm1, xmm0
-        pmovmskb	r12d, xmm1
-        xor	r12d, 65535
+        pmovmskb	ebp, xmm1
+        xor	ebp, 65535
         mov	r15, rdx
         mov	rsi, rdx
         mov	rdx, rax
         call	memcpy@PLT
-        test	r12d, r12d
-        jne	.LBB312_16
-        jmp	.LBB312_10
-.LBB312_14:
+        test	ebp, ebp
+        jne	.LBB40_16
+        jmp	.LBB40_10
+.LBB40_14:
         mov	r15, rdx
         mov	rsi, rdx
         mov	rdx, rax
         call	memcpy@PLT
-.LBB312_16:
+.LBB40_16:
         cmp	byte ptr [r14 + __anon_4], 0
-        je	.LBB312_10
+        je	.LBB40_10
         mov	rdi, rbx
         mov	esi, r14d
         mov	rdx, r15
@@ -118,42 +112,40 @@ runtime_write:
         pop	r15
         pop	rbp
         jmp	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
-.LBB312_6:
+.LBB40_6:
         lea	rcx, [rax - 4]
         mov	esi, eax
         shr	esi
         and	esi, 12
         sub	rcx, rsi
-        mov	r12d, dword ptr [rdi]
+        mov	ebp, dword ptr [rdi]
         mov	r8d, dword ptr [rdx + rax - 4]
-        mov	dword ptr [rbp - 56], r8d
-        mov	r8d, dword ptr [rdi + rax - 4]
-        mov	dword ptr [rbp - 52], r8d
+        mov	dword ptr [rsp + 12], r8d
+        mov	r13d, dword ptr [rdi + rax - 4]
         mov	r8d, dword ptr [rdx + rsi]
-        mov	dword ptr [rbp - 48], r8d
+        mov	dword ptr [rsp + 8], r8d
         mov	esi, dword ptr [rdi + rsi]
-        mov	dword ptr [rbp - 44], esi
+        mov	dword ptr [rsp + 4], esi
         mov	esi, dword ptr [rdx + rcx]
-        mov	dword ptr [rbp - 64], esi
+        mov	dword ptr [rsp + 20], esi
         mov	ecx, dword ptr [rdi + rcx]
-        mov	dword ptr [rbp - 60], ecx
-        mov	r13d, dword ptr [rdx]
+        mov	dword ptr [rsp + 16], ecx
+        mov	r12d, dword ptr [rdx]
         mov	r15, rdx
         mov	rsi, rdx
         mov	rdx, rax
         call	memcpy@PLT
-        cmp	r12d, r13d
-        jne	.LBB312_16
-        mov	eax, dword ptr [rbp - 52]
-        cmp	eax, dword ptr [rbp - 56]
-        jne	.LBB312_16
-        mov	eax, dword ptr [rbp - 44]
-        cmp	eax, dword ptr [rbp - 48]
-        jne	.LBB312_16
-        mov	eax, dword ptr [rbp - 60]
-        cmp	eax, dword ptr [rbp - 64]
-        jne	.LBB312_16
-.LBB312_10:
+        cmp	ebp, r12d
+        jne	.LBB40_16
+        cmp	r13d, dword ptr [rsp + 12]
+        jne	.LBB40_16
+        mov	eax, dword ptr [rsp + 4]
+        cmp	eax, dword ptr [rsp + 8]
+        jne	.LBB40_16
+        mov	eax, dword ptr [rsp + 16]
+        cmp	eax, dword ptr [rsp + 20]
+        jne	.LBB40_16
+.LBB40_10:
         add	rsp, 24
         pop	rbx
         pop	r12

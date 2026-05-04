@@ -1,91 +1,87 @@
 triple_write_increment:
-        push	rbp
-        mov	rbp, rsp
         push	rbx
-        push	rax
+        sub	rsp, 16
         mov	rbx, rdi
-        mov	word ptr [rbp - 14], 1
+        mov	word ptr [rsp + 14], 1
         cmp	word ptr [rdi + 7], 1
         mov	word ptr [rdi + 7], 1
         jne	.LBB4_3
-        mov	word ptr [rbp - 10], 2
+        mov	word ptr [rsp + 10], 2
         mov	word ptr [rbx + 7], 2
         jmp	.LBB4_2
 .LBB4_3:
-        lea	rdx, [rbp - 14]
+        lea	rdx, [rsp + 14]
         mov	rdi, rbx
         mov	esi, 3
         mov	rcx, rbx
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
         movzx	eax, word ptr [rbx + 7]
-        mov	word ptr [rbp - 10], 2
+        mov	word ptr [rsp + 10], 2
         mov	word ptr [rbx + 7], 2
         cmp	ax, 2
         jne	.LBB4_2
-        mov	word ptr [rbp - 12], 3
+        mov	word ptr [rsp + 12], 3
         mov	word ptr [rbx + 7], 3
         jmp	.LBB4_5
 .LBB4_2:
-        lea	rdx, [rbp - 10]
+        lea	rdx, [rsp + 10]
         mov	rdi, rbx
         mov	esi, 3
         mov	rcx, rbx
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
         movzx	eax, word ptr [rbx + 7]
-        mov	word ptr [rbp - 12], 3
+        mov	word ptr [rsp + 12], 3
         mov	word ptr [rbx + 7], 3
         cmp	ax, 3
         je	.LBB4_6
 .LBB4_5:
-        lea	rdx, [rbp - 12]
+        lea	rdx, [rsp + 12]
         mov	rdi, rbx
         mov	esi, 3
         mov	rcx, rbx
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
 .LBB4_6:
-        add	rsp, 8
+        add	rsp, 16
         pop	rbx
-        pop	rbp
         ret
 
 ; --- called functions ---
 
 "ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish":
         push	rbp
-        mov	rbp, rsp
         push	r15
         push	r14
         push	r13
         push	r12
         push	rbx
         sub	rsp, 24
-        mov	qword ptr [rbp - 48], rcx
         movzx	r12d, si
         movzx	r13d, byte ptr [r12 + __anon_0]
         test	r13, r13
         je	.LBB5_4
+        mov	rbx, rcx
         mov	r14, rdx
         mov	rax, qword ptr [8*r12 + __anon_1]
         shl	r13d, 4
         shl	rax, 4
-        lea	r15, [rdi + rax]
-        add	r15, 24
-        xor	ebx, ebx
+        lea	rbp, [rdi + rax]
+        add	rbp, 24
+        xor	r15d, r15d
         jmp	.LBB5_2
 .LBB5_3:
-        add	rbx, 16
-        cmp	r13, rbx
+        add	r15, 16
+        cmp	r13, r15
         je	.LBB5_4
 .LBB5_2:
-        mov	rax, qword ptr [r15 + rbx]
+        mov	rax, qword ptr [rbp + r15]
         test	rax, rax
         je	.LBB5_3
-        mov	rdi, qword ptr [r15 + rbx - 8]
+        mov	rdi, qword ptr [rbp + r15 - 8]
         movzx	ecx, word ptr [r12 + r12 + __anon_2]
-        mov	word ptr [rbp - 56], cx
-        mov	qword ptr [rbp - 64], r14
-        lea	rsi, [rbp - 64]
-        mov	rdx, qword ptr [rbp - 48]
+        mov	word ptr [rsp + 16], cx
+        mov	qword ptr [rsp + 8], r14
+        lea	rsi, [rsp + 8]
+        mov	rdx, rbx
         call	rax
         jmp	.LBB5_3
 .LBB5_4:

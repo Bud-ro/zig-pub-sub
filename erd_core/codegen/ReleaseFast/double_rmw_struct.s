@@ -1,8 +1,6 @@
 double_rmw_struct:
-        push	rbp
-        mov	rbp, rsp
         push	rbx
-        sub	rsp, 24
+        sub	rsp, 32
         mov	rbx, rdi
         mov	rax, qword ptr [rdi + 256]
         mov	rcx, qword ptr [rdi + 264]
@@ -11,13 +9,13 @@ double_rmw_struct:
         mov	edx, dword ptr [rdi + 276]
         shl	rdx, 32
         or	rdx, rsi
-        mov	qword ptr [rbp - 32], rax
-        mov	qword ptr [rbp - 24], rcx
-        mov	qword ptr [rbp - 16], rdx
+        mov	qword ptr [rsp + 8], rax
+        mov	qword ptr [rsp + 16], rcx
+        mov	qword ptr [rsp + 24], rdx
         cmp	qword ptr [rdi + 272], rdx
         mov	qword ptr [rdi + 272], rdx
         je	.LBB2_2
-        lea	rsi, [rbp - 32]
+        lea	rsi, [rsp + 8]
         mov	rdi, rbx
         mov	rdx, rbx
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
@@ -26,18 +24,17 @@ double_rmw_struct:
         mov	rdx, qword ptr [rbx + 272]
 .LBB2_2:
         add	rax, 1
-        mov	qword ptr [rbp - 32], rax
-        mov	qword ptr [rbp - 24], rcx
-        mov	qword ptr [rbp - 16], rdx
+        mov	qword ptr [rsp + 8], rax
+        mov	qword ptr [rsp + 16], rcx
+        mov	qword ptr [rsp + 24], rdx
         mov	qword ptr [rbx + 256], rax
         mov	qword ptr [rbx + 272], rdx
-        lea	rsi, [rbp - 32]
+        lea	rsi, [rsp + 8]
         mov	rdi, rbx
         mov	rdx, rbx
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
-        add	rsp, 24
+        add	rsp, 32
         pop	rbx
-        pop	rbp
         ret
 
 ; --- called functions ---
@@ -46,16 +43,13 @@ double_rmw_struct:
         mov	rax, qword ptr [rdi + 296]
         test	rax, rax
         je	.LBB3_2
-        push	rbp
-        mov	rbp, rsp
-        sub	rsp, 16
+        sub	rsp, 24
         mov	rdi, qword ptr [rdi + 288]
-        mov	word ptr [rbp - 8], 1
-        mov	qword ptr [rbp - 16], rsi
-        lea	rsi, [rbp - 16]
+        mov	word ptr [rsp + 16], 1
+        mov	qword ptr [rsp + 8], rsi
+        lea	rsi, [rsp + 8]
         call	rax
-        add	rsp, 16
-        pop	rbp
+        add	rsp, 24
 .LBB3_2:
         ret
 
