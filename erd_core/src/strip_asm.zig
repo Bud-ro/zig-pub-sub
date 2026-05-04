@@ -136,15 +136,27 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(gpa);
     defer std.process.argsFree(gpa, args);
 
-    if (args.len < 2 or args.len > 3) {
-        std.debug.print("Usage: strip_asm <input.s> [output.s]\n", .{});
+    var input_path: ?[]const u8 = null;
+    var output_path: ?[]const u8 = null;
+    var split_dir: ?[]const u8 = null;
+    var i: usize = 1;
+    while (i < args.len) : (i += 1) {
+        if (std.mem.eql(u8, args[i], "--split-dir") and i + 1 < args.len) {
+            i += 1;
+            split_dir = args[i];
+        } else if (input_path == null) {
+            input_path = args[i];
+        } else if (output_path == null) {
+            output_path = args[i];
+        }
+    }
+
+    if (input_path == null) {
+        std.debug.print("Usage: strip_asm <input.s> [output.s | --split-dir <dir>]\n", .{});
         std.process.exit(1);
     }
 
-    const input_path = args[1];
-    const output_path: ?[]const u8 = if (args.len == 3) args[2] else null;
-
-    const input = try std.fs.cwd().readFileAlloc(gpa, input_path, 64 * 1024 * 1024);
+    const input = try std.fs.cwd().readFileAlloc(gpa, input_path.?, 64 * 1024 * 1024);
     defer gpa.free(input);
 
     var line_list: std.ArrayList([]const u8) = .empty;
@@ -196,82 +208,158 @@ pub fn main() !void {
         }
     }
 
-    // Pass 2: find needed functions (exported + their direct call targets)
-    // Only scan exported functions for call targets - this gives us the exported
-    // functions plus one level of helpers they call, without chasing into stdlib.
-    var needed_funcs: std.StringHashMapUnmanaged(void) = .empty;
-    defer needed_funcs.deinit(gpa);
-    var work_queue: std.ArrayList([]const u8) = .empty;
-    defer work_queue.deinit(gpa);
-
-    {
-        var it = all_funcs.iterator();
-        while (it.next()) |entry| {
-            if (isExportedFunc(entry.key_ptr.*)) {
-                try needed_funcs.put(gpa, entry.key_ptr.*, {});
-                try work_queue.append(gpa, entry.key_ptr.*);
-            }
+    // Pass 2: for each exported function, find its call targets
+    var export_call_targets: std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)) = .empty;
+    defer {
+        var ect_it = export_call_targets.iterator();
+        while (ect_it.next()) |entry| {
+            entry.value_ptr.deinit(gpa);
         }
+        export_call_targets.deinit(gpa);
     }
-
-    while (work_queue.items.len > 0) {
-        const func_name = work_queue.pop().?;
-        if (!isExportedFunc(func_name)) continue;
-        const func = all_funcs.get(func_name) orelse continue;
-        const end = func_ends.get(func_name) orelse continue;
-        for (all_lines[func.start..end]) |raw_line| {
-            if (extractCallTarget(raw_line)) |target| {
-                if (!needed_funcs.contains(target) and !isStdlibFunc(target)) {
-                    if (all_funcs.contains(target)) {
-                        try needed_funcs.put(gpa, target, {});
-                        try work_queue.append(gpa, target);
-                    }
-                }
-            }
-        }
-    }
-
-    // Collect functions in source order, split into exported vs helpers
-    var ordered_exports: std.ArrayList([]const u8) = .empty;
+    var ordered_exports: std.ArrayListUnmanaged([]const u8) = .{};
     defer ordered_exports.deinit(gpa);
-    var ordered_helpers: std.ArrayList([]const u8) = .empty;
-    defer ordered_helpers.deinit(gpa);
 
     for (all_lines) |raw_line| {
         if (isFuncLabel(raw_line)) |name| {
-            if (needed_funcs.contains(name)) {
-                if (isExportedFunc(name))
-                    try ordered_exports.append(gpa, name)
-                else
-                    try ordered_helpers.append(gpa, name);
+            if (isExportedFunc(name)) {
+                try ordered_exports.append(gpa, name);
+                var targets: std.ArrayListUnmanaged([]const u8) = .{};
+                const func = all_funcs.get(name).?;
+                const end = func_ends.get(name).?;
+                for (all_lines[func.start..end]) |func_line| {
+                    if (extractCallTarget(func_line)) |target| {
+                        if (!isStdlibFunc(target) and all_funcs.contains(target)) {
+                            try targets.append(gpa, target);
+                        }
+                    }
+                }
+                try export_call_targets.put(gpa, name, targets);
             }
         }
     }
 
-    // Pass 3: emit assembly
-    var output: std.ArrayList(u8) = .empty;
+    if (split_dir) |dir| {
+        try emitSplitFiles(gpa, dir, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets);
+    } else {
+        try emitCombinedFile(gpa, output_path, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets);
+    }
+}
+
+fn emitFuncBody(
+    gpa: std.mem.Allocator,
+    output: *std.ArrayListUnmanaged(u8),
+    name: []const u8,
+    all_funcs: *const std.StringHashMapUnmanaged(FuncRange),
+    func_ends: *const std.StringHashMapUnmanaged(usize),
+    all_lines: []const []const u8,
+    branch_targets: *const std.StringHashMapUnmanaged(void),
+) !usize {
+    const func = all_funcs.get(name).?;
+    const end = func_ends.get(name).?;
+    try output.appendSlice(gpa, name);
+    try output.appendSlice(gpa, ":\n");
+    return try extractFunc(all_lines, func.start + 1, end, .{ .branch_targets = branch_targets, .output = output, .gpa = gpa });
+}
+
+// zlinter-disable-next-line no_inferred_error_unions
+fn emitSplitFiles(
+    gpa: std.mem.Allocator,
+    dir_path: []const u8,
+    ordered_exports: []const []const u8,
+    export_call_targets: *const std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)),
+    all_funcs: *const std.StringHashMapUnmanaged(FuncRange),
+    func_ends: *const std.StringHashMapUnmanaged(usize),
+    all_lines: []const []const u8,
+    branch_targets: *const std.StringHashMapUnmanaged(void),
+) !void {
+    var total_exports: usize = 0;
+    var total_helpers: usize = 0;
+    var total_instr: usize = 0;
+
+    for (ordered_exports) |name| {
+        var output: std.ArrayListUnmanaged(u8) = .{};
+        defer output.deinit(gpa);
+
+        var instr = try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets);
+        try output.appendSlice(gpa, "\n");
+        total_exports += 1;
+
+        const targets = export_call_targets.get(name).?;
+        if (targets.items.len > 0) {
+            var seen: std.StringHashMapUnmanaged(void) = .empty;
+            defer seen.deinit(gpa);
+            var has_helpers = false;
+            for (targets.items) |target| {
+                if (seen.contains(target)) continue;
+                try seen.put(gpa, target, {});
+                if (!has_helpers) {
+                    try output.appendSlice(gpa, "; --- called functions ---\n\n");
+                    has_helpers = true;
+                }
+                instr += try emitFuncBody(gpa, &output, target, all_funcs, func_ends, all_lines, branch_targets);
+                try output.appendSlice(gpa, "\n");
+                total_helpers += 1;
+            }
+        }
+        total_instr += instr;
+
+        const filename = try std.fmt.allocPrint(gpa, "{s}/{s}.s", .{ dir_path, name });
+        defer gpa.free(filename);
+        const file = try std.fs.cwd().createFile(filename, .{});
+        defer file.close();
+        var buf: [4096]u8 = undefined;
+        var w = file.writer(&buf);
+        try w.interface.writeAll(output.items);
+        try w.interface.flush();
+    }
+
+    std.debug.print("{d} functions ({d} exported, {d} called), {d} instructions\n", .{
+        total_exports + total_helpers,
+        total_exports,
+        total_helpers,
+        total_instr,
+    });
+}
+
+// zlinter-disable-next-line no_inferred_error_unions
+fn emitCombinedFile(
+    gpa: std.mem.Allocator,
+    output_path: ?[]const u8,
+    ordered_exports: []const []const u8,
+    export_call_targets: *const std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)),
+    all_funcs: *const std.StringHashMapUnmanaged(FuncRange),
+    func_ends: *const std.StringHashMapUnmanaged(usize),
+    all_lines: []const []const u8,
+    branch_targets: *const std.StringHashMapUnmanaged(void),
+) !void {
+    var output: std.ArrayListUnmanaged(u8) = .{};
     defer output.deinit(gpa);
 
     var total_instr: usize = 0;
+    var all_helpers: std.StringHashMapUnmanaged(void) = .empty;
+    defer all_helpers.deinit(gpa);
+    var ordered_helpers: std.ArrayListUnmanaged([]const u8) = .{};
+    defer ordered_helpers.deinit(gpa);
 
-    for (ordered_exports.items) |name| {
-        const func = all_funcs.get(name).?;
-        const end = func_ends.get(name).?;
-        try output.appendSlice(gpa, name);
-        try output.appendSlice(gpa, ":\n");
-        total_instr += try extractFunc(all_lines, func.start + 1, end, .{ .branch_targets = &branch_targets, .output = &output, .gpa = gpa });
-        try output.append(gpa, '\n');
+    for (ordered_exports) |name| {
+        total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets);
+        try output.appendSlice(gpa, "\n");
+
+        const targets = export_call_targets.get(name).?;
+        for (targets.items) |target| {
+            if (!all_helpers.contains(target)) {
+                try all_helpers.put(gpa, target, {});
+                try ordered_helpers.append(gpa, target);
+            }
+        }
     }
 
     if (ordered_helpers.items.len > 0) {
         try output.appendSlice(gpa, "; --- called functions ---\n\n");
         for (ordered_helpers.items) |name| {
-            const func = all_funcs.get(name).?;
-            const end = func_ends.get(name).?;
-            try output.appendSlice(gpa, name);
-            try output.appendSlice(gpa, ":\n");
-            total_instr += try extractFunc(all_lines, func.start + 1, end, .{ .branch_targets = &branch_targets, .output = &output, .gpa = gpa });
-            try output.append(gpa, '\n');
+            total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets);
+            try output.appendSlice(gpa, "\n");
         }
     }
 
@@ -291,8 +379,8 @@ pub fn main() !void {
     }
 
     std.debug.print("{d} functions ({d} exported, {d} called), {d} instructions\n", .{
-        ordered_exports.items.len + ordered_helpers.items.len,
-        ordered_exports.items.len,
+        ordered_exports.len + ordered_helpers.items.len,
+        ordered_exports.len,
         ordered_helpers.items.len,
         total_instr,
     });

@@ -66,19 +66,22 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
             check_sizes.expectExitCode(0);
             codegen_check_step.dependOn(&check_sizes.step);
 
-            const snapshot_name = b.fmt("{s}_x86_64.s", .{mode_name});
-
             const asm_file = codegen_obj.getEmittedAsm();
             const run_strip = b.addRunArtifact(strip_asm);
             run_strip.addFileArg(asm_file);
-            const stripped_asm = run_strip.addOutputFileArg(snapshot_name);
+            run_strip.addArg("--split-dir");
+            const split_dir = run_strip.addOutputDirectoryArg(mode_name);
 
-            codegen_update_step.dependOn(&b.addInstallFileWithDir(stripped_asm, .{ .custom = "../codegen" }, snapshot_name).step);
+            codegen_update_step.dependOn(&b.addInstallDirectory(.{
+                .source_dir = split_dir,
+                .install_dir = .{ .custom = b.fmt("../codegen/{s}", .{mode_name}) },
+                .install_subdir = "",
+            }).step);
 
-            const check_asm = b.addSystemCommand(&.{ "diff", "-u" });
-            check_asm.addFileArg(b.path(b.fmt("codegen/{s}", .{snapshot_name})));
-            check_asm.addFileArg(stripped_asm);
-            check_asm.setName(b.fmt("check {s}", .{snapshot_name}));
+            const check_asm = b.addSystemCommand(&.{ "diff", "-ru" });
+            check_asm.addDirectoryArg(b.path(b.fmt("codegen/{s}", .{mode_name})));
+            check_asm.addDirectoryArg(split_dir);
+            check_asm.setName(b.fmt("check {s}/", .{mode_name}));
             check_asm.expectExitCode(0);
             codegen_check_step.dependOn(&check_asm.step);
         }
