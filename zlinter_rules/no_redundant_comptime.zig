@@ -6,7 +6,6 @@
 
 const std = @import("std");
 const zlinter = @import("zlinter");
-const shims = zlinter.shims;
 const Ast = std.zig.Ast;
 
 /// Config for no_redundant_comptime rule.
@@ -30,7 +29,7 @@ const redundant_types = [_][]const u8{
 };
 
 fn isRedundantComptimeType(tree: *const Ast, type_expr: Ast.Node.Index) bool {
-    const tag = shims.nodeTag(tree.*, type_expr);
+    const tag = tree.nodeTag(type_expr);
     switch (tag) {
         .identifier => {
             const slice = tree.tokenSlice(tree.firstToken(type_expr));
@@ -54,24 +53,23 @@ fn run(
     doc: *const zlinter.session.LintDocument,
     gpa: std.mem.Allocator,
     options: zlinter.rules.RunOptions,
-) error{OutOfMemory}!?zlinter.results.LintResult {
+) zlinter.rules.RunError!?zlinter.results.LintResult {
     const config = options.getConfig(Config);
     if (config.severity == .off) return null;
 
-    var lint_problems: shims.ArrayList(zlinter.results.LintProblem) = .empty;
+    var lint_problems: std.ArrayList(zlinter.results.LintProblem) = .empty;
     defer lint_problems.deinit(gpa);
 
     const tree = &doc.handle.tree;
 
-    const root: shims.NodeIndexShim = .root;
-    var it = try doc.nodeLineageIterator(root, gpa);
+    var it = try doc.nodeLineageIterator(.root, gpa);
     defer it.deinit();
 
     while (try it.next()) |tuple| {
         const node, _ = tuple;
 
         var fn_proto_buffer: [1]Ast.Node.Index = undefined;
-        const fn_proto = tree.fullFnProto(&fn_proto_buffer, node.toNodeIndex()) orelse continue;
+        const fn_proto = tree.fullFnProto(&fn_proto_buffer, node) orelse continue;
 
         var param_it = fn_proto.iterate(tree);
         while (param_it.next()) |param| {

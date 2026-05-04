@@ -7,7 +7,7 @@ const FuncRange = struct {
 
 fn isFuncLabel(raw_line: []const u8) ?[]const u8 {
     if (raw_line.len == 0 or raw_line[0] == ' ' or raw_line[0] == '\t') return null;
-    const colon = std.mem.indexOfScalar(u8, raw_line, ':') orelse return null;
+    const colon = std.mem.findScalar(u8, raw_line, ':') orelse return null;
     const after = std.mem.trim(u8, raw_line[colon + 1 ..], " \t\r");
     if (after.len != 0) return null;
     const name = raw_line[0..colon];
@@ -127,13 +127,11 @@ fn extractFunc(all_lines: []const []const u8, start: usize, end: usize, args: Ex
 
 /// Entry point for the assembly stripping tool.
 // zlinter-disable-next-line no_inferred_error_unions
-pub fn main() !void {
-    var gpa_state: std.heap.DebugAllocator(.{}) = .init;
-    defer _ = gpa_state.deinit();
-    const gpa = gpa_state.allocator();
+pub fn main(init: std.process.Init) !void {
+    const gpa = init.gpa;
+    const io = init.io;
 
-    const args = try std.process.argsAlloc(gpa);
-    defer std.process.argsFree(gpa, args);
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
 
     var input_path: ?[]const u8 = null;
     var output_path: ?[]const u8 = null;
@@ -155,7 +153,7 @@ pub fn main() !void {
         std.process.exit(1);
     }
 
-    const input = try std.fs.cwd().readFileAlloc(gpa, input_path.?, 64 * 1024 * 1024);
+    const input = try std.Io.Dir.cwd().readFileAlloc(io, input_path.?, gpa, .limited(64 * 1024 * 1024));
     defer gpa.free(input);
 
     var line_list: std.ArrayList([]const u8) = .empty;
@@ -245,9 +243,9 @@ pub fn main() !void {
     }
 
     if (split_dir) |dir| {
-        try emitSplitFiles(gpa, dir, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets);
+        try emitSplitFiles(gpa, io, dir, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets);
     } else {
-        try emitCombinedFile(gpa, output_path, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets);
+        try emitCombinedFile(gpa, io, output_path, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets);
     }
 }
 
@@ -270,6 +268,7 @@ fn emitFuncBody(
 // zlinter-disable-next-line no_inferred_error_unions
 fn emitSplitFiles(
     gpa: std.mem.Allocator,
+    io: std.Io,
     dir_path: []const u8,
     ordered_exports: []const []const u8,
     export_call_targets: *const std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)),
@@ -311,10 +310,10 @@ fn emitSplitFiles(
 
         const filename = try std.fmt.allocPrint(gpa, "{s}/{s}.s", .{ dir_path, name });
         defer gpa.free(filename);
-        const file = try std.fs.cwd().createFile(filename, .{});
-        defer file.close();
+        const file = try std.Io.Dir.cwd().createFile(io, filename, .{});
+        defer file.close(io);
         var buf: [4096]u8 = undefined;
-        var w = file.writer(&buf);
+        var w = file.writer(io, &buf);
         try w.interface.writeAll(output.items);
         try w.interface.flush();
     }
@@ -330,6 +329,7 @@ fn emitSplitFiles(
 // zlinter-disable-next-line no_inferred_error_unions
 fn emitCombinedFile(
     gpa: std.mem.Allocator,
+    io: std.Io,
     output_path: ?[]const u8,
     ordered_exports: []const []const u8,
     export_call_targets: *const std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)),
@@ -369,16 +369,16 @@ fn emitCombinedFile(
     }
 
     if (output_path) |path| {
-        const file = try std.fs.cwd().createFile(path, .{});
-        defer file.close();
+        const file = try std.Io.Dir.cwd().createFile(io, path, .{});
+        defer file.close(io);
         var buf: [4096]u8 = undefined;
-        var w = file.writer(&buf);
+        var w = file.writer(io, &buf);
         try w.interface.writeAll(output.items);
         try w.interface.flush();
     } else {
-        const stdout = std.fs.File.stdout();
+        const stdout = std.Io.File.stdout();
         var buf: [4096]u8 = undefined;
-        var w = stdout.writer(&buf);
+        var w = stdout.writer(io, &buf);
         try w.interface.writeAll(output.items);
         try w.interface.flush();
     }

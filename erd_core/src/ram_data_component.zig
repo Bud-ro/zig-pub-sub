@@ -124,7 +124,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
 
         fn bytesChanged(a: anytype, b: anytype) bool {
             const len = @typeInfo(@TypeOf(a.*)).array.len;
-            const Int = std.meta.Int(.unsigned, len * 8);
+            const Int = @Int(.unsigned, len * 8);
             return std.mem.readInt(Int, a, .little) != std.mem.readInt(Int, b, .little);
         }
 
