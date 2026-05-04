@@ -67,10 +67,11 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
             codegen_check_step.dependOn(&check_sizes.step);
 
             const asm_file = codegen_obj.getEmittedAsm();
-            const run_strip = b.addRunArtifact(strip_asm);
-            run_strip.addFileArg(asm_file);
-            run_strip.addArg("--split-dir");
-            const split_dir = run_strip.addOutputDirectoryArg(mode_name);
+
+            const run_split = b.addRunArtifact(strip_asm);
+            run_split.addFileArg(asm_file);
+            run_split.addArg("--split-dir");
+            const split_dir = run_split.addOutputDirectoryArg(mode_name);
 
             codegen_update_step.dependOn(&b.addInstallDirectory(.{
                 .source_dir = split_dir,
@@ -84,6 +85,12 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
             check_asm.setName(b.fmt("check {s}/", .{mode_name}));
             check_asm.expectExitCode(0);
             codegen_check_step.dependOn(&check_asm.step);
+
+            const combined_name = b.fmt("{s}_x86_64.s", .{mode_name});
+            const run_combined = b.addRunArtifact(strip_asm);
+            run_combined.addFileArg(asm_file);
+            const combined_asm = run_combined.addOutputFileArg(combined_name);
+            codegen_update_step.dependOn(&b.addInstallFileWithDir(combined_asm, .{ .custom = "../codegen" }, combined_name).step);
         }
     }
 
