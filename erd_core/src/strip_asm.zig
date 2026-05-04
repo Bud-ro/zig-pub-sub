@@ -7,11 +7,21 @@ const FuncRange = struct {
 
 fn isFuncLabel(raw_line: []const u8) ?[]const u8 {
     if (raw_line.len == 0 or raw_line[0] == ' ' or raw_line[0] == '\t') return null;
-    const colon = std.mem.findScalar(u8, raw_line, ':') orelse return null;
-    const after = std.mem.trim(u8, raw_line[colon + 1 ..], " \t\r");
+    const line = if (raw_line[0] == '"')
+        raw_line
+    else
+        std.mem.trim(u8, raw_line, " \t\r");
+    const colon = std.mem.lastIndexOfScalar(u8, line, ':') orelse return null;
+    const after = std.mem.trim(u8, line[colon + 1 ..], " \t\r");
     if (after.len != 0) return null;
-    const name = raw_line[0..colon];
-    if (name.len == 0 or name[0] == '.') return null;
+    const name = line[0..colon];
+    if (name.len == 0) return null;
+    if (name[0] == '.') {
+        const non_func = [_][]const u8{ ".LBB", ".Ltmp", ".Lfunc", ".Lline", ".Lpcrel", ".LCPI", ".Ldebug", ".LFE", ".LFB" };
+        for (non_func) |prefix| {
+            if (std.mem.startsWith(u8, name, prefix)) return null;
+        }
+    }
     return name;
 }
 
@@ -172,11 +182,20 @@ pub fn main(init: std.process.Init) !void {
     var globl_exports: std.StringHashMapUnmanaged(void) = .empty;
     defer globl_exports.deinit(gpa);
 
+    var alias_to_target: std.StringHashMapUnmanaged([]const u8) = .empty;
+    defer alias_to_target.deinit(gpa);
+
     for (all_lines, 0..) |raw_line, line_num| {
         const line = std.mem.trim(u8, raw_line, " \t\r");
         if (std.mem.startsWith(u8, line, ".globl\t") or std.mem.startsWith(u8, line, ".globl ")) {
             const sym = std.mem.trim(u8, line[".globl".len..], " \t");
             if (sym.len > 0) try globl_exports.put(gpa, sym, {});
+        }
+        if (std.mem.indexOf(u8, line, " = ")) |eq_pos| {
+            const alias = std.mem.trim(u8, line[0..eq_pos], " \t");
+            const target = std.mem.trim(u8, line[eq_pos + 3 ..], " \t");
+            if (alias.len > 0 and target.len > 0)
+                try alias_to_target.put(gpa, alias, target);
         }
         var search = line;
         while (findBranchTarget(search)) |result| {
@@ -186,6 +205,22 @@ pub fn main(init: std.process.Init) !void {
         }
         if (isFuncLabel(raw_line)) |name|
             try all_funcs.put(gpa, name, .{ .start = line_num, .name = name });
+    }
+
+    // Resolve aliases: if "read_u32" is in globl_exports and aliases to
+    // "codegen_harness.read_u32", add the target to globl_exports too.
+    var display_names: std.StringHashMapUnmanaged([]const u8) = .empty;
+    defer display_names.deinit(gpa);
+    {
+        var it = alias_to_target.iterator();
+        while (it.next()) |entry| {
+            const alias = entry.key_ptr.*;
+            const target = entry.value_ptr.*;
+            if (globl_exports.contains(alias) and !all_funcs.contains(alias)) {
+                try globl_exports.put(gpa, target, {});
+                try display_names.put(gpa, target, alias);
+            }
+        }
     }
 
     // Compute end line for each function
@@ -220,14 +255,14 @@ pub fn main(init: std.process.Init) !void {
         }
         export_call_targets.deinit(gpa);
     }
-    var ordered_exports: std.ArrayListUnmanaged([]const u8) = .{};
+    var ordered_exports: std.ArrayListUnmanaged([]const u8) = .empty;
     defer ordered_exports.deinit(gpa);
 
     for (all_lines) |raw_line| {
         if (isFuncLabel(raw_line)) |name| {
             if (globl_exports.contains(name)) {
                 try ordered_exports.append(gpa, name);
-                var targets: std.ArrayListUnmanaged([]const u8) = .{};
+                var targets: std.ArrayListUnmanaged([]const u8) = .empty;
                 const func = all_funcs.get(name).?;
                 const end = func_ends.get(name).?;
                 for (all_lines[func.start..end]) |func_line| {
@@ -243,9 +278,9 @@ pub fn main(init: std.process.Init) !void {
     }
 
     if (split_dir) |dir| {
-        try emitSplitFiles(gpa, io, dir, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets);
+        try emitSplitFiles(gpa, io, dir, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
     } else {
-        try emitCombinedFile(gpa, io, output_path, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets);
+        try emitCombinedFile(gpa, io, output_path, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
     }
 }
 
@@ -257,10 +292,12 @@ fn emitFuncBody(
     func_ends: *const std.StringHashMapUnmanaged(usize),
     all_lines: []const []const u8,
     branch_targets: *const std.StringHashMapUnmanaged(void),
+    display_names: *const std.StringHashMapUnmanaged([]const u8),
 ) !usize {
     const func = all_funcs.get(name).?;
     const end = func_ends.get(name).?;
-    try output.appendSlice(gpa, name);
+    const label = display_names.get(name) orelse name;
+    try output.appendSlice(gpa, label);
     try output.appendSlice(gpa, ":\n");
     return try extractFunc(all_lines, func.start + 1, end, .{ .branch_targets = branch_targets, .output = output, .gpa = gpa });
 }
@@ -276,16 +313,17 @@ fn emitSplitFiles(
     func_ends: *const std.StringHashMapUnmanaged(usize),
     all_lines: []const []const u8,
     branch_targets: *const std.StringHashMapUnmanaged(void),
+    display_names: *const std.StringHashMapUnmanaged([]const u8),
 ) !void {
     var total_exports: usize = 0;
     var total_helpers: usize = 0;
     var total_instr: usize = 0;
 
     for (ordered_exports) |name| {
-        var output: std.ArrayListUnmanaged(u8) = .{};
+        var output: std.ArrayListUnmanaged(u8) = .empty;
         defer output.deinit(gpa);
 
-        var instr = try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets);
+        var instr = try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names);
         try output.appendSlice(gpa, "\n");
         total_exports += 1;
 
@@ -301,14 +339,15 @@ fn emitSplitFiles(
                     try output.appendSlice(gpa, "; --- called functions ---\n\n");
                     has_helpers = true;
                 }
-                instr += try emitFuncBody(gpa, &output, target, all_funcs, func_ends, all_lines, branch_targets);
+                instr += try emitFuncBody(gpa, &output, target, all_funcs, func_ends, all_lines, branch_targets, display_names);
                 try output.appendSlice(gpa, "\n");
                 total_helpers += 1;
             }
         }
         total_instr += instr;
 
-        const filename = try std.fmt.allocPrint(gpa, "{s}/{s}.s", .{ dir_path, name });
+        const file_label = display_names.get(name) orelse name;
+        const filename = try std.fmt.allocPrint(gpa, "{s}/{s}.s", .{ dir_path, file_label });
         defer gpa.free(filename);
         const file = try std.Io.Dir.cwd().createFile(io, filename, .{});
         defer file.close(io);
@@ -337,18 +376,19 @@ fn emitCombinedFile(
     func_ends: *const std.StringHashMapUnmanaged(usize),
     all_lines: []const []const u8,
     branch_targets: *const std.StringHashMapUnmanaged(void),
+    display_names: *const std.StringHashMapUnmanaged([]const u8),
 ) !void {
-    var output: std.ArrayListUnmanaged(u8) = .{};
+    var output: std.ArrayListUnmanaged(u8) = .empty;
     defer output.deinit(gpa);
 
     var total_instr: usize = 0;
     var all_helpers: std.StringHashMapUnmanaged(void) = .empty;
     defer all_helpers.deinit(gpa);
-    var ordered_helpers: std.ArrayListUnmanaged([]const u8) = .{};
+    var ordered_helpers: std.ArrayListUnmanaged([]const u8) = .empty;
     defer ordered_helpers.deinit(gpa);
 
     for (ordered_exports) |name| {
-        total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets);
+        total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names);
         try output.appendSlice(gpa, "\n");
 
         const targets = export_call_targets.get(name).?;
@@ -363,7 +403,7 @@ fn emitCombinedFile(
     if (ordered_helpers.items.len > 0) {
         try output.appendSlice(gpa, "; --- called functions ---\n\n");
         for (ordered_helpers.items) |name| {
-            total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets);
+            total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names);
             try output.appendSlice(gpa, "\n");
         }
     }

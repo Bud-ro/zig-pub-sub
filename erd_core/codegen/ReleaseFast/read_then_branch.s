@@ -5,7 +5,7 @@ read_then_branch:
         mov	ecx, eax
         imul	ecx, eax
         add	eax, eax
-        test	esi, esi
+        test	sil, 1
         cmove	eax, ecx
         pop	rbp
         ret

@@ -7,11 +7,11 @@ write_junk_read_write:
         mov	word ptr [rbp - 12], 1
         cmp	word ptr [rdi + 7], 1
         mov	word ptr [rdi + 7], 1
-        jne	.LBB143_2
+        jne	.LBB6_2
         mov	word ptr [rbp - 10], 2
         mov	word ptr [rbx + 7], 2
-        jmp	.LBB143_3
-.LBB143_2:
+        jmp	.LBB6_3
+.LBB6_2:
         lea	rdx, [rbp - 12]
         mov	rdi, rbx
         mov	esi, 3
@@ -21,14 +21,14 @@ write_junk_read_write:
         mov	word ptr [rbp - 10], 2
         mov	word ptr [rbx + 7], 2
         cmp	ax, 2
-        je	.LBB143_4
-.LBB143_3:
+        je	.LBB6_4
+.LBB6_3:
         lea	rdx, [rbp - 10]
         mov	rdi, rbx
         mov	esi, 3
         mov	rcx, rbx
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
-.LBB143_4:
+.LBB6_4:
         add	rsp, 8
         pop	rbx
         pop	rbp
@@ -46,38 +46,35 @@ write_junk_read_write:
         push	rbx
         sub	rsp, 24
         mov	qword ptr [rbp - 48], rcx
-        test	esi, 65533
-        je	.LBB6_4
-        mov	r14, rdx
         movzx	r12d, si
-        mov	rax, qword ptr [8*r12 + .L__unnamed_1]
-        movzx	ecx, byte ptr [r12 + .L__unnamed_2]
-        cmp	cl, 1
-        adc	ecx, 0
-        movzx	r13d, cl
+        movzx	r13d, byte ptr [r12 + __anon_1928]
+        test	r13, r13
+        je	.LBB5_4
+        mov	r14, rdx
+        mov	rax, qword ptr [8*r12 + __anon_1922]
         shl	r13d, 4
         shl	rax, 4
         lea	r15, [rdi + rax]
         add	r15, 24
         xor	ebx, ebx
-        jmp	.LBB6_2
-.LBB6_3:
+        jmp	.LBB5_2
+.LBB5_3:
         add	rbx, 16
         cmp	r13, rbx
-        je	.LBB6_4
-.LBB6_2:
+        je	.LBB5_4
+.LBB5_2:
         mov	rax, qword ptr [r15 + rbx]
         test	rax, rax
-        je	.LBB6_3
+        je	.LBB5_3
         mov	rdi, qword ptr [r15 + rbx - 8]
-        movzx	ecx, word ptr [r12 + r12 + .L__unnamed_3]
+        movzx	ecx, word ptr [r12 + r12 + __anon_1938]
         mov	word ptr [rbp - 56], cx
         mov	qword ptr [rbp - 64], r14
         lea	rsi, [rbp - 64]
         mov	rdx, qword ptr [rbp - 48]
         call	rax
-        jmp	.LBB6_3
-.LBB6_4:
+        jmp	.LBB5_3
+.LBB5_4:
         add	rsp, 24
         pop	rbx
         pop	r12

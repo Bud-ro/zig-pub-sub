@@ -103,7 +103,7 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
         /// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
         /// - Reading an ERD using info from an on-change callback
         // noinline so the dispatch logic is shared across all call sites.
-        pub noinline fn runtimeRead(this: Self, system_data_idx: u16, data: *anyopaque) void {
+        pub noinline fn runtimeRead(this: *const Self, system_data_idx: u16, data: *anyopaque) void {
             const component_idx = component_idx_from_system_idx[system_data_idx];
             const data_component_idx = data_component_idx_from_system_idx[system_data_idx];
 
