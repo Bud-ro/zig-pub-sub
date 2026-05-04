@@ -12,11 +12,11 @@ runtime_write_three:
         mov	r15d, ecx
         mov	r12, rdi
         mov	r13, qword ptr [rbp + 16]
-        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_194,meta.FieldEnum(codegen_harness.SmallSystem__struct_194),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
+        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
         mov	rdi, r12
         mov	esi, r15d
         mov	rdx, r14
-        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_194,meta.FieldEnum(codegen_harness.SmallSystem__struct_194),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
+        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
         mov	rdi, r12
         mov	esi, ebx
         mov	rdx, r13
@@ -27,11 +27,11 @@ runtime_write_three:
         pop	r14
         pop	r15
         pop	rbp
-        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_194,meta.FieldEnum(codegen_harness.SmallSystem__struct_194),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
+        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
 
 ; --- called functions ---
 
-"system_data.SystemData(codegen_harness.SmallSystem__struct_194,meta.FieldEnum(codegen_harness.SmallSystem__struct_194),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite":
+"system_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite":
         push	rbp
         mov	rbp, rsp
         push	r15
@@ -42,10 +42,10 @@ runtime_write_three:
         sub	rsp, 24
         mov	rbx, rdi
         movzx	eax, si
-        movzx	r14d, word ptr [rax + rax + __anon_1938]
-        movzx	eax, word ptr [r14 + r14 + __anon_29526]
+        movzx	r14d, word ptr [rax + rax + __anon_1]
+        movzx	eax, word ptr [r14 + r14 + __anon_2]
         movzx	eax, ax
-        mov	rdi, qword ptr [8*r14 + __anon_1110]
+        mov	rdi, qword ptr [8*r14 + __anon_3]
         add	rdi, rbx
         test	ax, ax
         mov	ecx, 1
@@ -129,7 +129,7 @@ runtime_write_three:
         mov	rdx, rax
         call	memcpy@PLT
 .LBB312_16:
-        cmp	byte ptr [r14 + __anon_1928], 0
+        cmp	byte ptr [r14 + __anon_4], 0
         je	.LBB312_10
         mov	rdi, rbx
         mov	esi, r14d

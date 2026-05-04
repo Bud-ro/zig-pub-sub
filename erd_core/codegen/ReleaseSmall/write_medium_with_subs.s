@@ -8,14 +8,14 @@ write_medium_with_subs:
         movups	xmm0, xmmword ptr [rsi]
         movaps	xmmword ptr [rax], xmm0
         mov	rsi, rax
-        call	".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_1175,meta.FieldEnum(codegen_harness.HugeSystem__struct_1175),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1413"
+        call	".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_0,meta.FieldEnum(codegen_harness.HugeSystem__struct_0),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1"
         add	rsp, 32
         pop	rbp
         ret
 
 ; --- called functions ---
 
-".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_1175,meta.FieldEnum(codegen_harness.HugeSystem__struct_1175),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1413":
+".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_0,meta.FieldEnum(codegen_harness.HugeSystem__struct_0),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1":
         push	rbp
         mov	rbp, rsp
         sub	rsp, 32

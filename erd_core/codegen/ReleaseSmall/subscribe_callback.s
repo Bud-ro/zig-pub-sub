@@ -13,6 +13,6 @@ subscribe_callback:
         mov	rbp, rsp
         push	19
         pop	rsi
-        mov	edi, offset .L__anon_2413
+        mov	edi, offset .L__anon_0
         call	.Ldebug.defaultPanic
 

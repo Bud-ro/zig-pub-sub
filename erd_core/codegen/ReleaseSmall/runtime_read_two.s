@@ -8,7 +8,7 @@ runtime_read_two:
         mov	rbx, r8
         mov	r14d, ecx
         mov	r15, rdi
-        call	".Lsystem_data.SystemData(codegen_harness.SmallSystem__struct_194,meta.FieldEnum(codegen_harness.SmallSystem__struct_194),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeRead"
+        call	".Lsystem_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeRead"
         mov	rdi, r15
         mov	esi, r14d
         mov	rdx, rbx
@@ -17,17 +17,17 @@ runtime_read_two:
         pop	r14
         pop	r15
         pop	rbp
-        jmp	".Lsystem_data.SystemData(codegen_harness.SmallSystem__struct_194,meta.FieldEnum(codegen_harness.SmallSystem__struct_194),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeRead"
+        jmp	".Lsystem_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeRead"
 
 ; --- called functions ---
 
-".Lsystem_data.SystemData(codegen_harness.SmallSystem__struct_194,meta.FieldEnum(codegen_harness.SmallSystem__struct_194),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeRead":
+".Lsystem_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeRead":
         push	rbp
         mov	rbp, rsp
         sub	rsp, 64
         mov	rax, rdx
         movzx	ecx, si
-        movzx	ecx, word ptr [rcx + rcx + .L__anon_1939]
+        movzx	ecx, word ptr [rcx + rcx + .L__anon_1]
         movups	xmm0, xmmword ptr [rdi]
         movups	xmm1, xmmword ptr [rdi + 16]
         movups	xmm2, xmmword ptr [rdi + 32]
@@ -36,9 +36,9 @@ runtime_read_two:
         movaps	xmmword ptr [rbp - 32], xmm2
         movaps	xmmword ptr [rbp - 48], xmm1
         movaps	xmmword ptr [rbp - 64], xmm0
-        movzx	edx, word ptr [rcx + rcx + .L__anon_17324]
+        movzx	edx, word ptr [rcx + rcx + .L__anon_2]
         lea	rsi, [rbp - 64]
-        add	rsi, qword ptr [8*rcx + .L__anon_1110]
+        add	rsi, qword ptr [8*rcx + .L__anon_3]
         mov	rdi, rax
         call	memcpy@PLT
         add	rsp, 64

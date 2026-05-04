@@ -29,11 +29,11 @@ write_bool_with_subs:
         sub	rsp, 24
         mov	qword ptr [rbp - 48], rcx
         movzx	r12d, si
-        movzx	r13d, byte ptr [r12 + __anon_1928]
+        movzx	r13d, byte ptr [r12 + __anon_0]
         test	r13, r13
         je	.LBB5_4
         mov	r14, rdx
-        mov	rax, qword ptr [8*r12 + __anon_1922]
+        mov	rax, qword ptr [8*r12 + __anon_1]
         shl	r13d, 4
         shl	rax, 4
         lea	r15, [rdi + rax]
@@ -49,7 +49,7 @@ write_bool_with_subs:
         test	rax, rax
         je	.LBB5_3
         mov	rdi, qword ptr [r15 + rbx - 8]
-        movzx	ecx, word ptr [r12 + r12 + __anon_1938]
+        movzx	ecx, word ptr [r12 + r12 + __anon_2]
         mov	word ptr [rbp - 56], cx
         mov	qword ptr [rbp - 64], r14
         lea	rsi, [rbp - 64]

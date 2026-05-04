@@ -12,7 +12,7 @@ double_rmw_struct:
         inc	eax
         mov	dword ptr [rsi + 16], eax
         mov	dword ptr [rsi + 20], ecx
-        call	".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_1175,meta.FieldEnum(codegen_harness.HugeSystem__struct_1175),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1413"
+        call	".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_0,meta.FieldEnum(codegen_harness.HugeSystem__struct_0),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1"
         mov	rax, qword ptr [rbx + 256]
         movups	xmm0, xmmword ptr [rbx + 264]
         lea	rsi, [rbp - 56]
@@ -20,7 +20,7 @@ double_rmw_struct:
         inc	rax
         mov	qword ptr [rsi], rax
         mov	rdi, rbx
-        call	".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_1175,meta.FieldEnum(codegen_harness.HugeSystem__struct_1175),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1413"
+        call	".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_0,meta.FieldEnum(codegen_harness.HugeSystem__struct_0),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1"
         add	rsp, 56
         pop	rbx
         pop	rbp
@@ -28,7 +28,7 @@ double_rmw_struct:
 
 ; --- called functions ---
 
-".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_1175,meta.FieldEnum(codegen_harness.HugeSystem__struct_1175),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1413":
+".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_0,meta.FieldEnum(codegen_harness.HugeSystem__struct_0),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1":
         push	rbp
         mov	rbp, rsp
         sub	rsp, 32

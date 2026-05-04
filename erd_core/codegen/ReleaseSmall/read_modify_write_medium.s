@@ -10,14 +10,14 @@ read_modify_write_medium:
         inc	eax
         mov	dword ptr [rsi + 16], eax
         mov	dword ptr [rsi + 20], ecx
-        call	".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_1175,meta.FieldEnum(codegen_harness.HugeSystem__struct_1175),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1413"
+        call	".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_0,meta.FieldEnum(codegen_harness.HugeSystem__struct_0),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1"
         add	rsp, 32
         pop	rbp
         ret
 
 ; --- called functions ---
 
-".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_1175,meta.FieldEnum(codegen_harness.HugeSystem__struct_1175),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1413":
+".Lsystem_data.SystemData(codegen_harness.HugeSystem__struct_0,meta.FieldEnum(codegen_harness.HugeSystem__struct_0),.{ .big = .{ ... }, .medium = .{ ... }, .small_after_big = .{ ... } },system_data_test_double.create.Components).write__anon_1":
         push	rbp
         mov	rbp, rsp
         sub	rsp, 32

@@ -86,6 +86,45 @@ fn isStdlibFunc(name: []const u8) bool {
     return false;
 }
 
+const IdMap = std.StringHashMapUnmanaged(u32);
+
+/// Write `line` to `out`, replacing `__anon_NNNN` and `__struct_NNN`
+/// suffixes with sequential per-file IDs so snapshots are stable across
+/// compilation environments while preserving distinctness within a file.
+fn appendNormalized(gpa: std.mem.Allocator, out: *std.ArrayListUnmanaged(u8), line: []const u8, id_map: *IdMap) !void {
+    const needles = [_][]const u8{ "__anon_", "__struct_" };
+    var pos: usize = 0;
+    while (pos < line.len) {
+        var found = false;
+        for (needles) |needle| {
+            if (pos + needle.len <= line.len and std.mem.eql(u8, line[pos..][0..needle.len], needle)) {
+                const digit_start = pos + needle.len;
+                var digit_end = digit_start;
+                while (digit_end < line.len and std.ascii.isDigit(line[digit_end])) : (digit_end += 1) {}
+                if (digit_end > digit_start) {
+                    const original = line[pos..digit_end];
+                    const gop = try id_map.getOrPut(gpa, original);
+                    if (!gop.found_existing) gop.value_ptr.* = id_map.count() - 1;
+                    try out.appendSlice(gpa, needle);
+                    var num_buf: [20]u8 = undefined;
+                    const num_str = std.fmt.bufPrint(&num_buf, "{d}", .{gop.value_ptr.*}) catch unreachable;
+                    try out.appendSlice(gpa, num_str);
+                    pos = digit_end;
+                } else {
+                    try out.appendSlice(gpa, needle);
+                    pos += needle.len;
+                }
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            try out.append(gpa, line[pos]);
+            pos += 1;
+        }
+    }
+}
+
 fn isRegister(name: []const u8) bool {
     const registers = [_][]const u8{
         "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp",
@@ -97,14 +136,16 @@ fn isRegister(name: []const u8) bool {
 
 const ExtractFuncArgs = struct {
     branch_targets: *const std.StringHashMapUnmanaged(void),
-    output: ?*std.ArrayList(u8),
+    output: ?*std.ArrayListUnmanaged(u8),
     gpa: std.mem.Allocator,
+    id_map: *IdMap,
 };
 
 fn extractFunc(all_lines: []const []const u8, start: usize, end: usize, args: ExtractFuncArgs) !usize {
     const branch_targets = args.branch_targets;
     const output = args.output;
     const gpa = args.gpa;
+    const id_map = args.id_map;
     var count: usize = 0;
     for (all_lines[start..end]) |raw_line| {
         const line = std.mem.trim(u8, raw_line, " \t\r");
@@ -116,7 +157,7 @@ fn extractFunc(all_lines: []const []const u8, start: usize, end: usize, args: Ex
             const label = line[0 .. line.len - 1];
             if (branch_targets.contains(label)) {
                 if (output) |out| {
-                    try out.appendSlice(gpa, line);
+                    try appendNormalized(gpa, out, line, id_map);
                     try out.append(gpa, '\n');
                 }
             } else {
@@ -127,7 +168,7 @@ fn extractFunc(all_lines: []const []const u8, start: usize, end: usize, args: Ex
 
         if (output) |out| {
             try out.appendSlice(gpa, "        ");
-            try out.appendSlice(gpa, line);
+            try appendNormalized(gpa, out, line, id_map);
             try out.append(gpa, '\n');
         }
         count += 1;
@@ -293,13 +334,14 @@ fn emitFuncBody(
     all_lines: []const []const u8,
     branch_targets: *const std.StringHashMapUnmanaged(void),
     display_names: *const std.StringHashMapUnmanaged([]const u8),
+    id_map: *IdMap,
 ) !usize {
     const func = all_funcs.get(name).?;
     const end = func_ends.get(name).?;
     const label = display_names.get(name) orelse name;
-    try output.appendSlice(gpa, label);
+    try appendNormalized(gpa, output, label, id_map);
     try output.appendSlice(gpa, ":\n");
-    return try extractFunc(all_lines, func.start + 1, end, .{ .branch_targets = branch_targets, .output = output, .gpa = gpa });
+    return try extractFunc(all_lines, func.start + 1, end, .{ .branch_targets = branch_targets, .output = output, .gpa = gpa, .id_map = id_map });
 }
 
 // zlinter-disable-next-line no_inferred_error_unions
@@ -322,8 +364,10 @@ fn emitSplitFiles(
     for (ordered_exports) |name| {
         var output: std.ArrayListUnmanaged(u8) = .empty;
         defer output.deinit(gpa);
+        var file_ids: IdMap = .empty;
+        defer file_ids.deinit(gpa);
 
-        var instr = try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names);
+        var instr = try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids);
         try output.appendSlice(gpa, "\n");
         total_exports += 1;
 
@@ -339,7 +383,7 @@ fn emitSplitFiles(
                     try output.appendSlice(gpa, "; --- called functions ---\n\n");
                     has_helpers = true;
                 }
-                instr += try emitFuncBody(gpa, &output, target, all_funcs, func_ends, all_lines, branch_targets, display_names);
+                instr += try emitFuncBody(gpa, &output, target, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids);
                 try output.appendSlice(gpa, "\n");
                 total_helpers += 1;
             }
@@ -380,6 +424,8 @@ fn emitCombinedFile(
 ) !void {
     var output: std.ArrayListUnmanaged(u8) = .empty;
     defer output.deinit(gpa);
+    var file_ids: IdMap = .empty;
+    defer file_ids.deinit(gpa);
 
     var total_instr: usize = 0;
     var all_helpers: std.StringHashMapUnmanaged(void) = .empty;
@@ -388,7 +434,7 @@ fn emitCombinedFile(
     defer ordered_helpers.deinit(gpa);
 
     for (ordered_exports) |name| {
-        total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names);
+        total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids);
         try output.appendSlice(gpa, "\n");
 
         const targets = export_call_targets.get(name).?;
@@ -403,7 +449,7 @@ fn emitCombinedFile(
     if (ordered_helpers.items.len > 0) {
         try output.appendSlice(gpa, "; --- called functions ---\n\n");
         for (ordered_helpers.items) |name| {
-            total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names);
+            total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids);
             try output.appendSlice(gpa, "\n");
         }
     }

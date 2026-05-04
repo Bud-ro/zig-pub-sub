@@ -8,7 +8,7 @@ runtime_write_two:
         mov	rbx, r8
         mov	r14d, ecx
         mov	r15, rdi
-        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_194,meta.FieldEnum(codegen_harness.SmallSystem__struct_194),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
+        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
         mov	rdi, r15
         mov	esi, r14d
         mov	rdx, rbx
@@ -17,11 +17,11 @@ runtime_write_two:
         pop	r14
         pop	r15
         pop	rbp
-        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_194,meta.FieldEnum(codegen_harness.SmallSystem__struct_194),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
+        jmp	"system_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
 
 ; --- called functions ---
 
-"system_data.SystemData(codegen_harness.SmallSystem__struct_194,meta.FieldEnum(codegen_harness.SmallSystem__struct_194),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite":
+"system_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite":
         push	rbp
         mov	rbp, rsp
         push	r15
@@ -32,10 +32,10 @@ runtime_write_two:
         sub	rsp, 24
         mov	rbx, rdi
         movzx	eax, si
-        movzx	r14d, word ptr [rax + rax + __anon_1938]
-        movzx	eax, word ptr [r14 + r14 + __anon_29526]
+        movzx	r14d, word ptr [rax + rax + __anon_1]
+        movzx	eax, word ptr [r14 + r14 + __anon_2]
         movzx	eax, ax
-        mov	rdi, qword ptr [8*r14 + __anon_1110]
+        mov	rdi, qword ptr [8*r14 + __anon_3]
         add	rdi, rbx
         test	ax, ax
         mov	ecx, 1
@@ -119,7 +119,7 @@ runtime_write_two:
         mov	rdx, rax
         call	memcpy@PLT
 .LBB312_16:
-        cmp	byte ptr [r14 + __anon_1928], 0
+        cmp	byte ptr [r14 + __anon_4], 0
         je	.LBB312_10
         mov	rdi, rbx
         mov	esi, r14d
