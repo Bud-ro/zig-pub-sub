@@ -42,4 +42,4 @@ Add `erd_core` as a Zig dependency and define your own ERD table and component w
 
 ## Requirements
 
-- Zig 0.15.1+
+- Zig 0.16.0+
