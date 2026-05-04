@@ -104,15 +104,15 @@ const HugeSD = HugeSystem.SystemData;
 // Comptime reads - small system
 // ===========================================================================
 
-export fn codegen_read_u32(sd: *SmallSD) u32 {
+export fn read_u32(sd: *SmallSD) u32 {
     return sd.read(.version);
 }
 
-export fn codegen_read_bool(sd: *SmallSD) bool {
+export fn read_bool(sd: *SmallSD) bool {
     return sd.read(.flag);
 }
 
-export fn codegen_read_u16_unaligned(sd: *SmallSD) u16 {
+export fn read_u16_unaligned(sd: *SmallSD) u16 {
     return sd.read(.unaligned_u16);
 }
 
@@ -120,19 +120,19 @@ export fn codegen_read_u16_unaligned(sd: *SmallSD) u16 {
 // Comptime writes - small system
 // ===========================================================================
 
-export fn codegen_write_u32_no_subs(sd: *SmallSD) void {
+export fn write_u32_no_subs(sd: *SmallSD) void {
     sd.write(.version, 0xDEADBEEF);
 }
 
-export fn codegen_write_u16_no_subs(sd: *SmallSD, val: u16) void {
+export fn write_u16_no_subs(sd: *SmallSD, val: u16) void {
     sd.write(.unaligned_u16, val);
 }
 
-export fn codegen_write_bool_with_subs(sd: *SmallSD, val: bool) void {
+export fn write_bool_with_subs(sd: *SmallSD, val: bool) void {
     sd.write(.flag, val);
 }
 
-export fn codegen_write_u16_with_subs(sd: *SmallSD, val: u16) void {
+export fn write_u16_with_subs(sd: *SmallSD, val: u16) void {
     sd.write(.subscribable_u16, val);
 }
 
@@ -140,28 +140,28 @@ export fn codegen_write_u16_with_subs(sd: *SmallSD, val: u16) void {
 // Runtime read/write - small system
 // ===========================================================================
 
-export fn codegen_runtime_read(sd: *SmallSD, idx: u16, out: *anyopaque) void {
+export fn runtime_read(sd: *SmallSD, idx: u16, out: *anyopaque) void {
     sd.runtimeRead(idx, out);
 }
 
-export fn codegen_runtime_write(sd: *SmallSD, idx: u16, data: *const anyopaque) void {
+export fn runtime_write(sd: *SmallSD, idx: u16, data: *const anyopaque) void {
     sd.runtimeWrite(idx, data);
 }
 
 // Multiple runtime calls to verify the dispatch logic is shared (not inlined
 // per call site). Each call should be just argument setup + call, with the
 // heavy table-lookup/memcmp/publish logic living in one shared function body.
-export fn codegen_runtime_read_two(sd: *SmallSD, idx_a: u16, out_a: *anyopaque, idx_b: u16, out_b: *anyopaque) void {
+export fn runtime_read_two(sd: *SmallSD, idx_a: u16, out_a: *anyopaque, idx_b: u16, out_b: *anyopaque) void {
     sd.runtimeRead(idx_a, out_a);
     sd.runtimeRead(idx_b, out_b);
 }
 
-export fn codegen_runtime_write_two(sd: *SmallSD, idx_a: u16, data_a: *const anyopaque, idx_b: u16, data_b: *const anyopaque) void {
+export fn runtime_write_two(sd: *SmallSD, idx_a: u16, data_a: *const anyopaque, idx_b: u16, data_b: *const anyopaque) void {
     sd.runtimeWrite(idx_a, data_a);
     sd.runtimeWrite(idx_b, data_b);
 }
 
-export fn codegen_runtime_write_three(sd: *SmallSD, idx_a: u16, data_a: *const anyopaque, idx_b: u16, data_b: *const anyopaque, idx_c: u16, data_c: *const anyopaque) void {
+export fn runtime_write_three(sd: *SmallSD, idx_a: u16, data_a: *const anyopaque, idx_b: u16, data_b: *const anyopaque, idx_c: u16, data_c: *const anyopaque) void {
     sd.runtimeWrite(idx_a, data_a);
     sd.runtimeWrite(idx_b, data_b);
     sd.runtimeWrite(idx_c, data_c);
@@ -171,13 +171,13 @@ export fn codegen_runtime_write_three(sd: *SmallSD, idx_a: u16, data_a: *const a
 // Multiple SystemData instances (verify no cross-contamination)
 // ===========================================================================
 
-export fn codegen_dual_read(sd_a: *SmallSD, sd_b: *OtherSD) u64 {
+export fn dual_read(sd_a: *SmallSD, sd_b: *OtherSD) u64 {
     const a: u64 = sd_a.read(.version);
     const b: u64 = @bitCast(@as(i64, sd_b.read(.sensor_a)));
     return a +% b;
 }
 
-export fn codegen_dual_write(sd_a: *SmallSD, sd_b: *OtherSD) void {
+export fn dual_write(sd_a: *SmallSD, sd_b: *OtherSD) void {
     sd_a.write(.version, 42);
     sd_b.write(.sensor_b, -1);
 }
@@ -186,23 +186,23 @@ export fn codegen_dual_write(sd_a: *SmallSD, sd_b: *OtherSD) void {
 // Many ERDs - first, middle, last access patterns
 // ===========================================================================
 
-export fn codegen_many_read_first(sd: *ManySD) u8 {
+export fn many_read_first(sd: *ManySD) u8 {
     return sd.read(.e00);
 }
 
-export fn codegen_many_read_middle(sd: *ManySD) u32 {
+export fn many_read_middle(sd: *ManySD) u32 {
     return sd.read(.e14);
 }
 
-export fn codegen_many_read_last(sd: *ManySD) u64 {
+export fn many_read_last(sd: *ManySD) u64 {
     return sd.read(.e31);
 }
 
-export fn codegen_many_write_last_with_subs(sd: *ManySD, val: u64) void {
+export fn many_write_last_with_subs(sd: *ManySD, val: u64) void {
     sd.write(.e31, val);
 }
 
-export fn codegen_many_write_middle_no_subs(sd: *ManySD, val: u32) void {
+export fn many_write_middle_no_subs(sd: *ManySD, val: u32) void {
     sd.write(.e14, val);
 }
 
@@ -210,33 +210,33 @@ export fn codegen_many_write_middle_no_subs(sd: *ManySD, val: u32) void {
 // Huge ERD types - read, write, read-modify-write
 // ===========================================================================
 
-export fn codegen_read_big_struct(sd: *HugeSD) BigStruct {
+export fn read_big_struct(sd: *HugeSD) BigStruct {
     return sd.read(.big);
 }
 
-export fn codegen_read_medium_struct(sd: *HugeSD) MediumStruct {
+export fn read_medium_struct(sd: *HugeSD) MediumStruct {
     return sd.read(.medium);
 }
 
-export fn codegen_read_u32_after_big(sd: *HugeSD) u32 {
+export fn read_u32_after_big(sd: *HugeSD) u32 {
     return sd.read(.small_after_big);
 }
 
-export fn codegen_write_big_struct(sd: *HugeSD, val: *const BigStruct) void {
+export fn write_big_struct(sd: *HugeSD, val: *const BigStruct) void {
     sd.write(.big, val.*);
 }
 
-export fn codegen_write_medium_with_subs(sd: *HugeSD, val: *const MediumStruct) void {
+export fn write_medium_with_subs(sd: *HugeSD, val: *const MediumStruct) void {
     sd.write(.medium, val.*);
 }
 
-export fn codegen_read_modify_write_medium(sd: *HugeSD) void {
+export fn read_modify_write_medium(sd: *HugeSD) void {
     var val = sd.read(.medium);
     val.c +%= 1;
     sd.write(.medium, val);
 }
 
-export fn codegen_read_modify_write_big(sd: *HugeSD) void {
+export fn read_modify_write_big(sd: *HugeSD) void {
     var val = sd.read(.big);
     val.data[0] +%= 1;
     sd.write(.big, val);
@@ -252,7 +252,7 @@ fn timer_callback_read_write(ctx: ?*anyopaque, _: *timer.TimerModule, _: *timer.
     sd.write(.version, current +% 1);
 }
 
-export fn codegen_setup_timer_callback(sd: *SmallSD, tm: *timer.TimerModule, t: *timer.Timer) void {
+export fn setup_timer_callback(sd: *SmallSD, tm: *timer.TimerModule, t: *timer.Timer) void {
     tm.startPeriodic(t, 100, sd, timer_callback_read_write);
 }
 
@@ -265,14 +265,14 @@ comptime {
 // Redundant read elimination - does LLVM CSE through the abstraction?
 // ===========================================================================
 
-export fn codegen_triple_read_same_erd(sd: *SmallSD) u32 {
+export fn triple_read_same_erd(sd: *SmallSD) u32 {
     const a = sd.read(.version);
     const b = sd.read(.version);
     const c = sd.read(.version);
     return a +% b +% c;
 }
 
-export fn codegen_read_then_branch(sd: *SmallSD, flag: bool) u32 {
+export fn read_then_branch(sd: *SmallSD, flag: bool) u32 {
     const a = sd.read(.version);
     if (flag) {
         const b = sd.read(.version);
@@ -282,21 +282,21 @@ export fn codegen_read_then_branch(sd: *SmallSD, flag: bool) u32 {
     return a *% c;
 }
 
-export fn codegen_read_write_read(sd: *SmallSD) u32 {
+export fn read_write_read(sd: *SmallSD) u32 {
     const before = sd.read(.version);
     sd.write(.version, before +% 1);
     const after = sd.read(.version);
     return after;
 }
 
-export fn codegen_read_write_other_read(sd: *SmallSD, val: bool) u32 {
+export fn read_write_other_read(sd: *SmallSD, val: bool) u32 {
     const before = sd.read(.version);
     sd.write(.flag, val);
     const after = sd.read(.version);
     return before +% after;
 }
 
-export fn codegen_read_across_two_erds(sd: *SmallSD) u32 {
+export fn read_across_two_erds(sd: *SmallSD) u32 {
     const a = sd.read(.version);
     const b: u32 = sd.read(.unaligned_u16);
     const c = sd.read(.version);
@@ -316,11 +316,11 @@ fn accumulate_callback(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *any
     }
 }
 
-export fn codegen_subscribe_callback(sd: *SmallSD) void {
+export fn subscribe_callback(sd: *SmallSD) void {
     sd.subscribe(.flag, null, accumulate_callback);
 }
 
-export fn codegen_write_triggering_callback(sd: *SmallSD) void {
+export fn write_triggering_callback(sd: *SmallSD) void {
     sd.write(.flag, true);
 }
 
@@ -332,14 +332,14 @@ comptime {
 // Loop-like patterns - repeated writes, conditional accumulation
 // ===========================================================================
 
-export fn codegen_increment_n_times(sd: *SmallSD, n: u32) void {
+export fn increment_n_times(sd: *SmallSD, n: u32) void {
     var i: u32 = 0;
     while (i < n) : (i += 1) {
         sd.write(.version, sd.read(.version) +% 1);
     }
 }
 
-export fn codegen_conditional_write_chain(sd: *SmallSD) void {
+export fn conditional_write_chain(sd: *SmallSD) void {
     if (sd.read(.flag)) {
         sd.write(.version, sd.read(.version) +% 10);
     }
@@ -352,7 +352,7 @@ export fn codegen_conditional_write_chain(sd: *SmallSD) void {
 // Cross-ERD dependency - read one, compute, write another
 // ===========================================================================
 
-export fn codegen_cross_erd_compute(sd: *SmallSD) void {
+export fn cross_erd_compute(sd: *SmallSD) void {
     const a: u32 = sd.read(.unaligned_u16);
     const b = sd.read(.version);
     sd.write(.subscribable_u16, @truncate(a +% b));
@@ -362,7 +362,7 @@ export fn codegen_cross_erd_compute(sd: *SmallSD) void {
 // Cross-system reads - two different SystemData types in one function
 // ===========================================================================
 
-export fn codegen_cross_system_read_add(sd_a: *SmallSD, sd_b: *OtherSD) i64 {
+export fn cross_system_read_add(sd_a: *SmallSD, sd_b: *OtherSD) i64 {
     const a: i64 = @intCast(sd_a.read(.version));
     const b: i64 = sd_b.read(.sensor_a);
     const c: i64 = @intCast(sd_a.read(.unaligned_u16));
@@ -370,12 +370,12 @@ export fn codegen_cross_system_read_add(sd_a: *SmallSD, sd_b: *OtherSD) i64 {
     return a +% b +% c +% d;
 }
 
-export fn codegen_cross_system_read_write(sd_a: *SmallSD, sd_b: *OtherSD) void {
+export fn cross_system_read_write(sd_a: *SmallSD, sd_b: *OtherSD) void {
     const val = sd_b.read(.sensor_a);
     sd_a.write(.version, @bitCast(val));
 }
 
-export fn codegen_cross_system_swap(sd_a: *SmallSD, sd_b: *OtherSD) void {
+export fn cross_system_swap(sd_a: *SmallSD, sd_b: *OtherSD) void {
     const a = sd_a.read(.version);
     const b: u32 = @bitCast(sd_b.read(.sensor_a));
     sd_a.write(.version, b);
@@ -388,35 +388,35 @@ export fn codegen_cross_system_swap(sd_a: *SmallSD, sd_b: *OtherSD) void {
 
 // Writing the same value twice: second write should be eliminated or at
 // minimum the second publish should be skipped since the value hasn't changed.
-export fn codegen_double_write_same_value(sd: *SmallSD) void {
+export fn double_write_same_value(sd: *SmallSD) void {
     sd.write(.flag, true);
     sd.write(.flag, true);
 }
 
 // Writing different values: both writes must happen, but only the value that
 // actually differs from storage should trigger a publish.
-export fn codegen_double_write_diff_values(sd: *SmallSD) void {
+export fn double_write_diff_values(sd: *SmallSD) void {
     sd.write(.flag, true);
     sd.write(.flag, false);
 }
 
 // Write, read something unrelated, write again. The junk read shouldn't
 // prevent LLVM from reasoning about the two writes.
-export fn codegen_write_junk_read_write(sd: *SmallSD) void {
+export fn write_junk_read_write(sd: *SmallSD) void {
     sd.write(.subscribable_u16, 1);
     _ = sd.read(.version);
     sd.write(.subscribable_u16, 2);
 }
 
 // Triple write to the same ERD with incrementing values.
-export fn codegen_triple_write_increment(sd: *SmallSD) void {
+export fn triple_write_increment(sd: *SmallSD) void {
     sd.write(.subscribable_u16, 1);
     sd.write(.subscribable_u16, 2);
     sd.write(.subscribable_u16, 3);
 }
 
 // Read-modify-write twice on a struct: change different fields each time.
-export fn codegen_double_rmw_struct(sd: *HugeSD) void {
+export fn double_rmw_struct(sd: *HugeSD) void {
     var val = sd.read(.medium);
     val.c +%= 1;
     sd.write(.medium, val);

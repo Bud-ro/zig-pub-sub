@@ -16,7 +16,11 @@ fn isFuncLabel(raw_line: []const u8) ?[]const u8 {
 }
 
 fn isExportedFunc(name: []const u8) bool {
-    return std.mem.startsWith(u8, name, "codegen_");
+    if (name.len == 0) return false;
+    if (std.mem.indexOfScalar(u8, name, '.') != null) return false;
+    if (std.mem.startsWith(u8, name, "__")) return false;
+    if (name[0] == '"') return false;
+    return true;
 }
 
 fn isDirective(line: []const u8) bool {
@@ -402,9 +406,13 @@ test "isFuncLabel rejects indented, dot, and non-label lines" {
     try testing.expectEqual(null, isFuncLabel("  label:  extra"));
 }
 
-test "isExportedFunc matches codegen_ prefix" {
-    try testing.expect(isExportedFunc("codegen_read_u32"));
-    try testing.expect(!isExportedFunc("my_helper"));
+test "isExportedFunc matches simple names without dots or __ prefix" {
+    try testing.expect(isExportedFunc("read_u32"));
+    try testing.expect(isExportedFunc("my_helper"));
+    try testing.expect(!isExportedFunc("codegen_harness.accumulate_callback"));
+    try testing.expect(!isExportedFunc("ram_data_component.RamDataComponent.publish"));
+    try testing.expect(!isExportedFunc("__anon_1234"));
+    try testing.expect(!isExportedFunc("__jmptab_999"));
     try testing.expect(!isExportedFunc(""));
 }
 
