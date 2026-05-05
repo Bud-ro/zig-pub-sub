@@ -88,6 +88,10 @@ Each package has its own tests aggregated via `src/root.zig` test blocks. The ro
 
 After making changes to data components, system_data, or subscription logic, run `zig build codegen-check` to verify assembly snapshots haven't regressed. If there are intentional changes, update with `zig build codegen-update`. Snapshot files live in `erd_core/codegen/`.
 
+## Linting
+
+Before committing, run `zig build lint` from the repo root to check for style violations (import ordering, redundant comptime, naming conventions). Fix all errors before committing. Warnings are acceptable but should be addressed when touching those files.
+
 ## Formatting
 
 After completing any code changes, run `zig fmt erd_core/src/ erd_schema/src/ data_gen/src/ app/src/ esp8266/src/ esp8266/build.zig` to format all packages before reporting results.

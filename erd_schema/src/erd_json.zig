@@ -57,7 +57,7 @@ pub fn serialize(erd_defs: anytype, jws: anytype, comptime options: Options) !vo
 
 /// Generate just a type descriptor as a standalone JSON string.
 // zlinter-disable-next-line no_inferred_error_unions
-pub fn generateTypeDescriptor(comptime T: type, writer: *std.Io.Writer) !void {
+pub fn generateTypeDescriptor(T: type, writer: *std.Io.Writer) !void {
     var jws: std.json.Stringify = .{
         .writer = writer,
         .options = .{ .whitespace = .indent_4 },
@@ -68,7 +68,7 @@ pub fn generateTypeDescriptor(comptime T: type, writer: *std.Io.Writer) !void {
 /// Emit a full type descriptor for any Zig type so external tools can
 /// interpret raw bytes unambiguously.
 // zlinter-disable-next-line no_inferred_error_unions
-pub fn typeDescriptor(comptime T: type, jws: anytype) !void {
+pub fn typeDescriptor(T: type, jws: anytype) !void {
     const info = @typeInfo(T);
     switch (info) {
         .int => |int_info| {
