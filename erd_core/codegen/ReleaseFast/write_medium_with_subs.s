@@ -7,20 +7,20 @@ write_medium_with_subs:
         mov	qword ptr [rsp + 8], rdx
         mov	qword ptr [rsp + 16], rax
         cmp	qword ptr [rdi + 256], rcx
-        jne	.LBB26_2
+        jne	.LBB298_2
         cmp	qword ptr [rdi + 264], rdx
-        jne	.LBB26_2
+        jne	.LBB298_2
         cmp	qword ptr [rdi + 272], rax
         mov	qword ptr [rdi + 256], rcx
         mov	qword ptr [rdi + 272], rax
-        jne	.LBB26_4
+        jne	.LBB298_4
         add	rsp, 24
         ret
-.LBB26_2:
+.LBB298_2:
         mov	qword ptr [rdi + 256], rcx
         mov	qword ptr [rdi + 264], rdx
         mov	qword ptr [rdi + 272], rax
-.LBB26_4:
+.LBB298_4:
         mov	rsi, rsp
         mov	rdx, rdi
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"

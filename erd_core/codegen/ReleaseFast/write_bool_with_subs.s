@@ -4,12 +4,12 @@ write_bool_with_subs:
         mov	byte ptr [rsp + 6], sil
         cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
-        je	.LBB47_2
+        je	.LBB319_2
         lea	rdx, [rsp + 6]
         mov	esi, 1
         mov	rcx, rdi
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
-.LBB47_2:
+.LBB319_2:
         pop	rax
         ret
 

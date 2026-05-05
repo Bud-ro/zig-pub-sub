@@ -30,7 +30,6 @@
 20	double_write_diff_values
 23	cross_system_read_add
 24	read_write_other_read
-24	subscribe_callback
 24	write_junk_read_write
 25	read_medium_struct
 28	many_write_last_with_subs
@@ -40,6 +39,7 @@
 34	runtime_write_two
 34	write_medium_with_subs
 35	cross_system_swap
+45	subscribe_callback
 47	read_modify_write_medium
 60	runtime_write_three
 89	double_rmw_struct

@@ -69,7 +69,9 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
                 }
             }
 
-            if (first_free == null) unreachable;
+            if (first_free == null) {
+                @panic("ERD oversubscribed!");
+            }
 
             first_free.?.context = context;
             first_free.?.callback = fn_ptr;

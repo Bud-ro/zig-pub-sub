@@ -40,7 +40,7 @@ runtime_write_two:
         cmp	rsi, rcx
         sete	r9b
         or	r9b, r8b
-        je	.LBB40_1
+        je	.LBB312_1
         mov	rsi, rdx
         mov	rdx, rax
         add	rsp, 24
@@ -51,11 +51,11 @@ runtime_write_two:
         pop	r15
         pop	rbp
         jmp	memcpy@PLT
-.LBB40_1:
+.LBB312_1:
         cmp	ax, 16
-        ja	.LBB40_11
+        ja	.LBB312_11
         cmp	ax, 3
-        ja	.LBB40_6
+        ja	.LBB312_6
         movzx	ebp, byte ptr [rdx]
         movzx	ecx, byte ptr [rdx + rax - 1]
         mov	byte ptr [rsp + 12], cl
@@ -72,27 +72,27 @@ runtime_write_two:
         mov	rdx, rax
         call	memcpy@PLT
         cmp	bpl, r13b
-        jne	.LBB40_16
+        jne	.LBB312_16
         cmp	byte ptr [rsp + 12], r12b
-        jne	.LBB40_16
+        jne	.LBB312_16
         movzx	eax, byte ptr [rsp + 4]
         cmp	byte ptr [rsp + 8], al
-        je	.LBB40_10
-        jmp	.LBB40_16
-.LBB40_11:
+        je	.LBB312_10
+        jmp	.LBB312_16
+.LBB312_11:
         lea	r8, [rax - 1]
         shr	r8, 4
         xor	r9d, r9d
-.LBB40_13:
+.LBB312_13:
         movdqu	xmm0, xmmword ptr [rsi + r9]
         movdqu	xmm1, xmmword ptr [rcx + r9]
         pcmpeqb	xmm1, xmm0
         pmovmskb	r10d, xmm1
         xor	r10d, 65535
-        jne	.LBB40_14
+        jne	.LBB312_14
         add	r9, 16
         add	r8, -1
-        jne	.LBB40_13
+        jne	.LBB312_13
         movdqu	xmm0, xmmword ptr [rsi + rax - 16]
         movdqu	xmm1, xmmword ptr [rcx + rax - 16]
         pcmpeqb	xmm1, xmm0
@@ -103,16 +103,16 @@ runtime_write_two:
         mov	rdx, rax
         call	memcpy@PLT
         test	ebp, ebp
-        jne	.LBB40_16
-        jmp	.LBB40_10
-.LBB40_14:
+        jne	.LBB312_16
+        jmp	.LBB312_10
+.LBB312_14:
         mov	r15, rdx
         mov	rsi, rdx
         mov	rdx, rax
         call	memcpy@PLT
-.LBB40_16:
+.LBB312_16:
         cmp	byte ptr [r14 + __anon_4], 0
-        je	.LBB40_10
+        je	.LBB312_10
         mov	rdi, rbx
         mov	esi, r14d
         mov	rdx, r15
@@ -125,7 +125,7 @@ runtime_write_two:
         pop	r15
         pop	rbp
         jmp	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
-.LBB40_6:
+.LBB312_6:
         lea	rcx, [rax - 4]
         mov	esi, eax
         shr	esi
@@ -149,16 +149,16 @@ runtime_write_two:
         mov	rdx, rax
         call	memcpy@PLT
         cmp	ebp, r12d
-        jne	.LBB40_16
+        jne	.LBB312_16
         cmp	r13d, dword ptr [rsp + 12]
-        jne	.LBB40_16
+        jne	.LBB312_16
         mov	eax, dword ptr [rsp + 4]
         cmp	eax, dword ptr [rsp + 8]
-        jne	.LBB40_16
+        jne	.LBB312_16
         mov	eax, dword ptr [rsp + 16]
         cmp	eax, dword ptr [rsp + 20]
-        jne	.LBB40_16
-.LBB40_10:
+        jne	.LBB312_16
+.LBB312_10:
         add	rsp, 24
         pop	rbx
         pop	r12

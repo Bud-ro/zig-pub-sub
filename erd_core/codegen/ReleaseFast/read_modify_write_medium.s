@@ -10,11 +10,11 @@ read_modify_write_medium:
         mov	qword ptr [rsp + 16], rcx
         cmp	qword ptr [rdi + 272], rcx
         mov	qword ptr [rdi + 272], rcx
-        je	.LBB25_2
+        je	.LBB297_2
         mov	rsi, rsp
         mov	rdx, rdi
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
-.LBB25_2:
+.LBB297_2:
         add	rsp, 24
         ret
 

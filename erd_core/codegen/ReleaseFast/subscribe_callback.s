@@ -1,8 +1,16 @@
 subscribe_callback:
-        cmp	qword ptr [rdi + 24], offset codegen_harness.accumulate_callback
-        je	.LBB17_2
+        mov	rax, qword ptr [rdi + 24]
+        cmp	rax, offset codegen_harness.accumulate_callback
+        je	.LBB17_3
+        test	rax, rax
+        jne	.LBB17_4
         mov	qword ptr [rdi + 16], 0
         mov	qword ptr [rdi + 24], offset codegen_harness.accumulate_callback
-.LBB17_2:
+.LBB17_3:
         ret
+.LBB17_4:
+        push	rax
+        mov	edi, offset __anon_0
+        mov	esi, 19
+        call	debug.defaultPanic
 

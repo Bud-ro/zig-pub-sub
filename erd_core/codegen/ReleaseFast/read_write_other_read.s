@@ -8,14 +8,14 @@ read_write_other_read:
         mov	eax, ebp
         cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
-        je	.LBB19_2
+        je	.LBB291_2
         lea	rdx, [rsp + 6]
         mov	rbx, rdi
         mov	esi, 1
         mov	rcx, rdi
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
         mov	eax, dword ptr [rbx]
-.LBB19_2:
+.LBB291_2:
         add	eax, ebp
         add	rsp, 8
         pop	rbx

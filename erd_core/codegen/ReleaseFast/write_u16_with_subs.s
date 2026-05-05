@@ -3,12 +3,12 @@ write_u16_with_subs:
         mov	word ptr [rsp + 6], si
         cmp	word ptr [rdi + 7], si
         mov	word ptr [rdi + 7], si
-        je	.LBB46_2
+        je	.LBB318_2
         lea	rdx, [rsp + 6]
         mov	esi, 3
         mov	rcx, rdi
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
-.LBB46_2:
+.LBB318_2:
         pop	rax
         ret
 
