@@ -92,7 +92,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
 
         /// Write and publish if the value changed. When subs == 0, skips comparison entirely.
         /// Uses two comparison strategies depending on type size:
-        /// - ≤ 8 bytes: integer comparison via readInt (single cmp instruction)
+        /// - <= 8 bytes: integer comparison via readInt (single cmp instruction)
         /// - > 8 bytes: typed comparison via std.meta.eql, which lets LLVM see
         ///   field-level relationships and eliminate unchanged field comparisons
         ///   in read-modify-write patterns
@@ -112,6 +112,33 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
 
             if (changed) {
                 self.publish(erd.data_component_idx, &data, publisher);
+            }
+        }
+
+        /// Modify a struct ERD in-place and always publish. Skips change detection
+        /// since the caller guarantees the modification always produces a new value.
+        /// Debug-asserts that the value actually changed.
+        pub fn modify(self: *Self, erd: Erd, comptime modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
+            self.modifyInner(erd, modifier, publisher);
+        }
+
+        // noinline so the read/modify/writeback/publish logic is shared across
+        // all call sites that modify the same ERD, regardless of modifier.
+        noinline fn modifyInner(self: *Self, erd: Erd, modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
+            const idx = erd.data_component_idx;
+            const n = @sizeOf(erd.T);
+
+            var value: erd.T = undefined;
+            @memcpy(std.mem.asBytes(&value), self.storage[ram_offsets[idx]..][0..n]);
+
+            const before = value;
+            modifier(&value);
+            std.debug.assert(!std.meta.eql(before, value));
+
+            self.storage[ram_offsets[idx]..][0..n].* = std.mem.toBytes(value);
+
+            if (erd.subs > 0) {
+                self.publish(erd.data_component_idx, &value, publisher);
             }
         }
 

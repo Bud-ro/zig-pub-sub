@@ -97,6 +97,7 @@ const HugeSystem = SystemDataTestDouble.create(struct {
     big: Erd = SystemDataTestDouble.ramErd(BigStruct, .{}),
     medium: Erd = SystemDataTestDouble.ramErd(MediumStruct, .{ .subs = 1 }),
     small_after_big: Erd = SystemDataTestDouble.ramErd(u32, .{}),
+    medium_no_subs: Erd = SystemDataTestDouble.ramErd(MediumStruct, .{}),
 });
 const HugeSD = HugeSystem.SystemData;
 
@@ -226,14 +227,29 @@ export fn write_big_struct(sd: *HugeSD, val: *const BigStruct) void {
     sd.write(.big, val.*);
 }
 
-export fn write_medium_with_subs(sd: *HugeSD, val: *const MediumStruct) void {
-    sd.write(.medium, val.*);
+export fn modify_medium_single_field(sd: *HugeSD) void {
+    sd.modify(.medium, struct {
+        fn m(val: *MediumStruct) void {
+            val.c +%= 1;
+        }
+    }.m);
 }
 
-export fn read_modify_write_medium(sd: *HugeSD) void {
-    var val = sd.read(.medium);
-    val.c +%= 1;
-    sd.write(.medium, val);
+export fn modify_medium_two_fields(sd: *HugeSD) void {
+    sd.modify(.medium, struct {
+        fn m(val: *MediumStruct) void {
+            val.a +%= 1;
+            val.c +%= 1;
+        }
+    }.m);
+}
+
+export fn modify_medium_no_subs(sd: *HugeSD) void {
+    sd.modify(.medium_no_subs, struct {
+        fn m(val: *MediumStruct) void {
+            val.c +%= 1;
+        }
+    }.m);
 }
 
 export fn read_modify_write_big(sd: *HugeSD) void {
@@ -415,13 +431,17 @@ export fn triple_write_increment(sd: *SmallSD) void {
     sd.write(.subscribable_u16, 3);
 }
 
-// Read-modify-write twice on a struct: change different fields each time.
-export fn double_rmw_struct(sd: *HugeSD) void {
-    var val = sd.read(.medium);
-    val.c +%= 1;
-    sd.write(.medium, val);
+// Modify twice on a struct: change different fields each time.
+export fn double_modify_struct(sd: *HugeSD) void {
+    sd.modify(.medium, struct {
+        fn m(val: *MediumStruct) void {
+            val.c +%= 1;
+        }
+    }.m);
 
-    var val2 = sd.read(.medium);
-    val2.a +%= 1;
-    sd.write(.medium, val2);
+    sd.modify(.medium, struct {
+        fn m(val: *MediumStruct) void {
+            val.a +%= 1;
+        }
+    }.m);
 }
