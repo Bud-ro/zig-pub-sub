@@ -1,13 +1,11 @@
 write_medium_with_subs:
-        push	rbp
-        mov	rbp, rsp
-        sub	rsp, 32
+        sub	rsp, 24
         mov	rcx, qword ptr [rsi]
         mov	rdx, qword ptr [rsi + 8]
         mov	rax, qword ptr [rsi + 16]
-        mov	qword ptr [rbp - 24], rcx
-        mov	qword ptr [rbp - 16], rdx
-        mov	qword ptr [rbp - 8], rax
+        mov	qword ptr [rsp], rcx
+        mov	qword ptr [rsp + 8], rdx
+        mov	qword ptr [rsp + 16], rax
         cmp	qword ptr [rdi + 256], rcx
         jne	.LBB298_2
         cmp	qword ptr [rdi + 264], rdx
@@ -16,19 +14,17 @@ write_medium_with_subs:
         mov	qword ptr [rdi + 256], rcx
         mov	qword ptr [rdi + 272], rax
         jne	.LBB298_4
-        add	rsp, 32
-        pop	rbp
+        add	rsp, 24
         ret
 .LBB298_2:
         mov	qword ptr [rdi + 256], rcx
         mov	qword ptr [rdi + 264], rdx
         mov	qword ptr [rdi + 272], rax
 .LBB298_4:
-        lea	rsi, [rbp - 24]
+        mov	rsi, rsp
         mov	rdx, rdi
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
-        add	rsp, 32
-        pop	rbp
+        add	rsp, 24
         ret
 
 ; --- called functions ---
@@ -37,16 +33,13 @@ write_medium_with_subs:
         mov	rax, qword ptr [rdi + 296]
         test	rax, rax
         je	.LBB3_2
-        push	rbp
-        mov	rbp, rsp
-        sub	rsp, 16
+        sub	rsp, 24
         mov	rdi, qword ptr [rdi + 288]
-        mov	word ptr [rbp - 8], 1
-        mov	qword ptr [rbp - 16], rsi
-        lea	rsi, [rbp - 16]
+        mov	word ptr [rsp + 16], 1
+        mov	qword ptr [rsp + 8], rsi
+        lea	rsi, [rsp + 8]
         call	rax
-        add	rsp, 16
-        pop	rbp
+        add	rsp, 24
 .LBB3_2:
         ret
 

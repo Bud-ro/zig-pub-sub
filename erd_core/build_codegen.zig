@@ -29,6 +29,7 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
                 .root_source_file = b.path("src/codegen_harness.zig"),
                 .target = codegen_target,
                 .optimize = mode,
+                .omit_frame_pointer = true,
             });
 
             const sometimes_dep = b.dependency("assert_sometimes", .{

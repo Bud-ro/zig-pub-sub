@@ -1,10 +1,9 @@
 setup_timer_callback:
-        push	rbp
-        mov	rbp, rsp
         push	r15
         push	r14
         push	r12
         push	rbx
+        push	rax
         mov	r15, rdx
         mov	r14, rsi
         mov	r12, rdi
@@ -56,10 +55,10 @@ setup_timer_callback:
 .LBB288_7:
         mov	qword ptr [rbx], rax
         mov	qword ptr [r14], rbx
+        add	rsp, 8
         pop	rbx
         pop	r12
         pop	r14
         pop	r15
-        pop	rbp
         ret
 

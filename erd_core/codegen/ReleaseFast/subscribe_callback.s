@@ -9,8 +9,7 @@ subscribe_callback:
 .LBB17_3:
         ret
 .LBB17_4:
-        push	rbp
-        mov	rbp, rsp
+        push	rax
         mov	edi, offset __anon_0
         mov	esi, 19
         call	debug.defaultPanic

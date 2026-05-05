@@ -1,6 +1,4 @@
 setup_timer_callback:
-        push	rbp
-        mov	rbp, rsp
         mov	rcx, qword ptr [rsi]
         lea	rax, [rdx + 16]
         cmp	qword ptr [rdx + 8], 0
@@ -72,12 +70,10 @@ setup_timer_callback:
 .LBB295_15:
         mov	qword ptr [rax], rcx
         mov	qword ptr [rsi], rax
-        pop	rbp
         ret
 .LBB295_17:
         xor	ecx, ecx
         mov	qword ptr [rax], rcx
         mov	qword ptr [rsi], rax
-        pop	rbp
         ret
 

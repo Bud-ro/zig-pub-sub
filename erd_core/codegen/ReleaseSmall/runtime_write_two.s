@@ -1,21 +1,16 @@
 runtime_write_two:
         push	rbp
-        mov	rbp, rsp
-        push	r15
         push	r14
         push	rbx
-        push	rax
         mov	rbx, r8
-        mov	r14d, ecx
-        mov	r15, rdi
+        mov	ebp, ecx
+        mov	r14, rdi
         call	".Lsystem_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
-        mov	rdi, r15
-        mov	esi, r14d
+        mov	rdi, r14
+        mov	esi, ebp
         mov	rdx, rbx
-        add	rsp, 8
         pop	rbx
         pop	r14
-        pop	r15
         pop	rbp
         jmp	".Lsystem_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
 
@@ -23,7 +18,6 @@ runtime_write_two:
 
 ".Lsystem_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).runtimeWrite":
         push	rbp
-        mov	rbp, rsp
         push	r15
         push	r14
         push	r13
@@ -31,30 +25,30 @@ runtime_write_two:
         push	rbx
         push	rax
         mov	rbx, rdx
+        mov	r14, rdi
         movzx	eax, si
         movzx	r15d, word ptr [rax + rax + .L__anon_1]
         movzx	r12d, word ptr [r15 + r15 + .L__anon_2]
         mov	r13, qword ptr [8*r15 + .L__anon_3]
-        mov	qword ptr [rbp - 48], rdi
         add	r13, rdi
         mov	rdi, rdx
         mov	rsi, r12
         mov	rdx, r13
         mov	rcx, r12
         call	.Lmem.eql__anon_4
-        mov	r14d, eax
+        mov	ebp, eax
         mov	rdi, r13
         mov	rsi, rbx
         mov	rdx, r12
         call	memcpy@PLT
-        test	r14b, 1
+        test	bpl, 1
         jne	.LBB306_2
         cmp	byte ptr [r15 + .L__anon_5], 0
         je	.LBB306_2
-        mov	rcx, qword ptr [rbp - 48]
-        mov	rdi, rcx
+        mov	rdi, r14
         mov	esi, r15d
         mov	rdx, rbx
+        mov	rcx, r14
         add	rsp, 8
         pop	rbx
         pop	r12

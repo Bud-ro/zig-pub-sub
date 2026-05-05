@@ -9,8 +9,7 @@ subscribe_callback:
 .LBB20_3:
         ret
 .LBB20_4:
-        push	rbp
-        mov	rbp, rsp
+        push	rax
         push	19
         pop	rsi
         mov	edi, offset .L__anon_0

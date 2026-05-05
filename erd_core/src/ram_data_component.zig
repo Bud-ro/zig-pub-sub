@@ -101,7 +101,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             const n = @sizeOf(erd.T);
             const data_bytes = std.mem.toBytes(data);
 
-            if (erd.subs == 0) {
+            if (comptime erd.subs == 0) {
                 self.storage[ram_offsets[idx]..][0..n].* = data_bytes;
                 return;
             }
