@@ -55,7 +55,7 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
                 "--",
             });
             run_nm.addFileArg(obj_bin);
-            const sizes_file = run_nm.captureStdOut();
+            const sizes_file = run_nm.captureStdOut(.{});
 
             codegen_update_step.dependOn(&b.addInstallFileWithDir(sizes_file, .{ .custom = "../codegen" }, sizes_name).step);
 

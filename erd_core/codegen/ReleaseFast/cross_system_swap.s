@@ -8,12 +8,12 @@ cross_system_swap:
         mov	dword ptr [rbp - 4], eax
         mov	dword ptr [rsi], eax
         cmp	ecx, eax
-        je	.LBB139_2
+        je	.LBB9_2
         mov	rdx, rsi
         lea	rsi, [rbp - 4]
         mov	rdi, rdx
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish.2"
-.LBB139_2:
+.LBB9_2:
         add	rsp, 16
         pop	rbp
         ret
@@ -23,7 +23,7 @@ cross_system_swap:
 "ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish.2":
         mov	rax, qword ptr [rdi + 24]
         test	rax, rax
-        je	.LBB140_2
+        je	.LBB10_2
         push	rbp
         mov	rbp, rsp
         sub	rsp, 16
@@ -34,6 +34,6 @@ cross_system_swap:
         call	rax
         add	rsp, 16
         pop	rbp
-.LBB140_2:
+.LBB10_2:
         ret
 

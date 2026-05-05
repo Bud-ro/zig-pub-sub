@@ -59,22 +59,22 @@ const MAX_REGIONS = 16;
 /// Format a memory usage summary into the provided buffer. Returns the number of bytes written.
 // zlinter-disable-next-line no_inferred_error_unions
 pub fn formatSummary(elf_path: []const u8, regions: []const MemoryRegion, out: []u8) !usize {
-    const file = try std.fs.cwd().openFile(elf_path, .{});
-    defer file.close();
+    const io = std.Io.Threaded.global_single_threaded.io();
+    const file = try std.Io.Dir.cwd().openFile(io, elf_path, .{});
+    defer file.close(io);
 
     var ehdr: Elf32_Ehdr = undefined;
     const ehdr_bytes: *[@sizeOf(Elf32_Ehdr)]u8 = @ptrCast(&ehdr);
-    const ehdr_read = try file.read(ehdr_bytes);
+    const ehdr_read = try file.readPositionalAll(io, ehdr_bytes, 0);
     if (ehdr_read < @sizeOf(Elf32_Ehdr)) return error.InvalidElf;
     if (!std.mem.eql(u8, ehdr.e_ident[0..4], ELF_MAGIC)) return error.InvalidElf;
     if (ehdr.e_ident[4] != 1) return error.Not32BitElf;
 
     const shstrtab_offset = blk: {
         const shstr_pos = ehdr.e_shoff + @as(u32, ehdr.e_shstrndx) * @as(u32, ehdr.e_shentsize);
-        try file.seekTo(shstr_pos);
         var shdr: Elf32_Shdr = undefined;
         const shdr_bytes: *[@sizeOf(Elf32_Shdr)]u8 = @ptrCast(&shdr);
-        _ = try file.read(shdr_bytes);
+        _ = try file.readPositionalAll(io, shdr_bytes, shstr_pos);
         break :blk shdr.sh_offset;
     };
 
@@ -85,17 +85,15 @@ pub fn formatSummary(elf_path: []const u8, regions: []const MemoryRegion, out: [
     var i: u16 = 0;
     while (i < ehdr.e_shnum) : (i += 1) {
         const pos = ehdr.e_shoff + @as(u32, i) * @as(u32, ehdr.e_shentsize);
-        try file.seekTo(pos);
         var shdr: Elf32_Shdr = undefined;
         const shdr_bytes: *[@sizeOf(Elf32_Shdr)]u8 = @ptrCast(&shdr);
-        _ = try file.read(shdr_bytes);
+        _ = try file.readPositionalAll(io, shdr_bytes, pos);
 
         if (shdr.sh_flags & SHF_ALLOC == 0) continue;
         if (shdr.sh_size == 0) continue;
 
         var name_buf: [32]u8 = .{0} ** 32;
-        try file.seekTo(shstrtab_offset + shdr.sh_name);
-        _ = try file.read(&name_buf);
+        _ = try file.readPositionalAll(io, &name_buf, shstrtab_offset + shdr.sh_name);
 
         for (regions, 0..) |region, ri| {
             const region_end = region.origin + region.length;

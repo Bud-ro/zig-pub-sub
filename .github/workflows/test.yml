@@ -23,7 +23,7 @@ jobs:
 
       - uses: mlugg/setup-zig@v2
         with:
-          version: 0.15.2
+          version: 0.16.0
           cache-key: ${{ matrix.optimize }}
           use-cache: true
           use-tool-cache: true
@@ -59,7 +59,7 @@ jobs:
 
       - uses: mlugg/setup-zig@v2
         with:
-          version: 0.15.2
+          version: 0.16.0
           use-cache: true
           use-tool-cache: true
 
@@ -76,7 +76,7 @@ jobs:
 
       - uses: mlugg/setup-zig@v2
         with:
-          version: 0.15.2
+          version: 0.16.0
 
       - name: Install ESP8266 toolchain
         run: sudo apt-get update && sudo apt-get install -y gcc-xtensa-lx106 binutils-xtensa-lx106 esptool

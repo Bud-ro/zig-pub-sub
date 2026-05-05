@@ -5,18 +5,18 @@ many_write_last_with_subs:
         mov	qword ptr [rbp - 8], rsi
         cmp	qword ptr [rdi + 112], rsi
         mov	qword ptr [rdi + 112], rsi
-        je	.LBB22_2
+        je	.LBB298_2
         lea	rsi, [rbp - 8]
         mov	rdx, rdi
-        call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..32]).publish"
-.LBB22_2:
+        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..32]).publish"
+.LBB298_2:
         add	rsp, 16
         pop	rbp
         ret
 
 ; --- called functions ---
 
-"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..32]).publish":
+".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..32]).publish":
         push	rbp
         mov	rbp, rsp
         push	r15
@@ -28,34 +28,34 @@ many_write_last_with_subs:
         mov	r15, rdi
         mov	rax, qword ptr [rdi + 144]
         test	rax, rax
-        je	.LBB23_1
+        je	.LBB299_1
         mov	rdi, qword ptr [r15 + 136]
         mov	word ptr [rbp - 32], 31
         mov	qword ptr [rbp - 40], r14
         lea	rsi, [rbp - 40]
         mov	rdx, rbx
         call	rax
-.LBB23_1:
+.LBB299_1:
         mov	rax, qword ptr [r15 + 160]
         test	rax, rax
-        je	.LBB23_3
+        je	.LBB299_3
         mov	rdi, qword ptr [r15 + 152]
         mov	word ptr [rbp - 32], 31
         mov	qword ptr [rbp - 40], r14
         lea	rsi, [rbp - 40]
         mov	rdx, rbx
         call	rax
-.LBB23_3:
+.LBB299_3:
         mov	rax, qword ptr [r15 + 176]
         test	rax, rax
-        je	.LBB23_5
+        je	.LBB299_5
         mov	rdi, qword ptr [r15 + 168]
         mov	word ptr [rbp - 32], 31
         mov	qword ptr [rbp - 40], r14
         lea	rsi, [rbp - 40]
         mov	rdx, rbx
         call	rax
-.LBB23_5:
+.LBB299_5:
         add	rsp, 24
         pop	rbx
         pop	r14

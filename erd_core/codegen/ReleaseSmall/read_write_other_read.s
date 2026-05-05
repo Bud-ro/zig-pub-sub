@@ -5,7 +5,7 @@ read_write_other_read:
         push	rbx
         mov	rbx, rdi
         mov	r14d, dword ptr [rdi]
-        call	"system_data.SystemData(codegen_harness.SmallSystem__struct_224,meta.FieldEnum(codegen_harness.SmallSystem__struct_224),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).write__anon_1172"
+        call	".Lsystem_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).write__anon_1"
         add	r14d, dword ptr [rbx]
         mov	eax, r14d
         pop	rbx
@@ -15,7 +15,7 @@ read_write_other_read:
 
 ; --- called functions ---
 
-"system_data.SystemData(codegen_harness.SmallSystem__struct_224,meta.FieldEnum(codegen_harness.SmallSystem__struct_224),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).write__anon_1172":
+".Lsystem_data.SystemData(codegen_harness.SmallSystem__struct_0,meta.FieldEnum(codegen_harness.SmallSystem__struct_0),.{ .version = .{ ... }, .flag = .{ ... }, .unaligned_u16 = .{ ... }, .subscribable_u16 = .{ ... } },system_data_test_double.create.Components).write__anon_1":
         push	rbp
         mov	rbp, rsp
         sub	rsp, 16
@@ -23,12 +23,12 @@ read_write_other_read:
         mov	byte ptr [rbp - 1], sil
         cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
-        je	.LBB6_2
+        je	.LBB10_2
         lea	rdx, [rbp - 1]
         mov	esi, 1
         mov	rcx, rdi
-        call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
-.LBB6_2:
+        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
+.LBB10_2:
         add	rsp, 16
         pop	rbp
         ret

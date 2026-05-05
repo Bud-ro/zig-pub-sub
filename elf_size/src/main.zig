@@ -6,10 +6,10 @@
 const elf_size = @import("root.zig");
 const std = @import("std");
 
-fn writeAll(data: []const u8) void {
-    const stdout = std.fs.File.stdout();
+fn writeAll(io: std.Io, data: []const u8) void {
+    const stdout = std.Io.File.stdout();
     var buf: [4096]u8 = undefined;
-    var w = stdout.writer(&buf);
+    var w = stdout.writer(io, &buf);
     // zlinter-disable no_swallow_error
     w.interface.writeAll(data) catch {};
     w.interface.flush() catch {};
@@ -18,12 +18,13 @@ fn writeAll(data: []const u8) void {
 
 /// Entry point for the ELF memory usage summary tool.
 // zlinter-disable-next-line no_inferred_error_unions
-pub fn main() !void {
-    var args = std.process.args();
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
+    var args = init.minimal.args.iterate();
     _ = args.next();
 
     const elf_path = args.next() orelse {
-        writeAll("Usage: elf-size <elf-file> [--output <file>] <name:origin:length> ...\n");
+        writeAll(io, "Usage: elf-size <elf-file> [--output <file>] <name:origin:length> ...\n");
         return;
     };
 
@@ -38,27 +39,27 @@ pub fn main() !void {
         }
         if (count >= 16) break;
         regions[count] = parseRegion(arg) orelse {
-            writeAll("Invalid region spec\n");
+            writeAll(io, "Invalid region spec\n");
             return;
         };
         count += 1;
     }
 
     if (count == 0) {
-        writeAll("No memory regions specified\n");
+        writeAll(io, "No memory regions specified\n");
         return;
     }
 
     var buf: [4096]u8 = undefined;
     const len = try elf_size.formatSummary(elf_path, regions[0..count], &buf);
 
-    writeAll(buf[0..len]);
+    writeAll(io, buf[0..len]);
 
     if (output_path) |path| {
-        const file = try std.fs.cwd().createFile(path, .{});
-        defer file.close();
+        const file = try std.Io.Dir.cwd().createFile(io, path, .{});
+        defer file.close(io);
         var wbuf: [4096]u8 = undefined;
-        var w = file.writer(&wbuf);
+        var w = file.writer(io, &wbuf);
         try w.interface.writeAll(buf[0..len]);
         try w.interface.flush();
     }

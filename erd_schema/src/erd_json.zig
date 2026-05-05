@@ -12,7 +12,7 @@ pub const Options = struct {
 
 /// Generate JSON representation of ERD definitions to the given writer.
 // zlinter-disable-next-line no_inferred_error_unions
-pub fn generate(erd_defs: anytype, writer: *std.io.Writer, comptime options: Options) !void {
+pub fn generate(erd_defs: anytype, writer: *std.Io.Writer, comptime options: Options) !void {
     var jws: std.json.Stringify = .{
         .writer = writer,
         .options = .{ .whitespace = .indent_4 },

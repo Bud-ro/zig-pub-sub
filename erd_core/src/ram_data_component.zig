@@ -106,16 +106,9 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
                 return;
             }
 
-            const changed = if (n <= 8) blk: {
-                const stored: *[n]u8 = self.storage[ram_offsets[idx]..][0..n];
-                const data_changed = bytesChanged(stored, &data_bytes);
-                stored.* = data_bytes;
-                break :blk data_changed;
-            } else blk: {
-                const old = self.read(erd);
-                self.storage[ram_offsets[idx]..][0..n].* = data_bytes;
-                break :blk !std.meta.eql(old, data);
-            };
+            const stored: *[n]u8 = self.storage[ram_offsets[idx]..][0..n];
+            const changed = bytesChanged(stored, &data_bytes);
+            stored.* = data_bytes;
 
             if (changed) {
                 self.publish(erd.data_component_idx, &data, publisher);
@@ -124,8 +117,21 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
 
         fn bytesChanged(a: anytype, b: anytype) bool {
             const len = @typeInfo(@TypeOf(a.*)).array.len;
-            const Int = std.meta.Int(.unsigned, len * 8);
-            return std.mem.readInt(Int, a, .little) != std.mem.readInt(Int, b, .little);
+            if (len <= 16) {
+                const Int = @Int(.unsigned, len * 8);
+                return std.mem.readInt(Int, a, .little) != std.mem.readInt(Int, b, .little);
+            }
+            inline for (0..len / 8) |i| {
+                if (std.mem.readInt(u64, a[i * 8 ..][0..8], .little) !=
+                    std.mem.readInt(u64, b[i * 8 ..][0..8], .little)) return true;
+            }
+            const tail = len % 8;
+            if (tail > 0) {
+                const Tail = @Int(.unsigned, tail * 8);
+                if (std.mem.readInt(Tail, a[len - tail ..][0..tail], .little) !=
+                    std.mem.readInt(Tail, b[len - tail ..][0..tail], .little)) return true;
+            }
+            return false;
         }
 
         /// Runtime write with change detection using a dynamic data component index.

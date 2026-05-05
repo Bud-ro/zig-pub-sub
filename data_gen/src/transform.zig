@@ -11,7 +11,7 @@ const std = @import("std");
 pub fn fixedPoint(T: type, frac_bits: comptime_int, value: comptime_float) T {
     const scale = comptimePow2(frac_bits);
     const scaled_value = value * scale;
-    const truncated = @as(comptime_int, @intFromFloat(@floor(scaled_value)));
+    const truncated: comptime_int = @floor(scaled_value);
 
     if (@as(comptime_float, @floatFromInt(truncated)) != scaled_value) {
         const lower: comptime_float = @as(comptime_float, @floatFromInt(truncated)) / scale;
@@ -40,7 +40,7 @@ pub fn fixedPoint(T: type, frac_bits: comptime_int, value: comptime_float) T {
 /// Compile error if the result is not exact (i.e., the value has more precision than the scale allows).
 pub fn scaled(T: type, scale: comptime_int, value: comptime_float) T {
     const result = value * @as(comptime_float, @floatFromInt(scale));
-    const truncated = @as(comptime_int, @intFromFloat(@floor(result)));
+    const truncated: comptime_int = @floor(result);
 
     if (@as(comptime_float, @floatFromInt(truncated)) != result) {
         const lower: comptime_float = @as(comptime_float, @floatFromInt(truncated)) / @as(comptime_float, @floatFromInt(scale));
@@ -58,7 +58,7 @@ pub fn scaled(T: type, scale: comptime_int, value: comptime_float) T {
 /// Returns the nearest representable value (rounds to nearest).
 pub fn scaledNearest(T: type, scale: comptime_int, value: comptime_float) T {
     const result = value * @as(comptime_float, @floatFromInt(scale));
-    const rounded = @as(comptime_int, @intFromFloat(@round(result)));
+    const rounded: comptime_int = @round(result);
     return @intCast(rounded);
 }
 
@@ -66,7 +66,7 @@ pub fn scaledNearest(T: type, scale: comptime_int, value: comptime_float) T {
 /// Example: percentOf(u8, 255, 50.0) = 128 (50% of 255, nearest).
 pub fn percentOf(T: type, max: comptime_int, pct: comptime_float) T {
     const result = pct / 100.0 * @as(comptime_float, @floatFromInt(max));
-    const rounded = @as(comptime_int, @intFromFloat(@round(result)));
+    const rounded: comptime_int = @round(result);
     if (rounded < 0 or rounded > max) {
         @compileError(std.fmt.comptimePrint(
             "{d}% of {} = {} which is out of range [0, {}]",
