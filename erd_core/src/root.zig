@@ -18,6 +18,8 @@ pub const data_component = struct {
     pub const ConvertedMapping = @import("converted_data_component.zig").Mapping;
     pub const Converted = @import("converted_data_component.zig").ConvertedDataComponent;
 
+    pub const External = @import("external_data_component.zig").ExternalDataComponent;
+
     pub const subscription_mixin = @import("data_component_subscription.zig");
 };
 
@@ -38,5 +40,6 @@ test {
     _ = @import("tests/converted_data_component_test.zig");
     _ = @import("tests/timer_test.zig");
     _ = @import("tests/timer_fuzzing.zig");
+    _ = @import("tests/external_data_component_test.zig");
     _ = @import("strip_asm.zig");
 }

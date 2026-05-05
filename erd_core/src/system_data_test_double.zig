@@ -26,6 +26,7 @@ const Erd = erd_core.Erd;
 pub const RamErdOptions = struct {
     subs: comptime_int = 0,
     erd_number: ?Erd.ErdHandle = null,
+    published: bool = false,
 };
 
 /// Create an ERD definition for use in a test double.
@@ -35,6 +36,7 @@ pub fn ramErd(T: type, comptime opts: RamErdOptions) Erd {
         .T = T,
         .component_idx = 0,
         .subs = opts.subs,
+        .published = opts.published,
     };
 }
 
