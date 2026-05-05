@@ -125,11 +125,40 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
                 if (!supports_write_from_component_idx[erd.component_idx]) {
                     @compileError("This ERD's data component does not support writes");
                 }
+                if (@typeInfo(erd.T) == .@"struct" and std.meta.fields(erd.T).len >= 4) {
+                    @compileError("Use modify() for struct ERDs with 4 or more fields: " ++
+                        "comptime RMW on primitives and small structs already optimizes cleanly, " ++
+                        "but large structs benefit from modify()'s shared noinline body for code size");
+                }
             }
 
             inline for (component_fields, 0..) |field, i| {
                 if (erd.component_idx == i) {
                     @field(this.components, field.name).write(erd, data, @ptrCast(this));
+                }
+            }
+        }
+
+        /// Modify a struct ERD in-place and always publish, skipping change detection.
+        /// Use when the modification is guaranteed to produce a new value.
+        /// Debug-asserts that the value actually changed.
+        pub fn modify(this: *Self, comptime erd_enum: ErdEnum, comptime modifier: *const fn (*erdFromEnum(erd_enum).T) void) void {
+            const erd: Erd = erdFromEnum(erd_enum);
+
+            comptime {
+                if (!supports_write_from_component_idx[erd.component_idx]) {
+                    @compileError("This ERD's data component does not support writes");
+                }
+                if (@typeInfo(erd.T) != .@"struct") {
+                    @compileError("modify() is only for struct ERDs: " ++
+                        "primitive RMW patterns already optimize cleanly via write() " ++
+                        "and modify() would bypass change detection without a code size benefit");
+                }
+            }
+
+            inline for (component_fields, 0..) |field, i| {
+                if (erd.component_idx == i) {
+                    @field(this.components, field.name).modify(erd, modifier, @ptrCast(this));
                 }
             }
         }

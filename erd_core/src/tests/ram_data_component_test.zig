@@ -92,11 +92,19 @@ test "structs" {
     const packed_st = ram_data.read(erd_packed_fr);
     try std.testing.expectEqual(std.mem.zeroes(@TypeOf(packed_st)), packed_st);
 
-    ram_data.write(erd_packed_fr, .{ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 }, &dummy_publisher);
+    ram_data.modify(erd_packed_fr, struct {
+        fn m(val: *PackedFr) void {
+            val.* = .{ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 };
+        }
+    }.m, &dummy_publisher);
     const packed_st_with_data = ram_data.read(erd_packed_fr);
     try std.testing.expectEqual(@TypeOf(packed_st_with_data){ .a = 1, .b = 0, .c = 0, .d = 0, .e = 1, .f = 0, .g = 1 }, packed_st_with_data);
 
-    ram_data.write(erd_padded, .{ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF }, &dummy_publisher);
+    ram_data.modify(erd_padded, struct {
+        fn m(val: *PaddedStruct) void {
+            val.* = .{ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF };
+        }
+    }.m, &dummy_publisher);
 
     const padded = ram_data.read(erd_padded);
     try std.testing.expectEqual(@TypeOf(padded){ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF }, padded);

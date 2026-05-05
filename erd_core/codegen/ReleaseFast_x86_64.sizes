@@ -1,4 +1,5 @@
 # size (bytes)	function
+2	modify_medium_no_subs
 2	runtime_read
 3	read_u32
 4	many_read_first
@@ -19,6 +20,8 @@
 9	dual_read
 10	read_across_two_erds
 10	write_big_struct
+13	modify_medium_single_field
+13	modify_medium_two_fields
 14	dual_write
 17	read_then_branch
 19	read_big_struct
@@ -26,6 +29,7 @@
 25	read_medium_struct
 28	conditional_write_chain
 28	many_write_last_with_subs
+31	double_modify_struct
 31	runtime_read_two
 34	runtime_write_two
 35	cross_system_swap
@@ -36,11 +40,8 @@
 50	subscribe_callback
 58	read_write_other_read
 60	runtime_write_three
-74	read_modify_write_medium
 109	double_write_diff_values
 109	double_write_same_value
-112	write_medium_with_subs
 114	write_junk_read_write
-167	double_rmw_struct
 173	triple_write_increment
 222	setup_timer_callback

@@ -1,0 +1,35 @@
+modify_medium_single_field:
+        mov	esi, offset .Lcodegen_harness.double_modify_struct__struct_0.m
+        mov	rdx, rdi
+        jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).modifyInner__anon_1"
+
+; --- called functions ---
+
+".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).modifyInner__anon_1":
+        push	r15
+        push	r14
+        push	rbx
+        sub	rsp, 32
+        mov	rbx, rdx
+        mov	r14, rdi
+        mov	rax, qword ptr [rdi + 272]
+        mov	qword ptr [rsp + 16], rax
+        movups	xmm0, xmmword ptr [rdi + 256]
+        movaps	xmmword ptr [rsp], xmm0
+        mov	r15, rsp
+        mov	rdi, r15
+        call	rsi
+        mov	rax, qword ptr [rsp + 16]
+        mov	qword ptr [r14 + 272], rax
+        movaps	xmm0, xmmword ptr [rsp]
+        movups	xmmword ptr [r14 + 256], xmm0
+        mov	rdi, r14
+        mov	rsi, r15
+        mov	rdx, rbx
+        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
+        add	rsp, 32
+        pop	rbx
+        pop	r14
+        pop	r15
+        ret
+

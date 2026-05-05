@@ -1,14 +1,14 @@
 subscribe_callback:
         mov	rax, qword ptr [rdi + 24]
         cmp	rax, offset .Lcodegen_harness.accumulate_callback
-        je	.LBB20_3
+        je	.LBB22_3
         test	rax, rax
-        jne	.LBB20_4
+        jne	.LBB22_4
         and	qword ptr [rdi + 16], 0
         mov	qword ptr [rdi + 24], offset .Lcodegen_harness.accumulate_callback
-.LBB20_3:
+.LBB22_3:
         ret
-.LBB20_4:
+.LBB22_4:
         push	rax
         push	19
         pop	rsi

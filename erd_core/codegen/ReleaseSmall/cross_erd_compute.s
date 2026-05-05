@@ -10,12 +10,12 @@ cross_erd_compute:
         mov	word ptr [rsp + 6], si
         cmp	word ptr [rdi + 7], si
         mov	word ptr [rdi + 7], si
-        je	.LBB6_2
+        je	.LBB8_2
         lea	rdx, [rsp + 6]
         mov	esi, 3
         mov	rcx, rdi
-        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
-.LBB6_2:
+        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
+.LBB8_2:
         pop	rax
         ret
 
