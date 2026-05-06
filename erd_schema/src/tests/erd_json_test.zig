@@ -432,6 +432,81 @@ test "extern union" {
 }
 
 // =======================================================================
+// Tagged union pattern (extern struct + enum tag + extern union)
+// =======================================================================
+
+test "tagged union via extern struct wrapper" {
+    const Msg = extern struct {
+        tag: enum(u8) { temperature, error_code },
+        payload: extern union {
+            temperature: u16,
+            error_code: u8,
+        },
+    };
+    var r = try tdString(Msg);
+    defer r.out.deinit();
+
+    // Verify tag is an enum at offset 0
+    const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, r.str, .{});
+    defer parsed.deinit();
+    const fields = parsed.value.object.get("fields").?.array.items;
+    try std.testing.expectEqual(2, fields.len);
+
+    const tag_field = fields[0].object;
+    try std.testing.expectEqualStrings("tag", tag_field.get("name").?.string);
+    try std.testing.expectEqual(0, tag_field.get("offset").?.integer);
+    const tag_td = tag_field.get("type_descriptor").?.object;
+    try std.testing.expectEqualStrings("enum", tag_td.get("kind").?.string);
+
+    const payload_field = fields[1].object;
+    try std.testing.expectEqualStrings("payload", payload_field.get("name").?.string);
+    try std.testing.expectEqual(@offsetOf(Msg, "payload"), @as(usize, @intCast(payload_field.get("offset").?.integer)));
+    const payload_td = payload_field.get("type_descriptor").?.object;
+    try std.testing.expectEqualStrings("union", payload_td.get("kind").?.string);
+}
+
+test "tagged union: switch on tag and access payload from raw bytes" {
+    const Msg = extern struct {
+        tag: enum(u8) { temperature, error_code },
+        payload: extern union {
+            temperature: u16,
+            error_code: u8,
+        },
+    };
+
+    // tag=0 (temperature), pad byte, payload=0x04D2 (1234 LE)
+    const raw = [_]u8{ 0x00, 0x00, 0xD2, 0x04 };
+    const msg: *const Msg = @ptrCast(@alignCast(&raw));
+
+    switch (msg.tag) {
+        .temperature => try std.testing.expectEqual(@as(u16, 1234), msg.payload.temperature),
+        .error_code => return error.TestUnexpectedResult,
+    }
+
+    // tag=1 (error_code), pad byte, payload=0x2A (42)
+    const raw2 = [_]u8{ 0x01, 0x00, 0x2A, 0x00 };
+    const msg2: *const Msg = @ptrCast(@alignCast(&raw2));
+
+    switch (msg2.tag) {
+        .temperature => return error.TestUnexpectedResult,
+        .error_code => try std.testing.expectEqual(@as(u8, 42), msg2.payload.error_code),
+    }
+}
+
+// =======================================================================
+// Enum dot syntax
+// =======================================================================
+
+test "enum created from descriptor supports dot syntax" {
+    const Mode = erd_schema.TypeFromDescriptor(
+        \\{"kind":"enum","name":"Mode","tag_type":"u8","size":1,"variants":["off","on","standby"]}
+    );
+    const v: Mode = .standby;
+    try std.testing.expectEqualStrings("standby", @tagName(v));
+    try std.testing.expectEqual(@as(u8, 2), @intFromEnum(v));
+}
+
+// =======================================================================
 // Nested compound types
 // =======================================================================
 

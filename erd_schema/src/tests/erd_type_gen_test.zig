@@ -156,13 +156,23 @@ test "packed struct" {
 // Enums
 // =======================================================================
 
-test "enum with u8 tag" {
-    const T = TypeFromDescriptor(
+test "enum with u8 tag and dot syntax" {
+    const Mode = TypeFromDescriptor(
         \\{"kind":"enum","name":"E","tag_type":"u8","size":1,"variants":["off","on","standby"]}
     );
-    try std.testing.expectEqual(1, @sizeOf(T));
-    const v: T = @enumFromInt(1);
+    try std.testing.expectEqual(1, @sizeOf(Mode));
+
+    // dot syntax works
+    const v: Mode = .on;
     try std.testing.expectEqualStrings("on", @tagName(v));
+    try std.testing.expectEqual(@as(u8, 1), @intFromEnum(v));
+
+    // switch works
+    switch (v) {
+        .off => unreachable,
+        .on => {},
+        .standby => unreachable,
+    }
 }
 
 test "enum with u16 tag" {
