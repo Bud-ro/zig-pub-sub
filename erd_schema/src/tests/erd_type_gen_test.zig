@@ -86,6 +86,13 @@ test "array of u8" {
     try std.testing.expect(T == [4]u8);
 }
 
+test "string becomes [N]u8" {
+    const T = TypeFromDescriptor(
+        \\{"kind":"string","max_len":32,"size":32}
+    );
+    try std.testing.expect(T == [32]u8);
+}
+
 test "array of u32" {
     const T = TypeFromDescriptor(
         \\{"kind":"array","len":2,"size":8,"element":{"kind":"primitive","name":"u32","size":4,"signedness":"unsigned","bits":32}}

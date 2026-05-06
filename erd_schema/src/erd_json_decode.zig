@@ -20,9 +20,15 @@ pub const TypeDescriptor = struct {
         primitive: Primitive,
         structure: Struct,
         array: Array,
+        string: String,
         enumeration: Enum,
         optional: Optional,
         pointer: Pointer,
+    };
+
+    const String = struct {
+        max_len: usize,
+        size: usize,
     };
 
     const Primitive = struct {
@@ -101,7 +107,7 @@ pub const TypeDescriptor = struct {
                 p.child.deinit();
                 self.allocator.destroy(p.child);
             },
-            .primitive => {},
+            .primitive, .string => {},
         }
         if (self._parsed) |p| {
             p.deinit();
@@ -149,6 +155,14 @@ pub const TypeDescriptor = struct {
                     .size = @intCast(obj.get("size").?.integer),
                     .backing_bits = if (obj.get("backing_integer_bits")) |b| @as(?usize, @intCast(b.integer)) else null,
                     .fields = fields,
+                } },
+            };
+        } else if (std.mem.eql(u8, kind_str, "string")) {
+            return .{
+                .allocator = allocator,
+                .kind = .{ .string = .{
+                    .max_len = @intCast(obj.get("max_len").?.integer),
+                    .size = @intCast(obj.get("size").?.integer),
                 } },
             };
         } else if (std.mem.eql(u8, kind_str, "array")) {
@@ -227,6 +241,10 @@ pub const TypeDescriptor = struct {
                     try formatExternStruct(s, bytes, writer, indent);
                 }
             },
+            .string => |s| {
+                const end = std.mem.indexOfScalar(u8, bytes[0..@min(s.max_len, bytes.len)], 0) orelse @min(s.max_len, bytes.len);
+                try writer.print("\"{s}\"", .{bytes[0..end]});
+            },
             .array => |a| {
                 const elem_size = a.size / a.len;
                 try writer.print("[", .{});
@@ -300,6 +318,7 @@ pub const TypeDescriptor = struct {
             .primitive => |p| p.size,
             .structure => |s| s.size,
             .array => |a| a.size,
+            .string => |s| s.size,
             .enumeration => |e| e.size,
             .optional => |o| o.size,
             .pointer => |p| p.size,

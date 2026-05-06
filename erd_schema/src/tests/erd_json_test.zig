@@ -355,43 +355,36 @@ test "enum with u16 tag" {
 // Arrays
 // =======================================================================
 
-test "u8 array" {
-    var r = try tdString([4]u8);
+test "u8 array is string" {
+    var r = try tdString([32]u8);
     defer r.out.deinit();
     try std.testing.expectEqualStrings(
         \\{
-        \\    "kind": "array",
-        \\    "len": 4,
-        \\    "size": 4,
-        \\    "element": {
-        \\        "kind": "primitive",
-        \\        "name": "u8",
-        \\        "size": 1,
-        \\        "signedness": "unsigned",
-        \\        "bits": 8
-        \\    }
+        \\    "kind": "string",
+        \\    "max_len": 32,
+        \\    "size": 32
         \\}
     , r.str);
 }
 
 test "2D array" {
-    var r = try tdString([2][3]u8);
+    var r = try tdString([2][3]u16);
     defer r.out.deinit();
     try std.testing.expectEqualStrings(
         \\{
         \\    "kind": "array",
         \\    "len": 2,
-        \\    "size": 6,
+        \\    "size": 12,
         \\    "element": {
         \\        "kind": "array",
         \\        "len": 3,
-        \\        "size": 3,
+        \\        "size": 6,
         \\        "element": {
         \\            "kind": "primitive",
-        \\            "name": "u8",
-        \\            "size": 1,
+        \\            "name": "u16",
+        \\            "size": 2,
         \\            "signedness": "unsigned",
-        \\            "bits": 8
+        \\            "bits": 16
         \\        }
         \\    }
         \\}
@@ -468,14 +461,14 @@ test "optional pointer" {
 // Nested compound types
 // =======================================================================
 
-test "extern struct containing array" {
+test "extern struct containing string" {
     const S = extern struct { header: u8, data: [3]u8 };
     var r = try tdString(S);
     defer r.out.deinit();
     try std.testing.expectEqualStrings(
         \\{
         \\    "kind": "struct",
-        \\    "name": "tests.erd_json_test.test.extern struct containing array.S",
+        \\    "name": "tests.erd_json_test.test.extern struct containing string.S",
         \\    "layout": "extern",
         \\    "size": 4,
         \\    "fields": [
@@ -494,16 +487,9 @@ test "extern struct containing array" {
         \\            "name": "data",
         \\            "offset": 1,
         \\            "type_descriptor": {
-        \\                "kind": "array",
-        \\                "len": 3,
-        \\                "size": 3,
-        \\                "element": {
-        \\                    "kind": "primitive",
-        \\                    "name": "u8",
-        \\                    "size": 1,
-        \\                    "signedness": "unsigned",
-        \\                    "bits": 8
-        \\                }
+        \\                "kind": "string",
+        \\                "max_len": 3,
+        \\                "size": 3
         \\            }
         \\        }
         \\    ]
@@ -683,8 +669,7 @@ test "full ERD table with type_descriptors" {
         \\        {
         \\            "name": "version",
         \\            "id": "0x0000",
-        \\            "type": "u32",
-        \\            "type_descriptor": {
+        \\            "type": {
         \\                "kind": "primitive",
         \\                "name": "u32",
         \\                "size": 4,
@@ -695,8 +680,7 @@ test "full ERD table with type_descriptors" {
         \\        {
         \\            "name": "flag",
         \\            "id": "0x0001",
-        \\            "type": "bool",
-        \\            "type_descriptor": {
+        \\            "type": {
         \\                "kind": "primitive",
         \\                "name": "bool",
         \\                "size": 1,
@@ -707,8 +691,7 @@ test "full ERD table with type_descriptors" {
         \\        {
         \\            "name": "sensor",
         \\            "id": "0x0010",
-        \\            "type": "i32",
-        \\            "type_descriptor": {
+        \\            "type": {
         \\                "kind": "primitive",
         \\                "name": "i32",
         \\                "size": 4,

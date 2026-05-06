@@ -25,6 +25,9 @@ fn ParseType(comptime json_str: []const u8) type {
 
     if (strEql(kind, "primitive")) {
         return ParsePrimitive(json_str);
+    } else if (strEql(kind, "string")) {
+        const len: usize = extractInt(json_str, "\"max_len\":");
+        return [len]u8;
     } else if (strEql(kind, "array")) {
         return ParseArray(json_str);
     } else {

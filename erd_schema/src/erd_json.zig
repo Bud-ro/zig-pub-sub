@@ -43,8 +43,6 @@ pub fn serialize(erd_defs: anytype, jws: anytype, comptime options: Options) !vo
                     try jws.objectField("id");
                     try jws.print("\"0x{x:0>4}\"", .{e.erd_number.?});
                     try jws.objectField("type");
-                    try jws.print("\"{}\"", .{e.T});
-                    try jws.objectField("type_descriptor");
                     try typeDescriptor(e.T, jws);
                     try jws.endObject();
                 }
@@ -159,16 +157,28 @@ pub fn typeDescriptor(T: type, jws: anytype) !void {
             try jws.endObject();
         },
         .array => |array_info| {
-            try jws.beginObject();
-            try jws.objectField("kind");
-            try jws.write("array");
-            try jws.objectField("len");
-            try jws.write(array_info.len);
-            try jws.objectField("size");
-            try jws.write(@sizeOf(T));
-            try jws.objectField("element");
-            try typeDescriptor(array_info.child, jws);
-            try jws.endObject();
+            if (array_info.child == u8) {
+                // [N]u8 is a null-terminated string buffer
+                try jws.beginObject();
+                try jws.objectField("kind");
+                try jws.write("string");
+                try jws.objectField("max_len");
+                try jws.write(array_info.len);
+                try jws.objectField("size");
+                try jws.write(@sizeOf(T));
+                try jws.endObject();
+            } else {
+                try jws.beginObject();
+                try jws.objectField("kind");
+                try jws.write("array");
+                try jws.objectField("len");
+                try jws.write(array_info.len);
+                try jws.objectField("size");
+                try jws.write(@sizeOf(T));
+                try jws.objectField("element");
+                try typeDescriptor(array_info.child, jws);
+                try jws.endObject();
+            }
         },
         .optional => |opt_info| {
             try jws.beginObject();

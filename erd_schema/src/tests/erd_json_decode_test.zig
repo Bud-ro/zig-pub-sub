@@ -122,6 +122,37 @@ test "packed struct" {
     try std.testing.expectEqualStrings("{ a: 19, b: 5 }", r.str);
 }
 
+test "string with null terminator" {
+    var td = try TypeDescriptor.parse(std.testing.allocator,
+        \\{"kind":"string","max_len":16,"size":16}
+    );
+    defer td.deinit();
+    const bytes = "Hello\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+    var r = try format(&td, bytes);
+    defer r.deinit();
+    try std.testing.expectEqualStrings("\"Hello\"", r.str);
+}
+
+test "string fills entire buffer" {
+    var td = try TypeDescriptor.parse(std.testing.allocator,
+        \\{"kind":"string","max_len":4,"size":4}
+    );
+    defer td.deinit();
+    var r = try format(&td, "ABCD");
+    defer r.deinit();
+    try std.testing.expectEqualStrings("\"ABCD\"", r.str);
+}
+
+test "empty string" {
+    var td = try TypeDescriptor.parse(std.testing.allocator,
+        \\{"kind":"string","max_len":8,"size":8}
+    );
+    defer td.deinit();
+    var r = try format(&td, &.{ 0, 0, 0, 0, 0, 0, 0, 0 });
+    defer r.deinit();
+    try std.testing.expectEqualStrings("\"\"", r.str);
+}
+
 test "array of u8" {
     var td = try TypeDescriptor.parse(std.testing.allocator,
         \\{"kind":"array","len":4,"size":4,"element":{"kind":"primitive","name":"u8","size":1,"signedness":"unsigned","bits":8}}
