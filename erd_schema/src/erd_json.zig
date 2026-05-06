@@ -180,11 +180,25 @@ pub fn typeDescriptor(T: type, jws: anytype) !void {
                 try jws.endObject();
             }
         },
+        .float => |float_info| {
+            try jws.beginObject();
+            try jws.objectField("kind");
+            try jws.write("float");
+            try jws.objectField("name");
+            try jws.print("\"{}\"", .{T});
+            try jws.objectField("size");
+            try jws.write(@sizeOf(T));
+            try jws.objectField("bits");
+            try jws.write(float_info.bits);
+            try jws.endObject();
+        },
         .@"union" => |union_info| {
             if (union_info.layout != .@"extern") {
                 @compileError("Cannot serialize non-extern union '" ++ @typeName(T) ++
                     "': only extern unions have a guaranteed memory layout");
             }
+            // extern unions cannot have tag types in Zig; the tag must be
+            // a separate field in a wrapping extern struct
             try jws.beginObject();
             try jws.objectField("kind");
             try jws.write("union");
@@ -194,10 +208,6 @@ pub fn typeDescriptor(T: type, jws: anytype) !void {
             try jws.write("extern");
             try jws.objectField("size");
             try jws.write(@sizeOf(T));
-            if (union_info.tag_type) |tag| {
-                try jws.objectField("tag_type");
-                try typeDescriptor(tag, jws);
-            }
             try jws.objectField("fields");
             try jws.beginArray();
             inline for (union_info.fields) |field| {
@@ -220,14 +230,8 @@ pub fn typeDescriptor(T: type, jws: anytype) !void {
                 "': pointers are memory addresses with no meaning outside the originating process");
         },
         else => {
-            try jws.beginObject();
-            try jws.objectField("kind");
-            try jws.write("opaque");
-            try jws.objectField("name");
-            try jws.print("\"{}\"", .{T});
-            try jws.objectField("size");
-            try jws.write(@sizeOf(T));
-            try jws.endObject();
+            @compileError("Cannot serialize type '" ++ @typeName(T) ++
+                "': unsupported type category for wire serialization");
         },
     }
 }

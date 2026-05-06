@@ -19,6 +19,8 @@ fn ParseType(comptime json_str: []const u8) type {
 
     if (strEql(kind, "primitive")) {
         return ParsePrimitive(json_str);
+    } else if (strEql(kind, "float")) {
+        return ParseFloat(json_str);
     } else if (strEql(kind, "string")) {
         const len: usize = extractInt(json_str, "\"max_len\":");
         return [len]u8;
@@ -105,6 +107,18 @@ fn ParseEnum(comptime json_str: []const u8) type {
     return @Enum(TagType, .exhaustive, variant_names, &values);
 }
 
+fn ParseFloat(comptime json_str: []const u8) type {
+    const bits = extractInt(json_str, "\"bits\":");
+    return switch (bits) {
+        16 => f16,
+        32 => f32,
+        64 => f64,
+        80 => f80,
+        128 => f128,
+        else => @compileError("Unsupported float width"),
+    };
+}
+
 fn ParseUnion(comptime json_str: []const u8) type {
     const fields_json = extractArray(json_str, "\"fields\":");
     const field_objects = splitObjects(fields_json);
@@ -119,11 +133,8 @@ fn ParseUnion(comptime json_str: []const u8) type {
         field_attrs[i] = .{};
     }
 
-    // Check for tag_type
-    const has_tag = std.mem.indexOf(u8, json_str, "\"tag_type\":") != null;
-    const TagType: ?type = if (has_tag) ParseType(extractObject(json_str, "\"tag_type\":")) else null;
-
-    return @Union(.@"extern", TagType, &field_names, &field_types, &field_attrs);
+    // extern unions cannot have tag types in Zig
+    return @Union(.@"extern", null, &field_names, &field_types, &field_attrs);
 }
 
 // --- Comptime mini JSON helpers ---

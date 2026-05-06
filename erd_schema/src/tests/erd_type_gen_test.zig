@@ -72,6 +72,40 @@ test "i12 (non-standard)" {
 }
 
 // =======================================================================
+// Floats
+// =======================================================================
+
+test "f16" {
+    try std.testing.expect(TypeFromDescriptor(
+        \\{"kind":"float","name":"f16","size":2,"bits":16}
+    ) == f16);
+}
+
+test "f32" {
+    try std.testing.expect(TypeFromDescriptor(
+        \\{"kind":"float","name":"f32","size":4,"bits":32}
+    ) == f32);
+}
+
+test "f64" {
+    try std.testing.expect(TypeFromDescriptor(
+        \\{"kind":"float","name":"f64","size":8,"bits":64}
+    ) == f64);
+}
+
+test "f80" {
+    try std.testing.expect(TypeFromDescriptor(
+        \\{"kind":"float","name":"f80","size":16,"bits":80}
+    ) == f80);
+}
+
+test "f128" {
+    try std.testing.expect(TypeFromDescriptor(
+        \\{"kind":"float","name":"f128","size":16,"bits":128}
+    ) == f128);
+}
+
+// =======================================================================
 // Strings and arrays
 // =======================================================================
 

@@ -21,6 +21,42 @@ pub const SwapRule = struct {
     size: u8,
 };
 
+/// Generate swap rules for a specific union variant, offset within a parent struct.
+/// Usage for tagged union pattern (extern struct { tag: enum(u8), payload: extern union }):
+///   const tag_rules = SwapRules(TagEnum);
+///   // After reading tag:
+///   switch (tag) {
+///       .temperature => SwapVariant(PayloadUnion, "temperature", payload_offset).apply(&buf),
+///       .error_code => SwapVariant(PayloadUnion, "error_code", payload_offset).apply(&buf),
+///   }
+pub fn SwapVariant(UnionType: type, comptime field_name: []const u8, comptime base_offset: u16) type {
+    const union_info = @typeInfo(UnionType).@"union";
+    const FieldType = blk: {
+        for (union_info.fields) |f| {
+            if (std.mem.eql(u8, f.name, field_name)) break :blk f.type;
+        }
+        @compileError("Union has no field named '" ++ field_name ++ "'");
+    };
+    const rules = comptime generateRules(FieldType, base_offset);
+    return struct {
+        pub const swap_rules: [rules.len]SwapRule = rules[0..rules.len].*;
+
+        pub fn apply(buf: []u8) void {
+            for (swap_rules) |rule| {
+                const start = rule.offset;
+                const end = start + rule.size;
+                if (end <= buf.len) {
+                    std.mem.reverse(u8, buf[start..end]);
+                }
+            }
+        }
+
+        pub fn ruleCount() comptime_int {
+            return rules.len;
+        }
+    };
+}
+
 /// Generate swap rules for a type. Returns a comptime slice of SwapRule.
 /// Each rule says "at byte offset, reverse `size` bytes."
 pub fn SwapRules(T: type) type {
@@ -50,7 +86,7 @@ fn generateRules(T: type, comptime base_offset: u16) []const SwapRule {
     const info = @typeInfo(T);
 
     switch (info) {
-        .int => {
+        .int, .float => {
             const size = @sizeOf(T);
             if (size <= 1) return &.{};
             return &.{SwapRule{ .offset = base_offset, .size = @intCast(size) }};
@@ -102,6 +138,7 @@ fn generateRules(T: type, comptime base_offset: u16) []const SwapRule {
             // determining the active variant via the tag).
             return &.{};
         },
-        else => return &.{},
+        else => @compileError("Cannot generate swap rules for type '" ++
+            @typeName(T) ++ "': unsupported type category"),
     }
 }

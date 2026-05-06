@@ -4,20 +4,30 @@
 //! pretty-prints field names and values. Useful for debug tools, protocol
 //! analyzers, and host-side ERD viewers that receive raw bytes over the wire.
 //!
-//! Usage:
-//!   var td = try TypeDescriptor.parse(allocator, json_string);
-//!   defer td.deinit();
-//!   try td.formatBytes(raw_bytes, writer);
-//!   // Output: "{ mode: ok, threshold: 1234 }"
+//! Lifetime: The root TypeDescriptor returned by `parse()` owns the JSON parse
+//! tree. All string fields (names, variant names, layout) point into that tree.
+//! Child TypeDescriptors allocated for nested types share this lifetime. Do not
+//! use any TypeDescriptor or its string fields after calling `deinit()` on the root.
 const std = @import("std");
+
+pub const ParseError = error{
+    UnsupportedKind,
+    OutOfMemory,
+    BufferUnderrun,
+    ValueTooLong,
+} || std.json.ParseFromValueError || std.json.Error;
+pub const FormatError = error{ OutOfMemory, WriteFailed };
 
 pub const TypeDescriptor = struct {
     kind: Kind,
     allocator: std.mem.Allocator,
+    /// Owns the JSON parse tree whose strings back all name/variant fields.
+    /// Only set on the root descriptor returned by `parse()`.
     _parsed: ?std.json.Parsed(std.json.Value) = null,
 
     const Kind = union(enum) {
         primitive: Primitive,
+        float: Float,
         structure: Struct,
         array: Array,
         string: String,
@@ -30,6 +40,12 @@ pub const TypeDescriptor = struct {
         size: usize,
         bits: usize,
         signed: bool,
+    };
+
+    const Float = struct {
+        name: []const u8,
+        size: usize,
+        bits: usize,
     };
 
     const String = struct {
@@ -74,11 +90,10 @@ pub const TypeDescriptor = struct {
         name: []const u8,
         layout: []const u8,
         size: usize,
-        tag_type: *TypeDescriptor,
         fields: []UnionField,
     };
 
-    pub fn parse(allocator: std.mem.Allocator, json_str: []const u8) !TypeDescriptor {
+    pub fn parse(allocator: std.mem.Allocator, json_str: []const u8) ParseError!TypeDescriptor {
         const parsed = try std.json.parseFromSlice(std.json.Value, allocator, json_str, .{});
         var td = try fromValue(allocator, parsed.value);
         td._parsed = parsed;
@@ -102,15 +117,13 @@ pub const TypeDescriptor = struct {
                 self.allocator.free(e.variants);
             },
             .@"union" => |u| {
-                u.tag_type.deinit();
-                self.allocator.destroy(u.tag_type);
                 for (u.fields) |*field| {
                     field.type_desc.deinit();
                     self.allocator.destroy(field.type_desc);
                 }
                 self.allocator.free(u.fields);
             },
-            .primitive, .string => {},
+            .primitive, .float, .string => {},
         }
         if (self._parsed) |p| {
             p.deinit();
@@ -118,7 +131,7 @@ pub const TypeDescriptor = struct {
         }
     }
 
-    fn fromValue(allocator: std.mem.Allocator, value: std.json.Value) anyerror!TypeDescriptor {
+    fn fromValue(allocator: std.mem.Allocator, value: std.json.Value) ParseError!TypeDescriptor {
         const obj = value.object;
         const kind_str = obj.get("kind").?.string;
 
@@ -132,8 +145,17 @@ pub const TypeDescriptor = struct {
                     .signed = std.mem.eql(u8, obj.get("signedness").?.string, "signed"),
                 } },
             };
+        } else if (std.mem.eql(u8, kind_str, "float")) {
+            return .{
+                .allocator = allocator,
+                .kind = .{ .float = .{
+                    .name = obj.get("name").?.string,
+                    .size = @intCast(obj.get("size").?.integer),
+                    .bits = @intCast(obj.get("bits").?.integer),
+                } },
+            };
         } else if (std.mem.eql(u8, kind_str, "struct")) {
-            return parseStruct(allocator, obj);
+            return parseStructValue(allocator, obj);
         } else if (std.mem.eql(u8, kind_str, "string")) {
             return .{
                 .allocator = allocator,
@@ -154,15 +176,15 @@ pub const TypeDescriptor = struct {
                 } },
             };
         } else if (std.mem.eql(u8, kind_str, "enum")) {
-            return parseEnum(allocator, obj);
+            return parseEnumValue(allocator, obj);
         } else if (std.mem.eql(u8, kind_str, "union")) {
-            return parseUnion(allocator, obj);
+            return parseUnionValue(allocator, obj);
         } else {
             return error.UnsupportedKind;
         }
     }
 
-    fn parseStruct(allocator: std.mem.Allocator, obj: std.json.ObjectMap) !TypeDescriptor {
+    fn parseStructValue(allocator: std.mem.Allocator, obj: std.json.ObjectMap) ParseError!TypeDescriptor {
         const fields_arr = obj.get("fields").?.array.items;
         const fields = try allocator.alloc(Field, fields_arr.len);
         for (fields_arr, 0..) |field_val, i| {
@@ -192,7 +214,7 @@ pub const TypeDescriptor = struct {
         };
     }
 
-    fn parseEnum(allocator: std.mem.Allocator, obj: std.json.ObjectMap) !TypeDescriptor {
+    fn parseEnumValue(allocator: std.mem.Allocator, obj: std.json.ObjectMap) ParseError!TypeDescriptor {
         const variants_arr = obj.get("variants").?.array.items;
         const variants = try allocator.alloc([]const u8, variants_arr.len);
         for (variants_arr, 0..) |v, i| {
@@ -208,10 +230,7 @@ pub const TypeDescriptor = struct {
         };
     }
 
-    fn parseUnion(allocator: std.mem.Allocator, obj: std.json.ObjectMap) !TypeDescriptor {
-        const tag_td = try allocator.create(TypeDescriptor);
-        tag_td.* = try fromValue(allocator, obj.get("tag_type").?);
-
+    fn parseUnionValue(allocator: std.mem.Allocator, obj: std.json.ObjectMap) ParseError!TypeDescriptor {
         const fields_arr = obj.get("fields").?.array.items;
         const fields = try allocator.alloc(UnionField, fields_arr.len);
         for (fields_arr, 0..) |field_val, i| {
@@ -229,18 +248,17 @@ pub const TypeDescriptor = struct {
                 .name = obj.get("name").?.string,
                 .layout = obj.get("layout").?.string,
                 .size = @intCast(obj.get("size").?.integer),
-                .tag_type = tag_td,
                 .fields = fields,
             } },
         };
     }
 
     /// Interpret raw bytes and write a human-readable representation.
-    pub fn formatBytes(self: *const TypeDescriptor, bytes: []const u8, writer: anytype) anyerror!void {
+    pub fn formatBytes(self: *const TypeDescriptor, bytes: []const u8, writer: anytype) FormatError!void {
         try self.formatBytesInner(bytes, writer, 0);
     }
 
-    fn formatBytesInner(self: *const TypeDescriptor, bytes: []const u8, writer: anytype, indent: usize) anyerror!void {
+    fn formatBytesInner(self: *const TypeDescriptor, bytes: []const u8, writer: anytype, indent: usize) FormatError!void {
         switch (self.kind) {
             .primitive => |p| {
                 if (std.mem.eql(u8, p.name, "bool")) {
@@ -249,6 +267,25 @@ pub const TypeDescriptor = struct {
                     try writer.print("{d}", .{readSignedInt(bytes, p.bits)});
                 } else {
                     try writer.print("{d}", .{readUnsignedInt(bytes, p.bits)});
+                }
+            },
+            .float => |f| {
+                switch (f.bits) {
+                    32 => {
+                        const val: f32 = @bitCast(std.mem.readInt(u32, bytes[0..4], .little));
+                        try writer.print("{d}", .{val});
+                    },
+                    64 => {
+                        const val: f64 = @bitCast(std.mem.readInt(u64, bytes[0..8], .little));
+                        try writer.print("{d}", .{val});
+                    },
+                    16 => {
+                        const val: f16 = @bitCast(std.mem.readInt(u16, bytes[0..2], .little));
+                        try writer.print("{d}", .{@as(f32, val)});
+                    },
+                    else => {
+                        try writer.print("<float{d}>", .{f.bits});
+                    },
                 }
             },
             .structure => |s| {
@@ -268,9 +305,9 @@ pub const TypeDescriptor = struct {
                 for (0..a.len) |i| {
                     if (i > 0) try writer.print(", ", .{});
                     const start = i * elem_size;
-                    const end = start + elem_size;
-                    if (end <= bytes.len) {
-                        try a.element.formatBytesInner(bytes[start..end], writer, indent);
+                    const end_pos = start + elem_size;
+                    if (end_pos <= bytes.len) {
+                        try a.element.formatBytesInner(bytes[start..end_pos], writer, indent);
                     }
                 }
                 try writer.print("]", .{});
@@ -284,8 +321,6 @@ pub const TypeDescriptor = struct {
                 }
             },
             .@"union" => |u| {
-                // For extern unions we don't know which field is active without
-                // external tag info, so print all interpretations
                 try writer.print("union{{ ", .{});
                 for (u.fields, 0..) |field, i| {
                     if (i > 0) try writer.print(", ", .{});
@@ -300,7 +335,7 @@ pub const TypeDescriptor = struct {
         }
     }
 
-    fn formatExternStruct(s: Struct, bytes: []const u8, writer: anytype, indent: usize) anyerror!void {
+    fn formatExternStruct(s: Struct, bytes: []const u8, writer: anytype, indent: usize) FormatError!void {
         try writer.print("{{ ", .{});
         for (s.fields, 0..) |field, i| {
             if (i > 0) try writer.print(", ", .{});
@@ -316,7 +351,7 @@ pub const TypeDescriptor = struct {
         try writer.print(" }}", .{});
     }
 
-    fn formatPackedStruct(s: Struct, bytes: []const u8, writer: anytype, indent: usize) anyerror!void {
+    fn formatPackedStruct(s: Struct, bytes: []const u8, writer: anytype, indent: usize) FormatError!void {
         _ = indent;
         try writer.print("{{ ", .{});
         for (s.fields, 0..) |field, i| {
@@ -332,6 +367,7 @@ pub const TypeDescriptor = struct {
     pub fn getSize(self: *const TypeDescriptor) usize {
         return switch (self.kind) {
             .primitive => |p| p.size,
+            .float => |f| f.size,
             .structure => |s| s.size,
             .array => |a| a.size,
             .string => |s| s.size,

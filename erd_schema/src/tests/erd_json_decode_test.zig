@@ -68,6 +68,27 @@ test "primitive bool false" {
     try std.testing.expectEqualStrings("false", r.str);
 }
 
+test "float f32" {
+    var td = try TypeDescriptor.parse(std.testing.allocator,
+        \\{"kind":"float","name":"f32","size":4,"bits":32}
+    );
+    defer td.deinit();
+    // 1.0f = 0x3F800000, LE: 00 00 80 3F
+    var r = try format(&td, &.{ 0x00, 0x00, 0x80, 0x3F });
+    defer r.deinit();
+    try std.testing.expectEqualStrings("1", r.str);
+}
+
+test "float f64" {
+    var td = try TypeDescriptor.parse(std.testing.allocator,
+        \\{"kind":"float","name":"f64","size":8,"bits":64}
+    );
+    defer td.deinit();
+    var r = try format(&td, &.{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40 });
+    defer r.deinit();
+    try std.testing.expectEqualStrings("2", r.str);
+}
+
 test "primitive u32" {
     var td = try TypeDescriptor.parse(std.testing.allocator,
         \\{"kind":"primitive","name":"u32","size":4,"signedness":"unsigned","bits":32}

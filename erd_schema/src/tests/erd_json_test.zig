@@ -352,6 +352,49 @@ test "enum with u16 tag" {
 }
 
 // =======================================================================
+// Floats
+// =======================================================================
+
+test "f32" {
+    var r = try tdString(f32);
+    defer r.out.deinit();
+    try std.testing.expectEqualStrings(
+        \\{
+        \\    "kind": "float",
+        \\    "name": "f32",
+        \\    "size": 4,
+        \\    "bits": 32
+        \\}
+    , r.str);
+}
+
+test "f64" {
+    var r = try tdString(f64);
+    defer r.out.deinit();
+    try std.testing.expectEqualStrings(
+        \\{
+        \\    "kind": "float",
+        \\    "name": "f64",
+        \\    "size": 8,
+        \\    "bits": 64
+        \\}
+    , r.str);
+}
+
+test "f16" {
+    var r = try tdString(f16);
+    defer r.out.deinit();
+    try std.testing.expectEqualStrings(
+        \\{
+        \\    "kind": "float",
+        \\    "name": "f16",
+        \\    "size": 2,
+        \\    "bits": 16
+        \\}
+    , r.str);
+}
+
+// =======================================================================
 // Arrays
 // =======================================================================
 
