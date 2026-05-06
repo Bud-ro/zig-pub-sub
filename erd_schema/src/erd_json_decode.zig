@@ -1,14 +1,14 @@
-/// Runtime decoder for type descriptors.
-///
-/// Given a parsed JSON type descriptor and a raw byte buffer, interprets and
-/// pretty-prints field names and values. Useful for debug tools, protocol
-/// analyzers, and host-side ERD viewers that receive raw bytes over the wire.
-///
-/// Usage:
-///   const td = try TypeDescriptor.parse(allocator, json_string);
-///   defer td.deinit();
-///   try td.formatBytes(raw_bytes, writer);
-///   // Output: "{ mode: 0 (ok), threshold: 1234 }"
+//! Runtime decoder for type descriptors.
+//!
+//! Given a parsed JSON type descriptor and a raw byte buffer, interprets and
+//! pretty-prints field names and values. Useful for debug tools, protocol
+//! analyzers, and host-side ERD viewers that receive raw bytes over the wire.
+//!
+//! Usage:
+//!   var td = try TypeDescriptor.parse(allocator, json_string);
+//!   defer td.deinit();
+//!   try td.formatBytes(raw_bytes, writer);
+//!   // Output: "{ mode: ok, threshold: 1234 }"
 const std = @import("std");
 
 pub const TypeDescriptor = struct {
@@ -22,13 +22,7 @@ pub const TypeDescriptor = struct {
         array: Array,
         string: String,
         enumeration: Enum,
-        optional: Optional,
-        pointer: Pointer,
-    };
-
-    const String = struct {
-        max_len: usize,
-        size: usize,
+        @"union": Union,
     };
 
     const Primitive = struct {
@@ -36,6 +30,11 @@ pub const TypeDescriptor = struct {
         size: usize,
         bits: usize,
         signed: bool,
+    };
+
+    const String = struct {
+        max_len: usize,
+        size: usize,
     };
 
     const Field = struct {
@@ -66,14 +65,17 @@ pub const TypeDescriptor = struct {
         variants: []const []const u8,
     };
 
-    const Optional = struct {
-        size: usize,
-        child: *TypeDescriptor,
+    const UnionField = struct {
+        name: []const u8,
+        type_desc: *TypeDescriptor,
     };
 
-    const Pointer = struct {
+    const Union = struct {
+        name: []const u8,
+        layout: []const u8,
         size: usize,
-        child: *TypeDescriptor,
+        tag_type: *TypeDescriptor,
+        fields: []UnionField,
     };
 
     pub fn parse(allocator: std.mem.Allocator, json_str: []const u8) !TypeDescriptor {
@@ -99,13 +101,14 @@ pub const TypeDescriptor = struct {
             .enumeration => |e| {
                 self.allocator.free(e.variants);
             },
-            .optional => |o| {
-                o.child.deinit();
-                self.allocator.destroy(o.child);
-            },
-            .pointer => |p| {
-                p.child.deinit();
-                self.allocator.destroy(p.child);
+            .@"union" => |u| {
+                u.tag_type.deinit();
+                self.allocator.destroy(u.tag_type);
+                for (u.fields) |*field| {
+                    field.type_desc.deinit();
+                    self.allocator.destroy(field.type_desc);
+                }
+                self.allocator.free(u.fields);
             },
             .primitive, .string => {},
         }
@@ -115,7 +118,7 @@ pub const TypeDescriptor = struct {
         }
     }
 
-    fn fromValue(allocator: std.mem.Allocator, value: std.json.Value) !TypeDescriptor {
+    fn fromValue(allocator: std.mem.Allocator, value: std.json.Value) anyerror!TypeDescriptor {
         const obj = value.object;
         const kind_str = obj.get("kind").?.string;
 
@@ -130,33 +133,7 @@ pub const TypeDescriptor = struct {
                 } },
             };
         } else if (std.mem.eql(u8, kind_str, "struct")) {
-            const fields_arr = obj.get("fields").?.array.items;
-            const fields = try allocator.alloc(Field, fields_arr.len);
-            for (fields_arr, 0..) |field_val, i| {
-                const fo = field_val.object;
-                const child_td = try allocator.create(TypeDescriptor);
-                child_td.* = try fromValue(allocator, fo.get("type_descriptor").?);
-                fields[i] = .{
-                    .name = fo.get("name").?.string,
-                    .offset = if (fo.get("offset")) |off| switch (off) {
-                        .integer => |v| @as(?usize, @intCast(v)),
-                        else => null,
-                    } else null,
-                    .bit_offset = if (fo.get("bit_offset")) |bo| @as(?usize, @intCast(bo.integer)) else null,
-                    .bits = if (fo.get("bits")) |b| @as(?usize, @intCast(b.integer)) else null,
-                    .type_desc = child_td,
-                };
-            }
-            return .{
-                .allocator = allocator,
-                .kind = .{ .structure = .{
-                    .name = obj.get("name").?.string,
-                    .layout = obj.get("layout").?.string,
-                    .size = @intCast(obj.get("size").?.integer),
-                    .backing_bits = if (obj.get("backing_integer_bits")) |b| @as(?usize, @intCast(b.integer)) else null,
-                    .fields = fields,
-                } },
-            };
+            return parseStruct(allocator, obj);
         } else if (std.mem.eql(u8, kind_str, "string")) {
             return .{
                 .allocator = allocator,
@@ -177,46 +154,88 @@ pub const TypeDescriptor = struct {
                 } },
             };
         } else if (std.mem.eql(u8, kind_str, "enum")) {
-            const variants_arr = obj.get("variants").?.array.items;
-            const variants = try allocator.alloc([]const u8, variants_arr.len);
-            for (variants_arr, 0..) |v, i| {
-                variants[i] = v.string;
-            }
-            return .{
-                .allocator = allocator,
-                .kind = .{ .enumeration = .{
-                    .name = obj.get("name").?.string,
-                    .size = @intCast(obj.get("size").?.integer),
-                    .variants = variants,
-                } },
-            };
-        } else if (std.mem.eql(u8, kind_str, "optional")) {
-            const child_td = try allocator.create(TypeDescriptor);
-            child_td.* = try fromValue(allocator, obj.get("child").?);
-            return .{
-                .allocator = allocator,
-                .kind = .{ .optional = .{
-                    .size = @intCast(obj.get("size").?.integer),
-                    .child = child_td,
-                } },
-            };
-        } else if (std.mem.eql(u8, kind_str, "pointer")) {
-            const child_td = try allocator.create(TypeDescriptor);
-            child_td.* = try fromValue(allocator, obj.get("child").?);
-            return .{
-                .allocator = allocator,
-                .kind = .{ .pointer = .{
-                    .size = @intCast(obj.get("size").?.integer),
-                    .child = child_td,
-                } },
-            };
+            return parseEnum(allocator, obj);
+        } else if (std.mem.eql(u8, kind_str, "union")) {
+            return parseUnion(allocator, obj);
         } else {
             return error.UnsupportedKind;
         }
     }
 
-    /// Interpret raw bytes according to this type descriptor and write a
-    /// human-readable representation to `writer`.
+    fn parseStruct(allocator: std.mem.Allocator, obj: std.json.ObjectMap) !TypeDescriptor {
+        const fields_arr = obj.get("fields").?.array.items;
+        const fields = try allocator.alloc(Field, fields_arr.len);
+        for (fields_arr, 0..) |field_val, i| {
+            const fo = field_val.object;
+            const child_td = try allocator.create(TypeDescriptor);
+            child_td.* = try fromValue(allocator, fo.get("type_descriptor").?);
+            fields[i] = .{
+                .name = fo.get("name").?.string,
+                .offset = if (fo.get("offset")) |off| switch (off) {
+                    .integer => |v| @as(?usize, @intCast(v)),
+                    else => null,
+                } else null,
+                .bit_offset = if (fo.get("bit_offset")) |bo| @as(?usize, @intCast(bo.integer)) else null,
+                .bits = if (fo.get("bits")) |b| @as(?usize, @intCast(b.integer)) else null,
+                .type_desc = child_td,
+            };
+        }
+        return .{
+            .allocator = allocator,
+            .kind = .{ .structure = .{
+                .name = obj.get("name").?.string,
+                .layout = obj.get("layout").?.string,
+                .size = @intCast(obj.get("size").?.integer),
+                .backing_bits = if (obj.get("backing_integer_bits")) |b| @as(?usize, @intCast(b.integer)) else null,
+                .fields = fields,
+            } },
+        };
+    }
+
+    fn parseEnum(allocator: std.mem.Allocator, obj: std.json.ObjectMap) !TypeDescriptor {
+        const variants_arr = obj.get("variants").?.array.items;
+        const variants = try allocator.alloc([]const u8, variants_arr.len);
+        for (variants_arr, 0..) |v, i| {
+            variants[i] = v.string;
+        }
+        return .{
+            .allocator = allocator,
+            .kind = .{ .enumeration = .{
+                .name = obj.get("name").?.string,
+                .size = @intCast(obj.get("size").?.integer),
+                .variants = variants,
+            } },
+        };
+    }
+
+    fn parseUnion(allocator: std.mem.Allocator, obj: std.json.ObjectMap) !TypeDescriptor {
+        const tag_td = try allocator.create(TypeDescriptor);
+        tag_td.* = try fromValue(allocator, obj.get("tag_type").?);
+
+        const fields_arr = obj.get("fields").?.array.items;
+        const fields = try allocator.alloc(UnionField, fields_arr.len);
+        for (fields_arr, 0..) |field_val, i| {
+            const fo = field_val.object;
+            const child_td = try allocator.create(TypeDescriptor);
+            child_td.* = try fromValue(allocator, fo.get("type_descriptor").?);
+            fields[i] = .{
+                .name = fo.get("name").?.string,
+                .type_desc = child_td,
+            };
+        }
+        return .{
+            .allocator = allocator,
+            .kind = .{ .@"union" = .{
+                .name = obj.get("name").?.string,
+                .layout = obj.get("layout").?.string,
+                .size = @intCast(obj.get("size").?.integer),
+                .tag_type = tag_td,
+                .fields = fields,
+            } },
+        };
+    }
+
+    /// Interpret raw bytes and write a human-readable representation.
     pub fn formatBytes(self: *const TypeDescriptor, bytes: []const u8, writer: anytype) anyerror!void {
         try self.formatBytesInner(bytes, writer, 0);
     }
@@ -227,11 +246,9 @@ pub const TypeDescriptor = struct {
                 if (std.mem.eql(u8, p.name, "bool")) {
                     try writer.print("{s}", .{if (bytes[0] != 0) "true" else "false"});
                 } else if (p.signed) {
-                    const val = readSignedInt(bytes, p.bits);
-                    try writer.print("{d}", .{val});
+                    try writer.print("{d}", .{readSignedInt(bytes, p.bits)});
                 } else {
-                    const val = readUnsignedInt(bytes, p.bits);
-                    try writer.print("{d}", .{val});
+                    try writer.print("{d}", .{readUnsignedInt(bytes, p.bits)});
                 }
             },
             .structure => |s| {
@@ -266,19 +283,19 @@ pub const TypeDescriptor = struct {
                     try writer.print("<unknown:{d}>", .{raw});
                 }
             },
-            .optional => |o| {
-                // Optionals: last byte is the tag (0 = null, 1 = some) for most types
-                // This is a simplification - real optional layout varies
-                if (bytes.len > 0 and bytes[o.size - 1] != 0) {
-                    try writer.print("?", .{});
-                    try o.child.formatBytesInner(bytes[0..o.child.getSize()], writer, indent);
-                } else {
-                    try writer.print("null", .{});
+            .@"union" => |u| {
+                // For extern unions we don't know which field is active without
+                // external tag info, so print all interpretations
+                try writer.print("union{{ ", .{});
+                for (u.fields, 0..) |field, i| {
+                    if (i > 0) try writer.print(", ", .{});
+                    try writer.print("{s}: ", .{field.name});
+                    const field_size = field.type_desc.getSize();
+                    if (field_size <= bytes.len) {
+                        try field.type_desc.formatBytesInner(bytes[0..field_size], writer, indent + 1);
+                    }
                 }
-            },
-            .pointer => {
-                const addr = readUnsignedInt(bytes, @min(bytes.len, 8) * 8);
-                try writer.print("0x{x}", .{addr});
+                try writer.print(" }}", .{});
             },
         }
     }
@@ -307,8 +324,7 @@ pub const TypeDescriptor = struct {
             try writer.print("{s}: ", .{field.name});
             const bit_offset = field.bit_offset orelse 0;
             const bits = field.bits orelse 1;
-            const val = readBits(bytes, bit_offset, bits);
-            try writer.print("{d}", .{val});
+            try writer.print("{d}", .{readBits(bytes, bit_offset, bits)});
         }
         try writer.print(" }}", .{});
     }
@@ -320,8 +336,7 @@ pub const TypeDescriptor = struct {
             .array => |a| a.size,
             .string => |s| s.size,
             .enumeration => |e| e.size,
-            .optional => |o| o.size,
-            .pointer => |p| p.size,
+            .@"union" => |u| u.size,
         };
     }
 };
@@ -344,7 +359,6 @@ fn readSignedInt(bytes: []const u8, bits: usize) i64 {
     if (bits >= 64) return @bitCast(unsigned);
     const sign_bit = @as(u64, 1) << @intCast(bits - 1);
     if (unsigned & sign_bit != 0) {
-        // Sign extend
         const mask = ~((@as(u64, 1) << @intCast(bits)) - 1);
         return @bitCast(unsigned | mask);
     }

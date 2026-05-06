@@ -183,7 +183,12 @@ test "nested: struct containing enum" {
     try std.testing.expectEqualStrings("{ status: ok, code: 42 }", r.str);
 }
 
-// TODO: pointer test disabled - testing allocator detects a use-after-free in the
-// child TypeDescriptor's string references. Needs investigation into how the JSON
-// parser's string lifetimes interact with nested TypeDescriptor allocation.
-// test "pointer prints as hex address" { ... }
+test "extern union prints all field interpretations" {
+    var td = try TypeDescriptor.parse(std.testing.allocator,
+        \\{"kind":"union","name":"U","layout":"extern","size":4,"tag_type":{"kind":"enum","name":"Tag","tag_type":"u8","size":1,"variants":["int_val","byte_val"]},"fields":[{"name":"int_val","type_descriptor":{"kind":"primitive","name":"u32","size":4,"signedness":"unsigned","bits":32}},{"name":"byte_val","type_descriptor":{"kind":"primitive","name":"u8","size":1,"signedness":"unsigned","bits":8}}]}
+    );
+    defer td.deinit();
+    var r = try format(&td, &.{ 0x2A, 0x00, 0x00, 0x00 });
+    defer r.deinit();
+    try std.testing.expectEqualStrings("union{ int_val: 42, byte_val: 42 }", r.str);
+}

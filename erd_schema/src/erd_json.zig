@@ -180,25 +180,44 @@ pub fn typeDescriptor(T: type, jws: anytype) !void {
                 try jws.endObject();
             }
         },
-        .optional => |opt_info| {
+        .@"union" => |union_info| {
+            if (union_info.layout != .@"extern") {
+                @compileError("Cannot serialize non-extern union '" ++ @typeName(T) ++
+                    "': only extern unions have a guaranteed memory layout");
+            }
             try jws.beginObject();
             try jws.objectField("kind");
-            try jws.write("optional");
+            try jws.write("union");
+            try jws.objectField("name");
+            try jws.print("\"{}\"", .{T});
+            try jws.objectField("layout");
+            try jws.write("extern");
             try jws.objectField("size");
             try jws.write(@sizeOf(T));
-            try jws.objectField("child");
-            try typeDescriptor(opt_info.child, jws);
+            if (union_info.tag_type) |tag| {
+                try jws.objectField("tag_type");
+                try typeDescriptor(tag, jws);
+            }
+            try jws.objectField("fields");
+            try jws.beginArray();
+            inline for (union_info.fields) |field| {
+                try jws.beginObject();
+                try jws.objectField("name");
+                try jws.write(field.name);
+                try jws.objectField("type_descriptor");
+                try typeDescriptor(field.type, jws);
+                try jws.endObject();
+            }
+            try jws.endArray();
             try jws.endObject();
         },
-        .pointer => |ptr_info| {
-            try jws.beginObject();
-            try jws.objectField("kind");
-            try jws.write("pointer");
-            try jws.objectField("size");
-            try jws.write(@sizeOf(T));
-            try jws.objectField("child");
-            try typeDescriptor(ptr_info.child, jws);
-            try jws.endObject();
+        .optional => {
+            @compileError("Cannot serialize optional type '" ++ @typeName(T) ++
+                "': non-pointer optionals have no guaranteed in-memory representation");
+        },
+        .pointer => {
+            @compileError("Cannot serialize pointer type '" ++ @typeName(T) ++
+                "': pointers are memory addresses with no meaning outside the originating process");
         },
         else => {
             try jws.beginObject();

@@ -1,20 +1,14 @@
-/// Comptime type generation from JSON type descriptors (primitives only).
-///
-/// Zig 0.16 does not support @Type for struct/enum creation. This module
-/// handles primitive types (which use @Int) and arrays. For structs and enums,
-/// use the runtime decoder (erd_json_decode.zig) which interprets bytes
-/// according to the type descriptor without needing to create Zig types.
-///
-/// Usage:
-///   const T = TypeFromDescriptor(
-///       \\{"kind":"primitive","name":"u32","size":4,"signedness":"unsigned","bits":32}
-///   );
-///   // T is u32
+//! Comptime type generation from JSON type descriptors.
+//!
+//! Given a JSON type descriptor string (as produced by erd_json.typeDescriptor),
+//! generates a Zig type at comptime. This is idempotent: the same descriptor
+//! always produces a structurally identical type.
+//!
+//! Uses Zig 0.16 builtins: @Int, @Struct, @Enum, @Pointer for type creation.
+
 const std = @import("std");
 
 /// Generate a Zig type from a comptime-known JSON type descriptor string.
-/// Supports: primitives (all int widths + bool), arrays of supported types.
-/// Does NOT support: structs, enums (Zig 0.16 limitation - no @Type for these).
 pub fn TypeFromDescriptor(comptime json_str: []const u8) type {
     return ParseType(json_str);
 }
@@ -30,9 +24,14 @@ fn ParseType(comptime json_str: []const u8) type {
         return [len]u8;
     } else if (strEql(kind, "array")) {
         return ParseArray(json_str);
+    } else if (strEql(kind, "struct")) {
+        return ParseStruct(json_str);
+    } else if (strEql(kind, "enum")) {
+        return ParseEnum(json_str);
+    } else if (strEql(kind, "union")) {
+        return ParseUnion(json_str);
     } else {
-        @compileError("TypeFromDescriptor only supports primitive and array types in Zig 0.16 " ++
-            "(no @Type for struct/enum). Use erd_json_decode for runtime interpretation. Got kind: " ++ kind);
+        @compileError("Unsupported type descriptor kind: " ++ kind);
     }
 }
 
@@ -57,9 +56,74 @@ fn ParsePrimitive(comptime json_str: []const u8) type {
 
 fn ParseArray(comptime json_str: []const u8) type {
     const len: usize = extractInt(json_str, "\"len\":");
-    const elem_json = extractObject(json_str, "\"element\":");
-    const Child = ParseType(elem_json);
+    const Child = ParseType(extractObject(json_str, "\"element\":"));
     return [len]Child;
+}
+
+fn ParseStruct(comptime json_str: []const u8) type {
+    const layout_str = extractString(json_str, "\"layout\":\"");
+    const layout: std.builtin.Type.ContainerLayout = if (strEql(layout_str, "packed"))
+        .@"packed"
+    else
+        .@"extern";
+
+    const fields_json = extractArray(json_str, "\"fields\":");
+    const field_objects = splitObjects(fields_json);
+
+    var field_names: [field_objects.len][]const u8 = undefined;
+    var field_types: [field_objects.len]type = undefined;
+    var field_attrs: [field_objects.len]std.builtin.Type.StructField.Attributes = undefined;
+
+    for (field_objects, 0..) |field_json, i| {
+        field_names[i] = extractString(field_json, "\"name\":\"");
+        field_types[i] = ParseType(extractObject(field_json, "\"type_descriptor\":"));
+        field_attrs[i] = .{};
+    }
+
+    const BackingInt: ?type = if (layout == .@"packed")
+        @Int(.unsigned, extractInt(json_str, "\"backing_integer_bits\":"))
+    else
+        null;
+
+    return @Struct(layout, BackingInt, &field_names, &field_types, &field_attrs);
+}
+
+fn ParseEnum(comptime json_str: []const u8) type {
+    const tag_str = extractString(json_str, "\"tag_type\":\"");
+    const TagType = ParsePrimitive(
+        "{\"kind\":\"primitive\",\"name\":\"" ++ tag_str ++ "\",\"size\":0,\"signedness\":\"unsigned\",\"bits\":0}",
+    );
+
+    const variants_json = extractArray(json_str, "\"variants\":");
+    const variant_names = splitStrings(variants_json);
+
+    var values: [variant_names.len]TagType = undefined;
+    for (0..variant_names.len) |i| {
+        values[i] = @intCast(i);
+    }
+
+    return @Enum(TagType, .exhaustive, variant_names, &values);
+}
+
+fn ParseUnion(comptime json_str: []const u8) type {
+    const fields_json = extractArray(json_str, "\"fields\":");
+    const field_objects = splitObjects(fields_json);
+
+    var field_names: [field_objects.len][]const u8 = undefined;
+    var field_types: [field_objects.len]type = undefined;
+    var field_attrs: [field_objects.len]std.builtin.Type.UnionField.Attributes = undefined;
+
+    for (field_objects, 0..) |field_json, i| {
+        field_names[i] = extractString(field_json, "\"name\":\"");
+        field_types[i] = ParseType(extractObject(field_json, "\"type_descriptor\":"));
+        field_attrs[i] = .{};
+    }
+
+    // Check for tag_type
+    const has_tag = std.mem.indexOf(u8, json_str, "\"tag_type\":") != null;
+    const TagType: ?type = if (has_tag) ParseType(extractObject(json_str, "\"tag_type\":")) else null;
+
+    return @Union(.@"extern", TagType, &field_names, &field_types, &field_attrs);
 }
 
 // --- Comptime mini JSON helpers ---
@@ -90,6 +154,13 @@ fn extractObject(comptime json: []const u8, comptime key: []const u8) []const u8
     return balancedSlice(json, pos, '{', '}');
 }
 
+fn extractArray(comptime json: []const u8, comptime key: []const u8) []const u8 {
+    const start = std.mem.indexOf(u8, json, key) orelse @compileError("Key not found: " ++ key);
+    var pos = start + key.len;
+    while (pos < json.len and json[pos] != '[') : (pos += 1) {}
+    return balancedSlice(json, pos, '[', ']');
+}
+
 fn balancedSlice(comptime json: []const u8, comptime from: usize, comptime open: u8, comptime close: u8) []const u8 {
     var pos = from;
     var depth: usize = 0;
@@ -105,4 +176,69 @@ fn balancedSlice(comptime json: []const u8, comptime from: usize, comptime open:
         }
     }
     @compileError("Unbalanced brackets");
+}
+
+fn splitObjects(comptime arr: []const u8) []const []const u8 {
+    comptime {
+        if (arr.len < 2) return &.{};
+        const inner = arr[1 .. arr.len - 1];
+        if (inner.len == 0) return &.{};
+
+        var count: usize = 0;
+        var i: usize = 0;
+        while (i < inner.len) : (i += 1) {
+            if (inner[i] == '{') {
+                const obj = balancedSlice(inner, i, '{', '}');
+                count += 1;
+                i += obj.len - 1;
+            }
+        }
+
+        var results: [count][]const u8 = undefined;
+        i = 0;
+        var idx: usize = 0;
+        while (i < inner.len) : (i += 1) {
+            if (inner[i] == '{') {
+                const obj = balancedSlice(inner, i, '{', '}');
+                results[idx] = obj;
+                idx += 1;
+                i += obj.len - 1;
+            }
+        }
+        const final = results;
+        return &final;
+    }
+}
+
+fn splitStrings(comptime arr: []const u8) []const []const u8 {
+    comptime {
+        if (arr.len < 2) return &.{};
+        const inner = arr[1 .. arr.len - 1];
+        if (inner.len == 0) return &.{};
+
+        var count: usize = 0;
+        var i: usize = 0;
+        while (i < inner.len) : (i += 1) {
+            if (inner[i] == '"') {
+                i += 1;
+                while (i < inner.len and inner[i] != '"') : (i += 1) {}
+                count += 1;
+            }
+        }
+
+        var results: [count][]const u8 = undefined;
+        i = 0;
+        var idx: usize = 0;
+        while (i < inner.len) : (i += 1) {
+            if (inner[i] == '"') {
+                const start = i + 1;
+                i += 1;
+                while (i < inner.len and inner[i] != '"') : (i += 1) {}
+                results[idx] = inner[start..i];
+                idx += 1;
+            }
+        }
+        const final = results;
+        return &final;
+    }
 }

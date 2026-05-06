@@ -392,69 +392,43 @@ test "2D array" {
 }
 
 // =======================================================================
-// Optionals
+// Extern unions
 // =======================================================================
 
-test "optional u32" {
-    var r = try tdString(?u32);
+test "extern union" {
+    const U = extern union { int_val: u32, byte_val: u8 };
+    var r = try tdString(U);
     defer r.out.deinit();
-    try std.testing.expectEqualStrings(std.fmt.comptimePrint(
-        \\{{
-        \\    "kind": "optional",
-        \\    "size": {d},
-        \\    "child": {{
-        \\        "kind": "primitive",
-        \\        "name": "u32",
-        \\        "size": 4,
-        \\        "signedness": "unsigned",
-        \\        "bits": 32
-        \\    }}
-        \\}}
-    , .{@sizeOf(?u32)}), r.str);
-}
-
-// =======================================================================
-// Pointers
-// =======================================================================
-
-test "pointer to u16" {
-    var r = try tdString(*u16);
-    defer r.out.deinit();
-    try std.testing.expectEqualStrings(std.fmt.comptimePrint(
-        \\{{
-        \\    "kind": "pointer",
-        \\    "size": {d},
-        \\    "child": {{
-        \\        "kind": "primitive",
-        \\        "name": "u16",
-        \\        "size": 2,
-        \\        "signedness": "unsigned",
-        \\        "bits": 16
-        \\    }}
-        \\}}
-    , .{@sizeOf(*u16)}), r.str);
-}
-
-test "optional pointer" {
-    var r = try tdString(?*u32);
-    defer r.out.deinit();
-    try std.testing.expectEqualStrings(std.fmt.comptimePrint(
-        \\{{
-        \\    "kind": "optional",
-        \\    "size": {d},
-        \\    "child": {{
-        \\        "kind": "pointer",
-        \\        "size": {d},
-        \\        "child": {{
-        \\            "kind": "primitive",
-        \\            "name": "u32",
-        \\            "size": 4,
-        \\            "signedness": "unsigned",
-        \\            "bits": 32
-        \\        }}
-        \\    }}
-        \\}}
-    , .{ @sizeOf(?*u32), @sizeOf(*u32) }), r.str);
+    try std.testing.expectEqualStrings(
+        \\{
+        \\    "kind": "union",
+        \\    "name": "tests.erd_json_test.test.extern union.U",
+        \\    "layout": "extern",
+        \\    "size": 4,
+        \\    "fields": [
+        \\        {
+        \\            "name": "int_val",
+        \\            "type_descriptor": {
+        \\                "kind": "primitive",
+        \\                "name": "u32",
+        \\                "size": 4,
+        \\                "signedness": "unsigned",
+        \\                "bits": 32
+        \\            }
+        \\        },
+        \\        {
+        \\            "name": "byte_val",
+        \\            "type_descriptor": {
+        \\                "kind": "primitive",
+        \\                "name": "u8",
+        \\                "size": 1,
+        \\                "signedness": "unsigned",
+        \\                "bits": 8
+        \\            }
+        \\        }
+        \\    ]
+        \\}
+    , r.str);
 }
 
 // =======================================================================
