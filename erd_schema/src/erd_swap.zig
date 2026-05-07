@@ -138,6 +138,8 @@ fn generateRules(T: type, comptime base_offset: u16) []const SwapRule {
             // determining the active variant via the tag).
             return &.{};
         },
+        .vector => @compileError("Cannot generate swap rules for vector type '" ++
+            @typeName(T) ++ "': vectors have no guaranteed byte layout"),
         else => @compileError("Cannot generate swap rules for type '" ++
             @typeName(T) ++ "': unsupported type category"),
     }

@@ -221,6 +221,10 @@ pub fn typeDescriptor(T: type, jws: anytype) !void {
             try jws.endArray();
             try jws.endObject();
         },
+        .vector => {
+            @compileError("Cannot serialize vector type '" ++ @typeName(T) ++
+                "': vectors have no guaranteed byte layout (@ptrCast to array is illegal)");
+        },
         .optional => {
             @compileError("Cannot serialize optional type '" ++ @typeName(T) ++
                 "': non-pointer optionals have no guaranteed in-memory representation");
