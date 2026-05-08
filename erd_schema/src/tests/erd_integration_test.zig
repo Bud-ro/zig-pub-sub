@@ -218,13 +218,8 @@ test "pipeline: look up ERD by number in schema, then decode" {
     }
     try std.testing.expect(found_type != null);
 
-    // Re-serialize the type descriptor to a string for TypeDescriptor.parse
-    var td_out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer td_out.deinit();
-    try std.json.Stringify.value(found_type.?, .{ .whitespace = .minified }, &td_out.writer);
-
-    // Parse the type descriptor
-    var td = try TypeDescriptor.parse(std.testing.allocator, td_out.writer.buffered());
+    // Build TypeDescriptor directly from the parsed JSON value (no re-serializing)
+    var td = try TypeDescriptor.fromParsedValue(std.testing.allocator, found_type.?, null);
     defer td.deinit();
 
     // Swap BE -> native
@@ -243,31 +238,40 @@ test "pipeline: look up ERD by number in schema, then decode" {
 // =======================================================================
 
 test "pipeline: tagged union from BE wire bytes" {
+    const Tag = enum(u8) { temperature, error_code };
+    const Payload = extern union {
+        temperature: u16,
+        error_code: u8,
+    };
     const Msg = extern struct {
-        tag: enum(u8) { temperature, error_code },
-        payload: extern union {
-            temperature: u16,
-            error_code: u8,
-        },
+        tag: Tag,
+        payload: Payload,
     };
 
     // Wire bytes (BE): tag=0x00 (temperature), pad, temp=0x04D2 (1234 in BE)
-    var wire_bytes = [_]u8{ 0x00, 0x00, 0x04, 0xD2 };
+    const wire_bytes = [_]u8{ 0x00, 0x00, 0x04, 0xD2 };
+    const msg: *const Msg = @ptrCast(@alignCast(&wire_bytes));
 
-    // Swap the tag (u8, no swap needed)
-    // Read tag to determine variant
-    const tag = wire_bytes[0];
-    try std.testing.expectEqual(@as(u8, 0), tag); // temperature
+    // Tag is u8 - no swap needed, read directly
+    try std.testing.expectEqual(Tag.temperature, msg.tag);
 
-    // Swap the payload based on active variant
-    const payload_offset = @offsetOf(Msg, "payload");
-    erd_schema.swap.SwapVariant(
-        @TypeOf(@as(Msg, undefined).payload),
-        "temperature",
-        payload_offset,
-    ).apply(&wire_bytes);
-
-    // After swap: tag=0x00, pad=0x00, temp=0xD204 -> LE 1234
-    const temp = std.mem.readInt(u16, wire_bytes[payload_offset..][0..2], .little);
+    // Payload field is BE u16 - use bigToNative
+    const temp = std.mem.bigToNative(u16, msg.payload.temperature);
     try std.testing.expectEqual(@as(u16, 1234), temp);
+}
+
+test "pipeline: bigToNative on extern struct fields" {
+    // When you have the Zig type, bigToNative per-field is the cleanest pattern
+    const wire_bytes = [_]u8{ 0x00, 0x64, 0x37, 0x01 };
+    const wire: *const SensorReading = @ptrCast(@alignCast(&wire_bytes));
+
+    const native: SensorReading = .{
+        .temperature = std.mem.bigToNative(u16, wire.temperature),
+        .humidity = wire.humidity,
+        .status = wire.status,
+    };
+
+    try std.testing.expectEqual(@as(u16, 100), native.temperature);
+    try std.testing.expectEqual(@as(u8, 55), native.humidity);
+    try std.testing.expectEqual(@as(u8, 1), @intFromEnum(native.status));
 }

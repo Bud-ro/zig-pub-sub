@@ -102,6 +102,16 @@ pub const TypeDescriptor = struct {
         return td;
     }
 
+    /// Create a TypeDescriptor from an already-parsed JSON value.
+    /// The caller must keep `parsed` alive for the lifetime of this descriptor
+    /// (string fields point into its memory). Pass `parsed` so this descriptor
+    /// can free it on deinit, or null if the caller manages the lifetime.
+    pub fn fromParsedValue(allocator: std.mem.Allocator, value: std.json.Value, parsed: ?std.json.Parsed(std.json.Value)) ParseError!TypeDescriptor {
+        var td = try fromValue(allocator, value);
+        td._parsed = parsed;
+        return td;
+    }
+
     pub fn deinit(self: *TypeDescriptor) void {
         switch (self.kind) {
             .structure => |s| {
