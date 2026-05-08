@@ -69,7 +69,11 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
         /// A test only type used with verifyAllSubsAreSaturated
         pub const SubException = struct { erd_enum: ErdEnum, missing: comptime_int };
 
+        /// Callback for external ERD publishing.
+        pub const ExternalPublishFn = *const fn (erd_number: u16, data: []const u8) void;
+
         components: Components = undefined,
+        externalPublishFn: ?ExternalPublishFn = null,
         /// Bump allocator backed by `scratch_buf`. Reset at the end of each
         /// run-to-complete via `scratchReset` so allocations don't accumulate.
         scratch: std.heap.FixedBufferAllocator = undefined,
@@ -87,6 +91,11 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
             return this;
         }
 
+        /// Set the external publish callback for ERDs with `published = true`.
+        pub fn setExternalPublish(this: *Self, f: ExternalPublishFn) void {
+            this.externalPublishFn = f;
+        }
+
         /// Returns a column from erd_instance as an array of type []T
         fn erdCollect(T: type, column_name: []const u8) [system_erds_length]T {
             var field_values: [system_erds_length]T = undefined;
@@ -99,6 +108,24 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
 
         const component_idx_from_system_idx = erdCollect(u8, "component_idx");
         const data_component_idx_from_system_idx = erdCollect(u16, "data_component_idx");
+
+        /// For each system_data_idx: the erd_number if published, else 0.
+        const published_erd_numbers: [system_erds_length]u16 = blk: {
+            var nums: [system_erds_length]u16 = undefined;
+            for (std.meta.fieldNames(ErdDefs), 0..) |name, i| {
+                const e = @field(erd_instance, name);
+                nums[i] = if (e.published) (e.erd_number orelse 0) else 0;
+            }
+            break :blk nums;
+        };
+
+        const erd_sizes_from_system_idx: [system_erds_length]u16 = blk: {
+            var sizes: [system_erds_length]u16 = undefined;
+            for (std.meta.fieldNames(ErdDefs), 0..) |name, i| {
+                sizes[i] = @sizeOf(@field(erd_instance, name).T);
+            }
+            break :blk sizes;
+        };
 
         const supports_write_from_component_idx: [component_fields.len]bool = blk: {
             var result: [component_fields.len]bool = undefined;
@@ -167,7 +194,16 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
             }
 
             const owner = comptime component_fields[erd.component_idx].name;
-            @field(this.components, owner).write(erd, data, @ptrCast(this));
+            if (comptime erd.published) {
+                // Save old value, write, compare, publish externally if changed
+                const old = @field(this.components, owner).read(erd);
+                @field(this.components, owner).write(erd, data, @ptrCast(this));
+                if (!std.meta.eql(old, data)) {
+                    this.publishExternal(erd.system_data_idx, erd.erd_number.?, &std.mem.toBytes(data));
+                }
+            } else {
+                @field(this.components, owner).write(erd, data, @ptrCast(this));
+            }
         }
 
         /// Modify a struct ERD in-place and always publish, skipping change detection.
@@ -195,6 +231,18 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
 
             const owner = comptime component_fields[erd.component_idx].name;
             @field(this.components, owner).modify(erd, modifier, @ptrCast(this));
+            // modify always changes the value
+            if (comptime erd.published) {
+                const val = @field(this.components, owner).read(erd);
+                this.publishExternal(erd.system_data_idx, erd.erd_number.?, &std.mem.toBytes(val));
+            }
+        }
+
+        noinline fn publishExternal(this: *Self, system_data_idx: u16, erd_number: u16, data: []const u8) void {
+            _ = system_data_idx;
+            if (this.externalPublishFn) |f| {
+                f(erd_number, data);
+            }
         }
 
         /// Write to an ERD from the provided `data` pointer, using the ERD's corresponding system_data_idx
@@ -217,6 +265,13 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
                     @field(this.components, component_fields[i].name).runtimeWrite(data_component_idx, data, @ptrCast(this));
                 },
                 else => unreachable,
+            }
+
+            // Runtime external publish: check if this ERD is published
+            const erd_number = published_erd_numbers[system_data_idx];
+            if (erd_number != 0) {
+                const ptr: [*]const u8 = @ptrCast(data);
+                this.publishExternal(system_data_idx, erd_number, ptr[0..erd_sizes_from_system_idx[system_data_idx]]);
             }
         }
 
