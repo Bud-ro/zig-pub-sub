@@ -36,70 +36,14 @@ const TestErds = struct {
 // Schema registry (host side - built once from the JSON)
 // =======================================================================
 
-const ErdInfo = struct {
-    name: []const u8,
-    erd_number: u16,
-    td: TypeDescriptor,
-    size: usize,
-};
+const SchemaRegistry = decode.SchemaRegistry;
 
-const SchemaRegistry = struct {
-    entries: []ErdInfo,
-    allocator: std.mem.Allocator,
-    _parsed: std.json.Parsed(std.json.Value),
-
-    fn init(allocator: std.mem.Allocator, schema_json: []const u8) !SchemaRegistry {
-        const parsed = try std.json.parseFromSlice(std.json.Value, allocator, schema_json, .{});
-        errdefer parsed.deinit();
-
-        const erd_array = parsed.value.object.get("erds").?.array.items;
-        const entries = try allocator.alloc(ErdInfo, erd_array.len);
-        errdefer allocator.free(entries);
-
-        for (erd_array, 0..) |erd_val, i| {
-            const obj = erd_val.object;
-            const td = try TypeDescriptor.fromParsedValue(allocator, obj.get("type").?, null);
-            const id_str = obj.get("id").?.string;
-            entries[i] = .{
-                .name = obj.get("name").?.string,
-                .erd_number = std.fmt.parseInt(u16, id_str[2..], 16) catch 0,
-                .td = td,
-                .size = td.getSize(),
-            };
-        }
-
-        return .{ .entries = entries, .allocator = allocator, ._parsed = parsed };
-    }
-
-    fn deinit(self: *SchemaRegistry) void {
-        for (self.entries) |*e| e.td.deinit();
-        self.allocator.free(self.entries);
-        self._parsed.deinit();
-    }
-
-    fn findByNumber(self: *const SchemaRegistry, erd_number: u16) ?*const ErdInfo {
-        for (self.entries) |*entry| {
-            if (entry.erd_number == erd_number) return entry;
-        }
-        return null;
-    }
-
-    /// Pretty-print an ERD from big-endian wire data.
-    /// Writes "erd_name: <value>" to the writer.
-    fn formatErdBig(self: *const SchemaRegistry, erd_number: u16, be_data: []const u8, writer: anytype) error{ ErdNotFound, SizeMismatch, OutOfMemory, WriteFailed }!void {
-        const info = self.findByNumber(erd_number) orelse return error.ErdNotFound;
-        if (be_data.len < info.size) return error.SizeMismatch;
-        try writer.print("{s}: ", .{info.name});
-        try info.td.formatBytesBig(be_data[0..info.size], writer);
-    }
-};
-
-// Shared schema setup
 fn makeRegistry() !struct { registry: SchemaRegistry, schema_out: std.Io.Writer.Allocating } {
     var schema_out: std.Io.Writer.Allocating = .init(std.testing.allocator);
     errdefer schema_out.deinit();
     try erd_json.generate(TestErds{}, &schema_out.writer, .{});
-    const registry = try SchemaRegistry.init(std.testing.allocator, schema_out.writer.buffered());
+    const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, schema_out.writer.buffered(), .{});
+    const registry = try SchemaRegistry.init(std.testing.allocator, parsed);
     return .{ .registry = registry, .schema_out = schema_out };
 }
 

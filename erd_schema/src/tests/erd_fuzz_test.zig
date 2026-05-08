@@ -128,8 +128,10 @@ test "fuzz: random valid type descriptor parsed and formatted" {
             const json_str = json_buf[0..pos];
 
             // Parse it - should not crash
-            var td = TypeDescriptor.parse(std.testing.allocator, json_str) catch return;
-            defer td.deinit();
+            const parsed = std.json.parseFromSlice(std.json.Value, std.testing.allocator, json_str, .{}) catch return;
+            defer parsed.deinit();
+            var td = TypeDescriptor.init(std.testing.allocator, parsed) catch return;
+            defer td.deinit(std.testing.allocator);
 
             // Generate random bytes matching the descriptor's size
             const size = td.getSize();
@@ -159,10 +161,12 @@ test "fuzz: formatBytes on u32 descriptor with random bytes" {
             var buf: [4]u8 = undefined;
             smith.bytes(&buf);
 
-            var td = try TypeDescriptor.parse(std.testing.allocator,
+            const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator,
                 \\{"kind":"primitive","name":"u32","size":4,"signedness":"unsigned","bits":32}
-            );
-            defer td.deinit();
+            , .{});
+            defer parsed.deinit();
+            var td = try TypeDescriptor.init(std.testing.allocator, parsed);
+            defer td.deinit(std.testing.allocator);
 
             var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
             defer out.deinit();
@@ -178,10 +182,12 @@ test "fuzz: formatBytes on extern struct descriptor with random bytes" {
             var buf: [4]u8 = undefined;
             smith.bytes(&buf);
 
-            var td = try TypeDescriptor.parse(std.testing.allocator,
+            const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator,
                 \\{"kind":"struct","name":"S","layout":"extern","size":4,"fields":[{"name":"a","offset":0,"type_descriptor":{"kind":"primitive","name":"u8","size":1,"signedness":"unsigned","bits":8}},{"name":"b","offset":2,"type_descriptor":{"kind":"primitive","name":"u16","size":2,"signedness":"unsigned","bits":16}}]}
-            );
-            defer td.deinit();
+            , .{});
+            defer parsed.deinit();
+            var td = try TypeDescriptor.init(std.testing.allocator, parsed);
+            defer td.deinit(std.testing.allocator);
 
             var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
             defer out.deinit();
@@ -197,10 +203,12 @@ test "fuzz: formatBytes on string descriptor with random bytes" {
             var buf: [16]u8 = undefined;
             smith.bytes(&buf);
 
-            var td = try TypeDescriptor.parse(std.testing.allocator,
+            const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator,
                 \\{"kind":"string","max_len":16,"size":16}
-            );
-            defer td.deinit();
+            , .{});
+            defer parsed.deinit();
+            var td = try TypeDescriptor.init(std.testing.allocator, parsed);
+            defer td.deinit(std.testing.allocator);
 
             var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
             defer out.deinit();
@@ -216,10 +224,12 @@ test "fuzz: formatBytes on enum descriptor with random bytes" {
             var buf: [1]u8 = undefined;
             smith.bytes(&buf);
 
-            var td = try TypeDescriptor.parse(std.testing.allocator,
+            const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator,
                 \\{"kind":"enum","name":"E","tag_type":"u8","size":1,"variants":["a","b","c"]}
-            );
-            defer td.deinit();
+            , .{});
+            defer parsed.deinit();
+            var td = try TypeDescriptor.init(std.testing.allocator, parsed);
+            defer td.deinit(std.testing.allocator);
 
             var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
             defer out.deinit();
@@ -235,10 +245,12 @@ test "fuzz: formatBytes on packed struct descriptor with random bytes" {
             var buf: [1]u8 = undefined;
             smith.bytes(&buf);
 
-            var td = try TypeDescriptor.parse(std.testing.allocator,
+            const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator,
                 \\{"kind":"struct","name":"P","layout":"packed","size":1,"backing_integer_bits":8,"fields":[{"name":"a","bit_offset":0,"bits":5,"type_descriptor":{"kind":"primitive","name":"u5","size":1,"signedness":"unsigned","bits":5}},{"name":"b","bit_offset":5,"bits":3,"type_descriptor":{"kind":"primitive","name":"u3","size":1,"signedness":"unsigned","bits":3}}]}
-            );
-            defer td.deinit();
+            , .{});
+            defer parsed.deinit();
+            var td = try TypeDescriptor.init(std.testing.allocator, parsed);
+            defer td.deinit(std.testing.allocator);
 
             var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
             defer out.deinit();
@@ -254,10 +266,12 @@ test "fuzz: formatBytes on float descriptor with random bytes" {
             var buf: [4]u8 = undefined;
             smith.bytes(&buf);
 
-            var td = try TypeDescriptor.parse(std.testing.allocator,
+            const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator,
                 \\{"kind":"float","name":"f32","size":4,"bits":32}
-            );
-            defer td.deinit();
+            , .{});
+            defer parsed.deinit();
+            var td = try TypeDescriptor.init(std.testing.allocator, parsed);
+            defer td.deinit(std.testing.allocator);
 
             var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
             defer out.deinit();

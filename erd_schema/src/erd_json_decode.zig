@@ -22,10 +22,6 @@ pub const FormatError = error{ OutOfMemory, WriteFailed };
 
 pub const TypeDescriptor = struct {
     kind: Kind,
-    allocator: std.mem.Allocator,
-    /// Owns the JSON parse tree whose strings back all name/variant fields.
-    /// Only set on the root descriptor returned by `parse()`.
-    _parsed: ?std.json.Parsed(std.json.Value) = null,
 
     const Kind = union(enum) {
         primitive: Primitive,
@@ -95,51 +91,44 @@ pub const TypeDescriptor = struct {
         fields: []UnionField,
     };
 
-    pub fn parse(allocator: std.mem.Allocator, json_str: []const u8) ParseError!TypeDescriptor {
-        const parsed = try std.json.parseFromSlice(std.json.Value, allocator, json_str, .{});
-        var td = try fromValue(allocator, parsed.value);
-        td._parsed = parsed;
-        return td;
-    }
-
-    /// Create a TypeDescriptor from an already-parsed JSON value.
+    /// Build a TypeDescriptor from a parsed JSON value.
     /// The caller must keep `parsed` alive for the lifetime of this descriptor
-    /// (string fields point into its memory). Pass `parsed` so this descriptor
-    /// can free it on deinit, or null if the caller manages the lifetime.
-    pub fn fromParsedValue(allocator: std.mem.Allocator, value: std.json.Value, parsed: ?std.json.Parsed(std.json.Value)) ParseError!TypeDescriptor {
-        var td = try fromValue(allocator, value);
-        td._parsed = parsed;
-        return td;
+    /// (string fields point into its memory).
+    pub fn init(allocator: std.mem.Allocator, parsed: std.json.Parsed(std.json.Value)) ParseError!TypeDescriptor {
+        return try fromValue(allocator, parsed.value);
     }
 
-    pub fn deinit(self: *TypeDescriptor) void {
+    /// Build a TypeDescriptor from a JSON value (e.g., a nested object
+    /// within a larger parsed document). The caller manages the lifetime
+    /// of whatever owns the value's string memory.
+    pub fn initFromValue(allocator: std.mem.Allocator, value: std.json.Value) ParseError!TypeDescriptor {
+        return try fromValue(allocator, value);
+    }
+
+    pub fn deinit(self: *TypeDescriptor, allocator: std.mem.Allocator) void {
         switch (self.kind) {
             .structure => |s| {
                 for (s.fields) |*field| {
-                    field.type_desc.deinit();
-                    self.allocator.destroy(field.type_desc);
+                    field.type_desc.deinit(allocator);
+                    allocator.destroy(field.type_desc);
                 }
-                self.allocator.free(s.fields);
+                allocator.free(s.fields);
             },
             .array => |a| {
-                a.element.deinit();
-                self.allocator.destroy(a.element);
+                a.element.deinit(allocator);
+                allocator.destroy(a.element);
             },
             .enumeration => |e| {
-                self.allocator.free(e.variants);
+                allocator.free(e.variants);
             },
             .@"union" => |u| {
                 for (u.fields) |*field| {
-                    field.type_desc.deinit();
-                    self.allocator.destroy(field.type_desc);
+                    field.type_desc.deinit(allocator);
+                    allocator.destroy(field.type_desc);
                 }
-                self.allocator.free(u.fields);
+                allocator.free(u.fields);
             },
             .primitive, .float, .string => {},
-        }
-        if (self._parsed) |p| {
-            p.deinit();
-            self._parsed = null;
         }
     }
 
@@ -149,7 +138,6 @@ pub const TypeDescriptor = struct {
 
         if (std.mem.eql(u8, kind_str, "primitive")) {
             return .{
-                .allocator = allocator,
                 .kind = .{ .primitive = .{
                     .name = obj.get("name").?.string,
                     .size = @intCast(obj.get("size").?.integer),
@@ -159,7 +147,6 @@ pub const TypeDescriptor = struct {
             };
         } else if (std.mem.eql(u8, kind_str, "float")) {
             return .{
-                .allocator = allocator,
                 .kind = .{ .float = .{
                     .name = obj.get("name").?.string,
                     .size = @intCast(obj.get("size").?.integer),
@@ -170,7 +157,6 @@ pub const TypeDescriptor = struct {
             return parseStructValue(allocator, obj);
         } else if (std.mem.eql(u8, kind_str, "string")) {
             return .{
-                .allocator = allocator,
                 .kind = .{ .string = .{
                     .max_len = @intCast(obj.get("max_len").?.integer),
                     .size = @intCast(obj.get("size").?.integer),
@@ -180,7 +166,6 @@ pub const TypeDescriptor = struct {
             const elem_td = try allocator.create(TypeDescriptor);
             elem_td.* = try fromValue(allocator, obj.get("element").?);
             return .{
-                .allocator = allocator,
                 .kind = .{ .array = .{
                     .len = @intCast(obj.get("len").?.integer),
                     .size = @intCast(obj.get("size").?.integer),
@@ -215,7 +200,6 @@ pub const TypeDescriptor = struct {
             };
         }
         return .{
-            .allocator = allocator,
             .kind = .{ .structure = .{
                 .name = obj.get("name").?.string,
                 .layout = obj.get("layout").?.string,
@@ -233,7 +217,6 @@ pub const TypeDescriptor = struct {
             variants[i] = v.string;
         }
         return .{
-            .allocator = allocator,
             .kind = .{ .enumeration = .{
                 .name = obj.get("name").?.string,
                 .size = @intCast(obj.get("size").?.integer),
@@ -255,7 +238,6 @@ pub const TypeDescriptor = struct {
             };
         }
         return .{
-            .allocator = allocator,
             .kind = .{ .@"union" = .{
                 .name = obj.get("name").?.string,
                 .layout = obj.get("layout").?.string,
@@ -548,3 +530,67 @@ fn readBits(bytes: []const u8, bit_offset: usize, bit_count: usize) u64 {
     }
     return result;
 }
+
+// =======================================================================
+// SchemaRegistry: look up ERDs by number and format wire data
+// =======================================================================
+
+pub const ErdInfo = struct {
+    name: []const u8,
+    erd_number: u16,
+    td: TypeDescriptor,
+    size: usize,
+};
+
+/// Registry of ERD type descriptors, built from a parsed JSON schema.
+/// Provides lookup by erd_number and pretty-printing of wire data.
+/// Takes ownership of the parsed JSON and frees it on deinit.
+pub const SchemaRegistry = struct {
+    entries: []ErdInfo,
+    allocator: std.mem.Allocator,
+    _parsed: std.json.Parsed(std.json.Value),
+
+    pub const FormatErdError = error{ ErdNotFound, SizeMismatch, OutOfMemory, WriteFailed };
+
+    pub fn init(allocator: std.mem.Allocator, parsed: std.json.Parsed(std.json.Value)) ParseError!SchemaRegistry {
+        const erd_array = parsed.value.object.get("erds").?.array.items;
+        const entries = try allocator.alloc(ErdInfo, erd_array.len);
+        errdefer allocator.free(entries);
+
+        for (erd_array, 0..) |erd_val, i| {
+            const obj = erd_val.object;
+            const td = try TypeDescriptor.initFromValue(allocator, obj.get("type").?);
+            const id_str = obj.get("id").?.string;
+            entries[i] = .{
+                .name = obj.get("name").?.string,
+                .erd_number = std.fmt.parseInt(u16, id_str[2..], 16) catch 0,
+                .td = td,
+                .size = td.getSize(),
+            };
+        }
+
+        return .{ .entries = entries, .allocator = allocator, ._parsed = parsed };
+    }
+
+    pub fn deinit(self: *SchemaRegistry) void {
+        for (self.entries) |*e| e.td.deinit(self.allocator);
+        self.allocator.free(self.entries);
+        self._parsed.deinit();
+    }
+
+    pub fn findByNumber(self: *const SchemaRegistry, erd_number: u16) ?*const ErdInfo {
+        for (self.entries) |*entry| {
+            if (entry.erd_number == erd_number) return entry;
+        }
+        return null;
+    }
+
+    /// Pretty-print an ERD from big-endian wire data.
+    /// Writes "erd_name: <value>" to the writer.
+    pub fn formatErdBig(self: *const SchemaRegistry, erd_number: u16, be_data: []const u8, writer: anytype) FormatErdError!void {
+        const info = self.findByNumber(erd_number) orelse return error.ErdNotFound;
+        if (be_data.len < info.size) return error.SizeMismatch;
+        try writer.print("{s}: ", .{info.name});
+        try info.td.formatBytesBig(be_data[0..info.size], writer);
+    }
+};

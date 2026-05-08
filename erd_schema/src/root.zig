@@ -6,6 +6,7 @@
 const std = @import("std");
 
 pub const decode = @import("erd_json_decode.zig");
+pub const SchemaRegistry = decode.SchemaRegistry;
 pub const json = @import("erd_json.zig");
 pub const swap = @import("erd_swap.zig");
 pub const type_gen = @import("erd_type_gen.zig");
