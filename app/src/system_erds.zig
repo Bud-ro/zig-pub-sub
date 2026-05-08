@@ -53,7 +53,7 @@ pub const ErdDefinitions = struct {
     erd_application_version:  Erd = .{ .erd_number = 0x0000, .T = u32,                         .component_idx = Ram,      .subs = 0 },
     erd_some_bool:            Erd = .{ .erd_number = 0x0001, .T = bool,                        .component_idx = Ram,      .subs = 3 },
     erd_unaligned_u16:        Erd = .{ .erd_number = 0x0002, .T = u16,                         .component_idx = Ram,      .subs = 1 },
-    erd_well_packed:          Erd = .{ .erd_number = 0x0003, .T = WellPackedStruct,            .component_idx = Ram,      .subs = 0 },
+    erd_well_packed:          Erd = .{ .erd_number = null,   .T = WellPackedStruct,            .component_idx = Ram,      .subs = 0 },
     erd_padded:               Erd = .{ .erd_number = 0x0004, .T = PaddedStruct,                .component_idx = Ram,      .subs = 0 },
     erd_actually_packed_fr:   Erd = .{ .erd_number = 0x0005, .T = PackedFr,                    .component_idx = Ram,      .subs = 0 },
     erd_always_42:            Erd = .{ .erd_number = 0x0006, .T = u16,                         .component_idx = Indirect, .subs = 0 },

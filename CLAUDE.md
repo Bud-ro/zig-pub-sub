@@ -82,11 +82,17 @@ Each package has its own tests aggregated via `src/root.zig` test blocks. The ro
 
 ## Code Style
 
+- **Keep it ASCII only, no em/en dashes, etc.**
+- **Do use file level doc comments.** Use `//!` at the top of every file 
 - **Preserve doc comments.** Do not remove or rewrite existing `///` doc comments when modifying code. Update them if the behavior changes, but never delete them.
 
 ## Codegen Snapshots
 
 After making changes to data components, system_data, or subscription logic, run `zig build codegen-check` to verify assembly snapshots haven't regressed. If there are intentional changes, update with `zig build codegen-update`. Snapshot files live in `erd_core/codegen/`.
+
+## Linting
+
+Before committing, run `zig build lint` from the repo root to check for style violations (import ordering, redundant comptime, naming conventions). Fix all errors and warnings before committing.
 
 ## Formatting
 
