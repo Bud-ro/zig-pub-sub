@@ -9,6 +9,8 @@
 //! Child TypeDescriptors allocated for nested types share this lifetime. Do not
 //! use any TypeDescriptor or its string fields after calling `deinit()` on the root.
 const std = @import("std");
+const builtin = @import("builtin");
+const native = builtin.cpu.arch.endian();
 
 pub const ParseError = error{
     UnsupportedKind,
@@ -271,17 +273,17 @@ pub const TypeDescriptor = struct {
             },
             .float => |f| {
                 switch (f.bits) {
+                    16 => {
+                        const val: f16 = @bitCast(std.mem.readInt(u16, bytes[0..2], native));
+                        try writer.print("{d}", .{@as(f32, val)});
+                    },
                     32 => {
-                        const val: f32 = @bitCast(std.mem.readInt(u32, bytes[0..4], .little));
+                        const val: f32 = @bitCast(std.mem.readInt(u32, bytes[0..4], native));
                         try writer.print("{d}", .{val});
                     },
                     64 => {
-                        const val: f64 = @bitCast(std.mem.readInt(u64, bytes[0..8], .little));
+                        const val: f64 = @bitCast(std.mem.readInt(u64, bytes[0..8], native));
                         try writer.print("{d}", .{val});
-                    },
-                    16 => {
-                        const val: f16 = @bitCast(std.mem.readInt(u16, bytes[0..2], .little));
-                        try writer.print("{d}", .{@as(f32, val)});
                     },
                     else => {
                         try writer.print("<float{d}>", .{f.bits});
@@ -377,7 +379,20 @@ pub const TypeDescriptor = struct {
     }
 };
 
+/// Read an unsigned integer from native-endian bytes.
+/// Bytes must already be in host byte order (use SwapRules to convert from wire BE first).
 fn readUnsignedInt(bytes: []const u8, bits: usize) u64 {
+    // Fast paths for common sizes
+    return switch (bits) {
+        8 => bytes[0],
+        16 => std.mem.readInt(u16, bytes[0..2], native),
+        32 => std.mem.readInt(u32, bytes[0..4], native),
+        64 => std.mem.readInt(u64, bytes[0..8], native),
+        else => readUnsignedIntGeneric(bytes, bits),
+    };
+}
+
+fn readUnsignedIntGeneric(bytes: []const u8, bits: usize) u64 {
     var result: u64 = 0;
     const byte_count = (bits + 7) / 8;
     for (0..@min(byte_count, bytes.len)) |i| {
@@ -390,6 +405,7 @@ fn readUnsignedInt(bytes: []const u8, bits: usize) u64 {
     return result;
 }
 
+/// Read a signed integer from native-endian bytes with sign extension.
 fn readSignedInt(bytes: []const u8, bits: usize) i64 {
     const unsigned = readUnsignedInt(bytes, bits);
     if (bits >= 64) return @bitCast(unsigned);

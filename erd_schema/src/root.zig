@@ -15,6 +15,7 @@ pub const SwapRules = swap.SwapRules;
 test {
     std.testing.refAllDecls(@This());
     _ = @import("tests/erd_fuzz_test.zig");
+    _ = @import("tests/erd_integration_test.zig");
     _ = @import("tests/erd_json_decode_test.zig");
     _ = @import("tests/erd_json_test.zig");
     _ = @import("tests/erd_swap_test.zig");
