@@ -276,9 +276,51 @@ test "multiple ERDs decoded from a stream of messages" {
 // Test: Direct value access when you know the type (comptime path)
 // =======================================================================
 
-test "comptime typed path: bigToNative on struct fields" {
-    // When you have the Zig type, bigToNative per-field is the cleanest.
-    // No TypeDescriptor, no JSON, no monomorphization beyond the struct itself.
+test "comptime typed path: SwapRules.fromBig in one shot" {
+    // When you have the Zig type, one call does the whole conversion.
+    const wire_bytes = [_]u8{ 0x00, 0x64, 0x37, 0x01 };
+
+    const reading = erd_schema.SwapRules(SensorReading).fromBig(&wire_bytes);
+
+    try std.testing.expectEqual(@as(u16, 100), reading.temperature);
+    try std.testing.expectEqual(@as(u8, 55), reading.humidity);
+    try std.testing.expectEqual(@as(u8, 1), @intFromEnum(reading.status));
+}
+
+test "comptime typed path: SwapRules.toBig for serialization" {
+    const reading = SensorReading{
+        .temperature = 100,
+        .humidity = 55,
+        .status = .warning,
+    };
+
+    const wire = erd_schema.SwapRules(SensorReading).toBig(reading);
+
+    // temperature 100 = 0x0064, BE = 00 64
+    try std.testing.expectEqual(@as(u8, 0x00), wire[0]);
+    try std.testing.expectEqual(@as(u8, 0x64), wire[1]);
+    // humidity and status are single bytes, unchanged
+    try std.testing.expectEqual(@as(u8, 55), wire[2]);
+    try std.testing.expectEqual(@as(u8, 1), wire[3]);
+}
+
+test "comptime typed path: round-trip toBig -> fromBig" {
+    const original = SensorReading{
+        .temperature = 1234,
+        .humidity = 99,
+        .status = .critical,
+    };
+
+    const wire = erd_schema.SwapRules(SensorReading).toBig(original);
+    const restored = erd_schema.SwapRules(SensorReading).fromBig(&wire);
+
+    try std.testing.expectEqual(original.temperature, restored.temperature);
+    try std.testing.expectEqual(original.humidity, restored.humidity);
+    try std.testing.expectEqual(original.status, restored.status);
+}
+
+test "comptime typed path: bigToNative per-field (manual alternative)" {
+    // For comparison: the per-field approach when you want more control.
     const wire_bytes = [_]u8{ 0x00, 0x64, 0x37, 0x01 };
     const wire: *const SensorReading = @ptrCast(@alignCast(&wire_bytes));
 
@@ -289,6 +331,4 @@ test "comptime typed path: bigToNative on struct fields" {
     };
 
     try std.testing.expectEqual(@as(u16, 100), native.temperature);
-    try std.testing.expectEqual(@as(u8, 55), native.humidity);
-    try std.testing.expectEqual(@as(u8, 1), @intFromEnum(native.status));
 }

@@ -78,6 +78,21 @@ pub fn SwapRules(T: type) type {
         pub fn ruleCount() comptime_int {
             return rules.len;
         }
+
+        /// Convert big-endian wire bytes to a native T in one shot.
+        /// Copies the input so the source can be const.
+        pub fn fromBig(be_bytes: *const [@sizeOf(T)]u8) T {
+            var buf: [@sizeOf(T)]u8 = be_bytes.*;
+            apply(&buf);
+            return @bitCast(buf);
+        }
+
+        /// Convert a native T to big-endian wire bytes in one shot.
+        pub fn toBig(value: T) [@sizeOf(T)]u8 {
+            var buf: [@sizeOf(T)]u8 = @bitCast(value);
+            apply(&buf);
+            return buf;
+        }
     };
 }
 
