@@ -16,8 +16,11 @@
 
 const std = @import("std");
 
+/// A single byte-reversal operation: reverse `size` bytes starting at `offset`.
 pub const SwapRule = struct {
+    /// Byte offset within the buffer where the reversal starts.
     offset: u16,
+    /// Number of bytes to reverse.
     size: u8,
 };
 
@@ -39,8 +42,10 @@ pub fn SwapVariant(UnionType: type, comptime field_name: []const u8, comptime ba
     };
     const rules = comptime generateRules(FieldType, base_offset);
     return struct {
+        /// The swap rules for this union variant at the given offset.
         pub const swap_rules: [rules.len]SwapRule = rules[0..rules.len].*;
 
+        /// Apply byte swaps for this variant in-place.
         pub fn apply(buf: []u8) void {
             for (swap_rules) |rule| {
                 const start = rule.offset;
@@ -51,6 +56,7 @@ pub fn SwapVariant(UnionType: type, comptime field_name: []const u8, comptime ba
             }
         }
 
+        /// Number of swap rules for this variant.
         pub fn ruleCount() comptime_int {
             return rules.len;
         }
@@ -62,6 +68,7 @@ pub fn SwapVariant(UnionType: type, comptime field_name: []const u8, comptime ba
 pub fn SwapRules(T: type) type {
     const rules = comptime generateRules(T, 0);
     return struct {
+        /// The static swap rules for this type (excludes union variant swaps).
         pub const swap_rules: [rules.len]SwapRule = rules[0..rules.len].*;
 
         /// Apply static byte swaps in-place. Idempotent.
@@ -139,6 +146,7 @@ pub fn SwapRules(T: type) type {
             };
         }
 
+        /// Number of static swap rules for this type.
         pub fn ruleCount() comptime_int {
             return rules.len;
         }

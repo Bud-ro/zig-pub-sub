@@ -6,12 +6,12 @@
 //!   3. Receive wire messages containing [erd_number_be:2][data_be:N]
 //!   4. Look up the ERD, pretty-print the BE data directly
 //!   5. Optionally extract a typed value when you know the numeric type
-const std = @import("std");
-const erd_schema = @import("erd_schema");
-const erd_json = erd_schema.json;
-const decode = erd_schema.decode;
-const TypeDescriptor = decode.TypeDescriptor;
 const Erd = @import("erd_core").Erd;
+const erd_schema = @import("erd_schema");
+const std = @import("std");
+
+const decode = erd_schema.decode;
+const erd_json = erd_schema.json;
 
 // =======================================================================
 // ERD definitions (firmware side)

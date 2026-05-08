@@ -144,14 +144,14 @@ fn strEql(comptime a: []const u8, comptime b: []const u8) bool {
 }
 
 fn extractString(comptime json: []const u8, comptime key: []const u8) []const u8 {
-    const start = std.mem.indexOf(u8, json, key) orelse @compileError("Key not found: " ++ key);
+    const start = std.mem.find(u8, json, key) orelse @compileError("Key not found: " ++ key);
     const val_start = start + key.len;
-    const end = std.mem.indexOfScalarPos(u8, json, val_start, '"') orelse @compileError("Unterminated string");
+    const end = std.mem.findScalarPos(u8, json, val_start, '"') orelse @compileError("Unterminated string");
     return json[val_start..end];
 }
 
 fn extractInt(comptime json: []const u8, comptime key: []const u8) u16 {
-    const start = std.mem.indexOf(u8, json, key) orelse @compileError("Key not found: " ++ key);
+    const start = std.mem.find(u8, json, key) orelse @compileError("Key not found: " ++ key);
     const val_start = start + key.len;
     var end = val_start;
     while (end < json.len and json[end] >= '0' and json[end] <= '9') : (end += 1) {}
@@ -159,14 +159,14 @@ fn extractInt(comptime json: []const u8, comptime key: []const u8) u16 {
 }
 
 fn extractObject(comptime json: []const u8, comptime key: []const u8) []const u8 {
-    const start = std.mem.indexOf(u8, json, key) orelse @compileError("Key not found: " ++ key);
+    const start = std.mem.find(u8, json, key) orelse @compileError("Key not found: " ++ key);
     var pos = start + key.len;
     while (pos < json.len and json[pos] != '{') : (pos += 1) {}
     return balancedSlice(json, pos, '{', '}');
 }
 
 fn extractArray(comptime json: []const u8, comptime key: []const u8) []const u8 {
-    const start = std.mem.indexOf(u8, json, key) orelse @compileError("Key not found: " ++ key);
+    const start = std.mem.find(u8, json, key) orelse @compileError("Key not found: " ++ key);
     var pos = start + key.len;
     while (pos < json.len and json[pos] != '[') : (pos += 1) {}
     return balancedSlice(json, pos, '[', ']');

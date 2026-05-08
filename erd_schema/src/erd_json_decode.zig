@@ -8,19 +8,30 @@
 //! tree. All string fields (names, variant names, layout) point into that tree.
 //! Child TypeDescriptors allocated for nested types share this lifetime. Do not
 //! use any TypeDescriptor or its string fields after calling `deinit()` on the root.
-const std = @import("std");
 const builtin = @import("builtin");
+const std = @import("std");
 const native = builtin.cpu.arch.endian();
 
+/// Errors from parsing a JSON type descriptor into a TypeDescriptor.
 pub const ParseError = error{
     UnsupportedKind,
     OutOfMemory,
     BufferUnderrun,
     ValueTooLong,
 } || std.json.ParseFromValueError || std.json.Error;
+
+/// Errors from formatting bytes through a TypeDescriptor.
 pub const FormatError = error{ OutOfMemory, WriteFailed };
 
+/// A runtime representation of a Zig type, parsed from a JSON type descriptor.
+/// Supports interpreting raw byte buffers, pretty-printing values, and
+/// converting between big-endian wire format and native byte order.
+///
+/// String fields (names, variants) point into the JSON parse tree that was
+/// used to create this descriptor. The caller must keep that parse tree
+/// alive for the lifetime of this descriptor.
 pub const TypeDescriptor = struct {
+    /// The kind and type-specific metadata.
     kind: Kind,
 
     const Kind = union(enum) {
@@ -105,6 +116,7 @@ pub const TypeDescriptor = struct {
         return try fromValue(allocator, value);
     }
 
+    /// Free all child TypeDescriptors and field slices allocated during init.
     pub fn deinit(self: *TypeDescriptor, allocator: std.mem.Allocator) void {
         switch (self.kind) {
             .structure => |s| {
@@ -290,7 +302,7 @@ pub const TypeDescriptor = struct {
                 }
             },
             .string => |s| {
-                const end = std.mem.indexOfScalar(u8, bytes[0..@min(s.max_len, bytes.len)], 0) orelse @min(s.max_len, bytes.len);
+                const end = std.mem.findScalar(u8, bytes[0..@min(s.max_len, bytes.len)], 0) orelse @min(s.max_len, bytes.len);
                 try writer.print("\"{s}\"", .{bytes[0..end]});
             },
             .array => |a| {
@@ -413,6 +425,7 @@ pub const TypeDescriptor = struct {
         try writer.print(" }}", .{});
     }
 
+    /// Returns the size in bytes of the type this descriptor represents.
     pub fn getSize(self: *const TypeDescriptor) usize {
         return switch (self.kind) {
             .primitive => |p| p.size,
@@ -625,10 +638,16 @@ fn readBits(bytes: []const u8, bit_offset: usize, bit_count: usize) u64 {
 // SchemaRegistry: look up ERDs by number and format wire data
 // =======================================================================
 
+/// Metadata for a single ERD in the schema: its name, number, type
+/// descriptor, and byte size.
 pub const ErdInfo = struct {
+    /// Human-readable name from the ERD definitions (e.g., "firmware_version").
     name: []const u8,
+    /// Public ERD handle used in wire messages.
     erd_number: u16,
+    /// Type descriptor for interpreting the ERD's data bytes.
     td: TypeDescriptor,
+    /// Size in bytes of this ERD's data.
     size: usize,
 };
 
@@ -640,8 +659,11 @@ pub const SchemaRegistry = struct {
     allocator: std.mem.Allocator,
     _parsed: std.json.Parsed(std.json.Value),
 
+    /// Errors from `formatErdBig`.
     pub const FormatErdError = error{ ErdNotFound, SizeMismatch, OutOfMemory, WriteFailed };
 
+    /// Build a registry from a parsed ERD schema JSON. Takes ownership
+    /// of `parsed` and frees it on `deinit`.
     pub fn init(allocator: std.mem.Allocator, parsed: std.json.Parsed(std.json.Value)) ParseError!SchemaRegistry {
         const erd_array = parsed.value.object.get("erds").?.array.items;
         const entries = try allocator.alloc(ErdInfo, erd_array.len);
@@ -662,12 +684,14 @@ pub const SchemaRegistry = struct {
         return .{ .entries = entries, .allocator = allocator, ._parsed = parsed };
     }
 
+    /// Free all entries, type descriptors, and the owned JSON parse tree.
     pub fn deinit(self: *SchemaRegistry) void {
         for (self.entries) |*e| e.td.deinit(self.allocator);
         self.allocator.free(self.entries);
         self._parsed.deinit();
     }
 
+    /// Look up an ERD by its public handle. Returns null if not found.
     pub fn findByNumber(self: *const SchemaRegistry, erd_number: u16) ?*const ErdInfo {
         for (self.entries) |*entry| {
             if (entry.erd_number == erd_number) return entry;

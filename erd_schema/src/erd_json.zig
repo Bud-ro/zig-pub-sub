@@ -1,12 +1,16 @@
-/// Generic ERD JSON serialization
-///
-/// Generates a JSON representation of any ERD definitions struct.
-/// Each field of the struct must be an Erd type with `erd_number` and `T` fields.
+//! ERD JSON serialization.
+//!
+//! Generates a JSON representation of any ERD definitions struct.
+//! Each field of the struct must be an Erd type with `erd_number` and `T` fields.
+//! ERDs without an `erd_number` are omitted. Each emitted ERD includes a full
+//! type descriptor that external tools can use to interpret raw bytes.
 const std = @import("std");
 
 /// Configuration options for ERD JSON output.
 pub const Options = struct {
+    /// Namespace identifier included in the JSON header.
     namespace: []const u8 = "zig-pub-sub",
+    /// Schema version string included in the JSON header.
     version: []const u8 = "0.1.0",
 };
 

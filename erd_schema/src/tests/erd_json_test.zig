@@ -3,7 +3,7 @@ const std = @import("std");
 const erd_json = erd_schema.json;
 const Erd = @import("erd_core").Erd;
 
-fn tdString(comptime T: type) !struct { str: []const u8, out: std.Io.Writer.Allocating } {
+fn tdString(T: type) !struct { str: []const u8, out: std.Io.Writer.Allocating } {
     var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
     errdefer out.deinit();
     try erd_json.generateTypeDescriptor(T, &out.writer);
