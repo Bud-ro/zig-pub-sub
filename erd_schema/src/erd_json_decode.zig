@@ -387,6 +387,80 @@ pub const TypeDescriptor = struct {
             .@"union" => |u| u.size,
         };
     }
+
+    /// Swap big-endian bytes to native in-place, using the type descriptor
+    /// to know which byte ranges are multi-byte integers/floats.
+    pub fn swapBigToNative(self: *const TypeDescriptor, buf: []u8) void {
+        switch (self.kind) {
+            .primitive => |p| {
+                if (p.size > 1) std.mem.reverse(u8, buf[0..p.size]);
+            },
+            .float => |f| {
+                if (f.size > 1) std.mem.reverse(u8, buf[0..f.size]);
+            },
+            .enumeration => |e| {
+                if (e.size > 1) std.mem.reverse(u8, buf[0..e.size]);
+            },
+            .structure => |s| {
+                if (std.mem.eql(u8, s.layout, "packed")) {
+                    if (s.size > 1) std.mem.reverse(u8, buf[0..s.size]);
+                } else {
+                    for (s.fields) |field| {
+                        const offset = field.offset orelse continue;
+                        const field_size = field.type_desc.getSize();
+                        if (offset + field_size <= buf.len) {
+                            field.type_desc.swapBigToNative(buf[offset .. offset + field_size]);
+                        }
+                    }
+                }
+            },
+            .array => |a| {
+                const elem_size = a.size / a.len;
+                for (0..a.len) |i| {
+                    const start = i * elem_size;
+                    const end = start + elem_size;
+                    if (end <= buf.len) {
+                        a.element.swapBigToNative(buf[start..end]);
+                    }
+                }
+            },
+            .string => {},
+            .@"union" => {},
+        }
+    }
+
+    /// Format big-endian (wire) bytes directly. Copies the data, swaps to native,
+    /// then formats. The original bytes are not modified.
+    pub fn formatBytesBig(self: *const TypeDescriptor, be_bytes: []const u8, writer: anytype) FormatError!void {
+        var buf: [256]u8 = undefined;
+        const size = self.getSize();
+        if (size > buf.len or size > be_bytes.len) return error.OutOfMemory;
+        @memcpy(buf[0..size], be_bytes[0..size]);
+        self.swapBigToNative(buf[0..size]);
+        try self.formatBytesInner(buf[0..size], writer, 0);
+    }
+
+    /// Extract a numeric value from big-endian bytes using this descriptor.
+    /// T must be large enough to hold the value (e.g., i64 for any signed int).
+    pub fn parseIntBig(self: *const TypeDescriptor, T: type, be_bytes: []const u8) error{TypeMismatch}!T {
+        const size = self.getSize();
+        if (size > be_bytes.len) return error.TypeMismatch;
+        switch (self.kind) {
+            .primitive => |p| {
+                if (p.size > @sizeOf(T)) return error.TypeMismatch;
+                if (p.signed) {
+                    return @intCast(readSignedIntBig(be_bytes, p.bits));
+                } else {
+                    return @intCast(readUnsignedIntBig(be_bytes, p.bits));
+                }
+            },
+            .enumeration => |e| {
+                if (e.size > @sizeOf(T)) return error.TypeMismatch;
+                return @intCast(readUnsignedIntBig(be_bytes, e.size * 8));
+            },
+            else => return error.TypeMismatch,
+        }
+    }
 };
 
 /// Read an unsigned integer from native-endian bytes.
@@ -418,6 +492,40 @@ fn readUnsignedIntGeneric(bytes: []const u8, bits: usize) u64 {
 /// Read a signed integer from native-endian bytes with sign extension.
 fn readSignedInt(bytes: []const u8, bits: usize) i64 {
     const unsigned = readUnsignedInt(bytes, bits);
+    if (bits >= 64) return @bitCast(unsigned);
+    const sign_bit = @as(u64, 1) << @intCast(bits - 1);
+    if (unsigned & sign_bit != 0) {
+        const mask = ~((@as(u64, 1) << @intCast(bits)) - 1);
+        return @bitCast(unsigned | mask);
+    }
+    return @intCast(unsigned);
+}
+
+/// Read an unsigned integer from big-endian bytes.
+fn readUnsignedIntBig(bytes: []const u8, bits: usize) u64 {
+    return switch (bits) {
+        8 => bytes[0],
+        16 => std.mem.readInt(u16, bytes[0..2], .big),
+        32 => std.mem.readInt(u32, bytes[0..4], .big),
+        64 => std.mem.readInt(u64, bytes[0..8], .big),
+        else => blk: {
+            // Generic BE: MSB first
+            var result: u64 = 0;
+            const byte_count = (bits + 7) / 8;
+            for (0..@min(byte_count, bytes.len)) |i| {
+                result = (result << 8) | bytes[i];
+            }
+            if (bits < 64) {
+                const mask = (@as(u64, 1) << @as(u6, @intCast(bits))) - 1;
+                result &= mask;
+            }
+            break :blk result;
+        },
+    };
+}
+
+fn readSignedIntBig(bytes: []const u8, bits: usize) i64 {
+    const unsigned = readUnsignedIntBig(bytes, bits);
     if (bits >= 64) return @bitCast(unsigned);
     const sign_bit = @as(u64, 1) << @intCast(bits - 1);
     if (unsigned & sign_bit != 0) {

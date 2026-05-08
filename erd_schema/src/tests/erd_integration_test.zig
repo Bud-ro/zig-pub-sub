@@ -1,13 +1,11 @@
 //! Integration test: end-to-end ERD message decoding.
 //!
-//! Demonstrates the intended workflow for a host-side tool or debug console:
+//! Demonstrates the workflow for a host-side tool or debug console:
 //!   1. Load the ERD schema JSON (generated at build time from Zig types)
 //!   2. Build a lookup table: erd_number -> { name, type_descriptor, size }
 //!   3. Receive wire messages containing [erd_number_be:2][data_be:N]
-//!   4. Look up the ERD, swap the data to native, pretty-print it
-//!
-//! The runtime decoder (TypeDescriptor) handles all types generically
-//! without monomorphizing per ERD type.
+//!   4. Look up the ERD, pretty-print the BE data directly
+//!   5. Optionally extract a typed value when you know the numeric type
 const std = @import("std");
 const erd_schema = @import("erd_schema");
 const erd_json = erd_schema.json;
@@ -16,7 +14,7 @@ const TypeDescriptor = decode.TypeDescriptor;
 const Erd = @import("erd_core").Erd;
 
 // =======================================================================
-// ERD definitions (firmware side - generates the schema at build time)
+// ERD definitions (firmware side)
 // =======================================================================
 
 const SensorReading = extern struct {
@@ -40,7 +38,7 @@ const TestErds = struct {
 
 const ErdInfo = struct {
     name: []const u8,
-    id: []const u8,
+    erd_number: u16,
     td: TypeDescriptor,
     size: usize,
 };
@@ -60,10 +58,11 @@ const SchemaRegistry = struct {
 
         for (erd_array, 0..) |erd_val, i| {
             const obj = erd_val.object;
-            var td = try TypeDescriptor.fromParsedValue(allocator, obj.get("type").?, null);
+            const td = try TypeDescriptor.fromParsedValue(allocator, obj.get("type").?, null);
+            const id_str = obj.get("id").?.string;
             entries[i] = .{
                 .name = obj.get("name").?.string,
-                .id = obj.get("id").?.string,
+                .erd_number = std.fmt.parseInt(u16, id_str[2..], 16) catch 0,
                 .td = td,
                 .size = td.getSize(),
             };
@@ -78,208 +77,214 @@ const SchemaRegistry = struct {
         self._parsed.deinit();
     }
 
-    fn findById(self: *const SchemaRegistry, id_hex: []const u8) ?*const ErdInfo {
+    fn findByNumber(self: *const SchemaRegistry, erd_number: u16) ?*const ErdInfo {
         for (self.entries) |*entry| {
-            if (std.mem.eql(u8, entry.id, id_hex)) return entry;
+            if (entry.erd_number == erd_number) return entry;
         }
         return null;
     }
 
-    fn findByNumber(self: *const SchemaRegistry, erd_number: u16) ?*const ErdInfo {
-        var buf: [6]u8 = undefined;
-        const id_str = std.fmt.bufPrint(&buf, "0x{x:0>4}", .{erd_number}) catch return null;
-        return self.findById(id_str);
-    }
-
-    /// The main API: take an ERD number and native-endian data bytes,
-    /// produce "erd_name: <formatted value>"
-    fn formatErd(self: *const SchemaRegistry, erd_number: u16, data: []const u8, writer: anytype) !bool {
-        const info = self.findByNumber(erd_number) orelse return false;
+    /// Pretty-print an ERD from big-endian wire data.
+    /// Writes "erd_name: <value>" to the writer.
+    fn formatErdBig(self: *const SchemaRegistry, erd_number: u16, be_data: []const u8, writer: anytype) error{ ErdNotFound, SizeMismatch, OutOfMemory, WriteFailed }!void {
+        const info = self.findByNumber(erd_number) orelse return error.ErdNotFound;
+        if (be_data.len < info.size) return error.SizeMismatch;
         try writer.print("{s}: ", .{info.name});
-        try info.td.formatBytes(data, writer);
-        return true;
+        try info.td.formatBytesBig(be_data[0..info.size], writer);
     }
 };
 
-// =======================================================================
-// Test: Build schema, decode individual ERDs
-// =======================================================================
-
-test "decode u32 firmware version" {
+// Shared schema setup
+fn makeRegistry() !struct { registry: SchemaRegistry, schema_out: std.Io.Writer.Allocating } {
     var schema_out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer schema_out.deinit();
+    errdefer schema_out.deinit();
     try erd_json.generate(TestErds{}, &schema_out.writer, .{});
-
-    var registry = try SchemaRegistry.init(std.testing.allocator, schema_out.writer.buffered());
-    defer registry.deinit();
-
-    // Simulate wire message: erd=0x0001, data=0x01020304 in native bytes
-    const data = std.mem.toBytes(@as(u32, 0x01020304));
-
-    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer out.deinit();
-    const found = try registry.formatErd(0x0001, &data, &out.writer);
-
-    try std.testing.expect(found);
-    try std.testing.expectEqualStrings("firmware_version: 16909060", out.writer.buffered());
-}
-
-test "decode extern struct sensor reading" {
-    var schema_out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer schema_out.deinit();
-    try erd_json.generate(TestErds{}, &schema_out.writer, .{});
-
-    var registry = try SchemaRegistry.init(std.testing.allocator, schema_out.writer.buffered());
-    defer registry.deinit();
-
-    // Native-endian sensor reading: temp=100, humidity=55, status=warning(1)
-    const reading = SensorReading{
-        .temperature = 100,
-        .humidity = 55,
-        .status = .warning,
-    };
-    const data = std.mem.asBytes(&reading);
-
-    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer out.deinit();
-    const found = try registry.formatErd(0x0002, data, &out.writer);
-
-    try std.testing.expect(found);
-    try std.testing.expectEqualStrings("sensor: { temperature: 100, humidity: 55, status: warning }", out.writer.buffered());
-}
-
-test "decode string model number" {
-    var schema_out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer schema_out.deinit();
-    try erd_json.generate(TestErds{}, &schema_out.writer, .{});
-
-    var registry = try SchemaRegistry.init(std.testing.allocator, schema_out.writer.buffered());
-    defer registry.deinit();
-
-    var data: [16]u8 = .{0} ** 16;
-    @memcpy(data[0..9], "ACME-1234");
-
-    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer out.deinit();
-    _ = try registry.formatErd(0x0003, &data, &out.writer);
-
-    try std.testing.expectEqualStrings("model_number: \"ACME-1234\"", out.writer.buffered());
-}
-
-test "decode f32 calibration" {
-    var schema_out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer schema_out.deinit();
-    try erd_json.generate(TestErds{}, &schema_out.writer, .{});
-
-    var registry = try SchemaRegistry.init(std.testing.allocator, schema_out.writer.buffered());
-    defer registry.deinit();
-
-    const data = std.mem.toBytes(@as(f32, 3.14));
-
-    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer out.deinit();
-    _ = try registry.formatErd(0x0004, &data, &out.writer);
-
-    // Verify it starts with "calibration: 3.14" (exact format may vary)
-    const result = out.writer.buffered();
-    try std.testing.expect(std.mem.startsWith(u8, result, "calibration: 3.14"));
-}
-
-test "unknown ERD number returns false" {
-    var schema_out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer schema_out.deinit();
-    try erd_json.generate(TestErds{}, &schema_out.writer, .{});
-
-    var registry = try SchemaRegistry.init(std.testing.allocator, schema_out.writer.buffered());
-    defer registry.deinit();
-
-    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer out.deinit();
-    const found = try registry.formatErd(0xFFFF, &.{0}, &out.writer);
-
-    try std.testing.expect(!found);
-    try std.testing.expectEqual(0, out.writer.buffered().len);
+    const registry = try SchemaRegistry.init(std.testing.allocator, schema_out.writer.buffered());
+    return .{ .registry = registry, .schema_out = schema_out };
 }
 
 // =======================================================================
-// Test: Simulated wire message with BE erd_number + BE data
+// Wire message format: [erd_number_be:2] [data_be:N]
 // =======================================================================
 
-test "full wire message: BE erd_number + BE data -> pretty print" {
-    var schema_out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer schema_out.deinit();
-    try erd_json.generate(TestErds{}, &schema_out.writer, .{});
+test "u16 ERD: construct wire bytes, format, extract value" {
+    var r = try makeRegistry();
+    defer r.registry.deinit();
+    defer r.schema_out.deinit();
 
-    var registry = try SchemaRegistry.init(std.testing.allocator, schema_out.writer.buffered());
-    defer registry.deinit();
-
-    // Simulated wire message: [erd_number_be:2] [data_be:4]
-    // ERD 0x0001 (firmware_version), value 0x01020304
-    const wire_msg = [_]u8{
+    // Construct a wire message: ERD 0x0001 (firmware_version), value 0x01020304
+    const wire = [_]u8{
         0x00, 0x01, // erd_number = 0x0001 in BE
         0x01, 0x02, 0x03, 0x04, // u32 value in BE
     };
 
-    // Parse erd_number from first 2 bytes (BE)
-    const erd_number = std.mem.bigToNative(u16, @as(*const u16, @ptrCast(@alignCast(wire_msg[0..2]))).*);
+    // Parse erd_number
+    const erd_number = std.mem.readInt(u16, wire[0..2], .big);
     try std.testing.expectEqual(@as(u16, 0x0001), erd_number);
+    const data_be = wire[2..];
 
-    // Look up the ERD to get its size
-    const info = registry.findByNumber(erd_number).?;
-    try std.testing.expectEqualStrings("firmware_version", info.name);
-    try std.testing.expectEqual(4, info.size);
+    // Runtime path: look up and pretty-print directly from BE bytes
+    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer out.deinit();
+    try r.registry.formatErdBig(erd_number, data_be, &out.writer);
+    try std.testing.expectEqualStrings("firmware_version: 16909060", out.writer.buffered());
 
-    // Extract data bytes and swap to native using readInt
-    // For a generic path without the Zig type, copy and reverse multi-byte fields.
-    // Here we know it's a u32, so just read as BE and write as native:
-    var native_data: [4]u8 = undefined;
-    const val = std.mem.readInt(u32, wire_msg[2..6], .big);
-    std.mem.writeInt(u32, &native_data, val, .little);
+    // Typed path: when you know it's a u32, extract the value directly
+    const info = r.registry.findByNumber(erd_number).?;
+    const val = try info.td.parseIntBig(u32, data_be);
+    try std.testing.expectEqual(@as(u32, 0x01020304), val);
+}
+
+test "extern struct ERD: format nested fields from BE" {
+    var r = try makeRegistry();
+    defer r.registry.deinit();
+    defer r.schema_out.deinit();
+
+    // Wire message: ERD 0x0002 (sensor), temp=100 hum=55 status=warning
+    const wire = [_]u8{
+        0x00, 0x02, // erd_number
+        0x00, 0x64, // temperature = 100 in BE
+        0x37, // humidity = 55
+        0x01, // status = warning
+    };
+
+    const erd_number = std.mem.readInt(u16, wire[0..2], .big);
+    const data_be = wire[2..];
 
     var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
     defer out.deinit();
-    _ = try registry.formatErd(erd_number, &native_data, &out.writer);
-
-    try std.testing.expectEqualStrings("firmware_version: 16909060", out.writer.buffered());
+    try r.registry.formatErdBig(erd_number, data_be, &out.writer);
+    try std.testing.expectEqualStrings("sensor: { temperature: 100, humidity: 55, status: warning }", out.writer.buffered());
 }
 
-test "multiple ERDs decoded from a stream of messages" {
-    var schema_out: std.Io.Writer.Allocating = .init(std.testing.allocator);
-    defer schema_out.deinit();
-    try erd_json.generate(TestErds{}, &schema_out.writer, .{});
+test "string ERD: no swapping needed" {
+    var r = try makeRegistry();
+    defer r.registry.deinit();
+    defer r.schema_out.deinit();
 
-    var registry = try SchemaRegistry.init(std.testing.allocator, schema_out.writer.buffered());
-    defer registry.deinit();
+    // Wire message: ERD 0x0003 (model_number), "ACME-1234" + nulls
+    var wire: [2 + 16]u8 = .{0} ** 18;
+    wire[0] = 0x00;
+    wire[1] = 0x03;
+    @memcpy(wire[2..11], "ACME-1234");
 
-    // Three messages in native byte order (post-swap)
-    const messages = [_]struct { erd: u16, data: []const u8 }{
-        .{ .erd = 0x0001, .data = &std.mem.toBytes(@as(u32, 42)) },
-        .{ .erd = 0x0003, .data = "Hello\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" },
-        .{ .erd = 0x0002, .data = &std.mem.toBytes(SensorReading{ .temperature = 22, .humidity = 80, .status = .ok }) },
+    const erd_number = std.mem.readInt(u16, wire[0..2], .big);
+    const data_be = wire[2..];
+
+    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer out.deinit();
+    try r.registry.formatErdBig(erd_number, data_be, &out.writer);
+    try std.testing.expectEqualStrings("model_number: \"ACME-1234\"", out.writer.buffered());
+}
+
+test "f32 ERD: format float from BE" {
+    var r = try makeRegistry();
+    defer r.registry.deinit();
+    defer r.schema_out.deinit();
+
+    // Wire message: ERD 0x0004 (calibration), 3.14f32 = 0x4048F5C3 in BE
+    const wire = [_]u8{
+        0x00, 0x04, // erd_number
+        0x40, 0x48, 0xF5, 0xC3, // f32 3.14 in BE
     };
 
-    const expected = [_][]const u8{
-        "firmware_version: 42",
-        "model_number: \"Hello\"",
-        "sensor: { temperature: 22, humidity: 80, status: ok }",
+    const erd_number = std.mem.readInt(u16, wire[0..2], .big);
+    const data_be = wire[2..];
+
+    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer out.deinit();
+    try r.registry.formatErdBig(erd_number, data_be, &out.writer);
+
+    const result = out.writer.buffered();
+    try std.testing.expect(std.mem.startsWith(u8, result, "calibration: 3.14"));
+}
+
+test "unknown ERD returns error" {
+    var r = try makeRegistry();
+    defer r.registry.deinit();
+    defer r.schema_out.deinit();
+
+    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer out.deinit();
+
+    const err = r.registry.formatErdBig(0xFFFF, &.{0}, &out.writer);
+    try std.testing.expectError(error.ErdNotFound, err);
+}
+
+test "truncated data returns error" {
+    var r = try makeRegistry();
+    defer r.registry.deinit();
+    defer r.schema_out.deinit();
+
+    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer out.deinit();
+
+    // ERD 0x0001 expects 4 bytes but we only provide 2
+    const err = r.registry.formatErdBig(0x0001, &.{ 0x00, 0x01 }, &out.writer);
+    try std.testing.expectError(error.SizeMismatch, err);
+}
+
+test "parseIntBig extracts value without formatting" {
+    var r = try makeRegistry();
+    defer r.registry.deinit();
+    defer r.schema_out.deinit();
+
+    const info = r.registry.findByNumber(0x0001).?;
+
+    // 0x01020304 in BE
+    const data_be = [_]u8{ 0x01, 0x02, 0x03, 0x04 };
+    const val = try info.td.parseIntBig(u32, &data_be);
+    try std.testing.expectEqual(@as(u32, 0x01020304), val);
+
+    // Also works with a larger target type
+    const val64 = try info.td.parseIntBig(u64, &data_be);
+    try std.testing.expectEqual(@as(u64, 0x01020304), val64);
+}
+
+test "parseIntBig rejects struct descriptor" {
+    var r = try makeRegistry();
+    defer r.registry.deinit();
+    defer r.schema_out.deinit();
+
+    const info = r.registry.findByNumber(0x0002).?; // sensor (struct)
+    const err = info.td.parseIntBig(u32, &.{ 0, 0, 0, 0 });
+    try std.testing.expectError(error.TypeMismatch, err);
+}
+
+test "stream of wire messages" {
+    var r = try makeRegistry();
+    defer r.registry.deinit();
+    defer r.schema_out.deinit();
+
+    const Message = struct { wire: []const u8, expected: []const u8 };
+    const messages = [_]Message{
+        .{
+            .wire = &[_]u8{ 0x00, 0x01, 0x00, 0x00, 0x00, 0x2A }, // firmware_version = 42
+            .expected = "firmware_version: 42",
+        },
+        .{
+            .wire = &[_]u8{ 0x00, 0x02, 0x00, 0x16, 0x50, 0x00 }, // sensor: temp=22, hum=80, status=ok
+            .expected = "sensor: { temperature: 22, humidity: 80, status: ok }",
+        },
     };
 
-    for (messages, expected) |msg, exp| {
+    for (messages) |msg| {
+        const erd_number = std.mem.readInt(u16, msg.wire[0..2], .big);
+        const data_be = msg.wire[2..];
+
         var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
         defer out.deinit();
-        _ = try registry.formatErd(msg.erd, msg.data, &out.writer);
-        try std.testing.expectEqualStrings(exp, out.writer.buffered());
+        try r.registry.formatErdBig(erd_number, data_be, &out.writer);
+        try std.testing.expectEqualStrings(msg.expected, out.writer.buffered());
     }
 }
 
 // =======================================================================
-// Test: Direct value access when you know the type (comptime path)
+// Comptime typed path (for comparison - when you have the Zig type)
 // =======================================================================
 
-test "comptime typed path: SwapRules.fromBig in one shot" {
-    // When you have the Zig type, one call does the whole conversion.
+test "comptime: SwapRules.fromBig one-shot conversion" {
     const wire_bytes = [_]u8{ 0x00, 0x64, 0x37, 0x01 };
-
     const reading = erd_schema.SwapRules(SensorReading).fromBig(&wire_bytes);
 
     try std.testing.expectEqual(@as(u16, 100), reading.temperature);
@@ -287,48 +292,12 @@ test "comptime typed path: SwapRules.fromBig in one shot" {
     try std.testing.expectEqual(@as(u8, 1), @intFromEnum(reading.status));
 }
 
-test "comptime typed path: SwapRules.toBig for serialization" {
-    const reading = SensorReading{
-        .temperature = 100,
-        .humidity = 55,
-        .status = .warning,
-    };
-
-    const wire = erd_schema.SwapRules(SensorReading).toBig(reading);
-
-    // temperature 100 = 0x0064, BE = 00 64
-    try std.testing.expectEqual(@as(u8, 0x00), wire[0]);
-    try std.testing.expectEqual(@as(u8, 0x64), wire[1]);
-    // humidity and status are single bytes, unchanged
-    try std.testing.expectEqual(@as(u8, 55), wire[2]);
-    try std.testing.expectEqual(@as(u8, 1), wire[3]);
-}
-
-test "comptime typed path: round-trip toBig -> fromBig" {
-    const original = SensorReading{
-        .temperature = 1234,
-        .humidity = 99,
-        .status = .critical,
-    };
-
+test "comptime: round-trip toBig -> fromBig" {
+    const original = SensorReading{ .temperature = 1234, .humidity = 99, .status = .critical };
     const wire = erd_schema.SwapRules(SensorReading).toBig(original);
     const restored = erd_schema.SwapRules(SensorReading).fromBig(&wire);
 
     try std.testing.expectEqual(original.temperature, restored.temperature);
     try std.testing.expectEqual(original.humidity, restored.humidity);
     try std.testing.expectEqual(original.status, restored.status);
-}
-
-test "comptime typed path: bigToNative per-field (manual alternative)" {
-    // For comparison: the per-field approach when you want more control.
-    const wire_bytes = [_]u8{ 0x00, 0x64, 0x37, 0x01 };
-    const wire: *const SensorReading = @ptrCast(@alignCast(&wire_bytes));
-
-    const native: SensorReading = .{
-        .temperature = std.mem.bigToNative(u16, wire.temperature),
-        .humidity = wire.humidity,
-        .status = wire.status,
-    };
-
-    try std.testing.expectEqual(@as(u16, 100), native.temperature);
 }
