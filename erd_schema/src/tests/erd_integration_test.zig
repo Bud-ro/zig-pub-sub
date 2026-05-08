@@ -23,12 +23,21 @@ const SensorReading = extern struct {
     status: enum(u8) { ok, warning, critical },
 };
 
+const Event = extern struct {
+    tag: enum(u8) { temperature_alert, error_report },
+    payload: extern union {
+        temperature_alert: i16,
+        error_report: u8,
+    },
+};
+
 const TestErds = struct {
     // zig fmt: off
     firmware_version: Erd = .{ .erd_number = 0x0001, .T = u32,           .component_idx = 0, .subs = 0 },
     sensor:           Erd = .{ .erd_number = 0x0002, .T = SensorReading, .component_idx = 0, .subs = 0 },
     model_number:     Erd = .{ .erd_number = 0x0003, .T = [16]u8,        .component_idx = 0, .subs = 0 },
     calibration:      Erd = .{ .erd_number = 0x0004, .T = f32,           .component_idx = 0, .subs = 0 },
+    event:            Erd = .{ .erd_number = 0x0005, .T = Event,         .component_idx = 0, .subs = 0 },
     // zig fmt: on
 };
 
@@ -221,6 +230,60 @@ test "stream of wire messages" {
         try r.registry.formatErdBig(erd_number, data_be, &out.writer);
         try std.testing.expectEqualStrings(msg.expected, out.writer.buffered());
     }
+}
+
+test "tagged union: construct Event, serialize to BE, verify wire bytes, then decode" {
+    var r = try makeRegistry();
+    defer r.registry.deinit();
+    defer r.schema_out.deinit();
+
+    // Verify layout assumptions
+    try std.testing.expectEqual(0, @offsetOf(Event, "tag"));
+    try std.testing.expectEqual(2, @offsetOf(Event, "payload"));
+    try std.testing.expectEqual(4, @sizeOf(Event));
+
+    // Construct a temperature_alert event with value -10
+    const temp_event = Event{
+        .tag = .temperature_alert,
+        .payload = .{ .temperature_alert = -10 },
+    };
+
+    // Serialize to BE wire bytes - toBig handles the tagged union automatically
+    const wire_data = erd_schema.SwapRules(Event).toBig(temp_event);
+
+    // Verify the wire representation byte by byte
+    try std.testing.expectEqual(@as(u8, 0x00), wire_data[0]); // tag = 0 (temperature_alert)
+    try std.testing.expectEqual(@as(u8, 0x00), wire_data[1]); // padding
+    try std.testing.expectEqual(@as(u8, 0xFF), wire_data[2]); // i16 -10 high byte
+    try std.testing.expectEqual(@as(u8, 0xF6), wire_data[3]); // i16 -10 low byte
+
+    // Decode it back through the runtime path
+    // formatErdBig handles the tagged union swap automatically
+    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer out.deinit();
+    try r.registry.formatErdBig(0x0005, &wire_data, &out.writer);
+    try std.testing.expectEqualStrings("event: { tag: temperature_alert, payload.temperature_alert: -10 }", out.writer.buffered());
+}
+
+test "tagged union: error_report variant (u8 - no swap needed)" {
+    var r = try makeRegistry();
+    defer r.registry.deinit();
+    defer r.schema_out.deinit();
+
+    const err_event = Event{
+        .tag = .error_report,
+        .payload = .{ .error_report = 42 },
+    };
+
+    const wire_data = erd_schema.SwapRules(Event).toBig(err_event);
+
+    try std.testing.expectEqual(@as(u8, 0x01), wire_data[0]); // tag = 1 (error_report)
+    try std.testing.expectEqual(@as(u8, 42), wire_data[2]); // u8 42
+
+    var out: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer out.deinit();
+    try r.registry.formatErdBig(0x0005, &wire_data, &out.writer);
+    try std.testing.expectEqualStrings("event: { tag: error_report, payload.error_report: 42 }", out.writer.buffered());
 }
 
 // =======================================================================

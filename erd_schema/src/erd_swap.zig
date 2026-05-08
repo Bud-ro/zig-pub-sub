@@ -64,7 +64,8 @@ pub fn SwapRules(T: type) type {
     return struct {
         pub const swap_rules: [rules.len]SwapRule = rules[0..rules.len].*;
 
-        /// Apply byte swaps in-place. Idempotent: applying twice restores original.
+        /// Apply static byte swaps in-place. Idempotent.
+        /// Does NOT handle tagged union variants. Use fromBig/toBig instead.
         pub fn apply(buf: []u8) void {
             for (swap_rules) |rule| {
                 const start = rule.offset;
@@ -75,21 +76,91 @@ pub fn SwapRules(T: type) type {
             }
         }
 
+        fn applyTaggedUnions(buf: []u8) void {
+            // Check if T itself is a tagged union pattern
+            applyTaggedUnionsInField(T, 0, buf);
+            // Also check nested struct fields
+            const info = @typeInfo(T);
+            switch (info) {
+                .@"struct" => |si| {
+                    if (si.layout == .@"extern") {
+                        inline for (si.fields) |field| {
+                            applyTaggedUnionsInField(field.type, @offsetOf(T, field.name), buf);
+                        }
+                    }
+                },
+                else => {},
+            }
+        }
+
+        fn applyTaggedUnionsInField(FieldType: type, comptime field_offset: u16, buf: []u8) void {
+            const fi = @typeInfo(FieldType);
+            switch (fi) {
+                .@"struct" => |si| {
+                    if (si.layout != .@"extern" or si.fields.len != 2) return;
+                    if (!std.mem.eql(u8, si.fields[0].name, "tag")) return;
+                    const union_info = @typeInfo(si.fields[1].type);
+                    if (union_info != .@"union") return;
+
+                    const tag_offset = field_offset + @as(u16, @intCast(@offsetOf(FieldType, "tag")));
+                    const union_offset = field_offset + @as(u16, @intCast(@offsetOf(FieldType, si.fields[1].name)));
+                    const TagType = si.fields[0].type;
+                    const tag_size = @sizeOf(TagType);
+
+                    if (tag_offset + tag_size > buf.len) return;
+                    // Tag has already been swapped to native by the static rules
+                    const tag_val = readTagValue(buf[tag_offset..][0..tag_size]);
+
+                    inline for (union_info.@"union".fields, 0..) |uf, i| {
+                        if (tag_val == i) {
+                            const variant_rules = comptime generateRules(uf.type, union_offset);
+                            inline for (variant_rules) |rule| {
+                                const start = rule.offset;
+                                const end = start + rule.size;
+                                if (end <= buf.len) {
+                                    std.mem.reverse(u8, buf[start..end]);
+                                }
+                            }
+                        }
+                    }
+                },
+                else => {},
+            }
+        }
+
+        const native_endian = @import("builtin").cpu.arch.endian();
+
+        fn readTagValue(bytes: []const u8) u64 {
+            return switch (bytes.len) {
+                1 => bytes[0],
+                2 => std.mem.readInt(u16, bytes[0..2], native_endian),
+                4 => std.mem.readInt(u32, bytes[0..4], native_endian),
+                else => 0,
+            };
+        }
+
         pub fn ruleCount() comptime_int {
             return rules.len;
         }
 
         /// Convert big-endian wire bytes to a native T in one shot.
-        /// Copies the input so the source can be const.
+        /// Handles tagged unions automatically.
         pub fn fromBig(be_bytes: *const [@sizeOf(T)]u8) T {
             var buf: [@sizeOf(T)]u8 = be_bytes.*;
+            // Swap statics first so the tag becomes native-readable
             apply(&buf);
+            // Then swap the active union variant
+            applyTaggedUnions(&buf);
             return @bitCast(buf);
         }
 
         /// Convert a native T to big-endian wire bytes in one shot.
+        /// Handles tagged unions automatically.
         pub fn toBig(value: T) [@sizeOf(T)]u8 {
             var buf: [@sizeOf(T)]u8 = @bitCast(value);
+            // Swap union variants first while the tag is still native
+            applyTaggedUnions(&buf);
+            // Then swap all static fields (including the tag)
             apply(&buf);
             return buf;
         }

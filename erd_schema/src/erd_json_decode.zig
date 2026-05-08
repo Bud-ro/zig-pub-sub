@@ -330,6 +330,16 @@ pub const TypeDescriptor = struct {
     }
 
     fn formatExternStruct(s: Struct, bytes: []const u8, writer: anytype, indent: usize) FormatError!void {
+        // Tagged union convention: exactly 2 fields, first named "tag"
+        // (enum or int), second is a union. Print only the active variant.
+        if (s.fields.len == 2 and std.mem.eql(u8, s.fields[0].name, "tag")) {
+            const union_field = s.fields[1];
+            if (union_field.type_desc.kind == .@"union") {
+                try formatTaggedUnion(s.fields[0], union_field, bytes, writer, indent);
+                return;
+            }
+        }
+
         try writer.print("{{ ", .{});
         for (s.fields, 0..) |field, i| {
             if (i > 0) try writer.print(", ", .{});
@@ -343,6 +353,51 @@ pub const TypeDescriptor = struct {
             }
         }
         try writer.print(" }}", .{});
+    }
+
+    fn formatTaggedUnion(tag_field: Field, union_field: Field, bytes: []const u8, writer: anytype, indent: usize) FormatError!void {
+        const tag_offset = tag_field.offset orelse 0;
+        const tag_size = tag_field.type_desc.getSize();
+        const union_offset = union_field.offset orelse 0;
+        const u = union_field.type_desc.kind.@"union";
+
+        // Read the tag value
+        const tag_val = readUnsignedInt(bytes[tag_offset .. tag_offset + tag_size], tag_size * 8);
+
+        // Resolve tag name (if tag is an enum with variants)
+        var tag_name: ?[]const u8 = null;
+        if (tag_field.type_desc.kind == .enumeration) {
+            const e = tag_field.type_desc.kind.enumeration;
+            if (tag_val < e.variants.len) {
+                tag_name = e.variants[tag_val];
+            }
+        }
+
+        // Find the matching union variant
+        var active_field: ?*const UnionField = null;
+        if (tag_name) |name| {
+            for (u.fields) |*uf| {
+                if (std.mem.eql(u8, uf.name, name)) {
+                    active_field = uf;
+                    break;
+                }
+            }
+        }
+
+        if (active_field) |af| {
+            // Print as: { tag: variant_name, union_field.variant: value }
+            try writer.print("{{ tag: {s}, {s}.{s}: ", .{ tag_name.?, union_field.name, af.name });
+            const field_size = af.type_desc.getSize();
+            if (union_offset + field_size <= bytes.len) {
+                try af.type_desc.formatBytesInner(bytes[union_offset .. union_offset + field_size], writer, indent + 1);
+            }
+            try writer.print(" }}", .{});
+        } else {
+            // Unknown tag value - print tag as number and all union interpretations
+            try writer.print("{{ tag: {d}, ", .{tag_val});
+            try union_field.type_desc.formatBytesInner(bytes[union_offset .. union_offset + u.size], writer, indent + 1);
+            try writer.print(" }}", .{});
+        }
     }
 
     fn formatPackedStruct(s: Struct, bytes: []const u8, writer: anytype, indent: usize) FormatError!void {
@@ -413,12 +468,47 @@ pub const TypeDescriptor = struct {
 
     /// Format big-endian (wire) bytes directly. Copies the data, swaps to native,
     /// then formats. The original bytes are not modified.
+    /// For tagged unions (struct with "tag" + union), swaps the active variant
+    /// based on the tag value.
     pub fn formatBytesBig(self: *const TypeDescriptor, be_bytes: []const u8, writer: anytype) FormatError!void {
         var buf: [256]u8 = undefined;
         const size = self.getSize();
         if (size > buf.len or size > be_bytes.len) return error.OutOfMemory;
         @memcpy(buf[0..size], be_bytes[0..size]);
         self.swapBigToNative(buf[0..size]);
+
+        // For tagged unions, also swap the active union variant
+        if (self.kind == .structure) {
+            const s = self.kind.structure;
+            if (s.fields.len == 2 and std.mem.eql(u8, s.fields[0].name, "tag") and s.fields[1].type_desc.kind == .@"union") {
+                const tag_offset = s.fields[0].offset orelse 0;
+                const tag_size = s.fields[0].type_desc.getSize();
+                const union_offset = s.fields[1].offset orelse 0;
+                const u = s.fields[1].type_desc.kind.@"union";
+                const tag_val = readUnsignedInt(buf[tag_offset .. tag_offset + tag_size], tag_size * 8);
+
+                // Find active variant name from enum
+                var variant_name: ?[]const u8 = null;
+                if (s.fields[0].type_desc.kind == .enumeration) {
+                    const e = s.fields[0].type_desc.kind.enumeration;
+                    if (tag_val < e.variants.len) variant_name = e.variants[tag_val];
+                }
+
+                // Swap the active variant's bytes
+                if (variant_name) |name| {
+                    for (u.fields) |uf| {
+                        if (std.mem.eql(u8, uf.name, name)) {
+                            const fs = uf.type_desc.getSize();
+                            if (union_offset + fs <= size) {
+                                uf.type_desc.swapBigToNative(buf[union_offset .. union_offset + fs]);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         try self.formatBytesInner(buf[0..size], writer, 0);
     }
 

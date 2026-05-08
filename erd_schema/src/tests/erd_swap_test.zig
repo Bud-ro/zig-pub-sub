@@ -250,29 +250,210 @@ test "SwapVariant with offset in tagged union pattern" {
     try std.testing.expectEqual(0, ErrSwap.ruleCount());
 }
 
-test "full tagged union swap workflow" {
+// =======================================================================
+// Tagged union: toBig/fromBig automatic variant swapping
+// =======================================================================
+
+test "tagged union u8 tag: toBig swaps active variant" {
     const Msg = extern struct {
-        tag: enum(u8) { temperature, error_code },
-        payload: extern union { temperature: u16, error_code: u8 },
+        tag: enum(u8) { temp, err },
+        payload: extern union { temp: u16, err: u8 },
     };
 
-    // Write a temperature message: tag=0, pad, temp=0x1234
-    var buf = [_]u8{ 0x00, 0x00, 0x34, 0x12 };
-    const payload_offset = @offsetOf(Msg, "payload");
+    const msg = Msg{ .tag = .temp, .payload = .{ .temp = 0x1234 } };
+    const wire = erd_swap.SwapRules(Msg).toBig(msg);
 
-    // Swap the tag (u8, no-op) via struct rules
-    const TagRules = erd_swap.SwapRules(@TypeOf(@as(Msg, undefined).tag));
-    _ = TagRules;
+    try std.testing.expectEqual(@as(u8, 0x00), wire[0]); // tag
+    try std.testing.expectEqual(@as(u8, 0x12), wire[@offsetOf(Msg, "payload")]); // u16 BE high
+    try std.testing.expectEqual(@as(u8, 0x34), wire[@offsetOf(Msg, "payload") + 1]); // u16 BE low
 
-    // Read tag, then swap the active variant
-    const msg: *const Msg = @ptrCast(@alignCast(&buf));
-    switch (msg.tag) {
-        .temperature => {
-            erd_swap.SwapVariant(@TypeOf(@as(Msg, undefined).payload), "temperature", payload_offset).apply(&buf);
-            // After swap: bytes at offset 2-3 should be 12 34 (big-endian)
-            try std.testing.expectEqual(@as(u8, 0x12), buf[payload_offset]);
-            try std.testing.expectEqual(@as(u8, 0x34), buf[payload_offset + 1]);
-        },
-        .error_code => unreachable,
-    }
+    const restored = erd_swap.SwapRules(Msg).fromBig(&wire);
+    try std.testing.expectEqual(@TypeOf(@as(Msg, undefined).tag).temp, restored.tag);
+    try std.testing.expectEqual(@as(u16, 0x1234), restored.payload.temp);
+}
+
+test "tagged union u8 tag: single-byte variant needs no swap" {
+    const Msg = extern struct {
+        tag: enum(u8) { temp, err },
+        payload: extern union { temp: u16, err: u8 },
+    };
+
+    const msg = Msg{ .tag = .err, .payload = .{ .err = 42 } };
+    const wire = erd_swap.SwapRules(Msg).toBig(msg);
+
+    try std.testing.expectEqual(@as(u8, 0x01), wire[0]); // tag = err
+    try std.testing.expectEqual(@as(u8, 42), wire[@offsetOf(Msg, "payload")]); // u8 unchanged
+
+    const restored = erd_swap.SwapRules(Msg).fromBig(&wire);
+    try std.testing.expectEqual(@as(u8, 42), restored.payload.err);
+}
+
+test "tagged union u16 tag" {
+    const Msg = extern struct {
+        tag: enum(u16) { voltage, current, resistance },
+        payload: extern union { voltage: u32, current: i16, resistance: f32 },
+    };
+
+    // voltage variant with u32 payload
+    const v_msg = Msg{ .tag = .voltage, .payload = .{ .voltage = 0xDEADBEEF } };
+    const v_wire = erd_swap.SwapRules(Msg).toBig(v_msg);
+
+    // tag should be BE u16 = 0x0000
+    try std.testing.expectEqual(@as(u8, 0x00), v_wire[0]);
+    try std.testing.expectEqual(@as(u8, 0x00), v_wire[1]);
+    // payload u32 should be BE
+    const po = @offsetOf(Msg, "payload");
+    try std.testing.expectEqual(@as(u8, 0xDE), v_wire[po]);
+    try std.testing.expectEqual(@as(u8, 0xAD), v_wire[po + 1]);
+    try std.testing.expectEqual(@as(u8, 0xBE), v_wire[po + 2]);
+    try std.testing.expectEqual(@as(u8, 0xEF), v_wire[po + 3]);
+
+    const v_restored = erd_swap.SwapRules(Msg).fromBig(&v_wire);
+    try std.testing.expectEqual(@TypeOf(@as(Msg, undefined).tag).voltage, v_restored.tag);
+    try std.testing.expectEqual(@as(u32, 0xDEADBEEF), v_restored.payload.voltage);
+
+    // current variant with i16 payload
+    const c_msg = Msg{ .tag = .current, .payload = .{ .current = -500 } };
+    const c_wire = erd_swap.SwapRules(Msg).toBig(c_msg);
+
+    // tag = 1 in BE
+    try std.testing.expectEqual(@as(u8, 0x00), c_wire[0]);
+    try std.testing.expectEqual(@as(u8, 0x01), c_wire[1]);
+
+    const c_restored = erd_swap.SwapRules(Msg).fromBig(&c_wire);
+    try std.testing.expectEqual(@as(i16, -500), c_restored.payload.current);
+}
+
+test "tagged union u32 tag" {
+    const Msg = extern struct {
+        tag: enum(u32) { ping, pong, data },
+        payload: extern union { ping: u64, pong: u64, data: u32 },
+    };
+
+    const msg = Msg{ .tag = .pong, .payload = .{ .pong = 0x0102030405060708 } };
+    const wire = erd_swap.SwapRules(Msg).toBig(msg);
+
+    // tag = 1 in BE u32
+    try std.testing.expectEqual(@as(u8, 0x00), wire[0]);
+    try std.testing.expectEqual(@as(u8, 0x00), wire[1]);
+    try std.testing.expectEqual(@as(u8, 0x00), wire[2]);
+    try std.testing.expectEqual(@as(u8, 0x01), wire[3]);
+
+    // u64 payload in BE
+    const po = @offsetOf(Msg, "payload");
+    try std.testing.expectEqual(@as(u8, 0x01), wire[po]);
+    try std.testing.expectEqual(@as(u8, 0x08), wire[po + 7]);
+
+    const restored = erd_swap.SwapRules(Msg).fromBig(&wire);
+    try std.testing.expectEqual(@TypeOf(@as(Msg, undefined).tag).pong, restored.tag);
+    try std.testing.expectEqual(@as(u64, 0x0102030405060708), restored.payload.pong);
+}
+
+test "tagged union u32 tag: data variant (smaller than largest)" {
+    const Msg = extern struct {
+        tag: enum(u32) { ping, pong, data },
+        payload: extern union { ping: u64, pong: u64, data: u32 },
+    };
+
+    const msg = Msg{ .tag = .data, .payload = .{ .data = 0xCAFEBABE } };
+    const wire = erd_swap.SwapRules(Msg).toBig(msg);
+
+    const po = @offsetOf(Msg, "payload");
+    try std.testing.expectEqual(@as(u8, 0xCA), wire[po]);
+    try std.testing.expectEqual(@as(u8, 0xFE), wire[po + 1]);
+    try std.testing.expectEqual(@as(u8, 0xBA), wire[po + 2]);
+    try std.testing.expectEqual(@as(u8, 0xBE), wire[po + 3]);
+
+    const restored = erd_swap.SwapRules(Msg).fromBig(&wire);
+    try std.testing.expectEqual(@as(u32, 0xCAFEBABE), restored.payload.data);
+}
+
+test "tagged union with struct variant" {
+    const Inner = extern struct { x: u16, y: u16 };
+    const Msg = extern struct {
+        tag: enum(u8) { point, raw },
+        payload: extern union { point: Inner, raw: u32 },
+    };
+
+    const msg = Msg{ .tag = .point, .payload = .{ .point = .{ .x = 100, .y = 200 } } };
+    const wire = erd_swap.SwapRules(Msg).toBig(msg);
+
+    const po = @offsetOf(Msg, "payload");
+    // x = 100 = 0x0064 in BE
+    try std.testing.expectEqual(@as(u8, 0x00), wire[po]);
+    try std.testing.expectEqual(@as(u8, 0x64), wire[po + 1]);
+    // y = 200 = 0x00C8 in BE
+    try std.testing.expectEqual(@as(u8, 0x00), wire[po + 2]);
+    try std.testing.expectEqual(@as(u8, 0xC8), wire[po + 3]);
+
+    const restored = erd_swap.SwapRules(Msg).fromBig(&wire);
+    try std.testing.expectEqual(@as(u16, 100), restored.payload.point.x);
+    try std.testing.expectEqual(@as(u16, 200), restored.payload.point.y);
+}
+
+test "tagged union inside a larger struct" {
+    const Inner = extern struct {
+        tag: enum(u8) { a, b },
+        payload: extern union { a: u16, b: u8 },
+    };
+    const Outer = extern struct {
+        header: u32,
+        inner: Inner,
+        footer: u16,
+    };
+
+    const msg = Outer{
+        .header = 0x11223344,
+        .inner = .{ .tag = .a, .payload = .{ .a = 0xABCD } },
+        .footer = 0x5566,
+    };
+    const wire = erd_swap.SwapRules(Outer).toBig(msg);
+
+    // header BE
+    try std.testing.expectEqual(@as(u8, 0x11), wire[0]);
+    try std.testing.expectEqual(@as(u8, 0x44), wire[3]);
+
+    // inner.tag = 0 (a)
+    const inner_off = @offsetOf(Outer, "inner");
+    try std.testing.expectEqual(@as(u8, 0x00), wire[inner_off]);
+
+    // inner.payload.a = 0xABCD in BE
+    const payload_off = inner_off + @offsetOf(Inner, "payload");
+    try std.testing.expectEqual(@as(u8, 0xAB), wire[payload_off]);
+    try std.testing.expectEqual(@as(u8, 0xCD), wire[payload_off + 1]);
+
+    // footer BE
+    const footer_off = @offsetOf(Outer, "footer");
+    try std.testing.expectEqual(@as(u8, 0x55), wire[footer_off]);
+    try std.testing.expectEqual(@as(u8, 0x66), wire[footer_off + 1]);
+
+    const restored = erd_swap.SwapRules(Outer).fromBig(&wire);
+    try std.testing.expectEqual(@as(u32, 0x11223344), restored.header);
+    try std.testing.expectEqual(@TypeOf(@as(Inner, undefined).tag).a, restored.inner.tag);
+    try std.testing.expectEqual(@as(u16, 0xABCD), restored.inner.payload.a);
+    try std.testing.expectEqual(@as(u16, 0x5566), restored.footer);
+}
+
+test "tagged union round-trip for all variants" {
+    const Msg = extern struct {
+        tag: enum(u8) { u8_val, u16_val, u32_val, i16_val },
+        payload: extern union { u8_val: u8, u16_val: u16, u32_val: u32, i16_val: i16 },
+    };
+
+    // Test every variant round-trips correctly
+    const u8_msg = Msg{ .tag = .u8_val, .payload = .{ .u8_val = 0xFF } };
+    const u8_rt = erd_swap.SwapRules(Msg).fromBig(&erd_swap.SwapRules(Msg).toBig(u8_msg));
+    try std.testing.expectEqual(@as(u8, 0xFF), u8_rt.payload.u8_val);
+
+    const u16_msg = Msg{ .tag = .u16_val, .payload = .{ .u16_val = 0x1234 } };
+    const u16_rt = erd_swap.SwapRules(Msg).fromBig(&erd_swap.SwapRules(Msg).toBig(u16_msg));
+    try std.testing.expectEqual(@as(u16, 0x1234), u16_rt.payload.u16_val);
+
+    const u32_msg = Msg{ .tag = .u32_val, .payload = .{ .u32_val = 0xDEADBEEF } };
+    const u32_rt = erd_swap.SwapRules(Msg).fromBig(&erd_swap.SwapRules(Msg).toBig(u32_msg));
+    try std.testing.expectEqual(@as(u32, 0xDEADBEEF), u32_rt.payload.u32_val);
+
+    const i16_msg = Msg{ .tag = .i16_val, .payload = .{ .i16_val = -1 } };
+    const i16_rt = erd_swap.SwapRules(Msg).fromBig(&erd_swap.SwapRules(Msg).toBig(i16_msg));
+    try std.testing.expectEqual(@as(i16, -1), i16_rt.payload.i16_val);
 }

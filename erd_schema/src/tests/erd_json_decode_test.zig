@@ -222,10 +222,40 @@ test "nested: struct containing enum" {
 
 test "extern union prints all field interpretations" {
     var h = try parseTd(
-        \\{"kind":"union","name":"U","layout":"extern","size":4,"tag_type":{"kind":"enum","name":"Tag","tag_type":"u8","size":1,"variants":["int_val","byte_val"]},"fields":[{"name":"int_val","type_descriptor":{"kind":"primitive","name":"u32","size":4,"signedness":"unsigned","bits":32}},{"name":"byte_val","type_descriptor":{"kind":"primitive","name":"u8","size":1,"signedness":"unsigned","bits":8}}]}
+        \\{"kind":"union","name":"U","layout":"extern","size":4,"fields":[{"name":"unsigned_val","type_descriptor":{"kind":"primitive","name":"u32","size":4,"signedness":"unsigned","bits":32}},{"name":"signed_val","type_descriptor":{"kind":"primitive","name":"i32","size":4,"signedness":"signed","bits":32}}]}
     );
     defer h.deinit();
-    var r = try format(&h.td, &.{ 0x2A, 0x00, 0x00, 0x00 });
+    // 0xFFFFFFFF in LE: unsigned=4294967295, signed=-1
+    var r = try format(&h.td, &.{ 0xFF, 0xFF, 0xFF, 0xFF });
     defer r.deinit();
-    try std.testing.expectEqualStrings("union{ int_val: 42, byte_val: 42 }", r.str);
+    try std.testing.expectEqualStrings("union{ unsigned_val: 4294967295, signed_val: -1 }", r.str);
+}
+
+test "tagged union struct prints only active variant" {
+    // extern struct { tag: enum(u8) { temp, err }, payload: extern union { temp: u16, err: u8 } }
+    var h = try parseTd(
+        \\{"kind":"struct","name":"Msg","layout":"extern","size":4,"fields":[{"name":"tag","offset":0,"type_descriptor":{"kind":"enum","name":"Tag","tag_type":"u8","size":1,"variants":["temp","err"]}},{"name":"payload","offset":2,"type_descriptor":{"kind":"union","name":"Payload","layout":"extern","size":2,"fields":[{"name":"temp","type_descriptor":{"kind":"primitive","name":"u16","size":2,"signedness":"unsigned","bits":16}},{"name":"err","type_descriptor":{"kind":"primitive","name":"u8","size":1,"signedness":"unsigned","bits":8}}]}}]}
+    );
+    defer h.deinit();
+    // tag=0 (temp), pad, temp=0x0064 (100 in LE)
+    var r1 = try format(&h.td, &.{ 0x00, 0x00, 0x64, 0x00 });
+    defer r1.deinit();
+    try std.testing.expectEqualStrings("{ tag: temp, payload.temp: 100 }", r1.str);
+
+    // tag=1 (err), pad, err=0x2A (42)
+    var r2 = try format(&h.td, &.{ 0x01, 0x00, 0x2A, 0x00 });
+    defer r2.deinit();
+    try std.testing.expectEqualStrings("{ tag: err, payload.err: 42 }", r2.str);
+}
+
+test "tagged union with unknown tag value" {
+    var h = try parseTd(
+        \\{"kind":"struct","name":"Msg","layout":"extern","size":4,"fields":[{"name":"tag","offset":0,"type_descriptor":{"kind":"enum","name":"Tag","tag_type":"u8","size":1,"variants":["a","b"]}},{"name":"data","offset":2,"type_descriptor":{"kind":"union","name":"U","layout":"extern","size":2,"fields":[{"name":"a","type_descriptor":{"kind":"primitive","name":"u16","size":2,"signedness":"unsigned","bits":16}},{"name":"b","type_descriptor":{"kind":"primitive","name":"u8","size":1,"signedness":"unsigned","bits":8}}]}}]}
+    );
+    defer h.deinit();
+    // tag=99 (unknown)
+    var r = try format(&h.td, &.{ 99, 0x00, 0x2A, 0x00 });
+    defer r.deinit();
+    // Falls back to printing tag as number + all union interpretations
+    try std.testing.expectEqualStrings("{ tag: 99, union{ a: 42, b: 42 } }", r.str);
 }
