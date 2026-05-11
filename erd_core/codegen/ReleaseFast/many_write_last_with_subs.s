@@ -3,11 +3,11 @@ many_write_last_with_subs:
         mov	qword ptr [rsp], rsi
         cmp	qword ptr [rdi + 112], rsi
         mov	qword ptr [rdi + 112], rsi
-        je	.LBB331_2
+        je	.LBB333_2
         mov	rsi, rsp
         mov	rdx, rdi
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..32]).publish"
-.LBB331_2:
+.LBB333_2:
         pop	rax
         ret
 
@@ -23,34 +23,34 @@ many_write_last_with_subs:
         mov	r15, rdi
         mov	rax, qword ptr [rdi + 144]
         test	rax, rax
-        je	.LBB332_1
+        je	.LBB334_1
         mov	rdi, qword ptr [r15 + 136]
         mov	word ptr [rsp + 8], 31
         mov	qword ptr [rsp], r14
         mov	rsi, rsp
         mov	rdx, rbx
         call	rax
-.LBB332_1:
+.LBB334_1:
         mov	rax, qword ptr [r15 + 160]
         test	rax, rax
-        je	.LBB332_3
+        je	.LBB334_3
         mov	rdi, qword ptr [r15 + 152]
         mov	word ptr [rsp + 8], 31
         mov	qword ptr [rsp], r14
         mov	rsi, rsp
         mov	rdx, rbx
         call	rax
-.LBB332_3:
+.LBB334_3:
         mov	rax, qword ptr [r15 + 176]
         test	rax, rax
-        je	.LBB332_5
+        je	.LBB334_5
         mov	rdi, qword ptr [r15 + 168]
         mov	word ptr [rsp + 8], 31
         mov	qword ptr [rsp], r14
         mov	rsi, rsp
         mov	rdx, rbx
         call	rax
-.LBB332_5:
+.LBB334_5:
         add	rsp, 16
         pop	rbx
         pop	r14

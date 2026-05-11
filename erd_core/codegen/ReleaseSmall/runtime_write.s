@@ -29,9 +29,9 @@ runtime_write:
         mov	rdx, r12
         call	memcpy@PLT
         test	bpl, 1
-        jne	.LBB333_2
+        jne	.LBB335_2
         cmp	byte ptr [r15 + .L__anon_5], 0
-        je	.LBB333_2
+        je	.LBB335_2
         mov	rdi, r14
         mov	esi, r15d
         mov	rdx, rbx
@@ -44,7 +44,7 @@ runtime_write:
         pop	r15
         pop	rbp
         jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
-.LBB333_2:
+.LBB335_2:
         add	rsp, 8
         pop	rbx
         pop	r12

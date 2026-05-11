@@ -4,13 +4,13 @@ write_ram_flag_with_converted_dep:
         mov	byte ptr [rsp + 6], sil
         cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
-        je	.LBB275_2
+        je	.LBB276_2
         push	1
         pop	rsi
         lea	rdx, [rsp + 6]
         mov	rcx, rdi
         call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
-.LBB275_2:
+.LBB276_2:
         pop	rax
         ret
 
@@ -35,16 +35,16 @@ write_ram_flag_with_converted_dep:
         add	rbp, 16
         xor	r15d, r15d
         cmp	r13, r15
-        jne	.LBB269_2
-        jmp	.LBB269_5
-.LBB269_3:
+        jne	.LBB270_2
+        jmp	.LBB270_5
+.LBB270_3:
         add	r15, 16
         cmp	r13, r15
-        je	.LBB269_5
-.LBB269_2:
+        je	.LBB270_5
+.LBB270_2:
         mov	rax, qword ptr [rbp + r15]
         test	rax, rax
-        je	.LBB269_3
+        je	.LBB270_3
         mov	rdi, qword ptr [rbp + r15 - 8]
         movzx	ecx, word ptr [r12 + r12 + .L__anon_2]
         mov	word ptr [rsp + 16], cx
@@ -54,8 +54,8 @@ write_ram_flag_with_converted_dep:
         call	rax
         add	r15, 16
         cmp	r13, r15
-        jne	.LBB269_2
-.LBB269_5:
+        jne	.LBB270_2
+.LBB270_5:
         add	rsp, 24
         pop	rbx
         pop	r12

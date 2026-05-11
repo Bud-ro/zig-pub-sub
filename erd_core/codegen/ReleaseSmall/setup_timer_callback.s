@@ -9,21 +9,21 @@ setup_timer_callback:
         mov	r12, rdi
         lea	rbx, [rdx + 16]
         cmp	qword ptr [rdx + 8], 0
-        je	.LBB312_1
-.LBB312_8:
+        je	.LBB314_1
+.LBB314_8:
         mov	rdi, r14
         mov	rsi, rbx
         call	.Ltimer.TimerModule.tryRemove
         test	al, 1
-        jne	.LBB312_2
+        jne	.LBB314_2
         lea	rdi, [r14 + 8]
         mov	rsi, rbx
         call	.Ltimer.TimerModule.tryRemove
-        jmp	.LBB312_2
-.LBB312_1:
+        jmp	.LBB314_2
+.LBB314_1:
         cmp	qword ptr [r14], rbx
-        je	.LBB312_8
-.LBB312_2:
+        je	.LBB314_8
+.LBB314_2:
         mov	qword ptr [r15 + 8], offset .Lcodegen_harness.timer_callback_read_write
         mov	dword ptr [r15 + 28], 100
         or	r12, 1
@@ -33,26 +33,26 @@ setup_timer_callback:
         mov	dword ptr [r15 + 24], eax
         mov	rax, qword ptr [r14]
         test	rax, rax
-        je	.LBB312_3
+        je	.LBB314_3
         mov	edx, dword ptr [rax + 8]
         sub	edx, ecx
         add	edx, -101
         cmp	edx, -65636
-        jb	.LBB312_7
-.LBB312_5:
+        jb	.LBB314_7
+.LBB314_5:
         mov	r14, rax
         mov	rax, qword ptr [rax]
         test	rax, rax
-        je	.LBB312_3
+        je	.LBB314_3
         mov	edx, dword ptr [rax + 8]
         sub	edx, ecx
         add	edx, 65535
         cmp	edx, 65636
-        jb	.LBB312_5
-        jmp	.LBB312_7
-.LBB312_3:
+        jb	.LBB314_5
+        jmp	.LBB314_7
+.LBB314_3:
         xor	eax, eax
-.LBB312_7:
+.LBB314_7:
         mov	qword ptr [rbx], rax
         mov	qword ptr [r14], rbx
         add	rsp, 8

@@ -57,10 +57,14 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
         /// Add a subscription callback for an ERD. Deduplicates by callback identity.
         pub fn subscribe(self: *Self, erd: Erd, context: ?*anyopaque, fn_ptr: Subscription.Callback) void {
             std.debug.assert(erd.subs > 0);
-            const offset = sub_offsets[erd.data_component_idx];
+            self.subscribeInner(sub_offsets[erd.data_component_idx], erd.subs, context, fn_ptr);
+        }
+
+        // noinline so the scan/dedup/insert logic is shared across all subscribe callsites.
+        noinline fn subscribeInner(self: *Self, offset: usize, count: usize, context: ?*anyopaque, fn_ptr: Subscription.Callback) void {
             var first_free: ?*Subscription = null;
 
-            for (self.slots[offset .. offset + erd.subs]) |*sub| {
+            for (self.slots[offset .. offset + count]) |*sub| {
                 if (first_free == null and sub.callback == null) {
                     first_free = sub;
                 }
@@ -80,9 +84,12 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
         /// Remove a subscription callback for an ERD by identity.
         pub fn unsubscribe(self: *Self, erd: Erd, fn_ptr: Subscription.Callback) void {
             std.debug.assert(erd.subs > 0);
-            const offset = sub_offsets[erd.data_component_idx];
+            self.unsubscribeInner(sub_offsets[erd.data_component_idx], erd.subs, fn_ptr);
+        }
 
-            for (self.slots[offset .. offset + erd.subs]) |*sub| {
+        // noinline so the scan logic is shared across all unsubscribe callsites.
+        noinline fn unsubscribeInner(self: *Self, offset: usize, count: usize, fn_ptr: Subscription.Callback) void {
+            for (self.slots[offset .. offset + count]) |*sub| {
                 if (sub.callback == fn_ptr) {
                     sub.callback = null;
                     return;

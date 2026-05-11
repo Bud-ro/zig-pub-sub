@@ -8,12 +8,12 @@ write_ram_with_converted_deps:
         mov	dword ptr [rsp + 4], esi
         cmp	dword ptr [rdi], esi
         mov	dword ptr [rdi], esi
-        je	.LBB273_2
+        je	.LBB274_2
         lea	rdx, [rsp + 4]
         xor	esi, esi
         mov	rcx, rdi
         call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
-.LBB273_2:
+.LBB274_2:
         pop	rax
         ret
 

@@ -1,30 +1,38 @@
 subscribe_converted:
-        mov	rax, qword ptr [rdi + 112]
+        add	rdi, 104
+        xor	esi, esi
+        jmp	"data_component_subscription.DataComponentSubscription(@as([*]const Erd, @ptrCast(&codegen_harness.converted_defs))[0..2]).subscribeInner"
+
+; --- called functions ---
+
+"data_component_subscription.DataComponentSubscription(@as([*]const Erd, @ptrCast(&codegen_harness.converted_defs))[0..2]).subscribeInner":
+        shl	rsi, 4
+        mov	rax, qword ptr [rdi + rsi + 8]
         cmp	rax, offset codegen_harness.conv_sub_callback
-        je	.LBB253_7
+        je	.LBB4_7
+        add	rdi, rsi
         test	rax, rax
-        je	.LBB253_2
-        mov	rax, qword ptr [rdi + 128]
-        add	rdi, 120
+        je	.LBB4_2
+        mov	rax, qword ptr [rdi + 24]
+        add	rdi, 16
         xor	ecx, ecx
         test	rax, rax
         cmovne	rdi, rcx
         cmp	rax, offset codegen_harness.conv_sub_callback
-        jne	.LBB253_5
-.LBB253_7:
+        jne	.LBB4_5
+.LBB4_7:
         ret
-.LBB253_2:
-        mov	rax, qword ptr [rdi + 128]
-        add	rdi, 104
+.LBB4_2:
+        mov	rax, qword ptr [rdi + 24]
         cmp	rax, offset codegen_harness.conv_sub_callback
-        je	.LBB253_7
-.LBB253_5:
+        je	.LBB4_7
+.LBB4_5:
         test	rdi, rdi
-        je	.LBB253_8
+        je	.LBB4_8
         mov	qword ptr [rdi], 0
         mov	qword ptr [rdi + 8], offset codegen_harness.conv_sub_callback
         ret
-.LBB253_8:
+.LBB4_8:
         push	rax
         mov	edi, offset __anon_0
         mov	esi, 19

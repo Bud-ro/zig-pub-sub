@@ -13,8 +13,8 @@ multi_runtime_write:
         sub	rsp, 24
         movzx	eax, si
         cmp	byte ptr [rax + __anon_0], 0
-        je	.LBB278_1
-.LBB278_17:
+        je	.LBB279_1
+.LBB279_17:
         add	rsp, 24
         pop	rbx
         pop	r12
@@ -23,7 +23,7 @@ multi_runtime_write:
         pop	r15
         pop	rbp
         ret
-.LBB278_1:
+.LBB279_1:
         mov	rcx, rdi
         movzx	ebx, word ptr [rax + rax + __anon_1]
         movzx	eax, word ptr [rbx + rbx + __anon_2]
@@ -40,7 +40,7 @@ multi_runtime_write:
         sete	r10b
         or	r10b, r9b
         cmp	r10b, 1
-        jne	.LBB278_2
+        jne	.LBB279_2
         mov	rsi, rdx
         mov	rdx, rax
         add	rsp, 24
@@ -51,12 +51,12 @@ multi_runtime_write:
         pop	r15
         pop	rbp
         jmp	memcpy@PLT
-.LBB278_2:
+.LBB279_2:
         mov	r14, rcx
         cmp	ax, 16
-        ja	.LBB278_11
+        ja	.LBB279_11
         cmp	ax, 3
-        ja	.LBB278_7
+        ja	.LBB279_7
         movzx	ebp, byte ptr [rdx]
         movzx	ecx, byte ptr [rdx + rax - 1]
         mov	byte ptr [rsp + 12], cl
@@ -73,27 +73,27 @@ multi_runtime_write:
         mov	rdx, rax
         call	memcpy@PLT
         cmp	bpl, r13b
-        jne	.LBB278_16
+        jne	.LBB279_16
         cmp	byte ptr [rsp + 12], r15b
-        jne	.LBB278_16
+        jne	.LBB279_16
         movzx	eax, byte ptr [rsp + 4]
         cmp	byte ptr [rsp + 8], al
-        je	.LBB278_17
-        jmp	.LBB278_16
-.LBB278_11:
+        je	.LBB279_17
+        jmp	.LBB279_16
+.LBB279_11:
         lea	rcx, [rax - 1]
         shr	rcx, 4
         xor	r9d, r9d
-.LBB278_13:
+.LBB279_13:
         movdqu	xmm0, xmmword ptr [r8 + r9]
         movdqu	xmm1, xmmword ptr [rsi + r9]
         pcmpeqb	xmm1, xmm0
         pmovmskb	r10d, xmm1
         xor	r10d, 65535
-        jne	.LBB278_14
+        jne	.LBB279_14
         add	r9, 16
         add	rcx, -1
-        jne	.LBB278_13
+        jne	.LBB279_13
         movdqu	xmm0, xmmword ptr [r8 + rax - 16]
         movdqu	xmm1, xmmword ptr [rsi + rax - 16]
         pcmpeqb	xmm1, xmm0
@@ -104,16 +104,16 @@ multi_runtime_write:
         mov	rdx, rax
         call	memcpy@PLT
         test	ebp, ebp
-        jne	.LBB278_16
-        jmp	.LBB278_17
-.LBB278_14:
+        jne	.LBB279_16
+        jmp	.LBB279_17
+.LBB279_14:
         mov	rsi, rdx
         mov	r12, rdx
         mov	rdx, rax
         call	memcpy@PLT
-.LBB278_16:
+.LBB279_16:
         cmp	byte ptr [rbx + __anon_4], 0
-        je	.LBB278_17
+        je	.LBB279_17
         mov	rcx, r14
         mov	rdi, r14
         mov	esi, ebx
@@ -126,7 +126,7 @@ multi_runtime_write:
         pop	r15
         pop	rbp
         jmp	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
-.LBB278_7:
+.LBB279_7:
         lea	rcx, [rax - 4]
         mov	esi, eax
         shr	esi
@@ -150,14 +150,14 @@ multi_runtime_write:
         mov	rdx, rax
         call	memcpy@PLT
         cmp	r13d, ebp
-        jne	.LBB278_16
+        jne	.LBB279_16
         cmp	r15d, dword ptr [rsp + 12]
-        jne	.LBB278_16
+        jne	.LBB279_16
         mov	eax, dword ptr [rsp + 4]
         cmp	eax, dword ptr [rsp + 8]
-        jne	.LBB278_16
+        jne	.LBB279_16
         mov	eax, dword ptr [rsp + 16]
         cmp	eax, dword ptr [rsp + 20]
-        je	.LBB278_17
-        jmp	.LBB278_16
+        je	.LBB279_17
+        jmp	.LBB279_16
 

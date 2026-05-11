@@ -13,7 +13,7 @@ multi_runtime_write:
         push	rax
         movzx	eax, si
         cmp	byte ptr [rax + .L__anon_0], 0
-        jne	.LBB268_3
+        jne	.LBB269_3
         mov	rbx, rdx
         mov	r14, rdi
         movzx	r15d, word ptr [rax + rax + .L__anon_1]
@@ -31,9 +31,9 @@ multi_runtime_write:
         mov	rdx, r12
         call	memcpy@PLT
         test	bpl, 1
-        jne	.LBB268_3
+        jne	.LBB269_3
         cmp	byte ptr [r15 + .L__anon_5], 0
-        je	.LBB268_3
+        je	.LBB269_3
         mov	rdi, r14
         mov	esi, r15d
         mov	rdx, rbx
@@ -46,7 +46,7 @@ multi_runtime_write:
         pop	r15
         pop	rbp
         jmp	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
-.LBB268_3:
+.LBB269_3:
         add	rsp, 8
         pop	rbx
         pop	r12

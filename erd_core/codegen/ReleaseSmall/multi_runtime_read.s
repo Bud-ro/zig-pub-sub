@@ -9,11 +9,11 @@ multi_runtime_read:
         movzx	eax, byte ptr [rcx + .L__anon_0]
         movzx	ecx, word ptr [rcx + rcx + .L__anon_1]
         test	eax, eax
-        je	.LBB271_5
+        je	.LBB272_5
         cmp	eax, 1
-        je	.LBB271_4
+        je	.LBB272_4
         cmp	eax, 2
-        jne	.LBB271_6
+        jne	.LBB272_6
         movups	xmm0, xmmword ptr [rdi + 168]
         movaps	xmmword ptr [rsp + 80], xmm0
         movups	xmm0, xmmword ptr [rdi + 152]
@@ -31,14 +31,14 @@ multi_runtime_read:
         call	qword ptr [rsp + 8*rcx]
         add	rsp, 104
         ret
-.LBB271_4:
+.LBB272_4:
         movups	xmm0, xmmword ptr [rdi + 72]
         movaps	xmmword ptr [rsp], xmm0
         mov	rdi, rdx
         call	qword ptr [rsp + 8*rcx]
         add	rsp, 104
         ret
-.LBB271_5:
+.LBB272_5:
         mov	rax, qword ptr [rdi + 64]
         mov	qword ptr [rsp + 64], rax
         movups	xmm0, xmmword ptr [rdi]
@@ -55,7 +55,7 @@ multi_runtime_read:
         mov	rdi, rdx
         mov	rdx, rax
         call	memcpy@PLT
-.LBB271_6:
+.LBB272_6:
         add	rsp, 104
         ret
 

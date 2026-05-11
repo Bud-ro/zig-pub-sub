@@ -4,12 +4,12 @@ write_bool_with_subs:
         mov	byte ptr [rsp + 6], sil
         cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
-        je	.LBB346_2
+        je	.LBB348_2
         lea	rdx, [rsp + 6]
         mov	esi, 1
         mov	rcx, rdi
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
-.LBB346_2:
+.LBB348_2:
         pop	rax
         ret
 
@@ -26,7 +26,7 @@ write_bool_with_subs:
         movzx	r12d, si
         movzx	r13d, byte ptr [r12 + __anon_0]
         test	r13, r13
-        je	.LBB301_4
+        je	.LBB302_4
         mov	rbx, rcx
         mov	r14, rdx
         mov	rax, qword ptr [8*r12 + __anon_1]
@@ -35,15 +35,15 @@ write_bool_with_subs:
         lea	rbp, [rdi + rax]
         add	rbp, 24
         xor	r15d, r15d
-        jmp	.LBB301_2
-.LBB301_3:
+        jmp	.LBB302_2
+.LBB302_3:
         add	r15, 16
         cmp	r13, r15
-        je	.LBB301_4
-.LBB301_2:
+        je	.LBB302_4
+.LBB302_2:
         mov	rax, qword ptr [rbp + r15]
         test	rax, rax
-        je	.LBB301_3
+        je	.LBB302_3
         mov	rdi, qword ptr [rbp + r15 - 8]
         movzx	ecx, word ptr [r12 + r12 + __anon_2]
         mov	word ptr [rsp + 16], cx
@@ -51,8 +51,8 @@ write_bool_with_subs:
         lea	rsi, [rsp + 8]
         mov	rdx, rbx
         call	rax
-        jmp	.LBB301_3
-.LBB301_4:
+        jmp	.LBB302_3
+.LBB302_4:
         add	rsp, 24
         pop	rbx
         pop	r12

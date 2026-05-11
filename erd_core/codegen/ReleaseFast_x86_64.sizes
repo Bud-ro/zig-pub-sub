@@ -15,6 +15,7 @@
 5	runtime_write
 5	write_ram_no_converted_dep
 5	write_u16_no_subs
+6	subscribe_callback
 6	triple_read_same_erd
 7	increment_n_times
 7	read_u32_after_big
@@ -23,6 +24,8 @@
 9	dual_read
 10	read_across_two_erds
 10	write_big_struct
+11	subscribe_converted
+11	subscribe_converted_flag
 13	modify_medium_single_field
 13	modify_medium_two_fields
 14	dual_write
@@ -50,15 +53,12 @@
 40	write_ram_flag_with_converted_dep
 43	cross_erd_compute
 45	read_all_component_types
-50	subscribe_callback
 54	read_converted_both
 58	read_write_other_read
 60	runtime_write_three
 61	write_then_read_converted
-102	subscribe_converted
 109	double_write_diff_values
 109	double_write_same_value
-111	subscribe_converted_flag
 114	write_junk_read_write
 173	triple_write_increment
 222	setup_timer_callback
