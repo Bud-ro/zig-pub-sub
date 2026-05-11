@@ -6,16 +6,16 @@ double_write_diff_values:
         mov	al, 1
         cmp	byte ptr [rdi + 4], 1
         mov	byte ptr [rdi + 4], 1
-        jne	.LBB10_1
+        jne	.LBB303_1
         mov	byte ptr [rsp + 13], 0
         mov	byte ptr [rbx + 4], 0
         cmp	al, 0
-        jne	.LBB10_3
-.LBB10_4:
+        jne	.LBB303_3
+.LBB303_4:
         add	rsp, 16
         pop	rbx
         ret
-.LBB10_1:
+.LBB303_1:
         lea	rdx, [rsp + 12]
         mov	rdi, rbx
         mov	esi, 1
@@ -25,8 +25,8 @@ double_write_diff_values:
         mov	byte ptr [rsp + 13], 0
         mov	byte ptr [rbx + 4], 0
         cmp	al, 0
-        je	.LBB10_4
-.LBB10_3:
+        je	.LBB303_4
+.LBB303_3:
         lea	rdx, [rsp + 13]
         mov	rdi, rbx
         mov	esi, 1
@@ -49,7 +49,7 @@ double_write_diff_values:
         movzx	r12d, si
         movzx	r13d, byte ptr [r12 + __anon_0]
         test	r13, r13
-        je	.LBB8_4
+        je	.LBB301_4
         mov	rbx, rcx
         mov	r14, rdx
         mov	rax, qword ptr [8*r12 + __anon_1]
@@ -58,15 +58,15 @@ double_write_diff_values:
         lea	rbp, [rdi + rax]
         add	rbp, 24
         xor	r15d, r15d
-        jmp	.LBB8_2
-.LBB8_3:
+        jmp	.LBB301_2
+.LBB301_3:
         add	r15, 16
         cmp	r13, r15
-        je	.LBB8_4
-.LBB8_2:
+        je	.LBB301_4
+.LBB301_2:
         mov	rax, qword ptr [rbp + r15]
         test	rax, rax
-        je	.LBB8_3
+        je	.LBB301_3
         mov	rdi, qword ptr [rbp + r15 - 8]
         movzx	ecx, word ptr [r12 + r12 + __anon_2]
         mov	word ptr [rsp + 16], cx
@@ -74,8 +74,8 @@ double_write_diff_values:
         lea	rsi, [rsp + 8]
         mov	rdx, rbx
         call	rax
-        jmp	.LBB8_3
-.LBB8_4:
+        jmp	.LBB301_3
+.LBB301_4:
         add	rsp, 24
         pop	rbx
         pop	r12

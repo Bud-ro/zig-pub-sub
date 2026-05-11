@@ -3,11 +3,11 @@ many_write_last_with_subs:
         mov	qword ptr [rsp], rsi
         cmp	qword ptr [rdi + 112], rsi
         mov	qword ptr [rdi + 112], rsi
-        je	.LBB303_2
+        je	.LBB325_2
         mov	rsi, rsp
         mov	rdx, rdi
         call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..32]).publish"
-.LBB303_2:
+.LBB325_2:
         pop	rax
         ret
 
@@ -23,34 +23,34 @@ many_write_last_with_subs:
         mov	r15, rdi
         mov	rax, qword ptr [rdi + 144]
         test	rax, rax
-        je	.LBB304_1
+        je	.LBB326_1
         mov	rdi, qword ptr [r15 + 136]
         mov	word ptr [rsp + 8], 31
         mov	qword ptr [rsp], r14
         mov	rsi, rsp
         mov	rdx, rbx
         call	rax
-.LBB304_1:
+.LBB326_1:
         mov	rax, qword ptr [r15 + 160]
         test	rax, rax
-        je	.LBB304_3
+        je	.LBB326_3
         mov	rdi, qword ptr [r15 + 152]
         mov	word ptr [rsp + 8], 31
         mov	qword ptr [rsp], r14
         mov	rsi, rsp
         mov	rdx, rbx
         call	rax
-.LBB304_3:
+.LBB326_3:
         mov	rax, qword ptr [r15 + 176]
         test	rax, rax
-        je	.LBB304_5
+        je	.LBB326_5
         mov	rdi, qword ptr [r15 + 168]
         mov	word ptr [rsp + 8], 31
         mov	qword ptr [rsp], r14
         mov	rsi, rsp
         mov	rdx, rbx
         call	rax
-.LBB304_5:
+.LBB326_5:
         add	rsp, 16
         pop	rbx
         pop	r14
