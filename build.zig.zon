@@ -8,6 +8,7 @@
         .erd_schema = .{ .path = "erd_schema" },
         .data_gen = .{ .path = "data_gen" },
         .app = .{ .path = "app" },
+        .elf_size = .{ .path = "elf_size" },
         .zlinter = .{
             .url = "git+https://github.com/KurtWagner/zlinter#0.16.x",
             .hash = "zlinter-0.0.1-OjQ08c7oCwDIwhlde7eDKMACNTsqAhGXy5vB7GdfGobG",
@@ -17,6 +18,12 @@
     .paths = .{
         "build.zig",
         "build.zig.zon",
+        "app",
+        "data_gen",
+        "elf_size",
+        "erd_core",
+        "erd_schema",
+        "esp8266",
         "LICENSE",
         "README.md",
     },
