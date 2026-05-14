@@ -62,3 +62,28 @@ setup_timer_callback:
         pop	r15
         ret
 
+; --- called functions ---
+
+.Ltimer.TimerModule.tryRemove:
+        mov	rax, qword ptr [rdi]
+        test	rax, rax
+        je	.LBB315_1
+        cmp	rax, rsi
+        je	.LBB315_6
+.LBB315_4:
+        mov	rcx, qword ptr [rax]
+        test	rcx, rcx
+        je	.LBB315_1
+        mov	rdi, rax
+        mov	rax, rcx
+        cmp	rcx, rsi
+        jne	.LBB315_4
+.LBB315_6:
+        mov	rax, qword ptr [rsi]
+        mov	qword ptr [rdi], rax
+        mov	al, 1
+        ret
+.LBB315_1:
+        xor	eax, eax
+        ret
+

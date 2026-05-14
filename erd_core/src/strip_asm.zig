@@ -19,7 +19,10 @@ fn isFuncLabel(raw_line: []const u8) ?[]const u8 {
     if (name[0] == '.') {
         const non_func = [_][]const u8{ ".LBB", ".Ltmp", ".Lfunc", ".Lline", ".Lpcrel", ".LCPI", ".Ldebug", ".LFE", ".LFB" };
         for (non_func) |prefix| {
-            if (std.mem.startsWith(u8, name, prefix)) return null;
+            if (std.mem.startsWith(u8, name, prefix)) {
+                if (name.len > prefix.len and name[prefix.len] == '.') continue;
+                return null;
+            }
         }
     }
     return name;
@@ -67,14 +70,18 @@ fn extractCallTarget(line: []const u8) ?[]const u8 {
             break :blk std.mem.trim(u8, trimmed[3..], " \t");
         return null;
     };
-    if (target_str.len == 0 or target_str[0] == '*' or target_str[0] == '.') return null;
+    if (target_str.len == 0 or target_str[0] == '*') return null;
     if (isRegister(target_str)) return null;
     return target_str;
 }
 
 /// Exclude stdlib/runtime symbols from the called-functions section.
 fn isStdlibFunc(name: []const u8) bool {
-    const bare = if (name.len > 0 and name[0] == '"') name[1..] else name;
+    const bare = blk: {
+        var b: []const u8 = if (name.len > 0 and name[0] == '"') name[1..] else name;
+        if (b.len > 2 and b[0] == '.' and b[1] == 'L') b = b[2..];
+        break :blk b;
+    };
     const prefixes = [_][]const u8{
         "std.",    "debug.", "Thread.", "Io.",
         "fs.",     "mem.",   "os.",     "posix.",
@@ -287,41 +294,39 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    // Pass 2: for each exported function, find its call targets
-    var export_call_targets: std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)) = .empty;
+    // Pass 2: for each function, find its call targets
+    var func_call_targets: std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)) = .empty;
     defer {
-        var ect_it = export_call_targets.iterator();
-        while (ect_it.next()) |entry| {
+        var fct_it = func_call_targets.iterator();
+        while (fct_it.next()) |entry| {
             entry.value_ptr.deinit(gpa);
         }
-        export_call_targets.deinit(gpa);
+        func_call_targets.deinit(gpa);
     }
     var ordered_exports: std.ArrayListUnmanaged([]const u8) = .empty;
     defer ordered_exports.deinit(gpa);
 
     for (all_lines) |raw_line| {
-        if (isFuncLabel(raw_line)) |name| {
-            if (globl_exports.contains(name)) {
-                try ordered_exports.append(gpa, name);
-                var targets: std.ArrayListUnmanaged([]const u8) = .empty;
-                const func = all_funcs.get(name).?;
-                const end = func_ends.get(name).?;
-                for (all_lines[func.start..end]) |func_line| {
-                    if (extractCallTarget(func_line)) |target| {
-                        if (!isStdlibFunc(target) and all_funcs.contains(target)) {
-                            try targets.append(gpa, target);
-                        }
-                    }
+        const name = isFuncLabel(raw_line) orelse continue;
+        if (globl_exports.contains(name))
+            try ordered_exports.append(gpa, name);
+        const func = all_funcs.get(name).?;
+        const end = func_ends.get(name).?;
+        var targets: std.ArrayListUnmanaged([]const u8) = .empty;
+        for (all_lines[func.start..end]) |func_line| {
+            if (extractCallTarget(func_line)) |target| {
+                if (all_funcs.contains(target)) {
+                    try targets.append(gpa, target);
                 }
-                try export_call_targets.put(gpa, name, targets);
             }
         }
+        try func_call_targets.put(gpa, name, targets);
     }
 
     if (split_dir) |dir| {
-        try emitSplitFiles(gpa, io, dir, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
+        try emitSplitFiles(gpa, io, dir, ordered_exports.items, &func_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
     } else {
-        try emitCombinedFile(gpa, io, output_path, ordered_exports.items, &export_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
+        try emitCombinedFile(gpa, io, output_path, ordered_exports.items, &func_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
     }
 }
 
@@ -350,7 +355,7 @@ fn emitSplitFiles(
     io: std.Io,
     dir_path: []const u8,
     ordered_exports: []const []const u8,
-    export_call_targets: *const std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)),
+    func_call_targets: *const std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)),
     all_funcs: *const std.StringHashMapUnmanaged(FuncRange),
     func_ends: *const std.StringHashMapUnmanaged(usize),
     all_lines: []const []const u8,
@@ -371,13 +376,13 @@ fn emitSplitFiles(
         try output.appendSlice(gpa, "\n");
         total_exports += 1;
 
-        const targets = export_call_targets.get(name).?;
+        const targets = func_call_targets.get(name).?;
         if (targets.items.len > 0) {
             var seen: std.StringHashMapUnmanaged(void) = .empty;
             defer seen.deinit(gpa);
             var has_helpers = false;
             for (targets.items) |target| {
-                if (seen.contains(target)) continue;
+                if (seen.contains(target) or isStdlibFunc(target)) continue;
                 try seen.put(gpa, target, {});
                 if (!has_helpers) {
                     try output.appendSlice(gpa, "; --- called functions ---\n\n");
@@ -415,7 +420,7 @@ fn emitCombinedFile(
     io: std.Io,
     output_path: ?[]const u8,
     ordered_exports: []const []const u8,
-    export_call_targets: *const std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)),
+    func_call_targets: *const std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)),
     all_funcs: *const std.StringHashMapUnmanaged(FuncRange),
     func_ends: *const std.StringHashMapUnmanaged(usize),
     all_lines: []const []const u8,
@@ -437,11 +442,28 @@ fn emitCombinedFile(
         total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids);
         try output.appendSlice(gpa, "\n");
 
-        const targets = export_call_targets.get(name).?;
+        const targets = func_call_targets.get(name).?;
         for (targets.items) |target| {
             if (!all_helpers.contains(target)) {
                 try all_helpers.put(gpa, target, {});
                 try ordered_helpers.append(gpa, target);
+            }
+        }
+    }
+
+    // Transitively discover helpers' own call targets.
+    {
+        var hi: usize = 0;
+        while (hi < ordered_helpers.items.len) : (hi += 1) {
+            const helper = ordered_helpers.items[hi];
+            if (isStdlibFunc(helper)) continue;
+            if (func_call_targets.get(helper)) |targets| {
+                for (targets.items) |target| {
+                    if (!all_helpers.contains(target)) {
+                        try all_helpers.put(gpa, target, {});
+                        try ordered_helpers.append(gpa, target);
+                    }
+                }
             }
         }
     }
@@ -489,8 +511,14 @@ test "isFuncLabel rejects indented, dot, and non-label lines" {
     try testing.expectEqual(null, isFuncLabel("\tmov eax, 1"));
     try testing.expectEqual(null, isFuncLabel(".LBB0_1:"));
     try testing.expectEqual(null, isFuncLabel(".Lfunc_end0:"));
+    try testing.expectEqual(null, isFuncLabel(".Ldebug_info0:"));
     try testing.expectEqual(null, isFuncLabel(""));
     try testing.expectEqual(null, isFuncLabel("  label:  extra"));
+}
+
+test "isFuncLabel recognizes namespaced .L labels" {
+    try testing.expectEqualStrings(".Ldebug.defaultPanic", isFuncLabel(".Ldebug.defaultPanic:").?);
+    try testing.expectEqualStrings(".Ldebug.FullPanic.outOfBounds", isFuncLabel(".Ldebug.FullPanic.outOfBounds:").?);
 }
 
 test "findBranchTarget extracts .LBB labels" {
@@ -522,7 +550,8 @@ test "extractCallTarget parses call and jmp instructions" {
     try testing.expectEqual(null, extractCallTarget("        call\t*rax"));
     try testing.expectEqual(null, extractCallTarget("        call\trax"));
     try testing.expectEqual(null, extractCallTarget("        call\tr12"));
-    try testing.expectEqual(null, extractCallTarget("        jmp\t.LBB0_1"));
+    try testing.expectEqualStrings(".Ldebug.defaultPanic", extractCallTarget("        call\t.Ldebug.defaultPanic").?);
+    try testing.expectEqualStrings(".LBB0_1", extractCallTarget("        jmp\t.LBB0_1").?);
     try testing.expectEqual(null, extractCallTarget("        jmp\trax"));
     try testing.expectEqual(null, extractCallTarget("        jmp\trsp"));
     try testing.expectEqual(null, extractCallTarget("        mov eax, 1"));
@@ -539,6 +568,8 @@ test "isStdlibFunc matches stdlib prefixes" {
     try testing.expect(isStdlibFunc("posix.abort"));
     try testing.expect(isStdlibFunc("mem.eql__anon_3258"));
     try testing.expect(isStdlibFunc("std.process.exit"));
+    try testing.expect(isStdlibFunc(".Ldebug.defaultPanic"));
+    try testing.expect(isStdlibFunc(".Lstd.process.exit"));
     try testing.expect(!isStdlibFunc("ram_data_component.RamDataComponent.publish"));
     try testing.expect(!isStdlibFunc("system_data.SystemData.runtimeRead"));
     try testing.expect(!isStdlibFunc("read_u32"));
