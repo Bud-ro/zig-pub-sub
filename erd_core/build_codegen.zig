@@ -93,8 +93,8 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
                 codegen_update_step.dependOn(&install_split.step);
 
                 const check_asm = b.addSystemCommand(&.{ "diff", "-ru" });
-                check_asm.addDirectoryArg(split_dir);
                 check_asm.addDirectoryArg(b.path(b.fmt("codegen/{s}", .{full_dir})));
+                check_asm.addDirectoryArg(split_dir);
                 check_asm.setName(b.fmt("check {s}/", .{full_dir}));
                 check_asm.expectExitCode(0);
                 codegen_check_step.dependOn(&check_asm.step);
@@ -108,43 +108,28 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
         }
     }
 
-    // Single-mode emit-asm for quick iteration.
+    // Single-mode emit-asm for quick iteration (all harnesses).
     // Defaults to ReleaseFast because Debug mode doesn't emit assembly in Zig 0.15.
     const emit_optimize = if (optimize == .Debug) .ReleaseFast else optimize;
-    const codegen_mod = b.createModule(.{
-        .root_source_file = b.path("src/codegen_harness.zig"),
-        .target = target,
-        .optimize = emit_optimize,
-    });
-    codegen_mod.addImport("sometimes", sometimes_disabled_mod);
-    codegen_mod.addImport("erd_core", core_mod);
-    const codegen_obj = b.addObject(.{
-        .name = "codegen_harness",
-        .root_module = codegen_mod,
-    });
     const emit_asm_step = b.step("emit-asm", "Emit raw assembly for single optimization level");
-    emit_asm_step.dependOn(&b.addInstallFile(codegen_obj.getEmittedAsm(), "codegen_harness.s").step);
 
-    // Monomorphization stress test -- stripped but not snapshotted.
-    const mono_mod = b.createModule(.{
-        .root_source_file = b.path("src/codegen_mono_stress.zig"),
-        .target = target,
-        .optimize = emit_optimize,
-        .omit_frame_pointer = true,
-    });
-    mono_mod.addImport("sometimes", sometimes_disabled_mod);
-    mono_mod.addImport("erd_core", core_mod);
-    const mono_obj = b.addObject(.{
-        .name = "codegen_mono_stress",
-        .root_module = mono_mod,
-    });
-
-    const mono_raw_step = b.step("emit-mono-asm", "Emit raw mono stress assembly");
-    mono_raw_step.dependOn(&b.addInstallFile(mono_obj.getEmittedAsm(), "codegen_mono_stress.s").step);
-
-    const mono_strip = b.addRunArtifact(strip_asm);
-    mono_strip.addFileArg(mono_obj.getEmittedAsm());
-    const mono_stripped = mono_strip.captureStdOut(.{});
-    const mono_step = b.step("mono-check", "Emit stripped mono stress assembly to stdout");
-    mono_step.dependOn(&b.addInstallFileWithDir(mono_stripped, .{ .custom = ".." }, "codegen_mono_stress_stripped.s").step);
+    const emit_sources = [_]struct { source: []const u8, output: []const u8 }{
+        .{ .source = "src/codegen_harness.zig", .output = "codegen_harness.s" },
+        .{ .source = "src/codegen_mono_stress.zig", .output = "codegen_mono_stress.s" },
+    };
+    for (emit_sources) |src| {
+        const mod = b.createModule(.{
+            .root_source_file = b.path(src.source),
+            .target = target,
+            .optimize = emit_optimize,
+            .omit_frame_pointer = true,
+        });
+        mod.addImport("sometimes", sometimes_disabled_mod);
+        mod.addImport("erd_core", core_mod);
+        const obj = b.addObject(.{
+            .name = std.fs.path.stem(src.source),
+            .root_module = mod,
+        });
+        emit_asm_step.dependOn(&b.addInstallFile(obj.getEmittedAsm(), src.output).step);
+    }
 }
