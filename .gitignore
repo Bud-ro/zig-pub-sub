@@ -29,3 +29,7 @@ esp8266/sdk/
 
 # Combined codegen snapshots (generated alongside per-function splits)
 erd_core/codegen/*_x86_64.s
+erd_core/codegen/mono/*_x86_64.s
+
+# Mono stress test stripped output (quick-iteration artifact, not snapshotted)
+erd_core/codegen_mono_stress_stripped.s

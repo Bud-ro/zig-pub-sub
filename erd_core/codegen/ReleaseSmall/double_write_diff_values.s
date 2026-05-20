@@ -17,12 +17,12 @@ double_write_diff_values:
         mov	byte ptr [rsp + 6], sil
         cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
-        je	.LBB297_2
+        je	.LBB303_2
         lea	rdx, [rsp + 6]
         mov	esi, 1
         mov	rcx, rdi
         call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
-.LBB297_2:
+.LBB303_2:
         pop	rax
         ret
 

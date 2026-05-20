@@ -21,11 +21,13 @@
 7	read_u32_after_big
 7	write_u32_no_subs
 8	read_write_read
+8	unsubscribe_converted
 9	dual_read
 10	read_across_two_erds
 10	write_big_struct
 11	subscribe_converted
 11	subscribe_converted_flag
+11	unsubscribe_converted_flag
 13	modify_medium_single_field
 13	modify_medium_two_fields
 14	dual_write

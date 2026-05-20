@@ -5,11 +5,11 @@ write_junk_read_write:
         mov	word ptr [rsp + 14], 1
         cmp	word ptr [rdi + 7], 1
         mov	word ptr [rdi + 7], 1
-        jne	.LBB303_2
+        jne	.LBB309_2
         mov	word ptr [rsp + 12], 2
         mov	word ptr [rbx + 7], 2
-        jmp	.LBB303_3
-.LBB303_2:
+        jmp	.LBB309_3
+.LBB309_2:
         lea	rdx, [rsp + 14]
         mov	rdi, rbx
         mov	esi, 3
@@ -19,14 +19,14 @@ write_junk_read_write:
         mov	word ptr [rsp + 12], 2
         mov	word ptr [rbx + 7], 2
         cmp	ax, 2
-        je	.LBB303_4
-.LBB303_3:
+        je	.LBB309_4
+.LBB309_3:
         lea	rdx, [rsp + 12]
         mov	rdi, rbx
         mov	esi, 3
         mov	rcx, rbx
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
-.LBB303_4:
+.LBB309_4:
         add	rsp, 16
         pop	rbx
         ret
@@ -34,49 +34,14 @@ write_junk_read_write:
 ; --- called functions ---
 
 "ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2":
-        push	rbp
-        push	r15
-        push	r14
-        push	r13
-        push	r12
-        push	rbx
-        sub	rsp, 24
-        movzx	r12d, si
-        movzx	r13d, byte ptr [r12 + __anon_0]
-        test	r13, r13
-        je	.LBB302_4
-        mov	rbx, rcx
-        mov	r14, rdx
-        mov	rax, qword ptr [8*r12 + __anon_1]
-        shl	r13d, 4
-        shl	rax, 4
-        lea	rbp, [rdi + rax]
-        add	rbp, 24
-        xor	r15d, r15d
-        jmp	.LBB302_2
-.LBB302_3:
-        add	r15, 16
-        cmp	r13, r15
-        je	.LBB302_4
-.LBB302_2:
-        mov	rax, qword ptr [rbp + r15]
-        test	rax, rax
-        je	.LBB302_3
-        mov	rdi, qword ptr [rbp + r15 - 8]
-        movzx	ecx, word ptr [r12 + r12 + __anon_2]
-        mov	word ptr [rsp + 16], cx
-        mov	qword ptr [rsp + 8], r14
-        lea	rsi, [rsp + 8]
-        mov	rdx, rbx
-        call	rax
-        jmp	.LBB302_3
-.LBB302_4:
-        add	rsp, 24
-        pop	rbx
-        pop	r12
-        pop	r13
-        pop	r14
-        pop	r15
-        pop	rbp
-        ret
+        mov	r8, rcx
+        mov	rcx, rdx
+        movzx	eax, si
+        mov	rdx, qword ptr [8*rax + __anon_0]
+        movzx	esi, byte ptr [rax + __anon_1]
+        shl	rdx, 4
+        add	rdi, rdx
+        add	rdi, 16
+        movzx	edx, word ptr [rax + rax + __anon_2]
+        jmp	Subscription.publish
 

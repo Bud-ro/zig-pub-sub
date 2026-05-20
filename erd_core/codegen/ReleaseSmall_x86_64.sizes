@@ -23,9 +23,11 @@
 7	read_u32_after_big
 7	read_write_read
 7	write_u32_no_subs
+8	unsubscribe_converted
 8	write_triggering_callback
 9	dual_read
 9	subscribe_converted_flag
+9	unsubscribe_converted_flag
 10	increment_n_times
 10	read_across_two_erds
 10	write_big_struct
@@ -38,9 +40,9 @@
 17	read_then_branch
 20	conditional_write_chain
 20	double_write_diff_values
+21	write_junk_read_write
 23	cross_system_read_add
 24	read_write_other_read
-24	write_junk_read_write
 25	read_medium_struct
 27	read_indirect_constant
 28	many_write_last_with_subs

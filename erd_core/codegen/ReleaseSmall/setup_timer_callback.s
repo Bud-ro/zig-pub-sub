@@ -9,21 +9,21 @@ setup_timer_callback:
         mov	r12, rdi
         lea	rbx, [rdx + 16]
         cmp	qword ptr [rdx + 8], 0
-        je	.LBB314_1
-.LBB314_8:
+        je	.LBB320_1
+.LBB320_8:
         mov	rdi, r14
         mov	rsi, rbx
         call	.Ltimer.TimerModule.tryRemove
         test	al, 1
-        jne	.LBB314_2
+        jne	.LBB320_2
         lea	rdi, [r14 + 8]
         mov	rsi, rbx
         call	.Ltimer.TimerModule.tryRemove
-        jmp	.LBB314_2
-.LBB314_1:
+        jmp	.LBB320_2
+.LBB320_1:
         cmp	qword ptr [r14], rbx
-        je	.LBB314_8
-.LBB314_2:
+        je	.LBB320_8
+.LBB320_2:
         mov	qword ptr [r15 + 8], offset .Lcodegen_harness.timer_callback_read_write
         mov	dword ptr [r15 + 28], 100
         or	r12, 1
@@ -33,26 +33,26 @@ setup_timer_callback:
         mov	dword ptr [r15 + 24], eax
         mov	rax, qword ptr [r14]
         test	rax, rax
-        je	.LBB314_3
+        je	.LBB320_3
         mov	edx, dword ptr [rax + 8]
         sub	edx, ecx
         add	edx, -101
         cmp	edx, -65636
-        jb	.LBB314_7
-.LBB314_5:
+        jb	.LBB320_7
+.LBB320_5:
         mov	r14, rax
         mov	rax, qword ptr [rax]
         test	rax, rax
-        je	.LBB314_3
+        je	.LBB320_3
         mov	edx, dword ptr [rax + 8]
         sub	edx, ecx
         add	edx, 65535
         cmp	edx, 65636
-        jb	.LBB314_5
-        jmp	.LBB314_7
-.LBB314_3:
+        jb	.LBB320_5
+        jmp	.LBB320_7
+.LBB320_3:
         xor	eax, eax
-.LBB314_7:
+.LBB320_7:
         mov	qword ptr [rbx], rax
         mov	qword ptr [r14], rbx
         add	rsp, 8
@@ -67,23 +67,23 @@ setup_timer_callback:
 .Ltimer.TimerModule.tryRemove:
         mov	rax, qword ptr [rdi]
         test	rax, rax
-        je	.LBB315_1
+        je	.LBB321_1
         cmp	rax, rsi
-        je	.LBB315_6
-.LBB315_4:
+        je	.LBB321_6
+.LBB321_4:
         mov	rcx, qword ptr [rax]
         test	rcx, rcx
-        je	.LBB315_1
+        je	.LBB321_1
         mov	rdi, rax
         mov	rax, rcx
         cmp	rcx, rsi
-        jne	.LBB315_4
-.LBB315_6:
+        jne	.LBB321_4
+.LBB321_6:
         mov	rax, qword ptr [rsi]
         mov	qword ptr [rdi], rax
         mov	al, 1
         ret
-.LBB315_1:
+.LBB321_1:
         xor	eax, eax
         ret
 

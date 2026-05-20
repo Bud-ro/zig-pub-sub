@@ -1,0 +1,24 @@
+# size (bytes)	function
+2	mixed_runtime_read
+2	mixed_runtime_write
+2	tiny_runtime_read
+2	tiny_runtime_write
+2	wide_runtime_read
+2	wide_runtime_write
+5	mixed_modify
+5	tiny_modify
+5	wide_modify
+6	mixed_unsubscribe_ram
+6	tiny_subscribe
+6	tiny_unsubscribe
+6	wide_subscribe
+6	wide_unsubscribe
+9	mixed_subscribe_conv
+9	mixed_subscribe_ram
+9	mixed_unsubscribe_conv
+10	tiny_read_all
+84	tiny_write_all
+105	wide_read_all
+139	mixed_write_ram
+170	mixed_read_all
+311	wide_write_all

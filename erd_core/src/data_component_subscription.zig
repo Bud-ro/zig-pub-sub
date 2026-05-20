@@ -60,25 +60,9 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
             self.subscribeInner(sub_offsets[erd.data_component_idx], erd.subs, context, fn_ptr);
         }
 
-        // noinline so the scan/dedup/insert logic is shared across all subscribe callsites.
+        // noinline so callsites compile to argument setup + jump, not a full inlined scan/dedup loop.
         noinline fn subscribeInner(self: *Self, offset: usize, count: usize, context: ?*anyopaque, fn_ptr: Subscription.Callback) void {
-            var first_free: ?*Subscription = null;
-
-            for (self.slots[offset .. offset + count]) |*sub| {
-                if (first_free == null and sub.callback == null) {
-                    first_free = sub;
-                }
-                if (sub.callback == fn_ptr) {
-                    return;
-                }
-            }
-
-            if (first_free == null) {
-                @panic("ERD oversubscribed!");
-            }
-
-            first_free.?.context = context;
-            first_free.?.callback = fn_ptr;
+            Subscription.subscribe(self.slots[offset..][0..count], context, fn_ptr);
         }
 
         /// Remove a subscription callback for an ERD by identity.
@@ -87,14 +71,9 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
             self.unsubscribeInner(sub_offsets[erd.data_component_idx], erd.subs, fn_ptr);
         }
 
-        // noinline so the scan logic is shared across all unsubscribe callsites.
+        // noinline so callsites compile to argument setup + jump, not a full inlined scan loop.
         noinline fn unsubscribeInner(self: *Self, offset: usize, count: usize, fn_ptr: Subscription.Callback) void {
-            for (self.slots[offset .. offset + count]) |*sub| {
-                if (sub.callback == fn_ptr) {
-                    sub.callback = null;
-                    return;
-                }
-            }
+            Subscription.unsubscribe(self.slots[offset..][0..count], fn_ptr);
         }
     };
 }

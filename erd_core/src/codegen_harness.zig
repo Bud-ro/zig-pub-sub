@@ -540,6 +540,12 @@ const MultiComponents = struct {
 
 const MultiSD = erd_core.SystemData(MultiErdDefs, MultiErdEnum, multi_erd, MultiComponents);
 
+comptime {
+    std.debug.assert(Ram == std.meta.fieldIndex(MultiComponents, "ram").?);
+    std.debug.assert(Indirect == std.meta.fieldIndex(MultiComponents, "indirect").?);
+    std.debug.assert(Converted == std.meta.fieldIndex(MultiComponents, "converted").?);
+}
+
 // ===========================================================================
 // Indirect reads - read-only computed values
 // ===========================================================================
@@ -638,6 +644,14 @@ export fn subscribe_converted(sd: *MultiSD) void {
 
 export fn subscribe_converted_flag(sd: *MultiSD) void {
     sd.subscribe(.conv_flag_inv, null, conv_sub_callback);
+}
+
+export fn unsubscribe_converted(sd: *MultiSD) void {
+    sd.unsubscribe(.conv_sum, conv_sub_callback);
+}
+
+export fn unsubscribe_converted_flag(sd: *MultiSD) void {
+    sd.unsubscribe(.conv_flag_inv, conv_sub_callback);
 }
 
 comptime {
