@@ -6,16 +6,16 @@ double_write_same_value:
         mov	al, 1
         cmp	byte ptr [rdi + 4], 1
         mov	byte ptr [rdi + 4], 1
-        jne	.LBB311_1
+        jne	.L0
         mov	byte ptr [rsp + 13], 1
         mov	byte ptr [rbx + 4], 1
         cmp	al, 1
-        jne	.LBB311_3
-.LBB311_4:
+        jne	.L1
+.L2:
         add	rsp, 16
         pop	rbx
         ret
-.LBB311_1:
+.L0:
         lea	rdx, [rsp + 12]
         mov	rdi, rbx
         mov	esi, 1
@@ -25,8 +25,8 @@ double_write_same_value:
         mov	byte ptr [rsp + 13], 1
         mov	byte ptr [rbx + 4], 1
         cmp	al, 1
-        je	.LBB311_4
-.LBB311_3:
+        je	.L2
+.L1:
         lea	rdx, [rsp + 13]
         mov	rdi, rbx
         mov	esi, 1
@@ -42,11 +42,11 @@ double_write_same_value:
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_0]
-        movzx	esi, byte ptr [rax + __anon_1]
+        mov	rdx, qword ptr [8*rax + __anon_3]
+        movzx	esi, byte ptr [rax + __anon_4]
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 16
-        movzx	edx, word ptr [rax + rax + __anon_2]
+        movzx	edx, word ptr [rax + rax + __anon_5]
         jmp	Subscription.publish
 

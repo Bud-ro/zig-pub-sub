@@ -13,27 +13,27 @@ mixed_runtime_write:
         push	rax
         movzx	eax, si
         cmp	byte ptr [rax + .L__anon_0], 0
-        jne	.LBB276_3
+        jne	.L1
         mov	rbx, rdx
         mov	r14, rdi
-        movzx	r15d, word ptr [rax + rax + .L__anon_1]
-        movzx	r12d, word ptr [r15 + r15 + .L__anon_2]
-        mov	r13, qword ptr [8*r15 + .L__anon_3]
+        movzx	r15d, word ptr [rax + rax + .L__anon_2]
+        movzx	r12d, word ptr [r15 + r15 + .L__anon_3]
+        mov	r13, qword ptr [8*r15 + .L__anon_4]
         add	r13, rdi
         mov	rdi, rdx
         mov	rsi, r12
         mov	rdx, r13
         mov	rcx, r12
-        call	.Lmem.eql__anon_4
+        call	.Lmem.eql__anon_5
         mov	ebp, eax
         mov	rdi, r13
         mov	rsi, rbx
         mov	rdx, r12
         call	memcpy@PLT
         test	bpl, 1
-        jne	.LBB276_3
-        cmp	byte ptr [r15 + .L__anon_5], 0
-        je	.LBB276_3
+        jne	.L1
+        cmp	byte ptr [r15 + .L__anon_6], 0
+        je	.L1
         mov	rdi, r14
         mov	esi, r15d
         mov	rdx, rbx
@@ -46,7 +46,7 @@ mixed_runtime_write:
         pop	r15
         pop	rbp
         jmp	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish"
-.LBB276_3:
+.L1:
         add	rsp, 8
         pop	rbx
         pop	r12

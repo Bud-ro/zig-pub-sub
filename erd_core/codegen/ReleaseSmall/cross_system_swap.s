@@ -6,12 +6,12 @@ cross_system_swap:
         mov	dword ptr [rsp + 4], eax
         mov	dword ptr [rsi], eax
         cmp	ecx, eax
-        je	.LBB305_2
+        je	.L0
         mov	rdx, rsi
         lea	rsi, [rsp + 4]
         mov	rdi, rdx
         call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
-.LBB305_2:
+.L0:
         pop	rax
         ret
 

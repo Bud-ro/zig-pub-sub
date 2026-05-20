@@ -3,12 +3,12 @@ write_ram_with_converted_deps:
         mov	dword ptr [rsp + 4], esi
         cmp	dword ptr [rdi], esi
         mov	dword ptr [rdi], esi
-        je	.LBB292_2
+        je	.L0
         lea	rdx, [rsp + 4]
         xor	esi, esi
         mov	rcx, rdi
         call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
-.LBB292_2:
+.L0:
         pop	rax
         ret
 
@@ -18,11 +18,11 @@ write_ram_with_converted_deps:
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_0]
-        movzx	esi, byte ptr [rax + __anon_1]
+        mov	rdx, qword ptr [8*rax + __anon_1]
+        movzx	esi, byte ptr [rax + __anon_2]
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 8
-        movzx	edx, word ptr [rax + rax + __anon_2]
+        movzx	edx, word ptr [rax + rax + __anon_3]
         jmp	Subscription.publish
 

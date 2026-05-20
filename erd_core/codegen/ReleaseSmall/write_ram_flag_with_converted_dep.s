@@ -4,13 +4,13 @@ write_ram_flag_with_converted_dep:
         mov	byte ptr [rsp + 6], sil
         cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
-        je	.LBB282_2
+        je	.L0
         push	1
         pop	rsi
         lea	rdx, [rsp + 6]
         mov	rcx, rdi
         call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
-.LBB282_2:
+.L0:
         pop	rax
         ret
 
@@ -20,11 +20,11 @@ write_ram_flag_with_converted_dep:
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + .L__anon_0]
-        movzx	esi, byte ptr [rax + .L__anon_1]
+        mov	rdx, qword ptr [8*rax + .L__anon_1]
+        movzx	esi, byte ptr [rax + .L__anon_2]
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 8
-        movzx	edx, word ptr [rax + rax + .L__anon_2]
+        movzx	edx, word ptr [rax + rax + .L__anon_3]
         jmp	.LSubscription.publish
 

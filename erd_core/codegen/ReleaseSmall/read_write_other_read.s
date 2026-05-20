@@ -20,12 +20,12 @@ read_write_other_read:
         mov	byte ptr [rsp + 6], sil
         cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
-        je	.LBB303_2
+        je	.L2
         lea	rdx, [rsp + 6]
         mov	esi, 1
         mov	rcx, rdi
         call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
-.LBB303_2:
+.L2:
         pop	rax
         ret
 

@@ -1,10 +1,10 @@
 increment_n_times:
-.LBB311_1:
+.L0:
         cmp	esi, 1
-        jb	.LBB311_3
+        jb	.L1
         inc	dword ptr [rdi]
         dec	esi
-        jmp	.LBB311_1
-.LBB311_3:
+        jmp	.L0
+.L1:
         ret
 

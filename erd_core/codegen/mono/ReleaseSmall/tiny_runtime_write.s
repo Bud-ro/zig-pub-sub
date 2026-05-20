@@ -29,7 +29,7 @@ tiny_runtime_write:
         mov	rdx, r12
         call	memcpy@PLT
         test	bpl, 1
-        je	.LBB302_2
+        je	.L5
         add	rsp, 8
         pop	rbx
         pop	r12
@@ -38,7 +38,7 @@ tiny_runtime_write:
         pop	r15
         pop	rbp
         ret
-.LBB302_2:
+.L5:
         mov	rdi, r14
         mov	esi, r15d
         mov	rdx, rbx

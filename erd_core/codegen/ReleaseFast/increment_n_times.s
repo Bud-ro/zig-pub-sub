@@ -1,7 +1,7 @@
 increment_n_times:
         test	esi, esi
-        je	.LBB318_2
+        je	.L0
         add	dword ptr [rdi], esi
-.LBB318_2:
+.L0:
         ret
 

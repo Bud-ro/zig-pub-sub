@@ -8,14 +8,14 @@ read_write_other_read:
         mov	eax, ebp
         cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
-        je	.LBB323_2
+        je	.L0
         lea	rdx, [rsp + 6]
         mov	rbx, rdi
         mov	esi, 1
         mov	rcx, rdi
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
         mov	eax, dword ptr [rbx]
-.LBB323_2:
+.L0:
         add	eax, ebp
         add	rsp, 8
         pop	rbx
@@ -28,11 +28,11 @@ read_write_other_read:
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_0]
-        movzx	esi, byte ptr [rax + __anon_1]
+        mov	rdx, qword ptr [8*rax + __anon_1]
+        movzx	esi, byte ptr [rax + __anon_2]
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 16
-        movzx	edx, word ptr [rax + rax + __anon_2]
+        movzx	edx, word ptr [rax + rax + __anon_3]
         jmp	Subscription.publish
 

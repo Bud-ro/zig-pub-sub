@@ -5,13 +5,13 @@ write_then_read_converted:
         mov	dword ptr [rsp + 8], esi
         cmp	dword ptr [rdi], esi
         mov	dword ptr [rdi], esi
-        je	.LBB289_2
+        je	.L0
         lea	rdx, [rsp + 8]
         mov	rdi, rbx
         xor	esi, esi
         mov	rcx, rbx
         call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
-.LBB289_2:
+.L0:
         mov	rsi, qword ptr [rbx + 168]
         lea	rdi, [rsp + 12]
         call	qword ptr [rbx + 88]
@@ -26,11 +26,11 @@ write_then_read_converted:
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_0]
-        movzx	esi, byte ptr [rax + __anon_1]
+        mov	rdx, qword ptr [8*rax + __anon_1]
+        movzx	esi, byte ptr [rax + __anon_2]
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 8
-        movzx	edx, word ptr [rax + rax + __anon_2]
+        movzx	edx, word ptr [rax + rax + __anon_3]
         jmp	Subscription.publish
 

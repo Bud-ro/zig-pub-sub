@@ -13,8 +13,8 @@ mixed_runtime_write:
         sub	rsp, 24
         movzx	eax, si
         cmp	byte ptr [rax + __anon_0], 0
-        je	.LBB286_1
-.LBB286_17:
+        je	.L1
+.L2:
         add	rsp, 24
         pop	rbx
         pop	r12
@@ -23,12 +23,12 @@ mixed_runtime_write:
         pop	r15
         pop	rbp
         ret
-.LBB286_1:
+.L1:
         mov	rcx, rdi
-        movzx	ebx, word ptr [rax + rax + __anon_1]
-        movzx	eax, word ptr [rbx + rbx + __anon_2]
+        movzx	ebx, word ptr [rax + rax + __anon_3]
+        movzx	eax, word ptr [rbx + rbx + __anon_4]
         movzx	eax, ax
-        mov	rdi, qword ptr [8*rbx + __anon_3]
+        mov	rdi, qword ptr [8*rbx + __anon_5]
         add	rdi, rcx
         test	ax, ax
         sete	r9b
@@ -40,7 +40,7 @@ mixed_runtime_write:
         sete	r10b
         or	r10b, r9b
         cmp	r10b, 1
-        jne	.LBB286_2
+        jne	.L6
         mov	rsi, rdx
         mov	rdx, rax
         add	rsp, 24
@@ -51,12 +51,12 @@ mixed_runtime_write:
         pop	r15
         pop	rbp
         jmp	memcpy@PLT
-.LBB286_2:
+.L6:
         mov	r14, rcx
         cmp	ax, 16
-        ja	.LBB286_11
+        ja	.L7
         cmp	ax, 3
-        ja	.LBB286_7
+        ja	.L8
         movzx	ebp, byte ptr [rdx]
         movzx	ecx, byte ptr [rdx + rax - 1]
         mov	byte ptr [rsp + 12], cl
@@ -73,27 +73,27 @@ mixed_runtime_write:
         mov	rdx, rax
         call	memcpy@PLT
         cmp	bpl, r13b
-        jne	.LBB286_16
+        jne	.L9
         cmp	byte ptr [rsp + 12], r15b
-        jne	.LBB286_16
+        jne	.L9
         movzx	eax, byte ptr [rsp + 4]
         cmp	byte ptr [rsp + 8], al
-        je	.LBB286_17
-        jmp	.LBB286_16
-.LBB286_11:
+        je	.L2
+        jmp	.L9
+.L7:
         lea	rcx, [rax - 1]
         shr	rcx, 4
         xor	r9d, r9d
-.LBB286_13:
+.L10:
         movdqu	xmm0, xmmword ptr [r8 + r9]
         movdqu	xmm1, xmmword ptr [rsi + r9]
         pcmpeqb	xmm1, xmm0
         pmovmskb	r10d, xmm1
         xor	r10d, 65535
-        jne	.LBB286_14
+        jne	.L11
         add	r9, 16
         add	rcx, -1
-        jne	.LBB286_13
+        jne	.L10
         movdqu	xmm0, xmmword ptr [r8 + rax - 16]
         movdqu	xmm1, xmmword ptr [rsi + rax - 16]
         pcmpeqb	xmm1, xmm0
@@ -104,16 +104,16 @@ mixed_runtime_write:
         mov	rdx, rax
         call	memcpy@PLT
         test	ebp, ebp
-        jne	.LBB286_16
-        jmp	.LBB286_17
-.LBB286_14:
+        jne	.L9
+        jmp	.L2
+.L11:
         mov	rsi, rdx
         mov	r12, rdx
         mov	rdx, rax
         call	memcpy@PLT
-.LBB286_16:
-        cmp	byte ptr [rbx + __anon_4], 0
-        je	.LBB286_17
+.L9:
+        cmp	byte ptr [rbx + __anon_12], 0
+        je	.L2
         mov	rcx, r14
         mov	rdi, r14
         mov	esi, ebx
@@ -126,7 +126,7 @@ mixed_runtime_write:
         pop	r15
         pop	rbp
         jmp	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish"
-.LBB286_7:
+.L8:
         lea	rcx, [rax - 4]
         mov	esi, eax
         shr	esi
@@ -150,14 +150,14 @@ mixed_runtime_write:
         mov	rdx, rax
         call	memcpy@PLT
         cmp	r13d, ebp
-        jne	.LBB286_16
+        jne	.L9
         cmp	r15d, dword ptr [rsp + 12]
-        jne	.LBB286_16
+        jne	.L9
         mov	eax, dword ptr [rsp + 4]
         cmp	eax, dword ptr [rsp + 8]
-        jne	.LBB286_16
+        jne	.L9
         mov	eax, dword ptr [rsp + 16]
         cmp	eax, dword ptr [rsp + 20]
-        je	.LBB286_17
-        jmp	.LBB286_16
+        je	.L2
+        jmp	.L9
 

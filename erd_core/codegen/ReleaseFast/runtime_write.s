@@ -27,7 +27,7 @@ runtime_write:
         cmp	rsi, rcx
         sete	r9b
         or	r9b, r8b
-        je	.LBB347_1
+        je	.L4
         mov	rsi, rdx
         mov	rdx, rax
         add	rsp, 24
@@ -38,11 +38,11 @@ runtime_write:
         pop	r15
         pop	rbp
         jmp	memcpy@PLT
-.LBB347_1:
+.L4:
         cmp	ax, 16
-        ja	.LBB347_11
+        ja	.L5
         cmp	ax, 3
-        ja	.LBB347_6
+        ja	.L6
         movzx	ebp, byte ptr [rdx]
         movzx	ecx, byte ptr [rdx + rax - 1]
         mov	byte ptr [rsp + 12], cl
@@ -59,27 +59,27 @@ runtime_write:
         mov	rdx, rax
         call	memcpy@PLT
         cmp	bpl, r13b
-        jne	.LBB347_16
+        jne	.L7
         cmp	byte ptr [rsp + 12], r12b
-        jne	.LBB347_16
+        jne	.L7
         movzx	eax, byte ptr [rsp + 4]
         cmp	byte ptr [rsp + 8], al
-        je	.LBB347_10
-        jmp	.LBB347_16
-.LBB347_11:
+        je	.L8
+        jmp	.L7
+.L5:
         lea	r8, [rax - 1]
         shr	r8, 4
         xor	r9d, r9d
-.LBB347_13:
+.L9:
         movdqu	xmm0, xmmword ptr [rsi + r9]
         movdqu	xmm1, xmmword ptr [rcx + r9]
         pcmpeqb	xmm1, xmm0
         pmovmskb	r10d, xmm1
         xor	r10d, 65535
-        jne	.LBB347_14
+        jne	.L10
         add	r9, 16
         add	r8, -1
-        jne	.LBB347_13
+        jne	.L9
         movdqu	xmm0, xmmword ptr [rsi + rax - 16]
         movdqu	xmm1, xmmword ptr [rcx + rax - 16]
         pcmpeqb	xmm1, xmm0
@@ -90,16 +90,16 @@ runtime_write:
         mov	rdx, rax
         call	memcpy@PLT
         test	ebp, ebp
-        jne	.LBB347_16
-        jmp	.LBB347_10
-.LBB347_14:
+        jne	.L7
+        jmp	.L8
+.L10:
         mov	r15, rdx
         mov	rsi, rdx
         mov	rdx, rax
         call	memcpy@PLT
-.LBB347_16:
-        cmp	byte ptr [r14 + __anon_4], 0
-        je	.LBB347_10
+.L7:
+        cmp	byte ptr [r14 + __anon_11], 0
+        je	.L8
         mov	rdi, rbx
         mov	esi, r14d
         mov	rdx, r15
@@ -112,7 +112,7 @@ runtime_write:
         pop	r15
         pop	rbp
         jmp	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
-.LBB347_6:
+.L6:
         lea	rcx, [rax - 4]
         mov	esi, eax
         shr	esi
@@ -136,16 +136,16 @@ runtime_write:
         mov	rdx, rax
         call	memcpy@PLT
         cmp	ebp, r12d
-        jne	.LBB347_16
+        jne	.L7
         cmp	r13d, dword ptr [rsp + 12]
-        jne	.LBB347_16
+        jne	.L7
         mov	eax, dword ptr [rsp + 4]
         cmp	eax, dword ptr [rsp + 8]
-        jne	.LBB347_16
+        jne	.L7
         mov	eax, dword ptr [rsp + 16]
         cmp	eax, dword ptr [rsp + 20]
-        jne	.LBB347_16
-.LBB347_10:
+        jne	.L7
+.L8:
         add	rsp, 24
         pop	rbx
         pop	r12

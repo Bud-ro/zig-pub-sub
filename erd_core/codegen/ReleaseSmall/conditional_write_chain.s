@@ -1,11 +1,11 @@
 conditional_write_chain:
         test	byte ptr [rdi + 4], 1
-        je	.LBB310_1
+        je	.L0
         add	dword ptr [rdi], 10
-.LBB310_1:
+.L0:
         cmp	word ptr [rdi + 5], 100
-        jbe	.LBB310_3
+        jbe	.L1
         add	dword ptr [rdi], 20
-.LBB310_3:
+.L1:
         ret
 

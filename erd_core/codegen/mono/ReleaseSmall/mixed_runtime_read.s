@@ -9,11 +9,11 @@ mixed_runtime_read:
         movzx	eax, byte ptr [rcx + .L__anon_0]
         movzx	ecx, word ptr [rcx + rcx + .L__anon_1]
         test	eax, eax
-        je	.LBB278_5
+        je	.L2
         cmp	eax, 1
-        je	.LBB278_4
+        je	.L3
         cmp	eax, 2
-        jne	.LBB278_6
+        jne	.L4
         movups	xmm0, xmmword ptr [rdi + 200]
         movaps	xmmword ptr [rsp + 80], xmm0
         mov	rax, qword ptr [rdi + 216]
@@ -33,14 +33,14 @@ mixed_runtime_read:
         call	qword ptr [rsp + 8*rcx]
         add	rsp, 104
         ret
-.LBB278_4:
+.L3:
         movups	xmm0, xmmword ptr [rdi + 104]
         movaps	xmmword ptr [rsp], xmm0
         mov	rdi, rdx
         call	qword ptr [rsp + 8*rcx]
         add	rsp, 104
         ret
-.LBB278_5:
+.L2:
         mov	rax, qword ptr [rdi + 96]
         mov	qword ptr [rsp + 96], rax
         movups	xmm0, xmmword ptr [rdi + 80]
@@ -55,13 +55,13 @@ mixed_runtime_read:
         movaps	xmmword ptr [rsp + 32], xmm2
         movaps	xmmword ptr [rsp + 16], xmm1
         movaps	xmmword ptr [rsp], xmm0
-        movzx	eax, word ptr [rcx + rcx + .L__anon_2]
+        movzx	eax, word ptr [rcx + rcx + .L__anon_5]
         mov	rsi, rsp
-        add	rsi, qword ptr [8*rcx + .L__anon_3]
+        add	rsi, qword ptr [8*rcx + .L__anon_6]
         mov	rdi, rdx
         mov	rdx, rax
         call	memcpy@PLT
-.LBB278_6:
+.L4:
         add	rsp, 104
         ret
 
