@@ -1,10 +1,6 @@
 read_converted_flag_inv:
-        push	rax
-        mov	rax, rdi
-        mov	rsi, qword ptr [rdi + 168]
-        lea	rdi, [rsp + 7]
-        call	qword ptr [rax + 96]
-        movzx	eax, byte ptr [rsp + 7]
-        pop	rcx
+        mov	rax, qword ptr [rdi + 168]
+        movzx	eax, byte ptr [rax + 4]
+        xor	al, 1
         ret
 

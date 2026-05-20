@@ -5,6 +5,7 @@
 const erd_core = @import("erd_core");
 const Erd = erd_core.Erd;
 const subscription_mixin = erd_core.data_component.subscription_mixin;
+const fnFromMappings = @import("converted_data_component.zig").fnFromMappings;
 
 /// Binds an indirect ERD to its read function pointer.
 pub const Mapping = struct {
@@ -37,16 +38,15 @@ pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: 
         }
 
         /// Compute and return the ERD value by calling its mapped function.
-        pub fn read(self: Self, erd: Erd) erd.T {
-            const fnPtr: *const fn (*erd.T) void = @ptrCast(self.read_functions[erd.data_component_idx]);
-
+        pub fn read(_: Self, erd: Erd) erd.T {
+            const fnPtr: *const fn (*erd.T) void = @ptrCast(comptime fnFromMappings(erd, erd_mappings));
             var temp: erd.T = undefined;
             fnPtr(&temp);
             return temp;
         }
 
         /// Runtime read using a dynamic data component index.
-        pub fn runtimeRead(self: Self, data_component_idx: u16, data: *anyopaque) void {
+        pub fn runtimeRead(self: *const Self, data_component_idx: u16, data: *anyopaque) void {
             const fnPtr: *const fn ([*]u8) void = @ptrCast(self.read_functions[data_component_idx]);
             fnPtr(@ptrCast(data));
         }

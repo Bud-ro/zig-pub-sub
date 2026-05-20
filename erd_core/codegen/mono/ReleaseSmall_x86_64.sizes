@@ -17,8 +17,8 @@
 9	mixed_subscribe_ram
 9	mixed_unsubscribe_conv
 10	tiny_read_all
+65	mixed_read_all
 84	tiny_write_all
 105	wide_read_all
 139	mixed_write_ram
-170	mixed_read_all
 311	wide_write_all

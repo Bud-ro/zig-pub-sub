@@ -19,17 +19,16 @@ tiny_runtime_write:
         mov	r13, qword ptr [8*r15 + .L__anon_3]
         add	r13, rdi
         mov	rdi, rdx
-        mov	rsi, r12
-        mov	rdx, r13
-        mov	rcx, r12
-        call	.Lmem.eql__anon_4
+        mov	rsi, r13
+        mov	rdx, r12
+        call	.Lram_data_component.runtimeBytesEqual
         mov	ebp, eax
         mov	rdi, r13
         mov	rsi, rbx
         mov	rdx, r12
         call	memcpy@PLT
         test	bpl, 1
-        je	.L5
+        je	.L4
         add	rsp, 8
         pop	rbx
         pop	r12
@@ -38,7 +37,7 @@ tiny_runtime_write:
         pop	r15
         pop	rbp
         ret
-.L5:
+.L4:
         mov	rdi, r14
         mov	esi, r15d
         mov	rdx, rbx

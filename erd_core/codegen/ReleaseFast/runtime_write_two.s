@@ -23,101 +23,32 @@ runtime_write_two:
         push	r13
         push	r12
         push	rbx
-        sub	rsp, 24
-        mov	rbx, rdi
+        push	rax
+        mov	rbx, rdx
+        mov	r14, rdi
         movzx	eax, si
-        movzx	r14d, word ptr [rax + rax + __anon_1]
-        movzx	eax, word ptr [r14 + r14 + __anon_2]
-        movzx	eax, ax
-        mov	rdi, qword ptr [8*r14 + __anon_3]
-        add	rdi, rbx
-        test	ax, ax
-        mov	ecx, 1
-        mov	rsi, rdx
-        cmove	rsi, rcx
-        cmovne	rcx, rdi
-        sete	r8b
-        cmp	rsi, rcx
-        sete	r9b
-        or	r9b, r8b
+        movzx	r15d, word ptr [rax + rax + __anon_1]
+        movzx	r12d, word ptr [r15 + r15 + __anon_2]
+        mov	r13, qword ptr [8*r15 + __anon_3]
+        add	r13, rdi
+        mov	rdi, rdx
+        mov	rsi, r13
+        mov	rdx, r12
+        call	ram_data_component.runtimeBytesEqual
+        mov	ebp, eax
+        mov	rdi, r13
+        mov	rsi, rbx
+        mov	rdx, r12
+        call	memcpy@PLT
+        test	bpl, 1
+        jne	.L4
+        cmp	byte ptr [r15 + __anon_5], 0
         je	.L4
-        mov	rsi, rdx
-        mov	rdx, rax
-        add	rsp, 24
-        pop	rbx
-        pop	r12
-        pop	r13
-        pop	r14
-        pop	r15
-        pop	rbp
-        jmp	memcpy@PLT
-.L4:
-        cmp	ax, 16
-        ja	.L5
-        cmp	ax, 3
-        ja	.L6
-        movzx	ebp, byte ptr [rdx]
-        movzx	ecx, byte ptr [rdx + rax - 1]
-        mov	byte ptr [rsp + 12], cl
-        movzx	r12d, byte ptr [rdi + rax - 1]
-        mov	ecx, eax
-        shr	ecx
-        movzx	esi, byte ptr [rdx + rcx]
-        mov	byte ptr [rsp + 8], sil
-        movzx	ecx, byte ptr [rdi + rcx]
-        mov	byte ptr [rsp + 4], cl
-        movzx	r13d, byte ptr [rdi]
-        mov	r15, rdx
-        mov	rsi, rdx
-        mov	rdx, rax
-        call	memcpy@PLT
-        cmp	bpl, r13b
-        jne	.L7
-        cmp	byte ptr [rsp + 12], r12b
-        jne	.L7
-        movzx	eax, byte ptr [rsp + 4]
-        cmp	byte ptr [rsp + 8], al
-        je	.L8
-        jmp	.L7
-.L5:
-        lea	r8, [rax - 1]
-        shr	r8, 4
-        xor	r9d, r9d
-.L9:
-        movdqu	xmm0, xmmword ptr [rsi + r9]
-        movdqu	xmm1, xmmword ptr [rcx + r9]
-        pcmpeqb	xmm1, xmm0
-        pmovmskb	r10d, xmm1
-        xor	r10d, 65535
-        jne	.L10
-        add	r9, 16
-        add	r8, -1
-        jne	.L9
-        movdqu	xmm0, xmmword ptr [rsi + rax - 16]
-        movdqu	xmm1, xmmword ptr [rcx + rax - 16]
-        pcmpeqb	xmm1, xmm0
-        pmovmskb	ebp, xmm1
-        xor	ebp, 65535
-        mov	r15, rdx
-        mov	rsi, rdx
-        mov	rdx, rax
-        call	memcpy@PLT
-        test	ebp, ebp
-        jne	.L7
-        jmp	.L8
-.L10:
-        mov	r15, rdx
-        mov	rsi, rdx
-        mov	rdx, rax
-        call	memcpy@PLT
-.L7:
-        cmp	byte ptr [r14 + __anon_11], 0
-        je	.L8
-        mov	rdi, rbx
-        mov	esi, r14d
-        mov	rdx, r15
-        mov	rcx, rbx
-        add	rsp, 24
+        mov	rdi, r14
+        mov	esi, r15d
+        mov	rdx, rbx
+        mov	rcx, r14
+        add	rsp, 8
         pop	rbx
         pop	r12
         pop	r13
@@ -125,41 +56,8 @@ runtime_write_two:
         pop	r15
         pop	rbp
         jmp	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
-.L6:
-        lea	rcx, [rax - 4]
-        mov	esi, eax
-        shr	esi
-        and	esi, 12
-        sub	rcx, rsi
-        mov	ebp, dword ptr [rdi]
-        mov	r8d, dword ptr [rdx + rax - 4]
-        mov	dword ptr [rsp + 12], r8d
-        mov	r13d, dword ptr [rdi + rax - 4]
-        mov	r8d, dword ptr [rdx + rsi]
-        mov	dword ptr [rsp + 8], r8d
-        mov	esi, dword ptr [rdi + rsi]
-        mov	dword ptr [rsp + 4], esi
-        mov	esi, dword ptr [rdx + rcx]
-        mov	dword ptr [rsp + 20], esi
-        mov	ecx, dword ptr [rdi + rcx]
-        mov	dword ptr [rsp + 16], ecx
-        mov	r12d, dword ptr [rdx]
-        mov	r15, rdx
-        mov	rsi, rdx
-        mov	rdx, rax
-        call	memcpy@PLT
-        cmp	ebp, r12d
-        jne	.L7
-        cmp	r13d, dword ptr [rsp + 12]
-        jne	.L7
-        mov	eax, dword ptr [rsp + 4]
-        cmp	eax, dword ptr [rsp + 8]
-        jne	.L7
-        mov	eax, dword ptr [rsp + 16]
-        cmp	eax, dword ptr [rsp + 20]
-        jne	.L7
-.L8:
-        add	rsp, 24
+.L4:
+        add	rsp, 8
         pop	rbx
         pop	r12
         pop	r13

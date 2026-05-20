@@ -1,17 +1,11 @@
 write_then_read_converted:
-        push	r14
         push	rbx
-        push	rax
         mov	rbx, rdi
         call	".Lsystem_data.SystemData(codegen_harness.MultiErdDefs,meta.FieldEnum(codegen_harness.MultiErdDefs),.{ .ram_counter = .{ ... }, .ram_flag = .{ ... }, .ram_value = .{ ... }, .ind_constant = .{ ... }, .ind_computed = .{ ... }, .conv_sum = .{ ... }, .conv_flag_inv = .{ ... } },codegen_harness.MultiComponents).write__anon_0"
-        mov	rsi, qword ptr [rbx + 168]
-        lea	r14, [rsp + 4]
-        mov	rdi, r14
-        call	qword ptr [rbx + 88]
-        mov	eax, dword ptr [r14]
-        add	rsp, 8
+        mov	rcx, qword ptr [rbx + 168]
+        movzx	eax, word ptr [rcx + 5]
+        add	eax, dword ptr [rcx]
         pop	rbx
-        pop	r14
         ret
 
 ; --- called functions ---

@@ -21,10 +21,9 @@ multi_runtime_write:
         mov	r13, qword ptr [8*r15 + .L__anon_4]
         add	r13, rdi
         mov	rdi, rdx
-        mov	rsi, r12
-        mov	rdx, r13
-        mov	rcx, r12
-        call	.Lmem.eql__anon_5
+        mov	rsi, r13
+        mov	rdx, r12
+        call	.Lram_data_component.runtimeBytesEqual
         mov	ebp, eax
         mov	rdi, r13
         mov	rsi, rbx
@@ -32,7 +31,7 @@ multi_runtime_write:
         call	memcpy@PLT
         test	bpl, 1
         jne	.L1
-        cmp	byte ptr [r15 + .L__anon_6], 0
+        cmp	byte ptr [r15 + .L__anon_5], 0
         je	.L1
         mov	rdi, r14
         mov	esi, r15d

@@ -83,7 +83,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         }
 
         /// Runtime read using a dynamic data component index.
-        pub fn runtimeRead(self: Self, data_component_idx: u16, data: *anyopaque) void {
+        pub fn runtimeRead(self: *const Self, data_component_idx: u16, data: *anyopaque) void {
             var data_slice: [*]u8 = @ptrCast(data);
             const size = data_size[data_component_idx];
 
@@ -168,7 +168,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             const data_slice: [*]const u8 = @ptrCast(data);
             const size = data_size[data_component_idx];
 
-            const data_changed = !std.mem.eql(u8, data_slice[0..size], self.storage[ram_offsets[idx] .. ram_offsets[idx] + size]);
+            const data_changed = !runtimeBytesEqual(data_slice, self.storage[ram_offsets[idx]..].ptr, size);
 
             @memcpy(self.storage[ram_offsets[idx] .. ram_offsets[idx] + size], data_slice[0..size]);
 
@@ -223,4 +223,10 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         //     },
         // });
     };
+}
+
+/// Shared noinline comparison so runtimeWrite call sites don't each inline
+/// LLVM's multi-tier mem.eql expansion (byte/dword/SSE paths).
+noinline fn runtimeBytesEqual(a: [*]const u8, b: [*]const u8, len: usize) bool {
+    return std.mem.eql(u8, a[0..len], b[0..len]);
 }

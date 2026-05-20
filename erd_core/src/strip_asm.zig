@@ -1,4 +1,5 @@
 const std = @import("std");
+const snapshot_comments = @import("snapshot_comments.zig");
 
 const FuncRange = struct {
     start: usize,
@@ -94,6 +95,24 @@ fn isStdlibFunc(name: []const u8) bool {
 }
 
 const IdMap = std.StringHashMapUnmanaged(u32);
+
+fn findComment(name: []const u8) ?[]const u8 {
+    for (snapshot_comments.comments) |entry| {
+        if (std.mem.eql(u8, entry.func, name)) return entry.text;
+    }
+    return null;
+}
+
+fn emitCommentHeader(gpa: std.mem.Allocator, output: *std.ArrayListUnmanaged(u8), text: []const u8) !void {
+    try output.appendSlice(gpa, "; This comment can be modified at snapshot_comments.zig\n");
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    while (lines.next()) |line| {
+        try output.appendSlice(gpa, "; ");
+        try output.appendSlice(gpa, line);
+        try output.append(gpa, '\n');
+    }
+    try output.appendSlice(gpa, ";\n");
+}
 
 /// Write `line` to `out`, replacing `__anon_NNNN` and `__struct_NNN`
 /// suffixes with sequential per-file IDs so snapshots are stable across
@@ -401,6 +420,11 @@ fn emitSplitFiles(
         var file_ids: IdMap = .empty;
         defer file_ids.deinit(gpa);
 
+        const file_label = display_names.get(name) orelse name;
+        if (findComment(file_label)) |comment| {
+            try emitCommentHeader(gpa, &output, comment);
+        }
+
         var instr = try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids, true);
         try output.appendSlice(gpa, "\n");
         total_exports += 1;
@@ -424,7 +448,6 @@ fn emitSplitFiles(
         }
         total_instr += instr;
 
-        const file_label = display_names.get(name) orelse name;
         const filename = try std.fmt.allocPrint(gpa, "{s}/{s}.s", .{ dir_path, file_label });
         defer gpa.free(filename);
         const file = try std.Io.Dir.cwd().createFile(io, filename, .{});

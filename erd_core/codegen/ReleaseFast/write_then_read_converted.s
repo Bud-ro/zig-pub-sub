@@ -2,20 +2,19 @@ write_then_read_converted:
         push	rbx
         sub	rsp, 16
         mov	rbx, rdi
-        mov	dword ptr [rsp + 8], esi
+        mov	dword ptr [rsp + 12], esi
         cmp	dword ptr [rdi], esi
         mov	dword ptr [rdi], esi
         je	.L0
-        lea	rdx, [rsp + 8]
+        lea	rdx, [rsp + 12]
         mov	rdi, rbx
         xor	esi, esi
         mov	rcx, rbx
         call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
 .L0:
-        mov	rsi, qword ptr [rbx + 168]
-        lea	rdi, [rsp + 12]
-        call	qword ptr [rbx + 88]
-        mov	eax, dword ptr [rsp + 12]
+        mov	rcx, qword ptr [rbx + 168]
+        movzx	eax, word ptr [rcx + 5]
+        add	eax, dword ptr [rcx]
         add	rsp, 16
         pop	rbx
         ret
