@@ -1,5 +1,5 @@
-const std = @import("std");
 const snapshot_comments = @import("snapshot_comments.zig");
+const std = @import("std");
 
 const FuncRange = struct {
     start: usize,
@@ -97,8 +97,8 @@ fn isStdlibFunc(name: []const u8) bool {
 const IdMap = std.StringHashMapUnmanaged(u32);
 
 fn resolveMode(mode_name: []const u8) ?snapshot_comments.Mode {
-    if (std.mem.eql(u8, mode_name, "ReleaseFast")) return .ReleaseFast;
-    if (std.mem.eql(u8, mode_name, "ReleaseSmall")) return .ReleaseSmall;
+    if (std.mem.eql(u8, mode_name, "ReleaseFast")) return .release_fast;
+    if (std.mem.eql(u8, mode_name, "ReleaseSmall")) return .release_small;
     return null;
 }
 
@@ -144,7 +144,20 @@ fn emitAnnotations(gpa: std.mem.Allocator, output: *std.ArrayListUnmanaged(u8), 
         try output.appendSlice(gpa, "; Speed: ");
         try output.appendSlice(gpa, r.speed.label());
         try output.appendSlice(gpa, " | Size: ");
-        try output.appendSlice(gpa, r.size.label());
+        switch (r.size) {
+            .optimal => try output.appendSlice(gpa, "Optimal"),
+            .suboptimal => try output.appendSlice(gpa, "Suboptimal"),
+            .optimal_until_n_calls => {
+                var buf: [32]u8 = undefined;
+                const n_str = if (r.size_n) |n|
+                    std.fmt.bufPrint(&buf, "{d}", .{n}) catch "?"
+                else
+                    "?";
+                try output.appendSlice(gpa, "Optimal (until ");
+                try output.appendSlice(gpa, n_str);
+                try output.appendSlice(gpa, " calls)");
+            },
+        }
         try output.append(gpa, '\n');
     }
     if (comment) |text| {
@@ -415,7 +428,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     if (split_dir) |dir| {
-        const mode_name = std.fs.path.basename(dir);
+        const mode_name = std.Io.Dir.path.basename(dir);
         try emitSplitFiles(gpa, io, dir, mode_name, ordered_exports.items, &func_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
     } else {
         try emitCombinedFile(gpa, io, output_path, ordered_exports.items, &func_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);

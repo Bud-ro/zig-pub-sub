@@ -14,6 +14,7 @@ const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 const DataComponentSubscription = erd_core.data_component.subscription_mixin.DataComponentSubscription;
 
+/// Resolve the function pointer for an ERD from a comptime mappings array.
 pub fn fnFromMappings(comptime erd: Erd, comptime mappings: anytype) @TypeOf(mappings[0].fn_ptr) {
     for (mappings) |mapping| {
         if (mapping.erd.data_component_idx == erd.data_component_idx) return mapping.fn_ptr;

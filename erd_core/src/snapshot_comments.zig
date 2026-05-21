@@ -11,13 +11,16 @@
 //!    codegen quirks, attached to individual functions and optionally
 //!    filtered by optimization mode.
 
-pub const Mode = enum { ReleaseFast, ReleaseSmall };
+/// Optimization level this annotation applies to.
+pub const Mode = enum { release_fast, release_small };
 
+/// Speed quality rating for a function's generated assembly.
 pub const Speed = enum {
     optimal,
     near_optimal,
     suboptimal,
 
+    /// Human-readable label for snapshot comments.
     pub fn label(self: Speed) []const u8 {
         return switch (self) {
             .optimal => "Optimal",
@@ -27,27 +30,35 @@ pub const Speed = enum {
     }
 };
 
+/// Code size quality rating. When `optimal_until_n_calls`, the inlined form
+/// is smaller than a function call up to N call sites; beyond that, outlining
+/// into a shared function would save ROM. The threshold N is stored in
+/// `Rating.size_n`.
 pub const Size = enum {
     optimal,
     optimal_until_n_calls,
     suboptimal,
 
-    pub fn label(self: Size) []const u8 {
+    /// Human-readable label for snapshot comments.
+    pub fn label(self: Size, n: ?u16) []const u8 {
         return switch (self) {
             .optimal => "Optimal",
-            .optimal_until_n_calls => "Optimal (until N calls)",
+            .optimal_until_n_calls => if (n) |_| "Optimal (until N calls)" else "Optimal (until N calls)",
             .suboptimal => "Suboptimal",
         };
     }
 };
 
+/// Per-(function, mode) quality assessment.
 pub const Rating = struct {
     func: []const u8,
     mode: Mode,
     speed: Speed = .optimal,
     size: Size = .optimal,
+    size_n: ?u16 = null,
 };
 
+/// Free-form comment attached to a function's snapshot file.
 pub const Comment = struct {
     func: []const u8,
     modes: ?[]const Mode = null,
@@ -56,14 +67,15 @@ pub const Comment = struct {
 
 // zig fmt: off
 
-/// Helper to generate two Rating entries (one per mode) with the same values.
+/// Generate two Rating entries (one per mode) with the same values.
 fn both(comptime func: []const u8, comptime speed: Speed, comptime size: Size) [2]Rating {
     return .{
-        .{ .func = func, .mode = .ReleaseFast, .speed = speed, .size = size },
-        .{ .func = func, .mode = .ReleaseSmall, .speed = speed, .size = size },
+        .{ .func = func, .mode = .release_fast, .speed = speed, .size = size },
+        .{ .func = func, .mode = .release_small, .speed = speed, .size = size },
     };
 }
 
+/// Quality ratings for every exported function in every optimization mode.
 pub const ratings = both("read_u32", .optimal, .optimal)
     ++ both("read_bool", .optimal, .optimal)
     ++ both("read_u16_unaligned", .optimal, .optimal)
@@ -90,10 +102,10 @@ pub const ratings = both("read_u32", .optimal, .optimal)
     ++ both("read_ram_then_indirect", .optimal, .optimal)
     // --- Simple writes ---
     ++ both("write_u32_no_subs", .optimal, .optimal)
-    ++ [_]Rating{.{ .func = "write_u16_no_subs", .mode = .ReleaseFast }}
+    ++ [_]Rating{.{ .func = "write_u16_no_subs", .mode = .release_fast }}
     ++ both("write_big_struct", .optimal, .optimal)
     ++ both("many_write_middle_no_subs", .optimal, .optimal)
-    ++ [_]Rating{.{ .func = "write_ram_no_converted_dep", .mode = .ReleaseSmall }}
+    ++ [_]Rating{.{ .func = "write_ram_no_converted_dep", .mode = .release_small }}
     ++ both("dual_write", .optimal, .optimal)
     ++ both("cross_system_read_write", .optimal, .optimal)
     ++ both("cross_system_read_add", .optimal, .optimal)
@@ -108,12 +120,12 @@ pub const ratings = both("read_u32", .optimal, .optimal)
     ++ both("write_then_read_converted", .optimal, .optimal)
     ++ both("write_junk_read_write", .optimal, .optimal)
     ++ both("triple_write_increment", .optimal, .optimal)
-    ++ [_]Rating{.{ .func = "increment_n_times", .mode = .ReleaseFast }}
-    ++ [_]Rating{.{ .func = "increment_n_times", .mode = .ReleaseSmall, .speed = .suboptimal, .size = .suboptimal }}
-    ++ [_]Rating{.{ .func = "double_write_diff_values", .mode = .ReleaseFast, .speed = .near_optimal }}
-    ++ [_]Rating{.{ .func = "double_write_diff_values", .mode = .ReleaseSmall }}
-    ++ [_]Rating{.{ .func = "double_write_same_value", .mode = .ReleaseFast, .speed = .near_optimal }}
-    ++ [_]Rating{.{ .func = "double_write_same_value", .mode = .ReleaseSmall }}
+    ++ [_]Rating{.{ .func = "increment_n_times", .mode = .release_fast }}
+    ++ [_]Rating{.{ .func = "increment_n_times", .mode = .release_small, .speed = .suboptimal, .size = .suboptimal }}
+    ++ [_]Rating{.{ .func = "double_write_diff_values", .mode = .release_fast, .speed = .near_optimal }}
+    ++ [_]Rating{.{ .func = "double_write_diff_values", .mode = .release_small }}
+    ++ [_]Rating{.{ .func = "double_write_same_value", .mode = .release_fast, .speed = .near_optimal }}
+    ++ [_]Rating{.{ .func = "double_write_same_value", .mode = .release_small }}
     // --- Cross-erd and modify ---
     ++ both("cross_erd_compute", .optimal, .optimal)
     ++ both("cross_system_swap", .optimal, .optimal)
@@ -166,10 +178,11 @@ pub const ratings = both("read_u32", .optimal, .optimal)
 ;
 // zig fmt: on
 
+/// Free-form comments for functions with non-obvious codegen behavior.
 pub const comments = [_]Comment{
     .{
         .func = "increment_n_times",
-        .modes = &.{.ReleaseSmall},
+        .modes = &.{.release_small},
         .text =
         \\ReleaseFast collapses the loop to a single `add [rdi], esi`,
         \\but ReleaseSmall emits a literal inc-per-iteration loop.
@@ -180,7 +193,7 @@ pub const comments = [_]Comment{
     },
     .{
         .func = "double_write_same_value",
-        .modes = &.{.ReleaseFast},
+        .modes = &.{.release_fast},
         .text =
         \\LLVM cannot eliminate the second write's compare-and-publish
         \\sequence. After the first publish call, it conservatively
@@ -191,7 +204,7 @@ pub const comments = [_]Comment{
     },
     .{
         .func = "double_write_diff_values",
-        .modes = &.{.ReleaseFast},
+        .modes = &.{.release_fast},
         .text =
         \\After the first write's publish call, LLVM reloads the stored
         \\flag value before comparing for the second write. It cannot

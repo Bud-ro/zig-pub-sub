@@ -127,7 +127,7 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
         mod.addImport("sometimes", sometimes_disabled_mod);
         mod.addImport("erd_core", core_mod);
         const obj = b.addObject(.{
-            .name = std.fs.path.stem(src.source),
+            .name = std.Io.Dir.path.stem(src.source),
             .root_module = mod,
         });
         emit_asm_step.dependOn(&b.addInstallFile(obj.getEmittedAsm(), src.output).step);
