@@ -96,9 +96,23 @@ fn isStdlibFunc(name: []const u8) bool {
 
 const IdMap = std.StringHashMapUnmanaged(u32);
 
-fn findComment(name: []const u8) ?[]const u8 {
+fn findComment(name: []const u8, mode_name: ?[]const u8) ?[]const u8 {
+    const mode: ?snapshot_comments.Mode = if (mode_name) |m|
+        if (std.mem.eql(u8, m, "ReleaseFast")) .ReleaseFast
+        else if (std.mem.eql(u8, m, "ReleaseSmall")) .ReleaseSmall
+        else null
+    else
+        null;
     for (snapshot_comments.comments) |entry| {
-        if (std.mem.eql(u8, entry.func, name)) return entry.text;
+        if (!std.mem.eql(u8, entry.func, name)) continue;
+        if (entry.modes) |modes| {
+            if (mode) |m| {
+                for (modes) |allowed| {
+                    if (allowed == m) return entry.text;
+                }
+                continue;
+            }
+        } else return entry.text;
     }
     return null;
 }
@@ -371,7 +385,8 @@ pub fn main(init: std.process.Init) !void {
     }
 
     if (split_dir) |dir| {
-        try emitSplitFiles(gpa, io, dir, ordered_exports.items, &func_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
+        const mode_name = std.fs.path.basename(dir);
+        try emitSplitFiles(gpa, io, dir, mode_name, ordered_exports.items, &func_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
     } else {
         try emitCombinedFile(gpa, io, output_path, ordered_exports.items, &func_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
     }
@@ -402,6 +417,7 @@ fn emitSplitFiles(
     gpa: std.mem.Allocator,
     io: std.Io,
     dir_path: []const u8,
+    mode_name: []const u8,
     ordered_exports: []const []const u8,
     func_call_targets: *const std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)),
     all_funcs: *const std.StringHashMapUnmanaged(FuncRange),
@@ -421,7 +437,7 @@ fn emitSplitFiles(
         defer file_ids.deinit(gpa);
 
         const file_label = display_names.get(name) orelse name;
-        if (findComment(file_label)) |comment| {
+        if (findComment(file_label, mode_name)) |comment| {
             try emitCommentHeader(gpa, &output, comment);
         }
 

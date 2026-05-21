@@ -1,3 +1,10 @@
+; This comment can be modified at snapshot_comments.zig
+; LLVM cannot eliminate the second write's compare-and-publish
+; sequence. After the first publish call, it conservatively
+; reloads the stored value because publish takes the SystemData
+; pointer and callbacks could mutate the flag. Not fixable from
+; Zig without lying to LLVM about callback side effects.
+;
 double_write_same_value:
         push	rbx
         sub	rsp, 16

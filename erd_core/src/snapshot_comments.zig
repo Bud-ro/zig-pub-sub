@@ -6,9 +6,14 @@
 //! optimizations so that future readers of the snapshots have context.
 //!
 //! The strip_asm tool reads this at build time and injects matching comments.
+//! Set `modes` to restrict a comment to specific optimization levels, or
+//! leave it null to apply to all modes.
+
+pub const Mode = enum { ReleaseFast, ReleaseSmall };
 
 pub const Comment = struct {
     func: []const u8,
+    modes: ?[]const Mode = null,
     text: []const u8,
 };
 
@@ -21,6 +26,27 @@ pub const comments = [_]Comment{
         \\This is an LLVM missed optimization under -Oz -- the collapsed
         \\form is both smaller and faster. Not fixable from Zig without
         \\changing subscription semantics (one publish vs N publishes).
+        ,
+    },
+    .{
+        .func = "double_write_same_value",
+        .modes = &.{.ReleaseFast},
+        .text =
+        \\LLVM cannot eliminate the second write's compare-and-publish
+        \\sequence. After the first publish call, it conservatively
+        \\reloads the stored value because publish takes the SystemData
+        \\pointer and callbacks could mutate the flag. Not fixable from
+        \\Zig without lying to LLVM about callback side effects.
+        ,
+    },
+    .{
+        .func = "double_write_diff_values",
+        .modes = &.{.ReleaseFast},
+        .text =
+        \\After the first write's publish call, LLVM reloads the stored
+        \\flag value before comparing for the second write. It cannot
+        \\prove publish did not mutate the flag through the opaque
+        \\publisher pointer. Same root cause as double_write_same_value.
         ,
     },
 };

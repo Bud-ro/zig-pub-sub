@@ -1,3 +1,9 @@
+; This comment can be modified at snapshot_comments.zig
+; After the first write's publish call, LLVM reloads the stored
+; flag value before comparing for the second write. It cannot
+; prove publish did not mutate the flag through the opaque
+; publisher pointer. Same root cause as double_write_same_value.
+;
 double_write_diff_values:
         push	rbx
         sub	rsp, 16
