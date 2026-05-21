@@ -106,7 +106,7 @@ fn commentModeMatches(entry_modes: ?[]const snapshot_comments.Mode, mode: ?snaps
     const modes = entry_modes orelse return true;
     const m = mode orelse return false;
     for (modes) |allowed| {
-        if (allowed == m) return true;
+        if (allowed == .all or allowed == m) return true;
     }
     return false;
 }
@@ -121,7 +121,7 @@ fn findComment(name: []const u8, mode: ?snapshot_comments.Mode) ?[]const u8 {
 
 fn findRating(name: []const u8, mode: snapshot_comments.Mode) ?snapshot_comments.Rating {
     for (snapshot_comments.ratings) |entry| {
-        if (std.mem.eql(u8, entry.func, name) and entry.mode == mode)
+        if (std.mem.eql(u8, entry.func, name) and (entry.mode == .all or entry.mode == mode))
             return entry;
     }
     return null;
@@ -147,12 +147,9 @@ fn emitAnnotations(gpa: std.mem.Allocator, output: *std.ArrayListUnmanaged(u8), 
         switch (r.size) {
             .optimal => try output.appendSlice(gpa, "Optimal"),
             .suboptimal => try output.appendSlice(gpa, "Suboptimal"),
-            .optimal_until_n_calls => {
+            .until => |n| {
                 var buf: [32]u8 = undefined;
-                const n_str = if (r.size_n) |n|
-                    std.fmt.bufPrint(&buf, "{d}", .{n}) catch "?"
-                else
-                    "?";
+                const n_str = std.fmt.bufPrint(&buf, "{d}", .{n}) catch "?";
                 try output.appendSlice(gpa, "Optimal (until ");
                 try output.appendSlice(gpa, n_str);
                 try output.appendSlice(gpa, " calls)");

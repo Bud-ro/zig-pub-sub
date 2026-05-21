@@ -12,7 +12,7 @@
 //!    filtered by optimization mode.
 
 /// Optimization level this annotation applies to.
-pub const Mode = enum { release_fast, release_small };
+pub const Mode = enum { release_fast, release_small, all };
 
 /// Speed quality rating for a function's generated assembly.
 pub const Speed = enum {
@@ -30,23 +30,21 @@ pub const Speed = enum {
     }
 };
 
-/// Code size quality rating. When `optimal_until_n_calls`, the inlined form
-/// is smaller than a function call up to N call sites; beyond that, outlining
-/// into a shared function would save ROM. The threshold N is stored in
-/// `Rating.size_n`.
-pub const Size = enum {
+/// Code size quality rating. The `until` variant means the inlined form is
+/// smaller than a function call up to N call sites; beyond that threshold,
+/// outlining into a shared function would save ROM.
+pub const Size = union(enum) {
     optimal,
-    optimal_until_n_calls,
+    until: u16,
     suboptimal,
 };
 
 /// Per-(function, mode) quality assessment.
 pub const Rating = struct {
     func: []const u8,
-    mode: Mode,
+    mode: Mode = .all,
     speed: Speed = .optimal,
     size: Size = .optimal,
-    size_n: ?u16 = null,
 };
 
 /// Free-form comment attached to a function's snapshot file.
@@ -56,118 +54,111 @@ pub const Comment = struct {
     text: []const u8,
 };
 
-/// Generate two Rating entries (one per mode) with the same values.
-fn b(comptime func: []const u8, comptime speed: Speed, comptime size: Size, comptime size_n: ?u16) [2]Rating {
-    return .{
-        .{ .func = func, .mode = .release_fast, .speed = speed, .size = size, .size_n = size_n },
-        .{ .func = func, .mode = .release_small, .speed = speed, .size = size, .size_n = size_n },
-    };
-}
-
 // zig fmt: off
 
 /// Quality ratings for every exported function in every optimization mode.
-pub const ratings =
-       b("conditional_write_chain", .optimal, .optimal_until_n_calls, 2)
-    ++ b("cross_erd_compute", .optimal, .optimal_until_n_calls, 2)
-    ++ b("cross_system_read_add", .optimal, .optimal_until_n_calls, 2)
-    ++ b("cross_system_read_write", .optimal, .optimal, null)
-    ++ b("cross_system_swap", .optimal, .optimal_until_n_calls, 2)
-    ++ b("double_modify_struct", .optimal, .optimal_until_n_calls, 2)
-    ++ [_]Rating{.{ .func = "double_write_diff_values", .mode = .release_fast, .speed = .near_optimal, .size = .optimal_until_n_calls, .size_n = 2 }}
-    ++ [_]Rating{.{ .func = "double_write_diff_values", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 2 }}
-    ++ [_]Rating{.{ .func = "double_write_same_value", .mode = .release_fast, .speed = .near_optimal, .size = .optimal_until_n_calls, .size_n = 2 }}
-    ++ [_]Rating{.{ .func = "double_write_same_value", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 2 }}
-    ++ b("dual_read", .optimal, .optimal_until_n_calls, 3)
-    ++ b("dual_write", .optimal, .optimal_until_n_calls, 2)
-    ++ [_]Rating{.{ .func = "increment_n_times", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 4 }}
-    ++ [_]Rating{.{ .func = "increment_n_times", .mode = .release_small, .speed = .suboptimal, .size = .suboptimal }}
-    ++ b("many_read_first", .optimal, .optimal, null)
-    ++ b("many_read_last", .optimal, .optimal, null)
-    ++ b("many_read_middle", .optimal, .optimal, null)
-    ++ b("many_write_last_with_subs", .optimal, .optimal_until_n_calls, 2)
-    ++ b("many_write_middle_no_subs", .optimal, .optimal, null)
-    ++ b("mixed_modify", .optimal, .optimal, null)
-    ++ b("mixed_read_all", .optimal, .optimal_until_n_calls, 2)
-    ++ b("mixed_runtime_read", .optimal, .optimal, null)
-    ++ b("mixed_runtime_write", .optimal, .optimal, null)
-    ++ b("mixed_subscribe_conv", .optimal, .optimal_until_n_calls, 3)
-    ++ b("mixed_subscribe_ram", .optimal, .optimal_until_n_calls, 3)
-    ++ b("mixed_unsubscribe_conv", .optimal, .optimal_until_n_calls, 3)
-    ++ b("mixed_unsubscribe_ram", .optimal, .optimal_until_n_calls, 6)
-    ++ b("mixed_write_ram", .optimal, .optimal_until_n_calls, 2)
-    ++ b("modify_medium_no_subs", .optimal, .optimal, null)
-    ++ b("modify_medium_single_field", .near_optimal, .optimal_until_n_calls, 2)
-    ++ b("modify_medium_two_fields", .near_optimal, .optimal_until_n_calls, 2)
-    ++ b("multi_runtime_read", .optimal, .optimal, null)
-    ++ b("multi_runtime_write", .optimal, .optimal, null)
-    ++ b("read_across_two_erds", .optimal, .optimal_until_n_calls, 2)
-    ++ b("read_all_component_types", .optimal, .optimal_until_n_calls, 2)
-    ++ b("read_big_struct", .optimal, .optimal_until_n_calls, 2)
-    ++ b("read_bool", .optimal, .optimal, null)
-    ++ b("read_converted_both", .optimal, .optimal_until_n_calls, 2)
-    ++ b("read_converted_flag_inv", .optimal, .optimal_until_n_calls, 2)
-    ++ b("read_converted_sum", .optimal, .optimal_until_n_calls, 2)
-    ++ b("read_indirect_both", .optimal, .optimal_until_n_calls, 6)
-    ++ b("read_indirect_computed", .optimal, .optimal, null)
-    ++ b("read_indirect_constant", .optimal, .optimal_until_n_calls, 6)
-    ++ b("read_medium_struct", .optimal, .optimal_until_n_calls, 2)
-    ++ b("read_modify_write_big", .optimal, .optimal, null)
-    ++ b("read_ram_then_converted", .optimal, .optimal_until_n_calls, 2)
-    ++ b("read_ram_then_indirect", .optimal, .optimal_until_n_calls, 3)
-    ++ b("read_then_branch", .optimal, .optimal_until_n_calls, 2)
-    ++ b("read_u16_unaligned", .optimal, .optimal, null)
-    ++ b("read_u32", .optimal, .optimal, null)
-    ++ b("read_u32_after_big", .optimal, .optimal_until_n_calls, 4)
-    ++ b("read_write_other_read", .optimal, .optimal_until_n_calls, 2)
-    ++ [_]Rating{.{ .func = "read_write_read", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 3 }}
-    ++ [_]Rating{.{ .func = "read_write_read", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 4 }}
-    ++ b("runtime_read", .optimal, .optimal, null)
-    ++ b("runtime_read_two", .optimal, .optimal_until_n_calls, 2)
-    ++ b("runtime_write", .optimal, .optimal, null)
-    ++ b("runtime_write_three", .optimal, .optimal_until_n_calls, 2)
-    ++ b("runtime_write_two", .optimal, .optimal_until_n_calls, 2)
-    ++ b("setup_timer_callback", .optimal, .optimal_until_n_calls, 2)
-    ++ b("subscribe_callback", .optimal, .optimal_until_n_calls, 6)
-    ++ b("subscribe_converted", .optimal, .optimal_until_n_calls, 2)
-    ++ [_]Rating{.{ .func = "subscribe_converted_flag", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
-    ++ [_]Rating{.{ .func = "subscribe_converted_flag", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 3 }}
-    ++ b("tiny_modify", .optimal, .optimal, null)
-    ++ b("tiny_read_all", .optimal, .optimal_until_n_calls, 2)
-    ++ b("tiny_runtime_read", .optimal, .optimal, null)
-    ++ b("tiny_runtime_write", .optimal, .optimal, null)
-    ++ b("tiny_subscribe", .optimal, .optimal_until_n_calls, 6)
-    ++ b("tiny_unsubscribe", .optimal, .optimal_until_n_calls, 6)
-    ++ b("tiny_write_all", .optimal, .optimal_until_n_calls, 2)
-    ++ [_]Rating{.{ .func = "triple_read_same_erd", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 6 }}
-    ++ [_]Rating{.{ .func = "triple_read_same_erd", .mode = .release_small }}
-    ++ b("triple_write_increment", .optimal, .optimal_until_n_calls, 2)
-    ++ b("unsubscribe_converted", .optimal, .optimal_until_n_calls, 3)
-    ++ [_]Rating{.{ .func = "unsubscribe_converted_flag", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
-    ++ [_]Rating{.{ .func = "unsubscribe_converted_flag", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 3 }}
-    ++ b("wide_modify", .optimal, .optimal, null)
-    ++ b("wide_read_all", .optimal, .optimal_until_n_calls, 2)
-    ++ b("wide_runtime_read", .optimal, .optimal, null)
-    ++ b("wide_runtime_write", .optimal, .optimal, null)
-    ++ b("wide_subscribe", .optimal, .optimal_until_n_calls, 6)
-    ++ b("wide_unsubscribe", .optimal, .optimal_until_n_calls, 6)
-    ++ b("wide_write_all", .optimal, .optimal_until_n_calls, 2)
-    ++ b("write_big_struct", .optimal, .optimal_until_n_calls, 2)
-    ++ [_]Rating{.{ .func = "write_bool_with_subs", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
-    ++ [_]Rating{.{ .func = "write_bool_with_subs", .mode = .release_small }}
-    ++ b("write_junk_read_write", .optimal, .optimal_until_n_calls, 2)
-    ++ b("write_ram_flag_with_converted_dep", .optimal, .optimal_until_n_calls, 2)
-    ++ b("write_ram_no_converted_dep", .optimal, .optimal, null)
-    ++ [_]Rating{.{ .func = "write_ram_with_converted_deps", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
-    ++ [_]Rating{.{ .func = "write_ram_with_converted_deps", .mode = .release_small }}
-    ++ b("write_then_read_converted", .optimal, .optimal_until_n_calls, 2)
-    ++ [_]Rating{.{ .func = "write_triggering_callback", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
-    ++ [_]Rating{.{ .func = "write_triggering_callback", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 3 }}
-    ++ b("write_u16_no_subs", .optimal, .optimal, null)
-    ++ [_]Rating{.{ .func = "write_u16_with_subs", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
-    ++ [_]Rating{.{ .func = "write_u16_with_subs", .mode = .release_small }}
-    ++ b("write_u32_no_subs", .optimal, .optimal_until_n_calls, 4)
-;
+pub const ratings = [_]Rating{
+    //                                                          speed           size
+    .{ .func = "conditional_write_chain",                                       .size = .{ .until = 2 } },
+    .{ .func = "cross_erd_compute",                                             .size = .{ .until = 2 } },
+    .{ .func = "cross_system_read_add",                                         .size = .{ .until = 2 } },
+    .{ .func = "cross_system_read_write" },
+    .{ .func = "cross_system_swap",                                             .size = .{ .until = 2 } },
+    .{ .func = "double_modify_struct",                                          .size = .{ .until = 2 } },
+    .{ .func = "double_write_diff_values", .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 } },
+    .{ .func = "double_write_diff_values", .mode = .release_small,             .size = .{ .until = 2 } },
+    .{ .func = "double_write_same_value",  .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 } },
+    .{ .func = "double_write_same_value",  .mode = .release_small,             .size = .{ .until = 2 } },
+    .{ .func = "dual_read",                                                     .size = .{ .until = 3 } },
+    .{ .func = "dual_write",                                                    .size = .{ .until = 2 } },
+    .{ .func = "increment_n_times",        .mode = .release_fast,              .size = .{ .until = 4 } },
+    .{ .func = "increment_n_times",        .mode = .release_small, .speed = .suboptimal, .size = .suboptimal },
+    .{ .func = "many_read_first" },
+    .{ .func = "many_read_last" },
+    .{ .func = "many_read_middle" },
+    .{ .func = "many_write_last_with_subs",                                     .size = .{ .until = 2 } },
+    .{ .func = "many_write_middle_no_subs" },
+    .{ .func = "mixed_modify" },
+    .{ .func = "mixed_read_all",                                                .size = .{ .until = 2 } },
+    .{ .func = "mixed_runtime_read" },
+    .{ .func = "mixed_runtime_write" },
+    .{ .func = "mixed_subscribe_conv",                                          .size = .{ .until = 3 } },
+    .{ .func = "mixed_subscribe_ram",                                           .size = .{ .until = 3 } },
+    .{ .func = "mixed_unsubscribe_conv",                                        .size = .{ .until = 3 } },
+    .{ .func = "mixed_unsubscribe_ram",                                         .size = .{ .until = 6 } },
+    .{ .func = "mixed_write_ram",                                               .size = .{ .until = 2 } },
+    .{ .func = "modify_medium_no_subs" },
+    .{ .func = "modify_medium_single_field",                       .speed = .near_optimal, .size = .{ .until = 2 } },
+    .{ .func = "modify_medium_two_fields",                         .speed = .near_optimal, .size = .{ .until = 2 } },
+    .{ .func = "multi_runtime_read" },
+    .{ .func = "multi_runtime_write" },
+    .{ .func = "read_across_two_erds",                                          .size = .{ .until = 2 } },
+    .{ .func = "read_all_component_types",                                      .size = .{ .until = 2 } },
+    .{ .func = "read_big_struct",                                               .size = .{ .until = 2 } },
+    .{ .func = "read_bool" },
+    .{ .func = "read_converted_both",                                           .size = .{ .until = 2 } },
+    .{ .func = "read_converted_flag_inv",                                       .size = .{ .until = 2 } },
+    .{ .func = "read_converted_sum",                                            .size = .{ .until = 2 } },
+    .{ .func = "read_indirect_both",                                            .size = .{ .until = 6 } },
+    .{ .func = "read_indirect_computed" },
+    .{ .func = "read_indirect_constant",                                        .size = .{ .until = 6 } },
+    .{ .func = "read_medium_struct",                                            .size = .{ .until = 2 } },
+    .{ .func = "read_modify_write_big" },
+    .{ .func = "read_ram_then_converted",                                       .size = .{ .until = 2 } },
+    .{ .func = "read_ram_then_indirect",                                        .size = .{ .until = 3 } },
+    .{ .func = "read_then_branch",                                              .size = .{ .until = 2 } },
+    .{ .func = "read_u16_unaligned" },
+    .{ .func = "read_u32" },
+    .{ .func = "read_u32_after_big",                                            .size = .{ .until = 4 } },
+    .{ .func = "read_write_other_read",                                         .size = .{ .until = 2 } },
+    .{ .func = "read_write_read",          .mode = .release_fast,              .size = .{ .until = 3 } },
+    .{ .func = "read_write_read",          .mode = .release_small,             .size = .{ .until = 4 } },
+    .{ .func = "runtime_read" },
+    .{ .func = "runtime_read_two",                                              .size = .{ .until = 2 } },
+    .{ .func = "runtime_write" },
+    .{ .func = "runtime_write_three",                                           .size = .{ .until = 2 } },
+    .{ .func = "runtime_write_two",                                             .size = .{ .until = 2 } },
+    .{ .func = "setup_timer_callback",                                          .size = .{ .until = 2 } },
+    .{ .func = "subscribe_callback",                                            .size = .{ .until = 6 } },
+    .{ .func = "subscribe_converted",                                           .size = .{ .until = 2 } },
+    .{ .func = "subscribe_converted_flag", .mode = .release_fast,              .size = .{ .until = 2 } },
+    .{ .func = "subscribe_converted_flag", .mode = .release_small,             .size = .{ .until = 3 } },
+    .{ .func = "tiny_modify" },
+    .{ .func = "tiny_read_all",                                                 .size = .{ .until = 2 } },
+    .{ .func = "tiny_runtime_read" },
+    .{ .func = "tiny_runtime_write" },
+    .{ .func = "tiny_subscribe",                                                .size = .{ .until = 6 } },
+    .{ .func = "tiny_unsubscribe",                                              .size = .{ .until = 6 } },
+    .{ .func = "tiny_write_all",                                                .size = .{ .until = 2 } },
+    .{ .func = "triple_read_same_erd",     .mode = .release_fast,              .size = .{ .until = 6 } },
+    .{ .func = "triple_read_same_erd",     .mode = .release_small },
+    .{ .func = "triple_write_increment",                                        .size = .{ .until = 2 } },
+    .{ .func = "unsubscribe_converted",                                         .size = .{ .until = 3 } },
+    .{ .func = "unsubscribe_converted_flag", .mode = .release_fast,            .size = .{ .until = 2 } },
+    .{ .func = "unsubscribe_converted_flag", .mode = .release_small,           .size = .{ .until = 3 } },
+    .{ .func = "wide_modify" },
+    .{ .func = "wide_read_all",                                                 .size = .{ .until = 2 } },
+    .{ .func = "wide_runtime_read" },
+    .{ .func = "wide_runtime_write" },
+    .{ .func = "wide_subscribe",                                                .size = .{ .until = 6 } },
+    .{ .func = "wide_unsubscribe",                                              .size = .{ .until = 6 } },
+    .{ .func = "wide_write_all",                                                .size = .{ .until = 2 } },
+    .{ .func = "write_big_struct",                                              .size = .{ .until = 2 } },
+    .{ .func = "write_bool_with_subs",     .mode = .release_fast,              .size = .{ .until = 2 } },
+    .{ .func = "write_bool_with_subs",     .mode = .release_small },
+    .{ .func = "write_junk_read_write",                                         .size = .{ .until = 2 } },
+    .{ .func = "write_ram_flag_with_converted_dep",                             .size = .{ .until = 2 } },
+    .{ .func = "write_ram_no_converted_dep" },
+    .{ .func = "write_ram_with_converted_deps", .mode = .release_fast,         .size = .{ .until = 2 } },
+    .{ .func = "write_ram_with_converted_deps", .mode = .release_small },
+    .{ .func = "write_then_read_converted",                                     .size = .{ .until = 2 } },
+    .{ .func = "write_triggering_callback", .mode = .release_fast,             .size = .{ .until = 2 } },
+    .{ .func = "write_triggering_callback", .mode = .release_small,            .size = .{ .until = 3 } },
+    .{ .func = "write_u16_no_subs" },
+    .{ .func = "write_u16_with_subs",      .mode = .release_fast,              .size = .{ .until = 2 } },
+    .{ .func = "write_u16_with_subs",      .mode = .release_small },
+    .{ .func = "write_u32_no_subs",                                             .size = .{ .until = 4 } },
+};
 // zig fmt: on
 
 /// Free-form comments for functions with non-obvious codegen behavior.
