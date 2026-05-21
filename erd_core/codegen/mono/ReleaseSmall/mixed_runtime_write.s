@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 mixed_runtime_write:
         jmp	".Lsystem_data.SystemData(codegen_mono_stress.MixedDefs,meta.FieldEnum(codegen_mono_stress.MixedDefs),.{ .ram_a = .{ ... }, .ram_b = .{ ... }, .ram_c = .{ ... }, .ram_d = .{ ... }, .ind_x = .{ ... }, .ind_y = .{ ... }, .conv_sum = .{ ... }, .conv_flag = .{ ... }, .conv_wide = .{ ... }, .ram_pair = .{ ... } },codegen_mono_stress.MixedComponents).runtimeWrite"
 

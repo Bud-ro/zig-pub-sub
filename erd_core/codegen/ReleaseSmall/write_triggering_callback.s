@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 write_triggering_callback:
         push	1
         pop	rsi

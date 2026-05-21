@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 tiny_subscribe:
         add	rdi, 16
         jmp	".Ldata_component_subscription.DataComponentSubscription(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).subscribeInner"

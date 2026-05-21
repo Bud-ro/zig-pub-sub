@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 wide_read_all:
         movzx	eax, byte ptr [rdi]
         movzx	edx, word ptr [rdi + 1]

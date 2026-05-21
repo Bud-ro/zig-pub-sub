@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 tiny_runtime_write:
         jmp	".Lsystem_data.SystemData(codegen_mono_stress.TinySystem__struct_0,meta.FieldEnum(codegen_mono_stress.TinySystem__struct_0),.{ .counter = .{ ... }, .flag = .{ ... }, .pair = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
 

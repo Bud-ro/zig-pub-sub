@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 read_then_branch:
         mov	eax, dword ptr [rdi]
         mov	ecx, eax

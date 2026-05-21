@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 read_medium_struct:
         mov	rax, rdi
         mov	rcx, qword ptr [rsi + 272]

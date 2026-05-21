@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 read_converted_flag_inv:
         mov	rax, qword ptr [rdi + 168]
         movzx	eax, byte ptr [rax + 4]

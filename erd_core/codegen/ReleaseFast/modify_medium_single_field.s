@@ -1,3 +1,11 @@
+; snapshot_comments.zig
+; Speed: Near-optimal | Local Size: Optimal | Global Size: Optimal
+; The noinline modifyInner uses an indirect call for the modifier,
+; preventing LLVM from inlining it and optimizing away unchanged
+; field copies. This is intentional -- the noinline shares the
+; read/modify/writeback/publish body across all modifier lambdas.
+; Users who need single-field speed can use write() instead.
+;
 modify_medium_single_field:
         mov	esi, offset codegen_harness.double_modify_struct__struct_0.m
         mov	rdx, rdi

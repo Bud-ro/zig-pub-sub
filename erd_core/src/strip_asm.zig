@@ -96,34 +96,62 @@ fn isStdlibFunc(name: []const u8) bool {
 
 const IdMap = std.StringHashMapUnmanaged(u32);
 
+fn resolveMode(mode_name: ?[]const u8) ?snapshot_comments.Mode {
+    const m = mode_name orelse return null;
+    if (std.mem.eql(u8, m, "ReleaseFast")) return .ReleaseFast;
+    if (std.mem.eql(u8, m, "ReleaseSmall")) return .ReleaseSmall;
+    return null;
+}
+
+fn modeMatches(entry_modes: ?[]const snapshot_comments.Mode, mode: ?snapshot_comments.Mode) bool {
+    const modes = entry_modes orelse return true;
+    const m = mode orelse return false;
+    for (modes) |allowed| {
+        if (allowed == m) return true;
+    }
+    return false;
+}
+
 fn findComment(name: []const u8, mode_name: ?[]const u8) ?[]const u8 {
-    const mode: ?snapshot_comments.Mode = if (mode_name) |m|
-        if (std.mem.eql(u8, m, "ReleaseFast")) .ReleaseFast
-        else if (std.mem.eql(u8, m, "ReleaseSmall")) .ReleaseSmall
-        else null
-    else
-        null;
+    const mode = resolveMode(mode_name);
     for (snapshot_comments.comments) |entry| {
-        if (!std.mem.eql(u8, entry.func, name)) continue;
-        if (entry.modes) |modes| {
-            if (mode) |m| {
-                for (modes) |allowed| {
-                    if (allowed == m) return entry.text;
-                }
-                continue;
-            }
-        } else return entry.text;
+        if (std.mem.eql(u8, entry.func, name) and modeMatches(entry.modes, mode))
+            return entry.text;
     }
     return null;
 }
 
-fn emitCommentHeader(gpa: std.mem.Allocator, output: *std.ArrayListUnmanaged(u8), text: []const u8) !void {
-    try output.appendSlice(gpa, "; This comment can be modified at snapshot_comments.zig\n");
-    var lines = std.mem.splitScalar(u8, text, '\n');
-    while (lines.next()) |line| {
-        try output.appendSlice(gpa, "; ");
-        try output.appendSlice(gpa, line);
+fn findRating(name: []const u8, mode_name: ?[]const u8) ?snapshot_comments.Rating {
+    const mode = resolveMode(mode_name);
+    for (snapshot_comments.ratings) |entry| {
+        if (std.mem.eql(u8, entry.func, name) and modeMatches(entry.modes, mode))
+            return entry;
+    }
+    return null;
+}
+
+fn emitAnnotations(gpa: std.mem.Allocator, output: *std.ArrayListUnmanaged(u8), name: []const u8, mode_name: []const u8) !void {
+    const rating = findRating(name, mode_name);
+    const comment = findComment(name, mode_name);
+    if (rating == null and comment == null) return;
+
+    try output.appendSlice(gpa, "; snapshot_comments.zig\n");
+    if (rating) |r| {
+        try output.appendSlice(gpa, "; Speed: ");
+        try output.appendSlice(gpa, r.speed.label());
+        try output.appendSlice(gpa, " | Local Size: ");
+        try output.appendSlice(gpa, r.local_size.label());
+        try output.appendSlice(gpa, " | Global Size: ");
+        try output.appendSlice(gpa, r.global_size.label());
         try output.append(gpa, '\n');
+    }
+    if (comment) |text| {
+        var lines = std.mem.splitScalar(u8, text, '\n');
+        while (lines.next()) |line| {
+            try output.appendSlice(gpa, "; ");
+            try output.appendSlice(gpa, line);
+            try output.append(gpa, '\n');
+        }
     }
     try output.appendSlice(gpa, ";\n");
 }
@@ -437,9 +465,7 @@ fn emitSplitFiles(
         defer file_ids.deinit(gpa);
 
         const file_label = display_names.get(name) orelse name;
-        if (findComment(file_label, mode_name)) |comment| {
-            try emitCommentHeader(gpa, &output, comment);
-        }
+        try emitAnnotations(gpa, &output, file_label, mode_name);
 
         var instr = try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids, true);
         try output.appendSlice(gpa, "\n");

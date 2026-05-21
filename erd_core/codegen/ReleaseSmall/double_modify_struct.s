@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 double_modify_struct:
         push	rbx
         mov	rbx, rdi

@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 cross_system_read_add:
         mov	eax, dword ptr [rdi]
         movsxd	rcx, dword ptr [rsi]

@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 unsubscribe_converted_flag:
         add	rdi, 104
         push	2

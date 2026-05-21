@@ -1,4 +1,5 @@
-; This comment can be modified at snapshot_comments.zig
+; snapshot_comments.zig
+; Speed: Near-optimal | Local Size: Optimal | Global Size: Optimal
 ; After the first write's publish call, LLVM reloads the stored
 ; flag value before comparing for the second write. It cannot
 ; prove publish did not mutate the flag through the opaque

@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 mixed_read_all:
         mov	eax, dword ptr [rdi]
         movzx	ecx, word ptr [rdi + 4]

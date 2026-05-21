@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 write_junk_read_write:
         push	rbx
         mov	rbx, rdi

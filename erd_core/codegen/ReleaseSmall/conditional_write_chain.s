@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 conditional_write_chain:
         test	byte ptr [rdi + 4], 1
         je	.L0

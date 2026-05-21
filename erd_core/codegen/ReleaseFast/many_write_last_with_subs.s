@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 many_write_last_with_subs:
         push	rax
         mov	qword ptr [rsp], rsi

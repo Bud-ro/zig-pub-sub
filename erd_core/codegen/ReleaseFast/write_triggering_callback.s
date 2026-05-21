@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 write_triggering_callback:
         push	rax
         mov	byte ptr [rsp + 6], 1

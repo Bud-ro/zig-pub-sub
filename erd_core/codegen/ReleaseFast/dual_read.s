@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 dual_read:
         mov	ecx, dword ptr [rdi]
         movsxd	rax, dword ptr [rsi]

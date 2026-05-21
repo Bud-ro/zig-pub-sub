@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 unsubscribe_converted:
         add	rdi, 104
         xor	esi, esi

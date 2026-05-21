@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 write_u16_with_subs:
         push	rax
         mov	word ptr [rsp + 6], si

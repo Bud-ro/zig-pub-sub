@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 write_ram_with_converted_deps:
         push	rax
         mov	dword ptr [rsp + 4], esi

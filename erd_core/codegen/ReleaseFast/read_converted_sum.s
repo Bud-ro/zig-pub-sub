@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+;
 read_converted_sum:
         mov	rcx, qword ptr [rdi + 168]
         movzx	eax, word ptr [rcx + 5]
