@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+; Speed: Optimal | Size: Optimal
 ;
 read_across_two_erds:
         mov	eax, dword ptr [rdi]

@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+; Speed: Optimal | Size: Optimal
 ;
 mixed_subscribe_ram:
         add	rdi, 24

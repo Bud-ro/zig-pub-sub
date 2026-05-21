@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+; Speed: Optimal | Size: Optimal
 ;
 multi_runtime_read:
         jmp	".Lsystem_data.SystemData(codegen_harness.MultiErdDefs,meta.FieldEnum(codegen_harness.MultiErdDefs),.{ .ram_counter = .{ ... }, .ram_flag = .{ ... }, .ram_value = .{ ... }, .ind_constant = .{ ... }, .ind_computed = .{ ... }, .conv_sum = .{ ... }, .conv_flag_inv = .{ ... } },codegen_harness.MultiComponents).runtimeRead"

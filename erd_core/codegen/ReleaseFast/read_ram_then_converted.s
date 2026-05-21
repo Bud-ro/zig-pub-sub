@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+; Speed: Optimal | Size: Optimal
 ;
 read_ram_then_converted:
         mov	rcx, qword ptr [rdi + 168]

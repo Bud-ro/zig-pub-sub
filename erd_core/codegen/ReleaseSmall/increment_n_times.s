@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Suboptimal | Local Size: Suboptimal | Global Size: Optimal
+; Speed: Suboptimal | Size: Suboptimal
 ; ReleaseFast collapses the loop to a single `add [rdi], esi`,
 ; but ReleaseSmall emits a literal inc-per-iteration loop.
 ; This is an LLVM missed optimization under -Oz -- the collapsed

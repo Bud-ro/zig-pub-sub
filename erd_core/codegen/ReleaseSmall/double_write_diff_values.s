@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Optimal | Size: Optimal
+;
 double_write_diff_values:
         push	rbx
         mov	rbx, rdi

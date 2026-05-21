@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Local Size: Optimal | Global Size: Optimal
+; Speed: Optimal | Size: Optimal
 ;
 read_write_other_read:
         push	rbp

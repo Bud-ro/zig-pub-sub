@@ -96,14 +96,13 @@ fn isStdlibFunc(name: []const u8) bool {
 
 const IdMap = std.StringHashMapUnmanaged(u32);
 
-fn resolveMode(mode_name: ?[]const u8) ?snapshot_comments.Mode {
-    const m = mode_name orelse return null;
-    if (std.mem.eql(u8, m, "ReleaseFast")) return .ReleaseFast;
-    if (std.mem.eql(u8, m, "ReleaseSmall")) return .ReleaseSmall;
+fn resolveMode(mode_name: []const u8) ?snapshot_comments.Mode {
+    if (std.mem.eql(u8, mode_name, "ReleaseFast")) return .ReleaseFast;
+    if (std.mem.eql(u8, mode_name, "ReleaseSmall")) return .ReleaseSmall;
     return null;
 }
 
-fn modeMatches(entry_modes: ?[]const snapshot_comments.Mode, mode: ?snapshot_comments.Mode) bool {
+fn commentModeMatches(entry_modes: ?[]const snapshot_comments.Mode, mode: ?snapshot_comments.Mode) bool {
     const modes = entry_modes orelse return true;
     const m = mode orelse return false;
     for (modes) |allowed| {
@@ -112,37 +111,40 @@ fn modeMatches(entry_modes: ?[]const snapshot_comments.Mode, mode: ?snapshot_com
     return false;
 }
 
-fn findComment(name: []const u8, mode_name: ?[]const u8) ?[]const u8 {
-    const mode = resolveMode(mode_name);
+fn findComment(name: []const u8, mode: ?snapshot_comments.Mode) ?[]const u8 {
     for (snapshot_comments.comments) |entry| {
-        if (std.mem.eql(u8, entry.func, name) and modeMatches(entry.modes, mode))
+        if (std.mem.eql(u8, entry.func, name) and commentModeMatches(entry.modes, mode))
             return entry.text;
     }
     return null;
 }
 
-fn findRating(name: []const u8, mode_name: ?[]const u8) ?snapshot_comments.Rating {
-    const mode = resolveMode(mode_name);
+fn findRating(name: []const u8, mode: snapshot_comments.Mode) ?snapshot_comments.Rating {
     for (snapshot_comments.ratings) |entry| {
-        if (std.mem.eql(u8, entry.func, name) and modeMatches(entry.modes, mode))
+        if (std.mem.eql(u8, entry.func, name) and entry.mode == mode)
             return entry;
     }
     return null;
 }
 
-fn emitAnnotations(gpa: std.mem.Allocator, output: *std.ArrayListUnmanaged(u8), name: []const u8, mode_name: []const u8) !void {
-    const rating = findRating(name, mode_name);
-    const comment = findComment(name, mode_name);
-    if (rating == null and comment == null) return;
+fn emitAnnotations(gpa: std.mem.Allocator, output: *std.ArrayListUnmanaged(u8), name: []const u8, mode_name: []const u8, missing_ratings: *std.ArrayListUnmanaged(u8)) !void {
+    const mode = resolveMode(mode_name);
+    const rating = if (mode) |m| findRating(name, m) else null;
+    const comment = if (mode) |m| findComment(name, m) else null;
+
+    if (mode != null and rating == null) {
+        try missing_ratings.appendSlice(gpa, name);
+        try missing_ratings.append(gpa, ' ');
+        try missing_ratings.appendSlice(gpa, mode_name);
+        try missing_ratings.append(gpa, '\n');
+    }
 
     try output.appendSlice(gpa, "; snapshot_comments.zig\n");
     if (rating) |r| {
         try output.appendSlice(gpa, "; Speed: ");
         try output.appendSlice(gpa, r.speed.label());
-        try output.appendSlice(gpa, " | Local Size: ");
-        try output.appendSlice(gpa, r.local_size.label());
-        try output.appendSlice(gpa, " | Global Size: ");
-        try output.appendSlice(gpa, r.global_size.label());
+        try output.appendSlice(gpa, " | Size: ");
+        try output.appendSlice(gpa, r.size.label());
         try output.append(gpa, '\n');
     }
     if (comment) |text| {
@@ -458,6 +460,9 @@ fn emitSplitFiles(
     var total_helpers: usize = 0;
     var total_instr: usize = 0;
 
+    var missing_ratings: std.ArrayListUnmanaged(u8) = .empty;
+    defer missing_ratings.deinit(gpa);
+
     for (ordered_exports) |name| {
         var output: std.ArrayListUnmanaged(u8) = .empty;
         defer output.deinit(gpa);
@@ -465,7 +470,7 @@ fn emitSplitFiles(
         defer file_ids.deinit(gpa);
 
         const file_label = display_names.get(name) orelse name;
-        try emitAnnotations(gpa, &output, file_label, mode_name);
+        try emitAnnotations(gpa, &output, file_label, mode_name, &missing_ratings);
 
         var instr = try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids, true);
         try output.appendSlice(gpa, "\n");
@@ -498,6 +503,11 @@ fn emitSplitFiles(
         var w = file.writer(io, &buf);
         try w.interface.writeAll(output.items);
         try w.interface.flush();
+    }
+
+    if (missing_ratings.items.len > 0) {
+        std.debug.print("ERROR: Missing snapshot_comments.zig ratings for:\n{s}", .{missing_ratings.items});
+        std.process.exit(1);
     }
 
     std.debug.print("{d} functions ({d} exported, {d} called), {d} instructions\n", .{

@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Near-optimal | Local Size: Optimal | Global Size: Optimal
+; Speed: Near-optimal | Size: Optimal
 ; The noinline modifyInner uses an indirect call for the modifier,
 ; preventing LLVM from inlining it and optimizing away unchanged
 ; field copies. This is intentional -- the noinline shares the

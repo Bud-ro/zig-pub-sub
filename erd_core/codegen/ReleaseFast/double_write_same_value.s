@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Near-optimal | Local Size: Optimal | Global Size: Optimal
+; Speed: Near-optimal | Size: Optimal
 ; LLVM cannot eliminate the second write's compare-and-publish
 ; sequence. After the first publish call, it conservatively
 ; reloads the stored value because publish takes the SystemData
