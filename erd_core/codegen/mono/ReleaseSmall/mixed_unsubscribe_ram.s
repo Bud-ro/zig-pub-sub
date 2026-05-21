@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal
+; Speed: Optimal | Size: Optimal (until 6 calls)
 ;
 mixed_unsubscribe_ram:
         add	rdi, 24

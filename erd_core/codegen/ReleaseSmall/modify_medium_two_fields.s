@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Near-optimal | Size: Optimal
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
 ; Same noinline modifyInner tradeoff as modify_medium_single_field.
 ; The full struct copy is the cost of sharing the modify body.
 ;

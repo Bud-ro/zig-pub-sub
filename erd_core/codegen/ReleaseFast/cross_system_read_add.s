@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal
+; Speed: Optimal | Size: Optimal (until 2 calls)
 ;
 cross_system_read_add:
         mov	eax, dword ptr [rdi]

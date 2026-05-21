@@ -3,11 +3,11 @@
 //! The strip_asm tool reads this at build time and injects matching comments
 //! into per-function assembly snapshots. Two mechanisms:
 //!
-//! 1. **Ratings table** (`ratings`): One entry per (function, mode) pair
+//! 1. Ratings table (`ratings`): One entry per (function, mode) pair
 //!    rating speed and code size. Every exported function in every mode
 //!    MUST have an entry -- strip_asm enforces this at snapshot-update time.
 //!
-//! 2. **Free-form comments** (`comments`): Longer explanations for specific
+//! 2. Free-form comments (`comments`): Longer explanations for specific
 //!    codegen quirks, attached to individual functions and optionally
 //!    filtered by optimization mode.
 
@@ -38,15 +38,6 @@ pub const Size = enum {
     optimal,
     optimal_until_n_calls,
     suboptimal,
-
-    /// Human-readable label for snapshot comments.
-    pub fn label(self: Size, n: ?u16) []const u8 {
-        return switch (self) {
-            .optimal => "Optimal",
-            .optimal_until_n_calls => if (n) |_| "Optimal (until N calls)" else "Optimal (until N calls)",
-            .suboptimal => "Suboptimal",
-        };
-    }
 };
 
 /// Per-(function, mode) quality assessment.
@@ -65,116 +56,117 @@ pub const Comment = struct {
     text: []const u8,
 };
 
-// zig fmt: off
-
 /// Generate two Rating entries (one per mode) with the same values.
-fn both(comptime func: []const u8, comptime speed: Speed, comptime size: Size) [2]Rating {
+fn b(comptime func: []const u8, comptime speed: Speed, comptime size: Size, comptime size_n: ?u16) [2]Rating {
     return .{
-        .{ .func = func, .mode = .release_fast, .speed = speed, .size = size },
-        .{ .func = func, .mode = .release_small, .speed = speed, .size = size },
+        .{ .func = func, .mode = .release_fast, .speed = speed, .size = size, .size_n = size_n },
+        .{ .func = func, .mode = .release_small, .speed = speed, .size = size, .size_n = size_n },
     };
 }
 
+// zig fmt: off
+
 /// Quality ratings for every exported function in every optimization mode.
-pub const ratings = both("read_u32", .optimal, .optimal)
-    ++ both("read_bool", .optimal, .optimal)
-    ++ both("read_u16_unaligned", .optimal, .optimal)
-    ++ both("read_u32_after_big", .optimal, .optimal)
-    ++ both("read_big_struct", .optimal, .optimal)
-    ++ both("read_medium_struct", .optimal, .optimal)
-    ++ both("read_then_branch", .optimal, .optimal)
-    ++ both("dual_read", .optimal, .optimal)
-    ++ both("triple_read_same_erd", .optimal, .optimal)
-    ++ both("read_across_two_erds", .optimal, .optimal)
-    ++ both("many_read_first", .optimal, .optimal)
-    ++ both("many_read_last", .optimal, .optimal)
-    ++ both("many_read_middle", .optimal, .optimal)
-    ++ both("read_write_read", .optimal, .optimal)
-    ++ both("read_modify_write_big", .optimal, .optimal)
-    ++ both("read_indirect_constant", .optimal, .optimal)
-    ++ both("read_indirect_computed", .optimal, .optimal)
-    ++ both("read_indirect_both", .optimal, .optimal)
-    ++ both("read_converted_sum", .optimal, .optimal)
-    ++ both("read_converted_flag_inv", .optimal, .optimal)
-    ++ both("read_converted_both", .optimal, .optimal)
-    ++ both("read_all_component_types", .optimal, .optimal)
-    ++ both("read_ram_then_converted", .optimal, .optimal)
-    ++ both("read_ram_then_indirect", .optimal, .optimal)
-    // --- Simple writes ---
-    ++ both("write_u32_no_subs", .optimal, .optimal)
-    ++ [_]Rating{.{ .func = "write_u16_no_subs", .mode = .release_fast }}
-    ++ both("write_big_struct", .optimal, .optimal)
-    ++ both("many_write_middle_no_subs", .optimal, .optimal)
-    ++ [_]Rating{.{ .func = "write_ram_no_converted_dep", .mode = .release_small }}
-    ++ both("dual_write", .optimal, .optimal)
-    ++ both("cross_system_read_write", .optimal, .optimal)
-    ++ both("cross_system_read_add", .optimal, .optimal)
-    // --- Writes with subs ---
-    ++ both("write_bool_with_subs", .optimal, .optimal)
-    ++ both("write_u16_with_subs", .optimal, .optimal)
-    ++ both("write_triggering_callback", .optimal, .optimal)
-    ++ both("many_write_last_with_subs", .optimal, .optimal)
-    ++ both("conditional_write_chain", .optimal, .optimal)
-    ++ both("write_ram_with_converted_deps", .optimal, .optimal)
-    ++ both("write_ram_flag_with_converted_dep", .optimal, .optimal)
-    ++ both("write_then_read_converted", .optimal, .optimal)
-    ++ both("write_junk_read_write", .optimal, .optimal)
-    ++ both("triple_write_increment", .optimal, .optimal)
-    ++ [_]Rating{.{ .func = "increment_n_times", .mode = .release_fast }}
+pub const ratings =
+       b("conditional_write_chain", .optimal, .optimal_until_n_calls, 2)
+    ++ b("cross_erd_compute", .optimal, .optimal_until_n_calls, 2)
+    ++ b("cross_system_read_add", .optimal, .optimal_until_n_calls, 2)
+    ++ b("cross_system_read_write", .optimal, .optimal, null)
+    ++ b("cross_system_swap", .optimal, .optimal_until_n_calls, 2)
+    ++ b("double_modify_struct", .optimal, .optimal_until_n_calls, 2)
+    ++ [_]Rating{.{ .func = "double_write_diff_values", .mode = .release_fast, .speed = .near_optimal, .size = .optimal_until_n_calls, .size_n = 2 }}
+    ++ [_]Rating{.{ .func = "double_write_diff_values", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 2 }}
+    ++ [_]Rating{.{ .func = "double_write_same_value", .mode = .release_fast, .speed = .near_optimal, .size = .optimal_until_n_calls, .size_n = 2 }}
+    ++ [_]Rating{.{ .func = "double_write_same_value", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 2 }}
+    ++ b("dual_read", .optimal, .optimal_until_n_calls, 3)
+    ++ b("dual_write", .optimal, .optimal_until_n_calls, 2)
+    ++ [_]Rating{.{ .func = "increment_n_times", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 4 }}
     ++ [_]Rating{.{ .func = "increment_n_times", .mode = .release_small, .speed = .suboptimal, .size = .suboptimal }}
-    ++ [_]Rating{.{ .func = "double_write_diff_values", .mode = .release_fast, .speed = .near_optimal }}
-    ++ [_]Rating{.{ .func = "double_write_diff_values", .mode = .release_small }}
-    ++ [_]Rating{.{ .func = "double_write_same_value", .mode = .release_fast, .speed = .near_optimal }}
-    ++ [_]Rating{.{ .func = "double_write_same_value", .mode = .release_small }}
-    // --- Cross-erd and modify ---
-    ++ both("cross_erd_compute", .optimal, .optimal)
-    ++ both("cross_system_swap", .optimal, .optimal)
-    ++ both("read_write_other_read", .optimal, .optimal)
-    ++ both("modify_medium_no_subs", .optimal, .optimal)
-    ++ both("modify_medium_single_field", .near_optimal, .optimal)
-    ++ both("modify_medium_two_fields", .near_optimal, .optimal)
-    ++ both("double_modify_struct", .optimal, .optimal)
-    // --- Subscribe / unsubscribe ---
-    ++ both("subscribe_callback", .optimal, .optimal)
-    ++ both("subscribe_converted", .optimal, .optimal)
-    ++ both("subscribe_converted_flag", .optimal, .optimal)
-    ++ both("unsubscribe_converted", .optimal, .optimal)
-    ++ both("unsubscribe_converted_flag", .optimal, .optimal)
-    // --- Runtime dispatch ---
-    ++ both("runtime_read", .optimal, .optimal)
-    ++ both("runtime_read_two", .optimal, .optimal)
-    ++ both("runtime_write", .optimal, .optimal)
-    ++ both("runtime_write_two", .optimal, .optimal)
-    ++ both("runtime_write_three", .optimal, .optimal)
-    ++ both("multi_runtime_read", .optimal, .optimal)
-    ++ both("multi_runtime_write", .optimal, .optimal)
-    ++ both("setup_timer_callback", .optimal, .optimal)
-    // --- Mono: tiny ---
-    ++ both("tiny_read_all", .optimal, .optimal)
-    ++ both("tiny_write_all", .optimal, .optimal)
-    ++ both("tiny_modify", .optimal, .optimal)
-    ++ both("tiny_runtime_read", .optimal, .optimal)
-    ++ both("tiny_runtime_write", .optimal, .optimal)
-    ++ both("tiny_subscribe", .optimal, .optimal)
-    ++ both("tiny_unsubscribe", .optimal, .optimal)
-    // --- Mono: wide ---
-    ++ both("wide_read_all", .optimal, .optimal)
-    ++ both("wide_write_all", .optimal, .optimal)
-    ++ both("wide_modify", .optimal, .optimal)
-    ++ both("wide_runtime_read", .optimal, .optimal)
-    ++ both("wide_runtime_write", .optimal, .optimal)
-    ++ both("wide_subscribe", .optimal, .optimal)
-    ++ both("wide_unsubscribe", .optimal, .optimal)
-    // --- Mono: mixed ---
-    ++ both("mixed_read_all", .optimal, .optimal)
-    ++ both("mixed_write_ram", .optimal, .optimal)
-    ++ both("mixed_modify", .optimal, .optimal)
-    ++ both("mixed_runtime_read", .optimal, .optimal)
-    ++ both("mixed_runtime_write", .optimal, .optimal)
-    ++ both("mixed_subscribe_ram", .optimal, .optimal)
-    ++ both("mixed_subscribe_conv", .optimal, .optimal)
-    ++ both("mixed_unsubscribe_ram", .optimal, .optimal)
-    ++ both("mixed_unsubscribe_conv", .optimal, .optimal)
+    ++ b("many_read_first", .optimal, .optimal, null)
+    ++ b("many_read_last", .optimal, .optimal, null)
+    ++ b("many_read_middle", .optimal, .optimal, null)
+    ++ b("many_write_last_with_subs", .optimal, .optimal_until_n_calls, 2)
+    ++ b("many_write_middle_no_subs", .optimal, .optimal, null)
+    ++ b("mixed_modify", .optimal, .optimal, null)
+    ++ b("mixed_read_all", .optimal, .optimal_until_n_calls, 2)
+    ++ b("mixed_runtime_read", .optimal, .optimal, null)
+    ++ b("mixed_runtime_write", .optimal, .optimal, null)
+    ++ b("mixed_subscribe_conv", .optimal, .optimal_until_n_calls, 3)
+    ++ b("mixed_subscribe_ram", .optimal, .optimal_until_n_calls, 3)
+    ++ b("mixed_unsubscribe_conv", .optimal, .optimal_until_n_calls, 3)
+    ++ b("mixed_unsubscribe_ram", .optimal, .optimal_until_n_calls, 6)
+    ++ b("mixed_write_ram", .optimal, .optimal_until_n_calls, 2)
+    ++ b("modify_medium_no_subs", .optimal, .optimal, null)
+    ++ b("modify_medium_single_field", .near_optimal, .optimal_until_n_calls, 2)
+    ++ b("modify_medium_two_fields", .near_optimal, .optimal_until_n_calls, 2)
+    ++ b("multi_runtime_read", .optimal, .optimal, null)
+    ++ b("multi_runtime_write", .optimal, .optimal, null)
+    ++ b("read_across_two_erds", .optimal, .optimal_until_n_calls, 2)
+    ++ b("read_all_component_types", .optimal, .optimal_until_n_calls, 2)
+    ++ b("read_big_struct", .optimal, .optimal_until_n_calls, 2)
+    ++ b("read_bool", .optimal, .optimal, null)
+    ++ b("read_converted_both", .optimal, .optimal_until_n_calls, 2)
+    ++ b("read_converted_flag_inv", .optimal, .optimal_until_n_calls, 2)
+    ++ b("read_converted_sum", .optimal, .optimal_until_n_calls, 2)
+    ++ b("read_indirect_both", .optimal, .optimal_until_n_calls, 6)
+    ++ b("read_indirect_computed", .optimal, .optimal, null)
+    ++ b("read_indirect_constant", .optimal, .optimal_until_n_calls, 6)
+    ++ b("read_medium_struct", .optimal, .optimal_until_n_calls, 2)
+    ++ b("read_modify_write_big", .optimal, .optimal, null)
+    ++ b("read_ram_then_converted", .optimal, .optimal_until_n_calls, 2)
+    ++ b("read_ram_then_indirect", .optimal, .optimal_until_n_calls, 3)
+    ++ b("read_then_branch", .optimal, .optimal_until_n_calls, 2)
+    ++ b("read_u16_unaligned", .optimal, .optimal, null)
+    ++ b("read_u32", .optimal, .optimal, null)
+    ++ b("read_u32_after_big", .optimal, .optimal_until_n_calls, 4)
+    ++ b("read_write_other_read", .optimal, .optimal_until_n_calls, 2)
+    ++ [_]Rating{.{ .func = "read_write_read", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 3 }}
+    ++ [_]Rating{.{ .func = "read_write_read", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 4 }}
+    ++ b("runtime_read", .optimal, .optimal, null)
+    ++ b("runtime_read_two", .optimal, .optimal_until_n_calls, 2)
+    ++ b("runtime_write", .optimal, .optimal, null)
+    ++ b("runtime_write_three", .optimal, .optimal_until_n_calls, 2)
+    ++ b("runtime_write_two", .optimal, .optimal_until_n_calls, 2)
+    ++ b("setup_timer_callback", .optimal, .optimal_until_n_calls, 2)
+    ++ b("subscribe_callback", .optimal, .optimal_until_n_calls, 6)
+    ++ b("subscribe_converted", .optimal, .optimal_until_n_calls, 2)
+    ++ [_]Rating{.{ .func = "subscribe_converted_flag", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
+    ++ [_]Rating{.{ .func = "subscribe_converted_flag", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 3 }}
+    ++ b("tiny_modify", .optimal, .optimal, null)
+    ++ b("tiny_read_all", .optimal, .optimal_until_n_calls, 2)
+    ++ b("tiny_runtime_read", .optimal, .optimal, null)
+    ++ b("tiny_runtime_write", .optimal, .optimal, null)
+    ++ b("tiny_subscribe", .optimal, .optimal_until_n_calls, 6)
+    ++ b("tiny_unsubscribe", .optimal, .optimal_until_n_calls, 6)
+    ++ b("tiny_write_all", .optimal, .optimal_until_n_calls, 2)
+    ++ [_]Rating{.{ .func = "triple_read_same_erd", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 6 }}
+    ++ [_]Rating{.{ .func = "triple_read_same_erd", .mode = .release_small }}
+    ++ b("triple_write_increment", .optimal, .optimal_until_n_calls, 2)
+    ++ b("unsubscribe_converted", .optimal, .optimal_until_n_calls, 3)
+    ++ [_]Rating{.{ .func = "unsubscribe_converted_flag", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
+    ++ [_]Rating{.{ .func = "unsubscribe_converted_flag", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 3 }}
+    ++ b("wide_modify", .optimal, .optimal, null)
+    ++ b("wide_read_all", .optimal, .optimal_until_n_calls, 2)
+    ++ b("wide_runtime_read", .optimal, .optimal, null)
+    ++ b("wide_runtime_write", .optimal, .optimal, null)
+    ++ b("wide_subscribe", .optimal, .optimal_until_n_calls, 6)
+    ++ b("wide_unsubscribe", .optimal, .optimal_until_n_calls, 6)
+    ++ b("wide_write_all", .optimal, .optimal_until_n_calls, 2)
+    ++ b("write_big_struct", .optimal, .optimal_until_n_calls, 2)
+    ++ [_]Rating{.{ .func = "write_bool_with_subs", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
+    ++ [_]Rating{.{ .func = "write_bool_with_subs", .mode = .release_small }}
+    ++ b("write_junk_read_write", .optimal, .optimal_until_n_calls, 2)
+    ++ b("write_ram_flag_with_converted_dep", .optimal, .optimal_until_n_calls, 2)
+    ++ b("write_ram_no_converted_dep", .optimal, .optimal, null)
+    ++ [_]Rating{.{ .func = "write_ram_with_converted_deps", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
+    ++ [_]Rating{.{ .func = "write_ram_with_converted_deps", .mode = .release_small }}
+    ++ b("write_then_read_converted", .optimal, .optimal_until_n_calls, 2)
+    ++ [_]Rating{.{ .func = "write_triggering_callback", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
+    ++ [_]Rating{.{ .func = "write_triggering_callback", .mode = .release_small, .size = .optimal_until_n_calls, .size_n = 3 }}
+    ++ b("write_u16_no_subs", .optimal, .optimal, null)
+    ++ [_]Rating{.{ .func = "write_u16_with_subs", .mode = .release_fast, .size = .optimal_until_n_calls, .size_n = 2 }}
+    ++ [_]Rating{.{ .func = "write_u16_with_subs", .mode = .release_small }}
+    ++ b("write_u32_no_subs", .optimal, .optimal_until_n_calls, 4)
 ;
 // zig fmt: on
 
