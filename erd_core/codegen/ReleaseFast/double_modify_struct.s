@@ -1,5 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. Two in-place modifies, each publishes.
 ;
 double_modify_struct:
         push	r14

@@ -1,9 +1,7 @@
 ; snapshot_comments.zig
 ; Speed: Near-optimal | Size: Optimal (until 2 calls)
-; After the first write's publish call, LLVM reloads the stored
-; flag value before comparing for the second write. It cannot
-; prove publish did not mutate the flag through the opaque
-; publisher pointer. Same root cause as double_write_same_value.
+; NOINLINE-PUB + LLVM reload: same root cause as
+; double_write_same_value.
 ;
 double_write_diff_values:
         push	rbx

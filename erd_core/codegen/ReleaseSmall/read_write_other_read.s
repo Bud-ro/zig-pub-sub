@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
 ;
 read_write_other_read:
         push	rbp

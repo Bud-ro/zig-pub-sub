@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
 ;
 write_ram_flag_with_converted_dep:
         push	rax

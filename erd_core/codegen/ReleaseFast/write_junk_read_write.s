@@ -1,5 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. PER-ERD: two writes, junk read eliminated.
 ;
 write_junk_read_write:
         push	rbx

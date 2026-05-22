@@ -1,8 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
-; PER-ERD: reads two ERDs, computes sum, writes result.
-; The write portion (compare+store+publish) is per-ERD
-; inlined. Per-type write would shrink the write half.
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. PER-ERD write portion.
 ;
 cross_erd_compute:
         movzx	esi, word ptr [rdi + 5]

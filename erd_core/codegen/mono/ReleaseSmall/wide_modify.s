@@ -1,5 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal
+; Speed: Near-optimal | Size: Optimal
+; NOINLINE-PUB. In-place modify.
 ;
 wide_modify:
         lea	rdx, [rdi + 55]

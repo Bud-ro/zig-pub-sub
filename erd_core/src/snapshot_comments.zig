@@ -59,12 +59,12 @@ pub const Comment = struct {
 /// Quality ratings for every exported function in every optimization mode.
 pub const ratings = [_]Rating{
     //                                                      mode                    speed                   size
-    .{ .func = "conditional_write_chain",                                                                   .size = .{ .until = 2 }           },
-    .{ .func = "cross_erd_compute",                                                                         .size = .{ .until = 2 }           },
+    .{ .func = "conditional_write_chain",                                           .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "cross_erd_compute",                                                 .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "cross_system_read_add",                                                                     .size = .{ .until = 2 }           },
     .{ .func = "cross_system_read_write",                                                                                                     },
-    .{ .func = "cross_system_swap",                                                                         .size = .{ .until = 2 }           },
-    .{ .func = "double_modify_struct",                                                                  .size = .{ .until = 2 }           },
+    .{ .func = "cross_system_swap",                                                 .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "double_modify_struct",                                              .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "double_write_diff_values",                  .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "double_write_diff_values",                  .mode = .release_small,                         .size = .{ .until = 2 }           },
     .{ .func = "double_write_same_value",                   .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
@@ -76,22 +76,22 @@ pub const ratings = [_]Rating{
     .{ .func = "many_read_first",                                                                                                             },
     .{ .func = "many_read_last",                                                                                                              },
     .{ .func = "many_read_middle",                                                                                                            },
-    .{ .func = "many_write_last_with_subs",                                                                 .size = .{ .until = 2 }           },
+    .{ .func = "many_write_last_with_subs",                                         .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "many_write_middle_no_subs",                                                                                                   },
-    .{ .func = "mixed_modify",                                                                                                                },
+    .{ .func = "mixed_modify",                                                      .speed = .near_optimal,                                   },
     .{ .func = "mixed_read_all",                                                                            .size = .{ .until = 2 }           },
     .{ .func = "mixed_runtime_read",                                                                                                          },
-    .{ .func = "mixed_runtime_write",                                                                                                         },
+    .{ .func = "mixed_runtime_write",                                               .speed = .near_optimal,                                   },
     .{ .func = "mixed_subscribe_conv",                                                                      .size = .{ .until = 3 }           },
     .{ .func = "mixed_subscribe_ram",                                                                       .size = .{ .until = 3 }           },
     .{ .func = "mixed_unsubscribe_conv",                                                                    .size = .{ .until = 3 }           },
     .{ .func = "mixed_unsubscribe_ram",                                                                     .size = .{ .until = 6 }           },
-    .{ .func = "mixed_write_ram",                                                                           .size = .{ .until = 2 }           },
+    .{ .func = "mixed_write_ram",                                                   .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "modify_medium_no_subs",                                                                                                       },
-    .{ .func = "modify_medium_single_field",                                                                .size = .{ .until = 2 }           },
-    .{ .func = "modify_medium_two_fields",                                                                    .size = .{ .until = 2 }           },
+    .{ .func = "modify_medium_single_field",                                        .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "modify_medium_two_fields",                                          .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "multi_runtime_read",                                                                                                          },
-    .{ .func = "multi_runtime_write",                                                                                                         },
+    .{ .func = "multi_runtime_write",                                               .speed = .near_optimal,                                   },
     .{ .func = "read_across_two_erds",                                                                      .size = .{ .until = 2 }           },
     .{ .func = "read_all_component_types",                                                                  .size = .{ .until = 2 }           },
     .{ .func = "read_big_struct",                                                                           .size = .{ .until = 2 }           },
@@ -110,53 +110,53 @@ pub const ratings = [_]Rating{
     .{ .func = "read_u16_unaligned",                                                                                                          },
     .{ .func = "read_u32",                                                                                                                    },
     .{ .func = "read_u32_after_big",                                                                        .size = .{ .until = 4 }           },
-    .{ .func = "read_write_other_read",                                                                     .size = .{ .until = 2 }           },
+    .{ .func = "read_write_other_read",                                             .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "read_write_read",                           .mode = .release_fast,                          .size = .{ .until = 3 }           },
     .{ .func = "read_write_read",                           .mode = .release_small,                         .size = .{ .until = 4 }           },
     .{ .func = "runtime_read",                                                                                                                },
     .{ .func = "runtime_read_two",                                                                          .size = .{ .until = 2 }           },
-    .{ .func = "runtime_write",                                                                                                               },
-    .{ .func = "runtime_write_three",                                                                       .size = .{ .until = 2 }           },
-    .{ .func = "runtime_write_two",                                                                         .size = .{ .until = 2 }           },
+    .{ .func = "runtime_write",                                                     .speed = .near_optimal,                                   },
+    .{ .func = "runtime_write_three",                                               .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "runtime_write_two",                                                 .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "setup_timer_callback",                                                                      .size = .{ .until = 2 }           },
     .{ .func = "subscribe_callback",                                                                        .size = .{ .until = 6 }           },
     .{ .func = "subscribe_converted",                                                                       .size = .{ .until = 2 }           },
     .{ .func = "subscribe_converted_flag",                  .mode = .release_fast,                          .size = .{ .until = 2 }           },
     .{ .func = "subscribe_converted_flag",                  .mode = .release_small,                         .size = .{ .until = 3 }           },
-    .{ .func = "tiny_modify",                                                                                                                 },
+    .{ .func = "tiny_modify",                                                       .speed = .near_optimal,                                   },
     .{ .func = "tiny_read_all",                                                                             .size = .{ .until = 2 }           },
     .{ .func = "tiny_runtime_read",                                                                                                           },
-    .{ .func = "tiny_runtime_write",                                                                                                          },
+    .{ .func = "tiny_runtime_write",                                                .speed = .near_optimal,                                   },
     .{ .func = "tiny_subscribe",                                                                            .size = .{ .until = 6 }           },
     .{ .func = "tiny_unsubscribe",                                                                          .size = .{ .until = 6 }           },
-    .{ .func = "tiny_write_all",                                                                            .size = .{ .until = 2 }           },
+    .{ .func = "tiny_write_all",                                                    .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "triple_read_same_erd",                      .mode = .release_fast,                          .size = .{ .until = 6 }           },
     .{ .func = "triple_read_same_erd",                      .mode = .release_small,                                                           },
-    .{ .func = "triple_write_increment",                                                                    .size = .{ .until = 2 }           },
+    .{ .func = "triple_write_increment",                                            .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "unsubscribe_converted",                                                                     .size = .{ .until = 3 }           },
     .{ .func = "unsubscribe_converted_flag",                .mode = .release_fast,                          .size = .{ .until = 2 }           },
     .{ .func = "unsubscribe_converted_flag",                .mode = .release_small,                         .size = .{ .until = 3 }           },
-    .{ .func = "wide_modify",                                                                                                                 },
+    .{ .func = "wide_modify",                                                       .speed = .near_optimal,                                   },
     .{ .func = "wide_read_all",                                                                             .size = .{ .until = 2 }           },
     .{ .func = "wide_runtime_read",                                                                                                           },
-    .{ .func = "wide_runtime_write",                                                                                                          },
+    .{ .func = "wide_runtime_write",                                                .speed = .near_optimal,                                   },
     .{ .func = "wide_subscribe",                                                                            .size = .{ .until = 6 }           },
     .{ .func = "wide_unsubscribe",                                                                          .size = .{ .until = 6 }           },
-    .{ .func = "wide_write_all",                                                                            .size = .{ .until = 2 }           },
+    .{ .func = "wide_write_all",                                                    .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "write_big_struct",                                                                          .size = .{ .until = 2 }           },
-    .{ .func = "write_bool_with_subs",                      .mode = .release_fast,                          .size = .{ .until = 2 }           },
-    .{ .func = "write_bool_with_subs",                      .mode = .release_small,                                                           },
-    .{ .func = "write_junk_read_write",                                                                     .size = .{ .until = 2 }           },
-    .{ .func = "write_ram_flag_with_converted_dep",                                                         .size = .{ .until = 2 }           },
+    .{ .func = "write_bool_with_subs",                      .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "write_bool_with_subs",                      .mode = .release_small, .speed = .near_optimal,},
+    .{ .func = "write_junk_read_write",                                             .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "write_ram_flag_with_converted_dep",                                 .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "write_ram_no_converted_dep",                                                                                                  },
-    .{ .func = "write_ram_with_converted_deps",             .mode = .release_fast,                          .size = .{ .until = 2 }           },
-    .{ .func = "write_ram_with_converted_deps",             .mode = .release_small,                                                           },
-    .{ .func = "write_then_read_converted",                                                                 .size = .{ .until = 2 }           },
-    .{ .func = "write_triggering_callback",                 .mode = .release_fast,                          .size = .{ .until = 2 }           },
-    .{ .func = "write_triggering_callback",                 .mode = .release_small,                         .size = .{ .until = 3 }           },
+    .{ .func = "write_ram_with_converted_deps",             .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "write_ram_with_converted_deps",             .mode = .release_small, .speed = .near_optimal,},
+    .{ .func = "write_then_read_converted",                                         .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "write_triggering_callback",                 .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "write_triggering_callback",                 .mode = .release_small, .speed = .near_optimal, .size = .{ .until = 3 }           },
     .{ .func = "write_u16_no_subs",                                                                                                           },
-    .{ .func = "write_u16_with_subs",                       .mode = .release_fast,                          .size = .{ .until = 2 }           },
-    .{ .func = "write_u16_with_subs",                       .mode = .release_small,                                                           },
+    .{ .func = "write_u16_with_subs",                       .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "write_u16_with_subs",                       .mode = .release_small, .speed = .near_optimal,},
     .{ .func = "write_u32_no_subs",                                                                         .size = .{ .until = 4 }           },
 };
 // zig fmt: on
@@ -164,13 +164,40 @@ pub const ratings = [_]Rating{
 /// Free-form comments for functions with non-obvious codegen behavior.
 ///
 /// Pattern key used in comments:
-///   PER-ERD: monomorphized per ERD (offset/index hardcoded at comptime).
-///            A type-specialized noinline function shared across all ERDs
-///            of the same Zig type would be smaller at 2+ ERDs.
-///   PER-TYPE: monomorphized per Zig type but shared across ERDs of that type.
-///   SHARED: already uses a noinline function shared across ERD types.
+///   PER-ERD:    monomorphized per ERD (offset/index hardcoded at comptime).
+///               A type-specialized noinline function shared across all ERDs
+///               of the same Zig type would be smaller at 2+ ERDs.
+///   NOINLINE-PUB: calls through the noinline Subscription.publish chain.
+///               See the "Subscription.publish noinline analysis" comment
+///               below for the full cost breakdown.
 pub const comments = [_]Comment{
-    // ---- Speed issues ----
+    // ==================================================================
+    // Subscription.publish noinline analysis
+    //
+    // Every write/modify that triggers subscribers goes through this chain:
+    //   call RamDataComponent.publish  (noinline, per-DataComponent)
+    //     jmp Subscription.publish     (noinline, single shared copy)
+    //       call rax                   (indirect call to subscriber)
+    //
+    // On a simple in-order micro (no branch predictor), this costs:
+    //   ~10 instructions  RamDataComponent.publish trampoline (table lookups)
+    //   ~5 cycles         jmp to Subscription.publish (pipeline flush)
+    //   ~13 instructions  Subscription.publish prologue/epilogue (6 push + 7 pop)
+    //   ~3 instructions   loop setup
+    //   Per subscriber slot: ~13 instructions + ~10 cycles branch/call flushes
+    //
+    // Total for 1 subscriber: ~55 cycles. Inlining Subscription.publish
+    // into each RamDataComponent.publish would save ~18 cycles (~33%) by
+    // eliminating the jmp + prologue/epilogue, at a cost of ~80 bytes per
+    // DataComponent instantiation (~320 bytes at 5 components).
+    //
+    // Decision: keep noinline for code size. The ~18 cycle penalty is
+    // acceptable for embedded pub-sub where publish is not the hot loop.
+    //
+    // Functions tagged NOINLINE-PUB below go through this chain.
+    // ==================================================================
+
+    // ---- LLVM-specific speed issues ----
     .{
         .func = "increment_n_times",
         .modes = &.{.release_small},
@@ -186,200 +213,57 @@ pub const comments = [_]Comment{
         .func = "double_write_same_value",
         .modes = &.{.release_fast},
         .text =
-        \\LLVM cannot eliminate the second write's compare-and-publish
-        \\sequence. After the first publish call, it conservatively
-        \\reloads the stored value because publish takes the SystemData
-        \\pointer and callbacks could mutate the flag. Not fixable from
-        \\Zig without lying to LLVM about callback side effects.
+        \\NOINLINE-PUB + LLVM reload: after the first publish call,
+        \\LLVM conservatively reloads the stored value because it
+        \\cannot prove publish did not mutate it through the opaque
+        \\publisher pointer.
         ,
     },
     .{
         .func = "double_write_diff_values",
         .modes = &.{.release_fast},
         .text =
-        \\After the first write's publish call, LLVM reloads the stored
-        \\flag value before comparing for the second write. It cannot
-        \\prove publish did not mutate the flag through the opaque
-        \\publisher pointer. Same root cause as double_write_same_value.
+        \\NOINLINE-PUB + LLVM reload: same root cause as
+        \\double_write_same_value.
         ,
     },
-    // ---- Per-ERD monomorphization (write with subs) ----
-    // Each subscribable write inlines compare+store+conditional-publish per
-    // ERD. With 2+ ERDs of the same Zig type, a type-specialized noinline
-    // write(sd, data_component_idx, val) would share the ~35 byte body and
-    // cost ~8 bytes per call site instead of ~28-40 bytes inlined.
-    // ReleaseSmall already outlines these via shared write helpers.
-    .{
-        .func = "write_bool_with_subs",
-        .modes = &.{.release_fast},
-        .text =
-        \\PER-ERD: 40 bytes inlined. A per-type noinline write_bool
-        \\would share the body across all bool ERDs with subs.
-        ,
-    },
-    .{
-        .func = "write_u16_with_subs",
-        .modes = &.{.release_fast},
-        .text =
-        \\PER-ERD: 36 bytes inlined. Same per-type opportunity as
-        \\write_bool_with_subs but for u16 ERDs.
-        ,
-    },
-    .{
-        .func = "write_triggering_callback",
-        .modes = &.{.release_fast},
-        .text =
-        \\PER-ERD: 36 bytes inlined (writes constant true to a bool
-        \\ERD). Would share body with write_bool_with_subs if per-type.
-        ,
-    },
-    .{
-        .func = "write_ram_with_converted_deps",
-        .modes = &.{.release_fast},
-        .text =
-        \\PER-ERD: 28 bytes inlined. Write to a u32 RAM ERD whose
-        \\converted dependents recompute on change. Per-type u32
-        \\write would share the compare+store+publish body.
-        ,
-    },
-    .{
-        .func = "write_ram_flag_with_converted_dep",
-        .modes = &.{.release_fast},
-        .text =
-        \\PER-ERD: 40 bytes inlined. Bool write with converted
-        \\dependency subscription. Same per-type opportunity as
-        \\write_bool_with_subs.
-        ,
-    },
-    .{
-        .func = "many_write_last_with_subs",
-        .text =
-        \\PER-ERD: 28 bytes. Writes a u64 at a fixed offset in a
-        \\32-ERD system. Per-type u64 write would share the body.
-        ,
-    },
-    // ---- Per-ERD monomorphization (compound writes) ----
-    // These functions do multiple writes, each inlined per-ERD. The total
-    // cost is N * per-write-cost. Per-type writes would reduce each write
-    // to ~8 bytes (call + idx arg) instead of 28-40 bytes inlined.
-    .{
-        .func = "cross_erd_compute",
-        .text =
-        \\PER-ERD: reads two ERDs, computes sum, writes result.
-        \\The write portion (compare+store+publish) is per-ERD
-        \\inlined. Per-type write would shrink the write half.
-        ,
-    },
-    .{
-        .func = "cross_system_swap",
-        .text =
-        \\PER-ERD: swaps values between two SystemData instances.
-        \\The subscribable write is per-ERD inlined at 35 bytes.
-        ,
-    },
-    .{
-        .func = "read_write_other_read",
-        .modes = &.{.release_fast},
-        .text =
-        \\PER-ERD: 58 bytes. Read + write + read with inlined
-        \\compare+store+publish for the write portion.
-        ,
-    },
-    .{
-        .func = "write_then_read_converted",
-        .text =
-        \\PER-ERD: write inlined + converted read inlined. Both
-        \\halves are per-ERD monomorphized.
-        ,
-    },
-    .{
-        .func = "conditional_write_chain",
-        .text =
-        \\PER-ERD: two conditional writes to different ERDs, both
-        \\inlined with hardcoded offsets.
-        ,
-    },
-    // ---- Per-ERD monomorphization (reads >5 bytes) ----
-    // These reads are per-ERD (offset hardcoded) and >5 bytes. For struct
-    // reads, a per-type read with offset lookup would be smaller at 2+ ERDs.
-    // For converted reads, the compute function is unique per ERD so
-    // per-type sharing is not possible -- but runtimeRead provides a fully
-    // shared alternative at the cost of an indirect call.
-    .{
-        .func = "read_big_struct",
-        .text =
-        \\PER-ERD: copies 256 bytes from a hardcoded offset via
-        \\memcpy/rep movsb. runtimeRead would share the copy logic.
-        ,
-    },
-    .{
-        .func = "read_medium_struct",
-        .text =
-        \\PER-ERD: copies 24 bytes via movups+mov from hardcoded
-        \\offset. Per-type or runtimeRead would share the body.
-        ,
-    },
-    .{
-        .func = "read_converted_sum",
-        .text =
-        \\PER-ERD: compute function inlined (two loads + add).
-        \\Cannot be per-type shared since each converted ERD has
-        \\a unique compute function. runtimeRead is the shared
-        \\alternative (indirect call through function pointer table).
-        ,
-    },
-    .{
-        .func = "read_converted_flag_inv",
-        .text =
-        \\PER-ERD: compute function inlined (load + compare).
-        \\Same tradeoff as read_converted_sum.
-        ,
-    },
-    .{
-        .func = "read_converted_both",
-        .text =
-        \\PER-ERD: two converted reads inlined. Each has a unique
-        \\compute function so per-type sharing is not possible.
-        ,
-    },
-    .{
-        .func = "read_all_component_types",
-        .text =
-        \\PER-ERD: reads from RAM + indirect + converted, all
-        \\inlined. The indirect read is constant-folded.
-        ,
-    },
-    .{
-        .func = "read_ram_then_converted",
-        .text =
-        \\PER-ERD: RAM read (1 instruction) + converted read
-        \\(inlined compute function). The converted portion
-        \\cannot be per-type shared.
-        ,
-    },
-    // ---- Mono: per-ERD patterns in the stress test ----
-    .{
-        .func = "tiny_write_all",
-        .text =
-        \\PER-ERD: 3 writes (u32+bool+Pair), each inlined with
-        \\compare+store+conditional-publish. Per-type writes would
-        \\reduce from ~86 bytes to ~3*8 + shared bodies.
-        ,
-    },
-    .{
-        .func = "wide_write_all",
-        .text =
-        \\PER-ERD: 9 subscribable writes inlined at 358 bytes
-        \\(ReleaseFast). This is the worst-case for per-ERD
-        \\monomorphization. Per-type writes would save ~250 bytes.
-        ,
-    },
-    .{
-        .func = "mixed_write_ram",
-        .text =
-        \\PER-ERD: 4 RAM writes (u32+u16+bool+u64), each inlined.
-        \\3 have subs and get compare+store+publish. Per-type writes
-        \\would share bodies across the 3 subscribable types.
-        ,
-    },
+    // ---- NOINLINE-PUB: single-write functions ----
+    .{ .func = "write_bool_with_subs",             .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 40 bytes inlined." },
+    .{ .func = "write_u16_with_subs",              .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 36 bytes inlined." },
+    .{ .func = "write_triggering_callback",        .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 36 bytes inlined." },
+    .{ .func = "write_ram_with_converted_deps",    .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 28 bytes inlined." },
+    .{ .func = "write_ram_flag_with_converted_dep",.modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 40 bytes inlined." },
+    .{ .func = "many_write_last_with_subs",                                    .text = "NOINLINE-PUB. PER-ERD: 28 bytes." },
+    .{ .func = "cross_erd_compute",                                            .text = "NOINLINE-PUB. PER-ERD write portion." },
+    .{ .func = "cross_system_swap",                                            .text = "NOINLINE-PUB. PER-ERD: 35 bytes for the subscribable write." },
+    .{ .func = "read_write_other_read",            .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 58 bytes, write portion inlined." },
+    .{ .func = "write_then_read_converted",                                    .text = "NOINLINE-PUB. PER-ERD write + converted read inlined." },
+    .{ .func = "conditional_write_chain",                                      .text = "NOINLINE-PUB. PER-ERD: two conditional writes." },
+    .{ .func = "write_junk_read_write",                                        .text = "NOINLINE-PUB. PER-ERD: two writes, junk read eliminated." },
+    .{ .func = "triple_write_increment",                                       .text = "NOINLINE-PUB. PER-ERD: three writes." },
+    .{ .func = "modify_medium_single_field",                                   .text = "NOINLINE-PUB. In-place modify + unconditional publish." },
+    .{ .func = "modify_medium_two_fields",                                     .text = "NOINLINE-PUB. In-place modify + unconditional publish." },
+    .{ .func = "double_modify_struct",                                         .text = "NOINLINE-PUB. Two in-place modifies, each publishes." },
+    .{ .func = "runtime_write",                                                .text = "NOINLINE-PUB. Shared runtime dispatch path." },
+    .{ .func = "runtime_write_two",                                            .text = "NOINLINE-PUB. Two runtime writes." },
+    .{ .func = "runtime_write_three",                                          .text = "NOINLINE-PUB. Three runtime writes." },
+    .{ .func = "multi_runtime_write",                                          .text = "NOINLINE-PUB. Multi-component runtime write." },
+    // ---- NOINLINE-PUB: mono stress test ----
+    .{ .func = "tiny_write_all",                                               .text = "NOINLINE-PUB. PER-ERD: 3 writes inlined." },
+    .{ .func = "tiny_modify",                                                  .text = "NOINLINE-PUB. In-place modify." },
+    .{ .func = "tiny_runtime_write",                                           .text = "NOINLINE-PUB. Shared runtime dispatch path." },
+    .{ .func = "wide_write_all",                                               .text = "NOINLINE-PUB. PER-ERD: 9 subscribable writes, 358 bytes RF." },
+    .{ .func = "wide_modify",                                                  .text = "NOINLINE-PUB. In-place modify." },
+    .{ .func = "wide_runtime_write",                                           .text = "NOINLINE-PUB. Shared runtime dispatch path." },
+    .{ .func = "mixed_write_ram",                                              .text = "NOINLINE-PUB. PER-ERD: 4 writes, 3 with subs." },
+    .{ .func = "mixed_modify",                                                 .text = "NOINLINE-PUB. In-place modify." },
+    .{ .func = "mixed_runtime_write",                                          .text = "NOINLINE-PUB. Shared runtime dispatch path." },
+    // ---- Per-ERD reads >5 bytes ----
+    .{ .func = "read_big_struct",                                              .text = "PER-ERD: 256-byte copy. runtimeRead would share the logic." },
+    .{ .func = "read_medium_struct",                                           .text = "PER-ERD: 24-byte copy. runtimeRead would share the logic." },
+    .{ .func = "read_converted_sum",                                           .text = "PER-ERD: compute inlined. Cannot per-type share (unique fn)." },
+    .{ .func = "read_converted_flag_inv",                                      .text = "PER-ERD: compute inlined. Same tradeoff as read_converted_sum." },
+    .{ .func = "read_converted_both",                                          .text = "PER-ERD: two converted reads, each unique compute function." },
+    .{ .func = "read_all_component_types",                                     .text = "PER-ERD: RAM + indirect (const-folded) + converted inlined." },
+    .{ .func = "read_ram_then_converted",                                      .text = "PER-ERD: RAM load + converted compute inlined." },
 };

@@ -1,7 +1,6 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
-; PER-ERD: compute function inlined (load + compare).
-; Same tradeoff as read_converted_sum.
+; PER-ERD: compute inlined. Same tradeoff as read_converted_sum.
 ;
 read_converted_flag_inv:
         mov	rax, qword ptr [rdi + 168]

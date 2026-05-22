@@ -1,5 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. In-place modify + unconditional publish.
 ;
 modify_medium_two_fields:
         inc	qword ptr [rdi + 256]

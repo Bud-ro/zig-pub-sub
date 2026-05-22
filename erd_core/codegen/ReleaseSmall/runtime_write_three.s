@@ -1,5 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. Three runtime writes.
 ;
 runtime_write_three:
         push	rbp

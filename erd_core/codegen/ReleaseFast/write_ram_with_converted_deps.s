@@ -1,8 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
-; PER-ERD: 28 bytes inlined. Write to a u32 RAM ERD whose
-; converted dependents recompute on change. Per-type u32
-; write would share the compare+store+publish body.
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. PER-ERD: 28 bytes inlined.
 ;
 write_ram_with_converted_deps:
         push	rax

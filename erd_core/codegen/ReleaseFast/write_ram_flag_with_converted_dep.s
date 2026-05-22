@@ -1,8 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
-; PER-ERD: 40 bytes inlined. Bool write with converted
-; dependency subscription. Same per-type opportunity as
-; write_bool_with_subs.
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. PER-ERD: 40 bytes inlined.
 ;
 write_ram_flag_with_converted_dep:
         push	rax

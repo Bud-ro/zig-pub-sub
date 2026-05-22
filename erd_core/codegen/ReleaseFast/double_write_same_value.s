@@ -1,10 +1,9 @@
 ; snapshot_comments.zig
 ; Speed: Near-optimal | Size: Optimal (until 2 calls)
-; LLVM cannot eliminate the second write's compare-and-publish
-; sequence. After the first publish call, it conservatively
-; reloads the stored value because publish takes the SystemData
-; pointer and callbacks could mutate the flag. Not fixable from
-; Zig without lying to LLVM about callback side effects.
+; NOINLINE-PUB + LLVM reload: after the first publish call,
+; LLVM conservatively reloads the stored value because it
+; cannot prove publish did not mutate it through the opaque
+; publisher pointer.
 ;
 double_write_same_value:
         push	rbx

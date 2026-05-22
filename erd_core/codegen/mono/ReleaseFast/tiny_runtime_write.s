@@ -1,5 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal
+; Speed: Near-optimal | Size: Optimal
+; NOINLINE-PUB. Shared runtime dispatch path.
 ;
 tiny_runtime_write:
         jmp	"system_data.SystemData(codegen_mono_stress.TinySystem__struct_0,meta.FieldEnum(codegen_mono_stress.TinySystem__struct_0),.{ .counter = .{ ... }, .flag = .{ ... }, .pair = .{ ... } },system_data_test_double.create.Components).runtimeWrite"

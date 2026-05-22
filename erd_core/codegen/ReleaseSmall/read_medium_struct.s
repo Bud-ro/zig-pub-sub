@@ -1,7 +1,6 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
-; PER-ERD: copies 24 bytes via movups+mov from hardcoded
-; offset. Per-type or runtimeRead would share the body.
+; PER-ERD: 24-byte copy. runtimeRead would share the logic.
 ;
 read_medium_struct:
         mov	rax, rdi

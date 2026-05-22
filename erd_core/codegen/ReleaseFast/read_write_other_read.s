@@ -1,7 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
-; PER-ERD: 58 bytes. Read + write + read with inlined
-; compare+store+publish for the write portion.
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. PER-ERD: 58 bytes, write portion inlined.
 ;
 read_write_other_read:
         push	rbp

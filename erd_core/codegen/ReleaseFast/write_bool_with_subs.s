@@ -1,7 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
-; PER-ERD: 40 bytes inlined. A per-type noinline write_bool
-; would share the body across all bool ERDs with subs.
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. PER-ERD: 40 bytes inlined.
 ;
 write_bool_with_subs:
         push	rax

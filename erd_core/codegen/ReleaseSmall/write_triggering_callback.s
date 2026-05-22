@@ -1,5 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 3 calls)
+; Speed: Near-optimal | Size: Optimal (until 3 calls)
 ;
 write_triggering_callback:
         push	1
