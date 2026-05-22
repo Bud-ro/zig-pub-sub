@@ -1,5 +1,7 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: write inlined + converted read inlined. Both
+; halves are per-ERD monomorphized.
 ;
 write_then_read_converted:
         push	rbx

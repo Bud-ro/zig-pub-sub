@@ -1,5 +1,8 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: 9 subscribable writes inlined at 358 bytes
+; (ReleaseFast). This is the worst-case for per-ERD
+; monomorphization. Per-type writes would save ~250 bytes.
 ;
 wide_write_all:
         push	rbx

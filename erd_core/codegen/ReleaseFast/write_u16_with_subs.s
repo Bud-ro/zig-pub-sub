@@ -1,5 +1,7 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: 36 bytes inlined. Same per-type opportunity as
+; write_bool_with_subs but for u16 ERDs.
 ;
 write_u16_with_subs:
         push	rax

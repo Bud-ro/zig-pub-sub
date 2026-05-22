@@ -1,5 +1,7 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: 36 bytes inlined (writes constant true to a bool
+; ERD). Would share body with write_bool_with_subs if per-type.
 ;
 write_triggering_callback:
         push	rax

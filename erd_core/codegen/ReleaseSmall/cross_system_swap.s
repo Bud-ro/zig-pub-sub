@@ -1,5 +1,7 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: swaps values between two SystemData instances.
+; The subscribable write is per-ERD inlined at 35 bytes.
 ;
 cross_system_swap:
         push	rax

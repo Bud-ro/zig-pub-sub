@@ -1,5 +1,8 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: 3 writes (u32+bool+Pair), each inlined with
+; compare+store+conditional-publish. Per-type writes would
+; reduce from ~86 bytes to ~3*8 + shared bodies.
 ;
 tiny_write_all:
         push	rbp

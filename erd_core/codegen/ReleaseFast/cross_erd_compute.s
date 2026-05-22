@@ -1,5 +1,8 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: reads two ERDs, computes sum, writes result.
+; The write portion (compare+store+publish) is per-ERD
+; inlined. Per-type write would shrink the write half.
 ;
 cross_erd_compute:
         push	rax

@@ -1,5 +1,7 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: 28 bytes. Writes a u64 at a fixed offset in a
+; 32-ERD system. Per-type u64 write would share the body.
 ;
 many_write_last_with_subs:
         push	rax

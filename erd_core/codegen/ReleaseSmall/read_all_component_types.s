@@ -1,5 +1,7 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: reads from RAM + indirect + converted, all
+; inlined. The indirect read is constant-folded.
 ;
 read_all_component_types:
         mov	eax, dword ptr [rdi]

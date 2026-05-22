@@ -1,5 +1,8 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: RAM read (1 instruction) + converted read
+; (inlined compute function). The converted portion
+; cannot be per-type shared.
 ;
 read_ram_then_converted:
         mov	rcx, qword ptr [rdi + 168]

@@ -1,5 +1,8 @@
 ; snapshot_comments.zig
 ; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: 4 RAM writes (u32+u16+bool+u64), each inlined.
+; 3 have subs and get compare+store+publish. Per-type writes
+; would share bodies across the 3 subscribable types.
 ;
 mixed_write_ram:
         push	rbp
