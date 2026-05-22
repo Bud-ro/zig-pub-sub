@@ -70,15 +70,19 @@ pub noinline fn unsubscribe(slots: []Self, callback: Callback) void {
 const std = @import("std");
 const expectEqual = std.testing.expectEqual;
 
-// Identity-only test callbacks (zlinter requires a comment inside empty blocks).
+// Each test callback consumes a distinct comptime marker via an asm barrier
+// so identical-code-folding (linker-level ICF at -O3) cannot merge them into
+// a single address. Plain dead-stores would get eliminated; volatile would
+// add unwanted memory semantics. The barrier just forces the immediate to
+// appear in the emitted instruction stream, which is enough to break ICF.
 fn cbA(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
-    // intentionally empty
+    std.mem.doNotOptimizeAway(@as(u8, 0xA));
 }
 fn cbB(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
-    // intentionally empty
+    std.mem.doNotOptimizeAway(@as(u8, 0xB));
 }
 fn cbC(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
-    // intentionally empty
+    std.mem.doNotOptimizeAway(@as(u8, 0xC));
 }
 
 const empty: Self = .{ .context = null, .callback = null };
@@ -91,7 +95,7 @@ const CountingState = struct {
     last_context: ?*anyopaque = null,
 };
 
-fn countingCallback(context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void {
+noinline fn countingImpl(context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void {
     const state: *CountingState = @ptrCast(@alignCast(context.?));
     const change: *const OnChangeArgs = @ptrCast(@alignCast(args));
     state.invocations += 1;
@@ -101,8 +105,14 @@ fn countingCallback(context: ?*anyopaque, args: ?*const anyopaque, publisher: *a
     state.last_context = context;
 }
 
+fn countingCallback(context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void {
+    std.mem.doNotOptimizeAway(@as(u8, 0x1));
+    countingImpl(context, args, publisher);
+}
+
 fn countingCallback2(context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void {
-    countingCallback(context, args, publisher);
+    std.mem.doNotOptimizeAway(@as(u8, 0x2));
+    countingImpl(context, args, publisher);
 }
 
 test "subscribe stores callback in first free slot" {
