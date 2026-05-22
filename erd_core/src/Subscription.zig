@@ -5,6 +5,10 @@
 //! The identity of a `Subscription` is solely based on its callback pointer.
 //! `Subscription`s with the same identity cannot be known to the same publisher.
 //! However `Subscription`s with the same identity may subscribe to several source.
+//!
+//! NOTE: Identical Code Folding may break this assumption. If tests/subscriptions
+//!       don't work at higher levels of optimization then try ensuring uniqueness
+//!       or disabling ICF outright.
 
 /// Function pointer type for subscription callbacks.
 pub const Callback = *const fn (context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void;
