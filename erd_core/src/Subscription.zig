@@ -70,49 +70,49 @@ pub noinline fn unsubscribe(slots: []Self, callback: Callback) void {
 const std = @import("std");
 const expectEqual = std.testing.expectEqual;
 
-// Each test callback consumes a distinct comptime marker via an asm barrier
-// so identical-code-folding (linker-level ICF at -O3) cannot merge them into
-// a single address. Plain dead-stores would get eliminated; volatile would
-// add unwanted memory semantics. The barrier just forces the immediate to
-// appear in the emitted instruction stream, which is enough to break ICF.
+// Each test callback increments its own counter. The counters double as the
+// observation hook for publish-related tests below, and -- because the tests
+// read them -- the writes cannot be eliminated as dead. Writing to distinct
+// global addresses also keeps each callback's compiled body byte-distinct,
+// which is what defeats linker-level identical-code-folding (e.g. lld
+// `--icf=all` under -O3). Without that, ICF would collapse byte-identical
+// empty callbacks into a single address and silently break the identity-
+// based subscribe/unsubscribe assertions here. Real subscribers writing
+// byte-identical callbacks for the same ERD is vanishingly rare, so the
+// library itself does not need to guard against this -- it is a test-only
+// concern.
+var cb_a_calls: u32 = 0;
+var cb_b_calls: u32 = 0;
+var cb_c_calls: u32 = 0;
+
 fn cbA(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
-    std.mem.doNotOptimizeAway(@as(u8, 0xA));
+    cb_a_calls += 1;
 }
 fn cbB(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
-    std.mem.doNotOptimizeAway(@as(u8, 0xB));
+    cb_b_calls += 1;
 }
 fn cbC(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
-    std.mem.doNotOptimizeAway(@as(u8, 0xC));
+    cb_c_calls += 1;
 }
 
 const empty: Self = .{ .context = null, .callback = null };
 
-const CountingState = struct {
+const CapturedArgs = struct {
     invocations: u32 = 0,
-    last_system_data_idx: u16 = 0,
-    last_data: ?*const anyopaque = null,
-    last_publisher: ?*anyopaque = null,
-    last_context: ?*anyopaque = null,
+    system_data_idx: u16 = 0,
+    data: ?*const anyopaque = null,
+    publisher: ?*anyopaque = null,
+    context_seen: ?*anyopaque = null,
 };
 
-noinline fn countingImpl(context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void {
-    const state: *CountingState = @ptrCast(@alignCast(context.?));
+fn capturingCallback(context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void {
+    const captured: *CapturedArgs = @ptrCast(@alignCast(context.?));
     const change: *const OnChangeArgs = @ptrCast(@alignCast(args));
-    state.invocations += 1;
-    state.last_system_data_idx = change.system_data_idx;
-    state.last_data = change.data;
-    state.last_publisher = publisher;
-    state.last_context = context;
-}
-
-fn countingCallback(context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void {
-    std.mem.doNotOptimizeAway(@as(u8, 0x1));
-    countingImpl(context, args, publisher);
-}
-
-fn countingCallback2(context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void {
-    std.mem.doNotOptimizeAway(@as(u8, 0x2));
-    countingImpl(context, args, publisher);
+    captured.invocations += 1;
+    captured.system_data_idx = change.system_data_idx;
+    captured.data = change.data;
+    captured.publisher = publisher;
+    captured.context_seen = context;
 }
 
 test "subscribe stores callback in first free slot" {
@@ -184,44 +184,57 @@ test "unsubscribe is a no-op when callback is not present" {
 }
 
 test "publish invokes every populated slot, skips empty slots" {
-    var state_a: CountingState = .{};
-    var state_b: CountingState = .{};
+    cb_a_calls = 0;
+    cb_c_calls = 0;
     var slots = [_]Self{
-        .{ .context = &state_a, .callback = countingCallback },
+        .{ .context = null, .callback = cbA },
         empty,
-        .{ .context = &state_b, .callback = countingCallback2 },
+        .{ .context = null, .callback = cbC },
     };
+    var payload: u8 = 0;
+    var publisher: u8 = 0;
+
+    publish(&slots, 0, &payload, &publisher);
+
+    try expectEqual(1, cb_a_calls);
+    try expectEqual(1, cb_c_calls);
+}
+
+test "publish passes system_data_idx, data, publisher, and context to callback" {
+    var captured: CapturedArgs = .{};
+    var slots = [_]Self{.{ .context = &captured, .callback = capturingCallback }};
     var payload: u32 = 0xABCD;
     var publisher: u32 = 0;
 
     publish(&slots, 7, &payload, &publisher);
 
-    try expectEqual(1, state_a.invocations);
-    try expectEqual(1, state_b.invocations);
-    try expectEqual(@as(*anyopaque, &publisher), state_a.last_publisher);
-    try expectEqual(@as(*anyopaque, &state_a), state_a.last_context);
-    try expectEqual(7, state_a.last_system_data_idx);
-    try expectEqual(@as(*const anyopaque, &payload), state_a.last_data);
+    try expectEqual(1, captured.invocations);
+    try expectEqual(7, captured.system_data_idx);
+    try expectEqual(@as(*const anyopaque, &payload), captured.data);
+    try expectEqual(@as(*anyopaque, &publisher), captured.publisher);
+    try expectEqual(@as(*anyopaque, &captured), captured.context_seen);
 }
 
 test "publish tolerates a hole created by unsubscribe" {
-    var state_a: CountingState = .{};
-    var state_c: CountingState = .{};
+    cb_a_calls = 0;
+    cb_b_calls = 0;
+    cb_c_calls = 0;
     var slots = [_]Self{empty} ** 3;
 
-    subscribe(&slots, &state_a, countingCallback);
+    subscribe(&slots, null, cbA);
     subscribe(&slots, null, cbB);
-    subscribe(&slots, &state_c, countingCallback2);
+    subscribe(&slots, null, cbC);
     unsubscribe(&slots, cbB);
 
     try expectEqual(null, slots[1].callback);
 
-    var payload: u32 = 0;
-    var publisher: u32 = 0;
+    var payload: u8 = 0;
+    var publisher: u8 = 0;
     publish(&slots, 0, &payload, &publisher);
 
-    try expectEqual(1, state_a.invocations);
-    try expectEqual(1, state_c.invocations);
+    try expectEqual(1, cb_a_calls);
+    try expectEqual(0, cb_b_calls);
+    try expectEqual(1, cb_c_calls);
 }
 
 test "publish on empty slot slice does nothing" {
