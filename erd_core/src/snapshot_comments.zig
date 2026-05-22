@@ -59,7 +59,7 @@ pub const Comment = struct {
 /// Quality ratings for every exported function in every optimization mode.
 pub const ratings = [_]Rating{
     //                                                      mode                    speed                   size
-    .{ .func = "conditional_write_chain",                                           .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "conditional_write_chain",                                                                   .size = .{ .until = 2 }           },
     .{ .func = "cross_erd_compute",                                                 .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "cross_system_read_add",                                                                     .size = .{ .until = 2 }           },
     .{ .func = "cross_system_read_write",                                                                                                     },
@@ -170,6 +170,7 @@ pub const ratings = [_]Rating{
 ///   NOINLINE-PUB: calls through the noinline Subscription.publish chain.
 ///               See the "Subscription.publish noinline analysis" comment
 ///               below for the full cost breakdown.
+// zig fmt: off
 pub const comments = [_]Comment{
     // ==================================================================
     // Subscription.publish noinline analysis
@@ -193,6 +194,12 @@ pub const comments = [_]Comment{
     //
     // Decision: keep noinline for code size. The ~18 cycle penalty is
     // acceptable for embedded pub-sub where publish is not the hot loop.
+    //
+    // Note: publish vs publish.2 in the snapshots are two distinct
+    // RamDataComponent monomorphizations whose pretty-printed Zig names
+    // collide (the type printer collapses ERD arrays to `.{ ... }`), so
+    // LLVM's MC layer appends `.2` to disambiguate. They are different
+    // functions operating on different DataComponent layouts.
     //
     // Functions tagged NOINLINE-PUB below go through this chain.
     // ==================================================================
@@ -228,42 +235,42 @@ pub const comments = [_]Comment{
         ,
     },
     // ---- NOINLINE-PUB: single-write functions ----
-    .{ .func = "write_bool_with_subs",             .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 40 bytes inlined." },
-    .{ .func = "write_u16_with_subs",              .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 36 bytes inlined." },
-    .{ .func = "write_triggering_callback",        .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 36 bytes inlined." },
-    .{ .func = "write_ram_with_converted_deps",    .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 28 bytes inlined." },
-    .{ .func = "write_ram_flag_with_converted_dep",.modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 40 bytes inlined." },
-    .{ .func = "many_write_last_with_subs",                                    .text = "NOINLINE-PUB. PER-ERD: 28 bytes." },
-    .{ .func = "cross_erd_compute",                                            .text = "NOINLINE-PUB. PER-ERD write portion." },
-    .{ .func = "cross_system_swap",                                            .text = "NOINLINE-PUB. PER-ERD: 35 bytes for the subscribable write." },
-    .{ .func = "read_write_other_read",            .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 58 bytes, write portion inlined." },
-    .{ .func = "write_then_read_converted",                                    .text = "NOINLINE-PUB. PER-ERD write + converted read inlined." },
-    .{ .func = "conditional_write_chain",                                      .text = "NOINLINE-PUB. PER-ERD: two conditional writes." },
-    .{ .func = "write_junk_read_write",                                        .text = "NOINLINE-PUB. PER-ERD: two writes, junk read eliminated." },
-    .{ .func = "triple_write_increment",                                       .text = "NOINLINE-PUB. PER-ERD: three writes." },
-    .{ .func = "modify_medium_single_field",                                   .text = "NOINLINE-PUB. In-place modify + unconditional publish." },
-    .{ .func = "modify_medium_two_fields",                                     .text = "NOINLINE-PUB. In-place modify + unconditional publish." },
-    .{ .func = "double_modify_struct",                                         .text = "NOINLINE-PUB. Two in-place modifies, each publishes." },
-    .{ .func = "runtime_write",                                                .text = "NOINLINE-PUB. Shared runtime dispatch path." },
-    .{ .func = "runtime_write_two",                                            .text = "NOINLINE-PUB. Two runtime writes." },
-    .{ .func = "runtime_write_three",                                          .text = "NOINLINE-PUB. Three runtime writes." },
-    .{ .func = "multi_runtime_write",                                          .text = "NOINLINE-PUB. Multi-component runtime write." },
+    .{ .func = "write_bool_with_subs",              .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 40 bytes inlined."           },
+    .{ .func = "write_u16_with_subs",               .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 36 bytes inlined."           },
+    .{ .func = "write_triggering_callback",         .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 36 bytes inlined."           },
+    .{ .func = "write_ram_with_converted_deps",     .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 28 bytes inlined."           },
+    .{ .func = "write_ram_flag_with_converted_dep", .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 40 bytes inlined."           },
+    .{ .func = "many_write_last_with_subs",                                     .text = "NOINLINE-PUB. PER-ERD: 28 bytes."                   },
+    .{ .func = "cross_erd_compute",                                             .text = "NOINLINE-PUB. PER-ERD write portion."               },
+    .{ .func = "cross_system_swap",                                             .text = "NOINLINE-PUB. PER-ERD: 35 bytes for the subscribable write." },
+    .{ .func = "read_write_other_read",             .modes = &.{.release_fast}, .text = "NOINLINE-PUB. PER-ERD: 58 bytes, write portion inlined." },
+    .{ .func = "write_then_read_converted",                                     .text = "NOINLINE-PUB. PER-ERD write + converted read inlined." },
+    .{ .func = "write_junk_read_write",                                         .text = "NOINLINE-PUB. PER-ERD: two writes, junk read eliminated." },
+    .{ .func = "triple_write_increment",                                        .text = "NOINLINE-PUB. PER-ERD: three writes."               },
+    .{ .func = "modify_medium_single_field",                                    .text = "NOINLINE-PUB. In-place modify + unconditional publish." },
+    .{ .func = "modify_medium_two_fields",                                      .text = "NOINLINE-PUB. In-place modify + unconditional publish." },
+    .{ .func = "double_modify_struct",                                          .text = "NOINLINE-PUB. Two in-place modifies, each publishes." },
+    .{ .func = "runtime_write",                                                 .text = "NOINLINE-PUB. Shared runtime dispatch path."        },
+    .{ .func = "runtime_write_two",                                             .text = "NOINLINE-PUB. Two runtime writes."                  },
+    .{ .func = "runtime_write_three",                                           .text = "NOINLINE-PUB. Three runtime writes."                },
+    .{ .func = "multi_runtime_write",                                           .text = "NOINLINE-PUB. Multi-component runtime write."       },
     // ---- NOINLINE-PUB: mono stress test ----
-    .{ .func = "tiny_write_all",                                               .text = "NOINLINE-PUB. PER-ERD: 3 writes inlined." },
-    .{ .func = "tiny_modify",                                                  .text = "NOINLINE-PUB. In-place modify." },
-    .{ .func = "tiny_runtime_write",                                           .text = "NOINLINE-PUB. Shared runtime dispatch path." },
-    .{ .func = "wide_write_all",                                               .text = "NOINLINE-PUB. PER-ERD: 9 subscribable writes, 358 bytes RF." },
-    .{ .func = "wide_modify",                                                  .text = "NOINLINE-PUB. In-place modify." },
-    .{ .func = "wide_runtime_write",                                           .text = "NOINLINE-PUB. Shared runtime dispatch path." },
-    .{ .func = "mixed_write_ram",                                              .text = "NOINLINE-PUB. PER-ERD: 4 writes, 3 with subs." },
-    .{ .func = "mixed_modify",                                                 .text = "NOINLINE-PUB. In-place modify." },
-    .{ .func = "mixed_runtime_write",                                          .text = "NOINLINE-PUB. Shared runtime dispatch path." },
+    .{ .func = "tiny_write_all",                                                .text = "NOINLINE-PUB. PER-ERD: 3 writes inlined."           },
+    .{ .func = "tiny_modify",                                                   .text = "NOINLINE-PUB. In-place modify."                     },
+    .{ .func = "tiny_runtime_write",                                            .text = "NOINLINE-PUB. Shared runtime dispatch path."        },
+    .{ .func = "wide_write_all",                                                .text = "NOINLINE-PUB. PER-ERD: 9 subscribable writes, 358 bytes RF." },
+    .{ .func = "wide_modify",                                                   .text = "NOINLINE-PUB. In-place modify."                     },
+    .{ .func = "wide_runtime_write",                                            .text = "NOINLINE-PUB. Shared runtime dispatch path."        },
+    .{ .func = "mixed_write_ram",                                               .text = "NOINLINE-PUB. PER-ERD: 4 writes, 3 with subs."      },
+    .{ .func = "mixed_modify",                                                  .text = "NOINLINE-PUB. In-place modify."                     },
+    .{ .func = "mixed_runtime_write",                                           .text = "NOINLINE-PUB. Shared runtime dispatch path."        },
     // ---- Per-ERD reads >5 bytes ----
-    .{ .func = "read_big_struct",                                              .text = "PER-ERD: 256-byte copy. runtimeRead would share the logic." },
-    .{ .func = "read_medium_struct",                                           .text = "PER-ERD: 24-byte copy. runtimeRead would share the logic." },
-    .{ .func = "read_converted_sum",                                           .text = "PER-ERD: compute inlined. Cannot per-type share (unique fn)." },
-    .{ .func = "read_converted_flag_inv",                                      .text = "PER-ERD: compute inlined. Same tradeoff as read_converted_sum." },
-    .{ .func = "read_converted_both",                                          .text = "PER-ERD: two converted reads, each unique compute function." },
-    .{ .func = "read_all_component_types",                                     .text = "PER-ERD: RAM + indirect (const-folded) + converted inlined." },
-    .{ .func = "read_ram_then_converted",                                      .text = "PER-ERD: RAM load + converted compute inlined." },
+    .{ .func = "read_big_struct",                                               .text = "PER-ERD: 256-byte copy. runtimeRead would share the logic." },
+    .{ .func = "read_medium_struct",                                            .text = "PER-ERD: 24-byte copy. runtimeRead would share the logic." },
+    .{ .func = "read_converted_sum",                                            .text = "PER-ERD: compute inlined. Cannot per-type share (unique fn)." },
+    .{ .func = "read_converted_flag_inv",                                       .text = "PER-ERD: compute inlined. Same tradeoff as read_converted_sum." },
+    .{ .func = "read_converted_both",                                           .text = "PER-ERD: two converted reads, each unique compute function." },
+    .{ .func = "read_all_component_types",                                      .text = "PER-ERD: RAM + indirect (const-folded) + converted inlined." },
+    .{ .func = "read_ram_then_converted",                                       .text = "PER-ERD: RAM load + converted compute inlined."     },
 };
+// zig fmt: on

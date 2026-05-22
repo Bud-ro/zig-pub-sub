@@ -1,6 +1,5 @@
 ; snapshot_comments.zig
-; Speed: Near-optimal | Size: Optimal (until 2 calls)
-; NOINLINE-PUB. PER-ERD: two conditional writes.
+; Speed: Optimal | Size: Optimal (until 2 calls)
 ;
 conditional_write_chain:
         test	byte ptr [rdi + 4], 1
