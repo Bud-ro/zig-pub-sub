@@ -1,5 +1,4 @@
 # size (bytes)	function
-2	modify_medium_no_subs
 2	multi_runtime_read
 2	multi_runtime_write
 2	runtime_read
@@ -39,8 +38,6 @@
 11	read_big_struct
 11	subscribe_converted
 12	cross_erd_compute
-13	modify_medium_single_field
-13	modify_medium_two_fields
 13	read_converted_flag_inv
 14	read_converted_sum
 17	read_then_branch
@@ -56,11 +53,14 @@
 25	read_medium_struct
 28	many_write_last_with_subs
 29	double_write_same_value
-31	double_modify_struct
 31	runtime_read_two
 32	triple_write_increment
 34	runtime_write_two
 35	cross_system_swap
 38	write_ram_flag_with_converted_dep
 60	runtime_write_three
+61	modify_medium_no_subs
+75	modify_medium_single_field
+98	modify_medium_two_fields
+155	double_modify_struct
 172	setup_timer_callback

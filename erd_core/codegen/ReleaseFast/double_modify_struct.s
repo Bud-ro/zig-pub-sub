@@ -1,48 +1,32 @@
 ; snapshot_comments.zig
-; Speed: Near-optimal | Size: Optimal (until 2 calls)
-; Two calls to shared modifyInner with different modifier
-; lambdas. The indirect call prevents inlining either
-; modifier. Copies 24-byte MediumStruct to stack each time.
+; Speed: Optimal | Size: Optimal (until 2 calls)
 ;
 double_modify_struct:
+        push	r14
         push	rbx
+        push	rax
         mov	rbx, rdi
-        mov	esi, offset codegen_harness.double_modify_struct__struct_0.m
+        lea	r14, [rdi + 256]
+        add	dword ptr [rdi + 272], 1
+        mov	rsi, r14
         mov	rdx, rdi
-        call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).modifyInner__anon_1"
-        mov	esi, offset codegen_harness.double_modify_struct__struct_2.m
+        call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
+        add	qword ptr [rbx + 256], 1
         mov	rdi, rbx
+        mov	rsi, r14
         mov	rdx, rbx
+        add	rsp, 8
         pop	rbx
-        jmp	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).modifyInner__anon_1"
+        pop	r14
+        jmp	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
 
 ; --- called functions ---
 
-"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).modifyInner__anon_1":
-        push	r15
-        push	r14
-        push	rbx
-        sub	rsp, 32
-        mov	rbx, rdx
-        mov	r14, rdi
-        mov	rax, qword ptr [rdi + 272]
-        mov	qword ptr [rsp + 16], rax
-        movups	xmm0, xmmword ptr [rdi + 256]
-        movaps	xmmword ptr [rsp], xmm0
-        mov	r15, rsp
-        mov	rdi, r15
-        call	rsi
-        mov	rax, qword ptr [rsp + 16]
-        mov	qword ptr [r14 + 272], rax
-        movaps	xmm0, xmmword ptr [rsp]
-        movups	xmmword ptr [r14 + 256], xmm0
-        mov	rdi, r14
-        mov	rsi, r15
-        mov	rdx, rbx
-        call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
-        add	rsp, 32
-        pop	rbx
-        pop	r14
-        pop	r15
-        ret
+"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish":
+        mov	r8, rdx
+        mov	rcx, rsi
+        add	rdi, 312
+        mov	esi, 1
+        mov	edx, 1
+        jmp	Subscription.publish
 

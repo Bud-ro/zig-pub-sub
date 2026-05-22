@@ -119,26 +119,18 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         /// since the caller guarantees the modification always produces a new value.
         /// Debug-asserts that the value actually changed.
         pub fn modify(self: *Self, erd: Erd, comptime modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
-            self.modifyInner(erd, modifier, publisher);
-        }
-
-        // noinline so the read/modify/writeback/publish logic is shared across
-        // all call sites that modify the same ERD, regardless of modifier.
-        noinline fn modifyInner(self: *Self, erd: Erd, modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
-            const n = @sizeOf(erd.T);
+            const src: *align(1) const erd.T = @ptrCast(self.storage[ram_offsets[idx]..]);
+            const dst: *align(1) erd.T = @ptrCast(self.storage[ram_offsets[idx]..]);
 
-            var value: erd.T = undefined;
-            @memcpy(std.mem.asBytes(&value), self.storage[ram_offsets[idx]..][0..n]);
-
+            var value: erd.T = src.*;
             const before = value;
             modifier(&value);
             std.debug.assert(!std.meta.eql(before, value));
-
-            self.storage[ram_offsets[idx]..][0..n].* = std.mem.toBytes(value);
+            dst.* = value;
 
             if (erd.subs > 0) {
-                self.publish(erd.data_component_idx, &value, publisher);
+                self.publish(erd.data_component_idx, dst, publisher);
             }
         }
 

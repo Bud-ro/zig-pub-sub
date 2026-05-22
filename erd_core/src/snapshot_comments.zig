@@ -64,7 +64,7 @@ pub const ratings = [_]Rating{
     .{ .func = "cross_system_read_add",                                                                     .size = .{ .until = 2 }           },
     .{ .func = "cross_system_read_write",                                                                                                     },
     .{ .func = "cross_system_swap",                                                                         .size = .{ .until = 2 }           },
-    .{ .func = "double_modify_struct",                                          .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "double_modify_struct",                                                                  .size = .{ .until = 2 }           },
     .{ .func = "double_write_diff_values",                  .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "double_write_diff_values",                  .mode = .release_small,                         .size = .{ .until = 2 }           },
     .{ .func = "double_write_same_value",                   .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
@@ -78,7 +78,7 @@ pub const ratings = [_]Rating{
     .{ .func = "many_read_middle",                                                                                                            },
     .{ .func = "many_write_last_with_subs",                                                                 .size = .{ .until = 2 }           },
     .{ .func = "many_write_middle_no_subs",                                                                                                   },
-    .{ .func = "mixed_modify",                                                  .speed = .near_optimal,                                       },
+    .{ .func = "mixed_modify",                                                                                                                },
     .{ .func = "mixed_read_all",                                                                            .size = .{ .until = 2 }           },
     .{ .func = "mixed_runtime_read",                                                                                                          },
     .{ .func = "mixed_runtime_write",                                                                                                         },
@@ -88,8 +88,8 @@ pub const ratings = [_]Rating{
     .{ .func = "mixed_unsubscribe_ram",                                                                     .size = .{ .until = 6 }           },
     .{ .func = "mixed_write_ram",                                                                           .size = .{ .until = 2 }           },
     .{ .func = "modify_medium_no_subs",                                                                                                       },
-    .{ .func = "modify_medium_single_field",                                        .speed = .near_optimal, .size = .{ .until = 2 }           },
-    .{ .func = "modify_medium_two_fields",                                          .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "modify_medium_single_field",                                                                .size = .{ .until = 2 }           },
+    .{ .func = "modify_medium_two_fields",                                                                    .size = .{ .until = 2 }           },
     .{ .func = "multi_runtime_read",                                                                                                          },
     .{ .func = "multi_runtime_write",                                                                                                         },
     .{ .func = "read_across_two_erds",                                                                      .size = .{ .until = 2 }           },
@@ -123,7 +123,7 @@ pub const ratings = [_]Rating{
     .{ .func = "subscribe_converted",                                                                       .size = .{ .until = 2 }           },
     .{ .func = "subscribe_converted_flag",                  .mode = .release_fast,                          .size = .{ .until = 2 }           },
     .{ .func = "subscribe_converted_flag",                  .mode = .release_small,                         .size = .{ .until = 3 }           },
-    .{ .func = "tiny_modify",                                                   .speed = .near_optimal,                                       },
+    .{ .func = "tiny_modify",                                                                                                                 },
     .{ .func = "tiny_read_all",                                                                             .size = .{ .until = 2 }           },
     .{ .func = "tiny_runtime_read",                                                                                                           },
     .{ .func = "tiny_runtime_write",                                                                                                          },
@@ -136,7 +136,7 @@ pub const ratings = [_]Rating{
     .{ .func = "unsubscribe_converted",                                                                     .size = .{ .until = 3 }           },
     .{ .func = "unsubscribe_converted_flag",                .mode = .release_fast,                          .size = .{ .until = 2 }           },
     .{ .func = "unsubscribe_converted_flag",                .mode = .release_small,                         .size = .{ .until = 3 }           },
-    .{ .func = "wide_modify",                                                   .speed = .near_optimal,                                       },
+    .{ .func = "wide_modify",                                                                                                                 },
     .{ .func = "wide_read_all",                                                                             .size = .{ .until = 2 }           },
     .{ .func = "wide_runtime_read",                                                                                                           },
     .{ .func = "wide_runtime_write",                                                                                                          },
@@ -201,56 +201,6 @@ pub const comments = [_]Comment{
         \\flag value before comparing for the second write. It cannot
         \\prove publish did not mutate the flag through the opaque
         \\publisher pointer. Same root cause as double_write_same_value.
-        ,
-    },
-    .{
-        .func = "modify_medium_single_field",
-        .text =
-        \\The noinline modifyInner uses an indirect call for the modifier,
-        \\preventing LLVM from inlining it and optimizing away unchanged
-        \\field copies. This is intentional -- the noinline shares the
-        \\read/modify/writeback/publish body across all modifier lambdas.
-        \\Users who need single-field speed can use write() instead.
-        ,
-    },
-    .{
-        .func = "modify_medium_two_fields",
-        .text =
-        \\Same noinline modifyInner tradeoff as modify_medium_single_field.
-        \\The full struct copy is the cost of sharing the modify body.
-        ,
-    },
-    .{
-        .func = "mixed_modify",
-        .text =
-        \\modifyInner copies entire Pair (8 bytes) to stack, calls
-        \\modifier via indirect call, copies back, unconditionally
-        \\publishes. Ideal codegen would be `inc [rdi+15]` + publish.
-        \\The indirect call blocks this. Also monomorphized per
-        \\RamDataComponent (PER-ERD pattern at the component level).
-        ,
-    },
-    .{
-        .func = "tiny_modify",
-        .text =
-        \\Same modifyInner tradeoff as mixed_modify. Copies Pair
-        \\to stack for a single field increment. Per-component
-        \\monomorphized -- tiny/wide/mixed each get their own
-        \\modifyInner despite identical logic.
-        ,
-    },
-    .{
-        .func = "wide_modify",
-        .text =
-        \\Same modifyInner tradeoff as mixed_modify.
-        ,
-    },
-    .{
-        .func = "double_modify_struct",
-        .text =
-        \\Two calls to shared modifyInner with different modifier
-        \\lambdas. The indirect call prevents inlining either
-        \\modifier. Copies 24-byte MediumStruct to stack each time.
         ,
     },
     // ---- Per-ERD monomorphization (write with subs) ----

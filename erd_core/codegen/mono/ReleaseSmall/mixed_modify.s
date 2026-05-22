@@ -1,29 +1,25 @@
 ; snapshot_comments.zig
-; Speed: Near-optimal | Size: Optimal
-; modifyInner copies entire Pair (8 bytes) to stack, calls
-; modifier via indirect call, copies back, unconditionally
-; publishes. Ideal codegen would be `inc [rdi+15]` + publish.
-; The indirect call blocks this. Also monomorphized per
-; RamDataComponent (PER-ERD pattern at the component level).
+; Speed: Optimal | Size: Optimal
 ;
 mixed_modify:
-        mov	rsi, rdi
-        jmp	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).modifyInner__anon_0"
+        lea	rdx, [rdi + 15]
+        inc	dword ptr [rdi + 15]
+        push	4
+        pop	rsi
+        mov	rcx, rdi
+        jmp	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish"
 
 ; --- called functions ---
 
-".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).modifyInner__anon_0":
-        push	rax
-        mov	rcx, rsi
-        mov	rax, qword ptr [rdi + 15]
-        mov	qword ptr [rsp], rax
-        add	eax, 1
-        mov	dword ptr [rsp], eax
-        mov	rax, qword ptr [rsp]
-        mov	qword ptr [rdi + 15], rax
-        mov	rdx, rsp
-        mov	esi, 4
-        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish"
-        pop	rax
-        ret
+".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish":
+        mov	r8, rcx
+        mov	rcx, rdx
+        movzx	eax, si
+        mov	rdx, qword ptr [8*rax + .L__anon_0]
+        movzx	esi, byte ptr [rax + .L__anon_1]
+        shl	rdx, 4
+        add	rdi, rdx
+        add	rdi, 24
+        movzx	edx, word ptr [rax + rax + .L__anon_2]
+        jmp	.LSubscription.publish
 

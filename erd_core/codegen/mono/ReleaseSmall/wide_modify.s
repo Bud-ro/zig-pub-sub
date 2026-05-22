@@ -1,25 +1,25 @@
 ; snapshot_comments.zig
-; Speed: Near-optimal | Size: Optimal
-; Same modifyInner tradeoff as mixed_modify.
+; Speed: Optimal | Size: Optimal
 ;
 wide_modify:
-        mov	rsi, rdi
-        jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..17]).modifyInner__anon_0"
+        lea	rdx, [rdi + 55]
+        inc	dword ptr [rdi + 55]
+        push	16
+        pop	rsi
+        mov	rcx, rdi
+        jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..17]).publish"
 
 ; --- called functions ---
 
-".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..17]).modifyInner__anon_0":
-        push	rax
-        mov	rcx, rsi
-        mov	rax, qword ptr [rdi + 55]
-        mov	qword ptr [rsp], rax
-        add	eax, 1
-        mov	dword ptr [rsp], eax
-        mov	rax, qword ptr [rsp]
-        mov	qword ptr [rdi + 55], rax
-        mov	rdx, rsp
-        mov	esi, 16
-        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..17]).publish"
-        pop	rax
-        ret
+".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..17]).publish":
+        mov	r8, rcx
+        mov	rcx, rdx
+        movzx	eax, si
+        mov	rdx, qword ptr [8*rax + .L__anon_0]
+        movzx	esi, byte ptr [rax + .L__anon_1]
+        shl	rdx, 4
+        add	rdi, rdx
+        add	rdi, 64
+        movzx	edx, word ptr [rax + rax + .L__anon_2]
+        jmp	.LSubscription.publish
 

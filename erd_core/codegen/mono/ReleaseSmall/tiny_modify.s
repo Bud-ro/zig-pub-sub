@@ -1,28 +1,25 @@
 ; snapshot_comments.zig
-; Speed: Near-optimal | Size: Optimal
-; Same modifyInner tradeoff as mixed_modify. Copies Pair
-; to stack for a single field increment. Per-component
-; monomorphized -- tiny/wide/mixed each get their own
-; modifyInner despite identical logic.
+; Speed: Optimal | Size: Optimal
 ;
 tiny_modify:
-        mov	rsi, rdi
-        jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).modifyInner__anon_0"
+        lea	rdx, [rdi + 5]
+        inc	dword ptr [rdi + 5]
+        push	2
+        pop	rsi
+        mov	rcx, rdi
+        jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
 
 ; --- called functions ---
 
-".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).modifyInner__anon_0":
-        push	rax
-        mov	rcx, rsi
-        mov	rax, qword ptr [rdi + 5]
-        mov	qword ptr [rsp], rax
-        add	eax, 1
-        mov	dword ptr [rsp], eax
-        mov	rax, qword ptr [rsp]
-        mov	qword ptr [rdi + 5], rax
-        mov	rdx, rsp
-        mov	esi, 2
-        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
-        pop	rax
-        ret
+".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish":
+        mov	r8, rcx
+        mov	rcx, rdx
+        movzx	eax, si
+        mov	rdx, qword ptr [8*rax + .L__anon_0]
+        shl	rdx, 4
+        add	rdi, rdx
+        add	rdi, 16
+        movzx	edx, word ptr [rax + rax + .L__anon_1]
+        mov	esi, 1
+        jmp	.LSubscription.publish
 
