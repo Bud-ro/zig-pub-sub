@@ -1,5 +1,8 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal (until 2 calls)
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; Two calls to shared modifyInner with different modifier
+; lambdas. The indirect call prevents inlining either
+; modifier. Copies 24-byte MediumStruct to stack each time.
 ;
 double_modify_struct:
         push	rbx

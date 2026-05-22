@@ -1,5 +1,10 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal
+; Speed: Near-optimal | Size: Optimal
+; modifyInner copies entire Pair (8 bytes) to stack, calls
+; modifier via indirect call, copies back, unconditionally
+; publishes. Ideal codegen would be `inc [rdi+15]` + publish.
+; The indirect call blocks this. Also monomorphized per
+; RamDataComponent (PER-ERD pattern at the component level).
 ;
 mixed_modify:
         mov	rsi, rdi

@@ -1,5 +1,6 @@
 ; snapshot_comments.zig
-; Speed: Optimal | Size: Optimal
+; Speed: Near-optimal | Size: Optimal
+; Same modifyInner tradeoff as mixed_modify.
 ;
 wide_modify:
         mov	rsi, rdi
