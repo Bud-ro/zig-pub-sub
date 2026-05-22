@@ -1,3 +1,11 @@
+//! Assembly post-processor for codegen snapshots.
+//!
+//! Splits a monolithic LLVM `.s` file into one snapshot per exported function,
+//! injects ratings/comments from `snapshot_comments.zig`, normalizes compiler-
+//! assigned identifiers (`__anon_NNNN`, `.LBB`) to stable per-file IDs, and
+//! optionally emits a single combined file. Used by the codegen-check /
+//! codegen-update build steps to produce stable, reviewable assembly diffs.
+
 const snapshot_comments = @import("snapshot_comments.zig");
 const std = @import("std");
 
@@ -12,7 +20,7 @@ fn isFuncLabel(raw_line: []const u8) ?[]const u8 {
         raw_line
     else
         std.mem.trim(u8, raw_line, " \t\r");
-    const colon = std.mem.lastIndexOfScalar(u8, line, ':') orelse return null;
+    const colon = std.mem.findScalarLast(u8, line, ':') orelse return null;
     const after = std.mem.trim(u8, line[colon + 1 ..], " \t\r");
     if (after.len != 0) return null;
     const name = line[0..colon];
@@ -127,7 +135,7 @@ fn findRating(name: []const u8, mode: snapshot_comments.Mode) ?snapshot_comments
     return null;
 }
 
-fn emitAnnotations(gpa: std.mem.Allocator, output: *std.ArrayListUnmanaged(u8), name: []const u8, mode_name: []const u8, missing_ratings: *std.ArrayListUnmanaged(u8)) !void {
+fn emitAnnotations(gpa: std.mem.Allocator, output: *std.ArrayList(u8), name: []const u8, mode_name: []const u8, missing_ratings: *std.ArrayList(u8)) !void {
     const mode = resolveMode(mode_name);
     const rating = if (mode) |m| findRating(name, m) else null;
     const comment = if (mode) |m| findComment(name, m) else null;
@@ -174,7 +182,7 @@ fn emitAnnotations(gpa: std.mem.Allocator, output: *std.ArrayListUnmanaged(u8), 
 /// When `normalize_labels` is true, also replaces `.LBBN_M` branch labels
 /// with sequential `.L0`, `.L1`, ... so compiler-assigned function indices
 /// don't cause diff noise when unrelated code changes.
-fn appendNormalized(gpa: std.mem.Allocator, out: *std.ArrayListUnmanaged(u8), line: []const u8, id_map: *IdMap, normalize_labels: bool) !void {
+fn appendNormalized(gpa: std.mem.Allocator, out: *std.ArrayList(u8), line: []const u8, id_map: *IdMap, normalize_labels: bool) !void {
     const needles = [_][]const u8{ "__anon_", "__struct_" };
     var pos: usize = 0;
     while (pos < line.len) {
@@ -193,7 +201,7 @@ fn appendNormalized(gpa: std.mem.Allocator, out: *std.ArrayListUnmanaged(u8), li
                     if (!gop.found_existing) gop.value_ptr.* = id_map.count() - 1;
                     try out.appendSlice(gpa, ".L");
                     var num_buf: [20]u8 = undefined;
-                    const num_str = std.fmt.bufPrint(&num_buf, "{d}", .{gop.value_ptr.*}) catch unreachable;
+                    const num_str = try std.fmt.bufPrint(&num_buf, "{d}", .{gop.value_ptr.*});
                     try out.appendSlice(gpa, num_str);
                     pos = end;
                     continue;
@@ -213,7 +221,7 @@ fn appendNormalized(gpa: std.mem.Allocator, out: *std.ArrayListUnmanaged(u8), li
                     if (!gop.found_existing) gop.value_ptr.* = id_map.count() - 1;
                     try out.appendSlice(gpa, needle);
                     var num_buf: [20]u8 = undefined;
-                    const num_str = std.fmt.bufPrint(&num_buf, "{d}", .{gop.value_ptr.*}) catch unreachable;
+                    const num_str = try std.fmt.bufPrint(&num_buf, "{d}", .{gop.value_ptr.*});
                     try out.appendSlice(gpa, num_str);
                     pos = digit_end;
                 } else {
@@ -242,7 +250,7 @@ fn isRegister(name: []const u8) bool {
 
 const ExtractFuncArgs = struct {
     branch_targets: *const std.StringHashMapUnmanaged(void),
-    output: ?*std.ArrayListUnmanaged(u8),
+    output: ?*std.ArrayList(u8),
     gpa: std.mem.Allocator,
     id_map: *IdMap,
     normalize_labels: bool,
@@ -340,7 +348,7 @@ pub fn main(init: std.process.Init) !void {
             const sym = std.mem.trim(u8, line[".globl".len..], " \t");
             if (sym.len > 0) try globl_exports.put(gpa, sym, {});
         }
-        if (std.mem.indexOf(u8, line, " = ")) |eq_pos| {
+        if (std.mem.find(u8, line, " = ")) |eq_pos| {
             const alias = std.mem.trim(u8, line[0..eq_pos], " \t");
             const target = std.mem.trim(u8, line[eq_pos + 3 ..], " \t");
             if (alias.len > 0 and target.len > 0)
@@ -396,7 +404,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // Pass 2: for each function, find its call targets
-    var func_call_targets: std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)) = .empty;
+    var func_call_targets: std.StringHashMapUnmanaged(std.ArrayList([]const u8)) = .empty;
     defer {
         var fct_it = func_call_targets.iterator();
         while (fct_it.next()) |entry| {
@@ -404,7 +412,7 @@ pub fn main(init: std.process.Init) !void {
         }
         func_call_targets.deinit(gpa);
     }
-    var ordered_exports: std.ArrayListUnmanaged([]const u8) = .empty;
+    var ordered_exports: std.ArrayList([]const u8) = .empty;
     defer ordered_exports.deinit(gpa);
 
     for (all_lines) |raw_line| {
@@ -413,7 +421,7 @@ pub fn main(init: std.process.Init) !void {
             try ordered_exports.append(gpa, name);
         const func = all_funcs.get(name).?;
         const end = func_ends.get(name).?;
-        var targets: std.ArrayListUnmanaged([]const u8) = .empty;
+        var targets: std.ArrayList([]const u8) = .empty;
         for (all_lines[func.start..end]) |func_line| {
             if (extractCallTarget(func_line)) |target| {
                 if (all_funcs.contains(target)) {
@@ -424,89 +432,88 @@ pub fn main(init: std.process.Init) !void {
         try func_call_targets.put(gpa, name, targets);
     }
 
+    const ctx: EmitContext = .{
+        .gpa = gpa,
+        .all_lines = all_lines,
+        .all_funcs = &all_funcs,
+        .func_ends = &func_ends,
+        .branch_targets = &branch_targets,
+        .display_names = &display_names,
+        .func_call_targets = &func_call_targets,
+    };
+
     if (split_dir) |dir| {
         const mode_name = std.Io.Dir.path.basename(dir);
-        try emitSplitFiles(gpa, io, dir, mode_name, ordered_exports.items, &func_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
+        try emitSplitFiles(ctx, io, dir, mode_name, ordered_exports.items);
     } else {
-        try emitCombinedFile(gpa, io, output_path, ordered_exports.items, &func_call_targets, &all_funcs, &func_ends, all_lines, &branch_targets, &display_names);
+        try emitCombinedFile(ctx, io, output_path, ordered_exports.items);
     }
 }
 
-fn emitFuncBody(
+/// Shared inputs used by every emit phase: source lines and the resolution
+/// tables built by pass 1/2 in `main`.
+const EmitContext = struct {
     gpa: std.mem.Allocator,
-    output: *std.ArrayListUnmanaged(u8),
-    name: []const u8,
+    all_lines: []const []const u8,
     all_funcs: *const std.StringHashMapUnmanaged(FuncRange),
     func_ends: *const std.StringHashMapUnmanaged(usize),
-    all_lines: []const []const u8,
     branch_targets: *const std.StringHashMapUnmanaged(void),
     display_names: *const std.StringHashMapUnmanaged([]const u8),
-    id_map: *IdMap,
-    normalize_labels: bool,
-) !usize {
-    const func = all_funcs.get(name).?;
-    const end = func_ends.get(name).?;
-    const label = display_names.get(name) orelse name;
-    try appendNormalized(gpa, output, label, id_map, normalize_labels);
-    try output.appendSlice(gpa, ":\n");
-    return try extractFunc(all_lines, func.start + 1, end, .{ .branch_targets = branch_targets, .output = output, .gpa = gpa, .id_map = id_map, .normalize_labels = normalize_labels });
+    func_call_targets: *const std.StringHashMapUnmanaged(std.ArrayList([]const u8)),
+};
+
+fn emitFuncBody(ctx: EmitContext, output: *std.ArrayList(u8), name: []const u8, id_map: *IdMap, normalize_labels: bool) !usize {
+    const func = ctx.all_funcs.get(name).?;
+    const end = ctx.func_ends.get(name).?;
+    const label = ctx.display_names.get(name) orelse name;
+    try appendNormalized(ctx.gpa, output, label, id_map, normalize_labels);
+    try output.appendSlice(ctx.gpa, ":\n");
+    return try extractFunc(ctx.all_lines, func.start + 1, end, .{ .branch_targets = ctx.branch_targets, .output = output, .gpa = ctx.gpa, .id_map = id_map, .normalize_labels = normalize_labels });
 }
 
 // zlinter-disable-next-line no_inferred_error_unions
-fn emitSplitFiles(
-    gpa: std.mem.Allocator,
-    io: std.Io,
-    dir_path: []const u8,
-    mode_name: []const u8,
-    ordered_exports: []const []const u8,
-    func_call_targets: *const std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)),
-    all_funcs: *const std.StringHashMapUnmanaged(FuncRange),
-    func_ends: *const std.StringHashMapUnmanaged(usize),
-    all_lines: []const []const u8,
-    branch_targets: *const std.StringHashMapUnmanaged(void),
-    display_names: *const std.StringHashMapUnmanaged([]const u8),
-) !void {
+fn emitSplitFiles(ctx: EmitContext, io: std.Io, dir_path: []const u8, mode_name: []const u8, ordered_exports: []const []const u8) !void {
     var total_exports: usize = 0;
     var total_helpers: usize = 0;
     var total_instr: usize = 0;
 
-    var missing_ratings: std.ArrayListUnmanaged(u8) = .empty;
-    defer missing_ratings.deinit(gpa);
+    var missing_ratings: std.ArrayList(u8) = .empty;
+    defer missing_ratings.deinit(ctx.gpa);
 
     for (ordered_exports) |name| {
-        var output: std.ArrayListUnmanaged(u8) = .empty;
-        defer output.deinit(gpa);
+        var output: std.ArrayList(u8) = .empty;
+        defer output.deinit(ctx.gpa);
         var file_ids: IdMap = .empty;
-        defer file_ids.deinit(gpa);
+        defer file_ids.deinit(ctx.gpa);
 
-        const file_label = display_names.get(name) orelse name;
-        try emitAnnotations(gpa, &output, file_label, mode_name, &missing_ratings);
+        const file_label = ctx.display_names.get(name) orelse name;
+        try emitAnnotations(ctx.gpa, &output, file_label, mode_name, &missing_ratings);
 
-        var instr = try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids, true);
-        try output.appendSlice(gpa, "\n");
+        var instr = try emitFuncBody(ctx, &output, name, &file_ids, true);
+        try output.appendSlice(ctx.gpa, "\n");
         total_exports += 1;
 
-        const targets = func_call_targets.get(name).?;
+        const targets = ctx.func_call_targets.get(name).?;
         if (targets.items.len > 0) {
             var seen: std.StringHashMapUnmanaged(void) = .empty;
-            defer seen.deinit(gpa);
+            defer seen.deinit(ctx.gpa);
             var has_helpers = false;
             for (targets.items) |target| {
                 if (seen.contains(target) or isStdlibFunc(target)) continue;
-                try seen.put(gpa, target, {});
+                try seen.put(ctx.gpa, target, {});
                 if (!has_helpers) {
-                    try output.appendSlice(gpa, "; --- called functions ---\n\n");
+                    try output.appendSlice(ctx.gpa, "; --- called functions ---\n\n");
                     has_helpers = true;
                 }
-                instr += try emitFuncBody(gpa, &output, target, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids, true);
-                try output.appendSlice(gpa, "\n");
+                instr += try emitFuncBody(ctx, &output, target, &file_ids, true);
+                try output.appendSlice(ctx.gpa, "\n");
                 total_helpers += 1;
             }
         }
         total_instr += instr;
 
-        const filename = try std.fmt.allocPrint(gpa, "{s}/{s}.s", .{ dir_path, file_label });
-        defer gpa.free(filename);
+        const filename = try std.fmt.allocPrint(ctx.gpa, "{s}/{s}.s", .{ dir_path, file_label });
+        defer ctx.gpa.free(filename);
         const file = try std.Io.Dir.cwd().createFile(io, filename, .{});
         defer file.close(io);
         var buf: [4096]u8 = undefined;
@@ -529,38 +536,27 @@ fn emitSplitFiles(
 }
 
 // zlinter-disable-next-line no_inferred_error_unions
-fn emitCombinedFile(
-    gpa: std.mem.Allocator,
-    io: std.Io,
-    output_path: ?[]const u8,
-    ordered_exports: []const []const u8,
-    func_call_targets: *const std.StringHashMapUnmanaged(std.ArrayListUnmanaged([]const u8)),
-    all_funcs: *const std.StringHashMapUnmanaged(FuncRange),
-    func_ends: *const std.StringHashMapUnmanaged(usize),
-    all_lines: []const []const u8,
-    branch_targets: *const std.StringHashMapUnmanaged(void),
-    display_names: *const std.StringHashMapUnmanaged([]const u8),
-) !void {
-    var output: std.ArrayListUnmanaged(u8) = .empty;
-    defer output.deinit(gpa);
+fn emitCombinedFile(ctx: EmitContext, io: std.Io, output_path: ?[]const u8, ordered_exports: []const []const u8) !void {
+    var output: std.ArrayList(u8) = .empty;
+    defer output.deinit(ctx.gpa);
     var file_ids: IdMap = .empty;
-    defer file_ids.deinit(gpa);
+    defer file_ids.deinit(ctx.gpa);
 
     var total_instr: usize = 0;
     var all_helpers: std.StringHashMapUnmanaged(void) = .empty;
-    defer all_helpers.deinit(gpa);
-    var ordered_helpers: std.ArrayListUnmanaged([]const u8) = .empty;
-    defer ordered_helpers.deinit(gpa);
+    defer all_helpers.deinit(ctx.gpa);
+    var ordered_helpers: std.ArrayList([]const u8) = .empty;
+    defer ordered_helpers.deinit(ctx.gpa);
 
     for (ordered_exports) |name| {
-        total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids, false);
-        try output.appendSlice(gpa, "\n");
+        total_instr += try emitFuncBody(ctx, &output, name, &file_ids, false);
+        try output.appendSlice(ctx.gpa, "\n");
 
-        const targets = func_call_targets.get(name).?;
+        const targets = ctx.func_call_targets.get(name).?;
         for (targets.items) |target| {
             if (!all_helpers.contains(target)) {
-                try all_helpers.put(gpa, target, {});
-                try ordered_helpers.append(gpa, target);
+                try all_helpers.put(ctx.gpa, target, {});
+                try ordered_helpers.append(ctx.gpa, target);
             }
         }
     }
@@ -571,11 +567,11 @@ fn emitCombinedFile(
         while (hi < ordered_helpers.items.len) : (hi += 1) {
             const helper = ordered_helpers.items[hi];
             if (isStdlibFunc(helper)) continue;
-            if (func_call_targets.get(helper)) |targets| {
+            if (ctx.func_call_targets.get(helper)) |targets| {
                 for (targets.items) |target| {
                     if (!all_helpers.contains(target)) {
-                        try all_helpers.put(gpa, target, {});
-                        try ordered_helpers.append(gpa, target);
+                        try all_helpers.put(ctx.gpa, target, {});
+                        try ordered_helpers.append(ctx.gpa, target);
                     }
                 }
             }
@@ -583,10 +579,10 @@ fn emitCombinedFile(
     }
 
     if (ordered_helpers.items.len > 0) {
-        try output.appendSlice(gpa, "; --- called functions ---\n\n");
+        try output.appendSlice(ctx.gpa, "; --- called functions ---\n\n");
         for (ordered_helpers.items) |name| {
-            total_instr += try emitFuncBody(gpa, &output, name, all_funcs, func_ends, all_lines, branch_targets, display_names, &file_ids, false);
-            try output.appendSlice(gpa, "\n");
+            total_instr += try emitFuncBody(ctx, &output, name, &file_ids, false);
+            try output.appendSlice(ctx.gpa, "\n");
         }
     }
 
