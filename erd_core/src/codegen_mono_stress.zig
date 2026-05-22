@@ -160,17 +160,6 @@ fn tiny_callback(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {}
 fn wide_callback(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {}
 fn mixed_callback(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {}
 
-comptime {
-    _ = &tiny_callback;
-    _ = &wide_callback;
-    _ = &mixed_callback;
-    _ = &convSumFn;
-    _ = &convFlagFn;
-    _ = &convWideFn;
-    _ = &indXFn;
-    _ = &indYFn;
-}
-
 // ===========================================================================
 // Tiny system: full API exercise
 // ===========================================================================

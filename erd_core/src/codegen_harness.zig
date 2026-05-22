@@ -274,11 +274,6 @@ export fn setup_timer_callback(sd: *SmallSD, tm: *timer.TimerModule, t: *timer.T
     tm.startPeriodic(t, 100, sd, timer_callback_read_write);
 }
 
-// Force the timer callback to be emitted even if the linker would discard it
-comptime {
-    _ = &timer_callback_read_write;
-}
-
 // ===========================================================================
 // Redundant read elimination - does LLVM CSE through the abstraction?
 // ===========================================================================
@@ -340,10 +335,6 @@ export fn subscribe_callback(sd: *SmallSD) void {
 
 export fn write_triggering_callback(sd: *SmallSD) void {
     sd.write(.flag, true);
-}
-
-comptime {
-    _ = &accumulate_callback;
 }
 
 // ===========================================================================
@@ -652,12 +643,4 @@ export fn unsubscribe_converted(sd: *MultiSD) void {
 
 export fn unsubscribe_converted_flag(sd: *MultiSD) void {
     sd.unsubscribe(.conv_flag_inv, conv_sub_callback);
-}
-
-comptime {
-    _ = &conv_sub_callback;
-    _ = &computeSum;
-    _ = &computeFlagInv;
-    _ = &indConstant;
-    _ = &indComputed;
 }

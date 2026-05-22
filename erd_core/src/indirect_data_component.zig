@@ -5,7 +5,14 @@
 const erd_core = @import("erd_core");
 const Erd = erd_core.Erd;
 const subscription_mixin = erd_core.data_component.subscription_mixin;
-const fnFromMappings = @import("converted_data_component.zig").fnFromMappings;
+
+/// Resolve the function pointer for an ERD from a comptime mappings array.
+fn fnFromMappings(comptime erd: Erd, comptime mappings: anytype) @TypeOf(mappings[0].fn_ptr) {
+    for (mappings) |mapping| {
+        if (mapping.erd.data_component_idx == erd.data_component_idx) return mapping.fn_ptr;
+    }
+    unreachable;
+}
 
 /// Binds an indirect ERD to its read function pointer.
 pub const Mapping = struct {
