@@ -1,6 +1,13 @@
 ; snapshot_comments.zig
-; Speed: Near-optimal | Size: Optimal (until 2 calls)
-; NOINLINE-PUB. PER-ERD: 9 subscribable writes, 358 bytes RF.
+; Speed: Near-optimal | Size: Suboptimal
+; NOINLINE-PUB. PER-ERD: 8 subscribable writes plus 8 non-subscribable
+; stores, all monomorphized inline. 358 bytes RF / 311 bytes RS.
+; Size is not optimal: the runtime-dispatch counterpart
+; wide_runtime_write_all is 264 bytes RF / 40 bytes RS using the same
+; shared runtimeWrite path, so a memcpy-and-publish helper produces
+; dramatically smaller code. The size cost here is the deliberate
+; trade for the comptime-typed, per-ERD write API: callers get
+; static type checks and PER-ERD store widths in exchange for ROM.
 ;
 wide_write_all:
         push	rbx

@@ -4,7 +4,7 @@
 2	tiny_runtime_read
 2	tiny_runtime_write
 2	wide_runtime_read
-2	wide_runtime_write
+5	wide_runtime_write
 6	mixed_unsubscribe_ram
 6	tiny_subscribe
 6	tiny_unsubscribe
@@ -17,6 +17,7 @@
 15	mixed_modify
 15	tiny_modify
 15	wide_modify
+40	wide_runtime_write_all
 65	mixed_read_all
 84	tiny_write_all
 105	wide_read_all

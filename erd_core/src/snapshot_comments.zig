@@ -118,7 +118,8 @@ pub const ratings = [_]Rating{
     .{ .func = "runtime_write",                                                     .speed = .near_optimal,                                   },
     .{ .func = "runtime_write_three",                                               .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "runtime_write_two",                                                 .speed = .near_optimal, .size = .{ .until = 2 }           },
-    .{ .func = "setup_timer_callback",                                                                      .size = .{ .until = 2 }           },
+    .{ .func = "setup_timer_callback",                      .mode = .release_fast,                          .size = .{ .until = 2 }           },
+    .{ .func = "setup_timer_callback",                      .mode = .release_small, .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "subscribe_callback",                                                                        .size = .{ .until = 6 }           },
     .{ .func = "subscribe_converted",                                                                       .size = .{ .until = 2 }           },
     .{ .func = "subscribe_converted_flag",                  .mode = .release_fast,                          .size = .{ .until = 2 }           },
@@ -140,9 +141,10 @@ pub const ratings = [_]Rating{
     .{ .func = "wide_read_all",                                                                             .size = .{ .until = 2 }           },
     .{ .func = "wide_runtime_read",                                                                                                           },
     .{ .func = "wide_runtime_write",                                                .speed = .near_optimal,                                   },
+    .{ .func = "wide_runtime_write_all",                                            .speed = .near_optimal,                                   },
     .{ .func = "wide_subscribe",                                                                            .size = .{ .until = 6 }           },
     .{ .func = "wide_unsubscribe",                                                                          .size = .{ .until = 6 }           },
-    .{ .func = "wide_write_all",                                                    .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "wide_write_all",                                                    .speed = .near_optimal, .size = .suboptimal               },
     .{ .func = "write_big_struct",                                                                          .size = .{ .until = 2 }           },
     .{ .func = "write_bool_with_subs",                      .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "write_bool_with_subs",                      .mode = .release_small, .speed = .near_optimal,},
@@ -255,12 +257,36 @@ pub const comments = [_]Comment{
     .{ .func = "runtime_write_three",                                           .text = "NOINLINE-PUB. Three runtime writes."                },
     .{ .func = "multi_runtime_write",                                           .text = "NOINLINE-PUB. Multi-component runtime write."       },
     // ---- NOINLINE-PUB: mono stress test ----
-    .{ .func = "tiny_write_all",                                                .text = "NOINLINE-PUB. PER-ERD: 3 writes inlined."           },
+    .{ .func = "tiny_write_all",                                                .text = "NOINLINE-PUB. PER-ERD: 2 writes inlined."           },
     .{ .func = "tiny_modify",                                                   .text = "NOINLINE-PUB. In-place modify."                     },
     .{ .func = "tiny_runtime_write",                                            .text = "NOINLINE-PUB. Shared runtime dispatch path."        },
-    .{ .func = "wide_write_all",                                                .text = "NOINLINE-PUB. PER-ERD: 9 subscribable writes, 358 bytes RF." },
+    .{
+        .func = "wide_write_all",
+        .text =
+        \\NOINLINE-PUB. PER-ERD: 8 subscribable writes plus 8 non-subscribable
+        \\stores, all monomorphized inline. 358 bytes RF / 311 bytes RS.
+        \\Size is not optimal: the runtime-dispatch counterpart
+        \\wide_runtime_write_all is 264 bytes RF / 40 bytes RS using the same
+        \\shared runtimeWrite path, so a memcpy-and-publish helper produces
+        \\dramatically smaller code. The size cost here is the deliberate
+        \\trade for the comptime-typed, per-ERD write API: callers get
+        \\static type checks and PER-ERD store widths in exchange for ROM.
+        ,
+    },
     .{ .func = "wide_modify",                                                   .text = "NOINLINE-PUB. In-place modify."                     },
     .{ .func = "wide_runtime_write",                                            .text = "NOINLINE-PUB. Shared runtime dispatch path."        },
+    .{
+        .func = "wide_runtime_write_all",
+        .text =
+        \\Size-comparison counterpart to wide_write_all: writes every ERD
+        \\via the shared runtimeWrite dispatch (see wide_runtime_write for
+        \\the publish-chain cost) instead of inlining a PER-ERD store per
+        \\field. ReleaseFast unrolls the loop into 16 explicit calls (264
+        \\bytes); ReleaseSmall keeps the loop (40 bytes). Slower than
+        \\wide_write_all (per-call table lookups + memcpy + bytesEqual) but
+        \\a fraction of the ROM.
+        ,
+    },
     .{ .func = "mixed_write_ram",                                               .text = "NOINLINE-PUB. PER-ERD: 4 writes, 3 with subs."      },
     .{ .func = "mixed_modify",                                                  .text = "NOINLINE-PUB. In-place modify."                     },
     .{ .func = "mixed_runtime_write",                                           .text = "NOINLINE-PUB. Shared runtime dispatch path."        },

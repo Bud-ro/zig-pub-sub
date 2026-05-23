@@ -1,6 +1,6 @@
 ; snapshot_comments.zig
 ; Speed: Near-optimal | Size: Optimal (until 2 calls)
-; NOINLINE-PUB. PER-ERD: 3 writes inlined.
+; NOINLINE-PUB. PER-ERD: 2 writes inlined.
 ;
 tiny_write_all:
         push	rbp

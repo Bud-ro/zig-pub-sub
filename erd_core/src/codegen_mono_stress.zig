@@ -249,6 +249,16 @@ export fn wide_runtime_write(sd: *WideSD, idx: u16, data: *const anyopaque) void
     sd.runtimeWrite(idx, data);
 }
 
+/// Companion to wide_write_all: writes every ERD by index via the shared
+/// runtimeWrite dispatch rather than emitting a PER-ERD inline write per
+/// field. Exists for size comparison against wide_write_all.
+export fn wide_runtime_write_all(sd: *WideSD, data: *const anyopaque) void {
+    var i: u16 = 0;
+    while (i < 16) : (i += 1) {
+        sd.runtimeWrite(i, data);
+    }
+}
+
 export fn wide_subscribe(sd: *WideSD) void {
     sd.subscribe(.w02, null, wide_callback);
 }
