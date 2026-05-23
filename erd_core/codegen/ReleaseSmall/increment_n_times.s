@@ -1,10 +1,18 @@
+; snapshot_comments.zig
+; Speed: Suboptimal | Size: Suboptimal
+; ReleaseFast collapses the loop to a single `add [rdi], esi`,
+; but ReleaseSmall emits a literal inc-per-iteration loop.
+; This is an LLVM missed optimization under -Oz -- the collapsed
+; form is both smaller and faster. Not fixable from Zig without
+; changing subscription semantics (one publish vs N publishes).
+;
 increment_n_times:
-.LBB20_1:
+.L0:
         cmp	esi, 1
-        jb	.LBB20_3
+        jb	.L1
         inc	dword ptr [rdi]
         dec	esi
-        jmp	.LBB20_1
-.LBB20_3:
+        jmp	.L0
+.L1:
         ret
 

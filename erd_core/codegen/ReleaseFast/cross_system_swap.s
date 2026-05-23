@@ -1,3 +1,7 @@
+; snapshot_comments.zig
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. PER-ERD: 35 bytes for the subscribable write.
+;
 cross_system_swap:
         push	rax
         mov	eax, dword ptr [rdi]
@@ -6,28 +10,22 @@ cross_system_swap:
         mov	dword ptr [rsp + 4], eax
         mov	dword ptr [rsi], eax
         cmp	ecx, eax
-        je	.LBB12_2
+        je	.L0
         mov	rdx, rsi
         lea	rsi, [rsp + 4]
         mov	rdi, rdx
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
-.LBB12_2:
+.L0:
         pop	rax
         ret
 
 ; --- called functions ---
 
 "ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish":
-        mov	rax, qword ptr [rdi + 24]
-        test	rax, rax
-        je	.LBB13_2
-        sub	rsp, 24
-        mov	rdi, qword ptr [rdi + 16]
-        mov	word ptr [rsp + 16], 0
-        mov	qword ptr [rsp + 8], rsi
-        lea	rsi, [rsp + 8]
-        call	rax
-        add	rsp, 24
-.LBB13_2:
-        ret
+        mov	r8, rdx
+        mov	rcx, rsi
+        add	rdi, 16
+        mov	esi, 1
+        xor	edx, edx
+        jmp	Subscription.publish
 

@@ -83,7 +83,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         }
 
         /// Runtime read using a dynamic data component index.
-        pub fn runtimeRead(self: Self, data_component_idx: u16, data: *anyopaque) void {
+        pub fn runtimeRead(self: *const Self, data_component_idx: u16, data: *anyopaque) void {
             var data_slice: [*]u8 = @ptrCast(data);
             const size = data_size[data_component_idx];
 
@@ -119,26 +119,18 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         /// since the caller guarantees the modification always produces a new value.
         /// Debug-asserts that the value actually changed.
         pub fn modify(self: *Self, erd: Erd, comptime modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
-            self.modifyInner(erd, modifier, publisher);
-        }
-
-        // noinline so the read/modify/writeback/publish logic is shared across
-        // all call sites that modify the same ERD, regardless of modifier.
-        noinline fn modifyInner(self: *Self, erd: Erd, modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
-            const n = @sizeOf(erd.T);
+            const src: *align(1) const erd.T = @ptrCast(self.storage[ram_offsets[idx]..]);
+            const dst: *align(1) erd.T = @ptrCast(self.storage[ram_offsets[idx]..]);
 
-            var value: erd.T = undefined;
-            @memcpy(std.mem.asBytes(&value), self.storage[ram_offsets[idx]..][0..n]);
-
+            var value: erd.T = src.*;
             const before = value;
             modifier(&value);
             std.debug.assert(!std.meta.eql(before, value));
-
-            self.storage[ram_offsets[idx]..][0..n].* = std.mem.toBytes(value);
+            dst.* = value;
 
             if (erd.subs > 0) {
-                self.publish(erd.data_component_idx, &value, publisher);
+                self.publish(erd.data_component_idx, dst, publisher);
             }
         }
 
@@ -168,7 +160,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             const data_slice: [*]const u8 = @ptrCast(data);
             const size = data_size[data_component_idx];
 
-            const data_changed = !std.mem.eql(u8, data_slice[0..size], self.storage[ram_offsets[idx] .. ram_offsets[idx] + size]);
+            const data_changed = !runtimeBytesEqual(data_slice, self.storage[ram_offsets[idx]..].ptr, size);
 
             @memcpy(self.storage[ram_offsets[idx] .. ram_offsets[idx] + size], data_slice[0..size]);
 
@@ -178,21 +170,17 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         }
 
         // noinline so the dispatch logic is shared across all call sites.
-        // Create .rodata that is indexed by `system_data_idx`
-        // The size of this is 4*numErds which means this will reach well over 4kB of ROM.
+        // Resolves per-type lookup tables then delegates to the shared Subscription.publish.
         // TODO: Add the option to binary search and avoid a large chunk of this cost
         noinline fn publish(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
             const offset = Subs.sub_offsets[data_component_idx];
             const count = subs_from_idx[data_component_idx];
-            for (self.subs.slots[offset .. offset + count]) |sub| {
-                if (sub.callback) |cb| {
-                    const args: Subscription.OnChangeArgs = .{
-                        .system_data_idx = system_data_idx_from_idx[data_component_idx],
-                        .data = data,
-                    };
-                    cb(sub.context, @ptrCast(&args), publisher);
-                }
-            }
+            Subscription.publish(
+                self.subs.slots[offset..][0..count],
+                system_data_idx_from_idx[data_component_idx],
+                data,
+                publisher,
+            );
         }
 
         // TODO: This is a neat way of gaining automatic optimized alignment, but MAN
@@ -227,4 +215,10 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         //     },
         // });
     };
+}
+
+/// Shared noinline comparison so runtimeWrite call sites don't each inline
+/// LLVM's multi-tier mem.eql expansion (byte/dword/SSE paths).
+noinline fn runtimeBytesEqual(a: [*]const u8, b: [*]const u8, len: usize) bool {
+    return std.mem.eql(u8, a[0..len], b[0..len]);
 }

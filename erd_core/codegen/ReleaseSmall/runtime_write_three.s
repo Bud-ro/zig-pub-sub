@@ -1,3 +1,7 @@
+; snapshot_comments.zig
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. Three runtime writes.
+;
 runtime_write_three:
         push	rbp
         push	r15
@@ -42,19 +46,18 @@ runtime_write_three:
         mov	r13, qword ptr [8*r15 + .L__anon_3]
         add	r13, rdi
         mov	rdi, rdx
-        mov	rsi, r12
-        mov	rdx, r13
-        mov	rcx, r12
-        call	.Lmem.eql__anon_4
+        mov	rsi, r13
+        mov	rdx, r12
+        call	.Lram_data_component.runtimeBytesEqual
         mov	ebp, eax
         mov	rdi, r13
         mov	rsi, rbx
         mov	rdx, r12
         call	memcpy@PLT
         test	bpl, 1
-        jne	.LBB311_2
+        jne	.L4
         cmp	byte ptr [r15 + .L__anon_5], 0
-        je	.LBB311_2
+        je	.L4
         mov	rdi, r14
         mov	esi, r15d
         mov	rdx, rbx
@@ -67,7 +70,7 @@ runtime_write_three:
         pop	r15
         pop	rbp
         jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
-.LBB311_2:
+.L4:
         add	rsp, 8
         pop	rbx
         pop	r12

@@ -1,17 +1,14 @@
+; snapshot_comments.zig
+; Speed: Optimal | Size: Optimal (until 6 calls)
+;
 subscribe_callback:
-        mov	rax, qword ptr [rdi + 24]
-        cmp	rax, offset .Lcodegen_harness.accumulate_callback
-        je	.LBB22_3
-        test	rax, rax
-        jne	.LBB22_4
-        and	qword ptr [rdi + 16], 0
-        mov	qword ptr [rdi + 24], offset .Lcodegen_harness.accumulate_callback
-.LBB22_3:
-        ret
-.LBB22_4:
-        push	rax
-        push	19
-        pop	rsi
-        mov	edi, offset .L__anon_0
-        call	.Ldebug.defaultPanic
+        add	rdi, 16
+        jmp	".Ldata_component_subscription.DataComponentSubscription(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).subscribeInner"
+
+; --- called functions ---
+
+".Ldata_component_subscription.DataComponentSubscription(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).subscribeInner":
+        mov	esi, 1
+        mov	edx, offset .Lcodegen_harness.accumulate_callback
+        jmp	.LSubscription.subscribe
 

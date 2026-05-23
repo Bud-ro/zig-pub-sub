@@ -57,37 +57,23 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
         /// Add a subscription callback for an ERD. Deduplicates by callback identity.
         pub fn subscribe(self: *Self, erd: Erd, context: ?*anyopaque, fn_ptr: Subscription.Callback) void {
             std.debug.assert(erd.subs > 0);
-            const offset = sub_offsets[erd.data_component_idx];
-            var first_free: ?*Subscription = null;
+            self.subscribeInner(sub_offsets[erd.data_component_idx], erd.subs, context, fn_ptr);
+        }
 
-            for (self.slots[offset .. offset + erd.subs]) |*sub| {
-                if (first_free == null and sub.callback == null) {
-                    first_free = sub;
-                }
-                if (sub.callback == fn_ptr) {
-                    return;
-                }
-            }
-
-            if (first_free == null) {
-                @panic("ERD oversubscribed!");
-            }
-
-            first_free.?.context = context;
-            first_free.?.callback = fn_ptr;
+        // noinline so callsites compile to argument setup + jump, not a full inlined scan/dedup loop.
+        noinline fn subscribeInner(self: *Self, offset: usize, count: usize, context: ?*anyopaque, fn_ptr: Subscription.Callback) void {
+            Subscription.subscribe(self.slots[offset..][0..count], context, fn_ptr);
         }
 
         /// Remove a subscription callback for an ERD by identity.
         pub fn unsubscribe(self: *Self, erd: Erd, fn_ptr: Subscription.Callback) void {
             std.debug.assert(erd.subs > 0);
-            const offset = sub_offsets[erd.data_component_idx];
+            self.unsubscribeInner(sub_offsets[erd.data_component_idx], erd.subs, fn_ptr);
+        }
 
-            for (self.slots[offset .. offset + erd.subs]) |*sub| {
-                if (sub.callback == fn_ptr) {
-                    sub.callback = null;
-                    return;
-                }
-            }
+        // noinline so callsites compile to argument setup + jump, not a full inlined scan loop.
+        noinline fn unsubscribeInner(self: *Self, offset: usize, count: usize, fn_ptr: Subscription.Callback) void {
+            Subscription.unsubscribe(self.slots[offset..][0..count], fn_ptr);
         }
     };
 }

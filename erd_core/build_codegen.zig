@@ -24,91 +24,112 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
             .os_tag = .linux,
         });
 
+        const Harness = struct { source: []const u8, prefix: []const u8, obj_tag: []const u8 };
+        const harnesses = [_]Harness{
+            .{ .source = "src/codegen_harness.zig", .prefix = "", .obj_tag = "harness" },
+            .{ .source = "src/codegen_mono_stress.zig", .prefix = "mono/", .obj_tag = "mono" },
+        };
+
         for (modes, mode_names) |mode, mode_name| {
-            const codegen_mod = b.createModule(.{
-                .root_source_file = b.path("src/codegen_harness.zig"),
-                .target = codegen_target,
-                .optimize = mode,
-                .omit_frame_pointer = true,
-            });
+            for (harnesses) |harness| {
+                const codegen_mod = b.createModule(.{
+                    .root_source_file = b.path(harness.source),
+                    .target = codegen_target,
+                    .optimize = mode,
+                    .omit_frame_pointer = true,
+                });
 
-            const sometimes_dep = b.dependency("assert_sometimes", .{
-                .target = codegen_target,
-                .optimize = mode,
-                .enable_sometimes = false,
-            });
-            codegen_mod.addImport("sometimes", sometimes_dep.module("sometimes"));
-            codegen_mod.addImport("erd_core", core_mod);
+                const sometimes_dep = b.dependency("assert_sometimes", .{
+                    .target = codegen_target,
+                    .optimize = mode,
+                    .enable_sometimes = false,
+                });
+                codegen_mod.addImport("sometimes", sometimes_dep.module("sometimes"));
+                codegen_mod.addImport("erd_core", core_mod);
 
-            const codegen_obj = b.addObject(.{
-                .name = b.fmt("codegen_{s}", .{mode_name}),
-                .root_module = codegen_mod,
-            });
+                const codegen_obj = b.addObject(.{
+                    .name = b.fmt("codegen_{s}_{s}", .{ harness.obj_tag, mode_name }),
+                    .root_module = codegen_mod,
+                });
 
-            const obj_bin = codegen_obj.getEmittedBin();
-            const sizes_name = b.fmt("{s}_x86_64.sizes", .{mode_name});
+                const obj_bin = codegen_obj.getEmittedBin();
+                const full_dir = b.fmt("{s}{s}", .{ harness.prefix, mode_name });
+                const sizes_name = b.fmt("{s}{s}_x86_64.sizes", .{ harness.prefix, mode_name });
 
-            const run_nm = b.addSystemCommand(&.{
-                "sh", "-c",
-                \\printf '# size (bytes)\tfunction\n'
-                \\nm --print-size --size-sort "$1" | grep ' T [a-z]' | while IFS=' ' read -r _ size _ name; do printf '%d\t%s\n' "0x$size" "$name"; done
-                ,
-                "--",
-            });
-            run_nm.addFileArg(obj_bin);
-            const sizes_file = run_nm.captureStdOut(.{});
+                const run_nm = b.addSystemCommand(&.{
+                    "sh", "-c",
+                    \\printf '# size (bytes)\tfunction\n'
+                    \\nm --print-size --size-sort "$1" | grep ' T [a-z]' | while IFS=' ' read -r _ size _ name; do printf '%d\t%s\n' "0x$size" "$name"; done
+                    ,
+                    "--",
+                });
+                run_nm.addFileArg(obj_bin);
+                const sizes_file = run_nm.captureStdOut(.{});
 
-            codegen_update_step.dependOn(&b.addInstallFileWithDir(sizes_file, .{ .custom = "../codegen" }, sizes_name).step);
+                codegen_update_step.dependOn(&b.addInstallFileWithDir(sizes_file, .{ .custom = "../codegen" }, sizes_name).step);
 
-            const check_sizes = b.addSystemCommand(&.{ "diff", "-u" });
-            check_sizes.addFileArg(b.path(b.fmt("codegen/{s}", .{sizes_name})));
-            check_sizes.addFileArg(sizes_file);
-            check_sizes.setName(b.fmt("check {s}", .{sizes_name}));
-            check_sizes.expectExitCode(0);
-            codegen_check_step.dependOn(&check_sizes.step);
+                const check_sizes = b.addSystemCommand(&.{ "diff", "-u" });
+                check_sizes.addFileArg(b.path(b.fmt("codegen/{s}", .{sizes_name})));
+                check_sizes.addFileArg(sizes_file);
+                check_sizes.setName(b.fmt("check {s}", .{sizes_name}));
+                check_sizes.expectExitCode(0);
+                codegen_check_step.dependOn(&check_sizes.step);
 
-            const asm_file = codegen_obj.getEmittedAsm();
+                const asm_file = codegen_obj.getEmittedAsm();
 
-            const run_split = b.addRunArtifact(strip_asm);
-            run_split.addFileArg(asm_file);
-            run_split.addArg("--split-dir");
-            const split_dir = run_split.addOutputDirectoryArg(mode_name);
+                const run_split = b.addRunArtifact(strip_asm);
+                run_split.addFileArg(asm_file);
+                run_split.addArg("--split-dir");
+                const split_dir = run_split.addOutputDirectoryArg(full_dir);
 
-            codegen_update_step.dependOn(&b.addInstallDirectory(.{
-                .source_dir = split_dir,
-                .install_dir = .{ .custom = b.fmt("../codegen/{s}", .{mode_name}) },
-                .install_subdir = "",
-            }).step);
+                const clean_split = b.addSystemCommand(&.{ "sh", "-c", "rm -f \"$1\"/*.s", "--" });
+                clean_split.addDirectoryArg(b.path(b.fmt("codegen/{s}", .{full_dir})));
+                const install_split = b.addInstallDirectory(.{
+                    .source_dir = split_dir,
+                    .install_dir = .{ .custom = b.fmt("../codegen/{s}", .{full_dir}) },
+                    .install_subdir = "",
+                });
+                install_split.step.dependOn(&clean_split.step);
+                codegen_update_step.dependOn(&install_split.step);
 
-            const check_asm = b.addSystemCommand(&.{ "diff", "-ru" });
-            check_asm.addDirectoryArg(b.path(b.fmt("codegen/{s}", .{mode_name})));
-            check_asm.addDirectoryArg(split_dir);
-            check_asm.setName(b.fmt("check {s}/", .{mode_name}));
-            check_asm.expectExitCode(0);
-            codegen_check_step.dependOn(&check_asm.step);
+                const check_asm = b.addSystemCommand(&.{ "diff", "-ru" });
+                check_asm.addDirectoryArg(b.path(b.fmt("codegen/{s}", .{full_dir})));
+                check_asm.addDirectoryArg(split_dir);
+                check_asm.setName(b.fmt("check {s}/", .{full_dir}));
+                check_asm.expectExitCode(0);
+                codegen_check_step.dependOn(&check_asm.step);
 
-            const combined_name = b.fmt("{s}_x86_64.s", .{mode_name});
-            const run_combined = b.addRunArtifact(strip_asm);
-            run_combined.addFileArg(asm_file);
-            const combined_asm = run_combined.addOutputFileArg(combined_name);
-            codegen_update_step.dependOn(&b.addInstallFileWithDir(combined_asm, .{ .custom = "../codegen" }, combined_name).step);
+                const combined_name = b.fmt("{s}{s}_x86_64.s", .{ harness.prefix, mode_name });
+                const run_combined = b.addRunArtifact(strip_asm);
+                run_combined.addFileArg(asm_file);
+                const combined_asm = run_combined.addOutputFileArg(combined_name);
+                codegen_update_step.dependOn(&b.addInstallFileWithDir(combined_asm, .{ .custom = "../codegen" }, combined_name).step);
+            }
         }
     }
 
-    // Single-mode emit-asm for quick iteration.
+    // Single-mode emit-asm for quick iteration (all harnesses).
     // Defaults to ReleaseFast because Debug mode doesn't emit assembly in Zig 0.15.
     const emit_optimize = if (optimize == .Debug) .ReleaseFast else optimize;
-    const codegen_mod = b.createModule(.{
-        .root_source_file = b.path("src/codegen_harness.zig"),
-        .target = target,
-        .optimize = emit_optimize,
-    });
-    codegen_mod.addImport("sometimes", sometimes_disabled_mod);
-    codegen_mod.addImport("erd_core", core_mod);
-    const codegen_obj = b.addObject(.{
-        .name = "codegen_harness",
-        .root_module = codegen_mod,
-    });
     const emit_asm_step = b.step("emit-asm", "Emit raw assembly for single optimization level");
-    emit_asm_step.dependOn(&b.addInstallFile(codegen_obj.getEmittedAsm(), "codegen_harness.s").step);
+
+    const emit_sources = [_]struct { source: []const u8, output: []const u8 }{
+        .{ .source = "src/codegen_harness.zig", .output = "codegen_harness.s" },
+        .{ .source = "src/codegen_mono_stress.zig", .output = "codegen_mono_stress.s" },
+    };
+    for (emit_sources) |src| {
+        const mod = b.createModule(.{
+            .root_source_file = b.path(src.source),
+            .target = target,
+            .optimize = emit_optimize,
+            .omit_frame_pointer = true,
+        });
+        mod.addImport("sometimes", sometimes_disabled_mod);
+        mod.addImport("erd_core", core_mod);
+        const obj = b.addObject(.{
+            .name = std.Io.Dir.path.stem(src.source),
+            .root_module = mod,
+        });
+        emit_asm_step.dependOn(&b.addInstallFile(obj.getEmittedAsm(), src.output).step);
+    }
 }

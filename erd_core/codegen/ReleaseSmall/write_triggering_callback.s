@@ -1,3 +1,6 @@
+; snapshot_comments.zig
+; Speed: Near-optimal | Size: Optimal (until 3 calls)
+;
 write_triggering_callback:
         push	1
         pop	rsi
@@ -11,12 +14,12 @@ write_triggering_callback:
         mov	byte ptr [rsp + 6], sil
         cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
-        je	.LBB12_2
+        je	.L2
         lea	rdx, [rsp + 6]
         mov	esi, 1
         mov	rcx, rdi
         call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
-.LBB12_2:
+.L2:
         pop	rax
         ret
 

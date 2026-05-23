@@ -103,6 +103,7 @@ pub fn build(b: *std.Build) void {
             },
             .exclude = &.{
                 b.path("erd_core/src/codegen_harness.zig"),
+                b.path("erd_core/src/codegen_mono_stress.zig"),
                 b.path("zig-out"),
                 b.path(".zig-cache"),
                 b.path("erd_core/zig-out"),

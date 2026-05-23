@@ -1,3 +1,7 @@
+; snapshot_comments.zig
+; Speed: Optimal | Size: Optimal (until 2 calls)
+; PER-ERD: 24-byte copy. runtimeRead would share the logic.
+;
 read_medium_struct:
         mov	rax, rdi
         mov	rcx, qword ptr [rsi + 272]

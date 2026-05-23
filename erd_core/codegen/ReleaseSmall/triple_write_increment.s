@@ -1,3 +1,7 @@
+; snapshot_comments.zig
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. PER-ERD: three writes.
+;
 triple_write_increment:
         push	rbx
         mov	rbx, rdi
@@ -21,12 +25,12 @@ triple_write_increment:
         mov	word ptr [rsp + 6], si
         cmp	word ptr [rdi + 7], si
         mov	word ptr [rdi + 7], si
-        je	.LBB8_2
+        je	.L2
         lea	rdx, [rsp + 6]
         mov	esi, 3
         mov	rcx, rdi
         call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
-.LBB8_2:
+.L2:
         pop	rax
         ret
 

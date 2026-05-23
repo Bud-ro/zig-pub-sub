@@ -1,42 +1,33 @@
+; snapshot_comments.zig
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB. Two in-place modifies, each publishes.
+;
 double_modify_struct:
+        push	r14
         push	rbx
+        push	rax
         mov	rbx, rdi
-        mov	esi, offset .Lcodegen_harness.double_modify_struct__struct_0.m
+        lea	r14, [rdi + 256]
+        inc	dword ptr [rdi + 272]
+        mov	rsi, r14
         mov	rdx, rdi
-        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).modifyInner__anon_1"
-        mov	esi, offset .Lcodegen_harness.double_modify_struct__struct_2.m
+        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
+        inc	qword ptr [rbx + 256]
         mov	rdi, rbx
+        mov	rsi, r14
         mov	rdx, rbx
+        add	rsp, 8
         pop	rbx
-        jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).modifyInner__anon_1"
+        pop	r14
+        jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
 
 ; --- called functions ---
 
-".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).modifyInner__anon_1":
-        push	r15
-        push	r14
-        push	rbx
-        sub	rsp, 32
-        mov	rbx, rdx
-        mov	r14, rdi
-        mov	rax, qword ptr [rdi + 272]
-        mov	qword ptr [rsp + 16], rax
-        movups	xmm0, xmmword ptr [rdi + 256]
-        movaps	xmmword ptr [rsp], xmm0
-        mov	r15, rsp
-        mov	rdi, r15
-        call	rsi
-        mov	rax, qword ptr [rsp + 16]
-        mov	qword ptr [r14 + 272], rax
-        movaps	xmm0, xmmword ptr [rsp]
-        movups	xmmword ptr [r14 + 256], xmm0
-        mov	rdi, r14
-        mov	rsi, r15
-        mov	rdx, rbx
-        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
-        add	rsp, 32
-        pop	rbx
-        pop	r14
-        pop	r15
-        ret
+".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish":
+        mov	r8, rdx
+        mov	rcx, rsi
+        add	rdi, 312
+        mov	esi, 1
+        mov	edx, 1
+        jmp	.LSubscription.publish
 

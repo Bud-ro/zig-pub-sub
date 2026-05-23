@@ -14,6 +14,14 @@ const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 const DataComponentSubscription = erd_core.data_component.subscription_mixin.DataComponentSubscription;
 
+/// Resolve the function pointer for an ERD from a comptime mappings array.
+fn fnFromMappings(comptime erd: Erd, comptime mappings: anytype) @TypeOf(mappings[0].fn_ptr) {
+    for (mappings) |mapping| {
+        if (mapping.erd.data_component_idx == erd.data_component_idx) return mapping.fn_ptr;
+    }
+    unreachable;
+}
+
 /// Binds a converted ERD to its compute function and dependency list.
 pub const Mapping = struct {
     erd: Erd,
@@ -68,14 +76,14 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         /// Recompute and return the value of a converted ERD.
         pub fn read(self: Self, erd: Erd) erd.T {
             std.debug.assert(self.is_fully_initialized);
-            const fnPtr: *const fn (*erd.T, *anyopaque) void = @ptrCast(self.read_functions[erd.data_component_idx]);
+            const fnPtr: *const fn (*erd.T, *anyopaque) void = @ptrCast(comptime fnFromMappings(erd, erd_mappings));
             var temp: erd.T = undefined;
             fnPtr(&temp, self.system_data_ref);
             return temp;
         }
 
         /// Runtime read using a dynamic data component index.
-        pub fn runtimeRead(self: Self, data_component_idx: u16, data: *anyopaque) void {
+        pub fn runtimeRead(self: *const Self, data_component_idx: u16, data: *anyopaque) void {
             std.debug.assert(self.is_fully_initialized);
             const fnPtr: *const fn ([*]u8, *anyopaque) void = @ptrCast(self.read_functions[data_component_idx]);
             fnPtr(@ptrCast(data), self.system_data_ref);
@@ -112,7 +120,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
                 fn cb(context: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
                     const self: *Self = @ptrCast(@alignCast(context.?));
                     const T = erds[erd_data_component_idx].T;
-                    const fnPtr: *const fn (*T, *anyopaque) void = @ptrCast(self.read_functions[erd_data_component_idx]);
+                    const fnPtr: *const fn (*T, *anyopaque) void = @ptrCast(comptime fnFromMappings(erds[erd_data_component_idx], erd_mappings));
                     var val: T = undefined;
                     fnPtr(&val, publisher);
                     if (erds[erd_data_component_idx].subs > 0) {

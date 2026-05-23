@@ -1,3 +1,10 @@
+; snapshot_comments.zig
+; Speed: Near-optimal | Size: Optimal (until 2 calls)
+; NOINLINE-PUB + LLVM reload: after the first publish call,
+; LLVM conservatively reloads the stored value because it
+; cannot prove publish did not mutate it through the opaque
+; publisher pointer.
+;
 double_write_same_value:
         push	rbx
         sub	rsp, 16
@@ -6,16 +13,16 @@ double_write_same_value:
         mov	al, 1
         cmp	byte ptr [rdi + 4], 1
         mov	byte ptr [rdi + 4], 1
-        jne	.LBB11_1
+        jne	.L0
         mov	byte ptr [rsp + 13], 1
         mov	byte ptr [rbx + 4], 1
         cmp	al, 1
-        jne	.LBB11_3
-.LBB11_4:
+        jne	.L1
+.L2:
         add	rsp, 16
         pop	rbx
         ret
-.LBB11_1:
+.L0:
         lea	rdx, [rsp + 12]
         mov	rdi, rbx
         mov	esi, 1
@@ -25,8 +32,8 @@ double_write_same_value:
         mov	byte ptr [rsp + 13], 1
         mov	byte ptr [rbx + 4], 1
         cmp	al, 1
-        je	.LBB11_4
-.LBB11_3:
+        je	.L2
+.L1:
         lea	rdx, [rsp + 13]
         mov	rdi, rbx
         mov	esi, 1
@@ -39,49 +46,14 @@ double_write_same_value:
 ; --- called functions ---
 
 "ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2":
-        push	rbp
-        push	r15
-        push	r14
-        push	r13
-        push	r12
-        push	rbx
-        sub	rsp, 24
-        movzx	r12d, si
-        movzx	r13d, byte ptr [r12 + __anon_0]
-        test	r13, r13
-        je	.LBB8_4
-        mov	rbx, rcx
-        mov	r14, rdx
-        mov	rax, qword ptr [8*r12 + __anon_1]
-        shl	r13d, 4
-        shl	rax, 4
-        lea	rbp, [rdi + rax]
-        add	rbp, 24
-        xor	r15d, r15d
-        jmp	.LBB8_2
-.LBB8_3:
-        add	r15, 16
-        cmp	r13, r15
-        je	.LBB8_4
-.LBB8_2:
-        mov	rax, qword ptr [rbp + r15]
-        test	rax, rax
-        je	.LBB8_3
-        mov	rdi, qword ptr [rbp + r15 - 8]
-        movzx	ecx, word ptr [r12 + r12 + __anon_2]
-        mov	word ptr [rsp + 16], cx
-        mov	qword ptr [rsp + 8], r14
-        lea	rsi, [rsp + 8]
-        mov	rdx, rbx
-        call	rax
-        jmp	.LBB8_3
-.LBB8_4:
-        add	rsp, 24
-        pop	rbx
-        pop	r12
-        pop	r13
-        pop	r14
-        pop	r15
-        pop	rbp
-        ret
+        mov	r8, rcx
+        mov	rcx, rdx
+        movzx	eax, si
+        mov	rdx, qword ptr [8*rax + __anon_3]
+        movzx	esi, byte ptr [rax + __anon_4]
+        shl	rdx, 4
+        add	rdi, rdx
+        add	rdi, 16
+        movzx	edx, word ptr [rax + rax + __anon_5]
+        jmp	Subscription.publish
 

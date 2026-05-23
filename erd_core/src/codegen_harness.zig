@@ -16,6 +16,8 @@ const erd_core = @import("erd_core");
 const SystemDataTestDouble = erd_core.testing.SystemDataTestDouble;
 const Erd = erd_core.Erd;
 const timer = erd_core.timer;
+const IndirectMapping = erd_core.data_component.IndirectMapping;
+const ConvertedMapping = erd_core.data_component.ConvertedMapping;
 
 // ---------------------------------------------------------------------------
 // System A: small system (4 ERDs, one with subs)
@@ -272,11 +274,6 @@ export fn setup_timer_callback(sd: *SmallSD, tm: *timer.TimerModule, t: *timer.T
     tm.startPeriodic(t, 100, sd, timer_callback_read_write);
 }
 
-// Force the timer callback to be emitted even if the linker would discard it
-comptime {
-    _ = &timer_callback_read_write;
-}
-
 // ===========================================================================
 // Redundant read elimination - does LLVM CSE through the abstraction?
 // ===========================================================================
@@ -338,10 +335,6 @@ export fn subscribe_callback(sd: *SmallSD) void {
 
 export fn write_triggering_callback(sd: *SmallSD) void {
     sd.write(.flag, true);
-}
-
-comptime {
-    _ = &accumulate_callback;
 }
 
 // ===========================================================================
@@ -444,4 +437,210 @@ export fn double_modify_struct(sd: *HugeSD) void {
             val.a +%= 1;
         }
     }.m);
+}
+
+// ---------------------------------------------------------------------------
+// System E: all three data component types (Ram + Indirect + Converted)
+// ---------------------------------------------------------------------------
+const Ram = 0;
+const Indirect = 1;
+const Converted = 2;
+
+const MultiErdDefs = struct {
+    // zig fmt: off
+    // RAM ERDs: writable, some with subscriptions
+    ram_counter:   Erd = .{ .erd_number = null, .T = u32,  .component_idx = Ram, .subs = 2 },
+    ram_flag:      Erd = .{ .erd_number = null, .T = bool, .component_idx = Ram, .subs = 2 },
+    ram_value:     Erd = .{ .erd_number = null, .T = u16,  .component_idx = Ram, .subs = 0 },
+    // Indirect ERDs: read-only computed values
+    ind_constant:  Erd = .{ .erd_number = null, .T = u32,  .component_idx = Indirect, .subs = 0 },
+    ind_computed:  Erd = .{ .erd_number = null, .T = u16,  .component_idx = Indirect, .subs = 0 },
+    // Converted ERDs: derived from RAM dependencies, with subscriptions
+    conv_sum:      Erd = .{ .erd_number = null, .T = u32,  .component_idx = Converted, .subs = 2 },
+    conv_flag_inv: Erd = .{ .erd_number = null, .T = bool, .component_idx = Converted, .subs = 2 },
+    // zig fmt: on
+};
+
+const multi_erd = blk: {
+    var erds = MultiErdDefs{};
+    var component_counts = [_]u16{ 0, 0, 0 };
+    for (std.meta.fieldNames(MultiErdDefs), 0..) |name, i| {
+        const idx = @field(erds, name).component_idx;
+        @field(erds, name).data_component_idx = component_counts[idx];
+        @field(erds, name).system_data_idx = i;
+        component_counts[idx] += 1;
+    }
+    break :blk erds;
+};
+
+const MultiErdEnum = std.meta.FieldEnum(MultiErdDefs);
+
+fn ramErds() [3]Erd {
+    return .{ multi_erd.ram_counter, multi_erd.ram_flag, multi_erd.ram_value };
+}
+
+fn indirectErds() [2]Erd {
+    return .{ multi_erd.ind_constant, multi_erd.ind_computed };
+}
+
+fn convertedErds() [2]Erd {
+    return .{ multi_erd.conv_sum, multi_erd.conv_flag_inv };
+}
+
+fn indConstant(data: *u32) void {
+    data.* = 0xCAFE;
+}
+
+fn indComputed(data: *u16) void {
+    data.* = 123 *% 456;
+}
+
+const multi_indirect_mappings = [_]IndirectMapping{
+    .map(multi_erd.ind_constant, indConstant),
+    .map(multi_erd.ind_computed, indComputed),
+};
+
+fn computeSum(result: *u32, ctx: *anyopaque) void {
+    const sd: *MultiSD = @ptrCast(@alignCast(ctx));
+    result.* = sd.read(.ram_counter) +% @as(u32, sd.read(.ram_value));
+}
+
+fn computeFlagInv(result: *bool, ctx: *anyopaque) void {
+    const sd: *MultiSD = @ptrCast(@alignCast(ctx));
+    result.* = !sd.read(.ram_flag);
+}
+
+const multi_converted_mappings = [_]ConvertedMapping{
+    .map(multi_erd.conv_sum, computeSum, &.{ multi_erd.ram_counter, multi_erd.ram_value }),
+    .map(multi_erd.conv_flag_inv, computeFlagInv, &.{multi_erd.ram_flag}),
+};
+
+const ram_defs = ramErds();
+const indirect_defs = indirectErds();
+const converted_defs = convertedErds();
+
+const MultiRam = erd_core.data_component.Ram(&ram_defs);
+const MultiIndirect = erd_core.data_component.Indirect(&indirect_defs, multi_indirect_mappings);
+const MultiConverted = erd_core.data_component.Converted(&converted_defs, multi_converted_mappings);
+
+const MultiComponents = struct {
+    ram: MultiRam,
+    indirect: MultiIndirect,
+    converted: MultiConverted,
+};
+
+const MultiSD = erd_core.SystemData(MultiErdDefs, MultiErdEnum, multi_erd, MultiComponents);
+
+comptime {
+    std.debug.assert(Ram == std.meta.fieldIndex(MultiComponents, "ram").?);
+    std.debug.assert(Indirect == std.meta.fieldIndex(MultiComponents, "indirect").?);
+    std.debug.assert(Converted == std.meta.fieldIndex(MultiComponents, "converted").?);
+}
+
+// ===========================================================================
+// Indirect reads - read-only computed values
+// ===========================================================================
+
+export fn read_indirect_constant(sd: *MultiSD) u32 {
+    return sd.read(.ind_constant);
+}
+
+export fn read_indirect_computed(sd: *MultiSD) u16 {
+    return sd.read(.ind_computed);
+}
+
+export fn read_indirect_both(sd: *MultiSD) u32 {
+    return sd.read(.ind_constant) +% @as(u32, sd.read(.ind_computed));
+}
+
+// ===========================================================================
+// Converted reads - derived from RAM dependencies
+// ===========================================================================
+
+export fn read_converted_sum(sd: *MultiSD) u32 {
+    return sd.read(.conv_sum);
+}
+
+export fn read_converted_flag_inv(sd: *MultiSD) bool {
+    return sd.read(.conv_flag_inv);
+}
+
+export fn read_converted_both(sd: *MultiSD) u32 {
+    const sum = sd.read(.conv_sum);
+    const inv: u32 = if (sd.read(.conv_flag_inv)) 1 else 0;
+    return sum +% inv;
+}
+
+// ===========================================================================
+// Cross-component reads - mix RAM, indirect, and converted in one function
+// ===========================================================================
+
+export fn read_all_component_types(sd: *MultiSD) u32 {
+    const ram_val = sd.read(.ram_counter);
+    const ind_val = sd.read(.ind_constant);
+    const conv_val = sd.read(.conv_sum);
+    return ram_val +% ind_val +% conv_val;
+}
+
+export fn read_ram_then_indirect(sd: *MultiSD) u32 {
+    return sd.read(.ram_counter) +% sd.read(.ind_constant);
+}
+
+export fn read_ram_then_converted(sd: *MultiSD) u32 {
+    return sd.read(.ram_counter) +% sd.read(.conv_sum);
+}
+
+// ===========================================================================
+// Writes that propagate through converted component
+// ===========================================================================
+
+export fn write_ram_with_converted_deps(sd: *MultiSD, val: u32) void {
+    sd.write(.ram_counter, val);
+}
+
+export fn write_ram_flag_with_converted_dep(sd: *MultiSD, val: bool) void {
+    sd.write(.ram_flag, val);
+}
+
+export fn write_ram_no_converted_dep(sd: *MultiSD, val: u16) void {
+    sd.write(.ram_value, val);
+}
+
+export fn write_then_read_converted(sd: *MultiSD, val: u32) u32 {
+    sd.write(.ram_counter, val);
+    return sd.read(.conv_sum);
+}
+
+// ===========================================================================
+// Runtime read/write on multi-component system
+// ===========================================================================
+
+export fn multi_runtime_read(sd: *MultiSD, idx: u16, out: *anyopaque) void {
+    sd.runtimeRead(idx, out);
+}
+
+export fn multi_runtime_write(sd: *MultiSD, idx: u16, data: *const anyopaque) void {
+    sd.runtimeWrite(idx, data);
+}
+
+// ===========================================================================
+// Subscribe/unsubscribe on converted ERDs
+// ===========================================================================
+
+fn conv_sub_callback(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {}
+
+export fn subscribe_converted(sd: *MultiSD) void {
+    sd.subscribe(.conv_sum, null, conv_sub_callback);
+}
+
+export fn subscribe_converted_flag(sd: *MultiSD) void {
+    sd.subscribe(.conv_flag_inv, null, conv_sub_callback);
+}
+
+export fn unsubscribe_converted(sd: *MultiSD) void {
+    sd.unsubscribe(.conv_sum, conv_sub_callback);
+}
+
+export fn unsubscribe_converted_flag(sd: *MultiSD) void {
+    sd.unsubscribe(.conv_flag_inv, conv_sub_callback);
 }
