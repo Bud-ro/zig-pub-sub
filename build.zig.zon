@@ -11,7 +11,7 @@
         .elf_size = .{ .path = "elf_size" },
         .zlinter = .{
             .url = "git+https://github.com/KurtWagner/zlinter#0.16.x",
-            .hash = "zlinter-0.0.1-OjQ08c7oCwDIwhlde7eDKMACNTsqAhGXy5vB7GdfGobG",
+            .hash = "zlinter-0.0.1-OjQ08avrCwDXLzWbn6PYtfEopUVPSxuNQDJ1dGvRhhCp",
         },
     },
 
