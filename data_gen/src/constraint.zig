@@ -40,7 +40,8 @@ pub fn lenInRange(comptime min: usize, comptime max: usize, comptime actual: usi
     return null;
 }
 
-/// Checks array is sorted in ascending order.
+/// Checks array is sorted in non-decreasing order (equal adjacent values
+/// are allowed). For strictly ascending, combine with `noDuplicates`.
 pub fn isSorted(T: type, comptime arr: []const T) ?[]const u8 {
     if (arr.len < 2) return null;
     for (1..arr.len) |i| {
@@ -56,7 +57,7 @@ pub fn noDuplicates(T: type, comptime arr: []const T) ?[]const u8 {
     for (0..arr.len) |i| {
         for (i + 1..arr.len) |j| {
             if (arr[i] == arr[j]) {
-                return std.fmt.comptimePrint("duplicate value at indices {} and {}", .{ i, j });
+                return std.fmt.comptimePrint("duplicate value {} at indices {} and {}", .{ arr[i], i, j });
             }
         }
     }
@@ -66,7 +67,9 @@ pub fn noDuplicates(T: type, comptime arr: []const T) ?[]const u8 {
 /// Checks value is a power of two. Value must be unsigned and non-zero.
 pub fn isPowerOfTwo(comptime value: anytype) ?[]const u8 {
     const T = @TypeOf(value);
-    if (@typeInfo(T) == .int and @typeInfo(T).int.signedness == .signed)
+    const info = @typeInfo(T);
+    const is_signed = (info == .int and info.int.signedness == .signed) or info == .comptime_int and value < 0;
+    if (is_signed)
         return "isPowerOfTwo requires an unsigned integer";
     if (value == 0 or (value & (value - 1)) != 0) {
         return std.fmt.comptimePrint("{} is not a power of two", .{value});

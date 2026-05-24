@@ -53,6 +53,16 @@ test "oneOf error message" {
     }
 }
 
+test "oneOf with empty allowed set always fails" {
+    comptime {
+        const empty: [0]u32 = .{};
+        try std.testing.expectEqualStrings(
+            "value 5 is not in the allowed set: []",
+            constraint.oneOf(&empty, 5).?,
+        );
+    }
+}
+
 test "lenInRange passes within bounds" {
     comptime {
         if (constraint.lenInRange(2, 256, 2)) |err| @compileError(err);
@@ -88,6 +98,13 @@ test "isSorted error message" {
     }
 }
 
+test "isSorted accepts equal adjacent values (non-decreasing)" {
+    comptime {
+        if (constraint.isSorted(u8, &.{ 1, 2, 2, 3 })) |err| @compileError(err);
+        if (constraint.isSorted(u8, &.{ 5, 5, 5 })) |err| @compileError(err);
+    }
+}
+
 test "noDuplicates passes on unique array" {
     comptime {
         if (constraint.noDuplicates(u32, &.{ 1, 2, 3, 4, 5 })) |err| @compileError(err);
@@ -100,7 +117,7 @@ test "noDuplicates passes on unique array" {
 test "noDuplicates error message" {
     comptime {
         try std.testing.expectEqualStrings(
-            "duplicate value at indices 0 and 2",
+            "duplicate value 5 at indices 0 and 2",
             constraint.noDuplicates(u8, &.{ 5, 3, 5 }).?,
         );
     }
@@ -128,6 +145,15 @@ test "isPowerOfTwo rejects signed integers" {
         try std.testing.expectEqualStrings(
             "isPowerOfTwo requires an unsigned integer",
             constraint.isPowerOfTwo(@as(i8, 4)).?,
+        );
+    }
+}
+
+test "isPowerOfTwo rejects negative comptime_int" {
+    comptime {
+        try std.testing.expectEqualStrings(
+            "isPowerOfTwo requires an unsigned integer",
+            constraint.isPowerOfTwo(-4).?,
         );
     }
 }
@@ -176,6 +202,12 @@ test "lessThan error message" {
     }
 }
 
+test "lessThan rejects equal values (strictly less)" {
+    comptime {
+        try std.testing.expectEqualStrings("expected 5 < 5, but it is not", constraint.lessThan(5, 5).?);
+    }
+}
+
 test "greaterThan passes for strictly greater values" {
     comptime {
         if (constraint.greaterThan(10, 5)) |err| @compileError(err);
@@ -186,6 +218,12 @@ test "greaterThan passes for strictly greater values" {
 test "greaterThan error message" {
     comptime {
         try std.testing.expectEqualStrings("expected 3 > 5, but it is not", constraint.greaterThan(3, 5).?);
+    }
+}
+
+test "greaterThan rejects equal values (strictly greater)" {
+    comptime {
+        try std.testing.expectEqualStrings("expected 7 > 7, but it is not", constraint.greaterThan(7, 7).?);
     }
 }
 
@@ -212,6 +250,29 @@ test "anyOf error message lists all failures" {
         try std.testing.expectEqualStrings(
             "no alternative satisfied:\n  - value 50 is outside range [0, 10]\n  - value 50 is outside range [90, 100]",
             result,
+        );
+    }
+}
+
+test "anyOf with single failing alternative" {
+    comptime {
+        const result = constraint.anyOf(&.{
+            constraint.nonZero(0),
+        }).?;
+        try std.testing.expectEqualStrings(
+            "no alternative satisfied:\n  - value must not be zero",
+            result,
+        );
+    }
+}
+
+test "anyOf with empty checks list (vacuous failure)" {
+    comptime {
+        // Empty disjunction has no alternative to satisfy: returns the
+        // base message with no follow-up bullets.
+        try std.testing.expectEqualStrings(
+            "no alternative satisfied:",
+            constraint.anyOf(&.{}).?,
         );
     }
 }

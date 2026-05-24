@@ -1,7 +1,12 @@
-//! Comptime constraint-based data generation for embedded system configurations.
-//! Users define types with contractValidate functions. Constraints return
-//! ?[]const u8 (null = passed, string = error message) and compose with
-//! the contracts protocol for recursive struct validation.
+//! Comptime data validation and generation for embedded system configurations.
+//! Four sub-modules:
+//!   - `constraint`: primitive comptime checks. Each returns `?[]const u8`
+//!     (null = passed, string = error message).
+//!   - `contract`: recursive `contractValidate` protocol that auto-walks struct
+//!     fields and array elements, calling each sub-value's `contractValidate`.
+//!   - `transform`: float-to-fixed-point / scaled-integer / percent conversions
+//!     with `@compileError` on inexact representation or overflow.
+//!   - `generator`: comptime array builders for lookup tables and the like.
 
 // zlinter-disable require_doc_comment
 pub const constraint = @import("constraint.zig");

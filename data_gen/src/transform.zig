@@ -51,6 +51,7 @@ pub fn scaled(T: type, scale: comptime_int, value: comptime_float) T {
         ));
     }
 
+    checkFitsIn(T, truncated, value);
     return @intCast(truncated);
 }
 
@@ -59,6 +60,7 @@ pub fn scaled(T: type, scale: comptime_int, value: comptime_float) T {
 pub fn scaledNearest(T: type, scale: comptime_int, value: comptime_float) T {
     const result = value * @as(comptime_float, @floatFromInt(scale));
     const rounded: comptime_int = @round(result);
+    checkFitsIn(T, rounded, value);
     return @intCast(rounded);
 }
 
@@ -78,4 +80,22 @@ pub fn percentOf(T: type, max: comptime_int, pct: comptime_float) T {
 
 fn comptimePow2(exp: comptime_int) comptime_float {
     return @floatFromInt(@as(u128, 1) << @intCast(exp));
+}
+
+/// Comptime range check for integer casts. Emits a friendly @compileError
+/// naming the original `value` if `truncated` won't fit in `T`.
+fn checkFitsIn(T: type, truncated: comptime_int, value: comptime_float) void {
+    const info = @typeInfo(T).int;
+    const min_val: comptime_int = if (info.signedness == .signed)
+        -(@as(comptime_int, 1) << @intCast(info.bits - 1))
+    else
+        0;
+    const max_val: comptime_int = (@as(comptime_int, 1) <<
+        @intCast(if (info.signedness == .signed) info.bits - 1 else info.bits)) - 1;
+    if (truncated < min_val or truncated > max_val) {
+        @compileError(std.fmt.comptimePrint(
+            "scaled value {d} -> {} overflows {} (representable range [{}, {}])",
+            .{ value, truncated, @typeName(T), min_val, max_val },
+        ));
+    }
 }

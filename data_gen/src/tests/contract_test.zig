@@ -45,6 +45,15 @@ const ThreeLevels = struct {
     id: u8,
 };
 
+const EmptyStruct = struct {}; // zlinter-disable-current-line declaration_naming
+
+const TaggedEmptyStruct = struct { // zlinter-disable-current-line declaration_naming
+    /// Validate constraints for this type.
+    pub fn contractValidate(comptime _: TaggedEmptyStruct) ?[]const u8 {
+        return "always fails";
+    }
+};
+
 test "assertValid passes valid BoundedPair" {
     comptime {
         contract.assertValid(BoundedPair{ .low = 10, .high = 100 });
@@ -54,6 +63,18 @@ test "assertValid passes valid BoundedPair" {
 test "assertValid passes plain struct (no contractValidate)" {
     comptime {
         contract.assertValid(PlainStruct{ .x = 42, .y = 99 });
+    }
+}
+
+test "check on empty struct returns null" {
+    comptime {
+        try std.testing.expectEqual(@as(?[]const u8, null), contract.check(EmptyStruct{}, ""));
+    }
+}
+
+test "check on empty struct with contractValidate runs it" {
+    comptime {
+        try std.testing.expectEqualStrings("always fails", contract.check(TaggedEmptyStruct{}, "").?);
     }
 }
 

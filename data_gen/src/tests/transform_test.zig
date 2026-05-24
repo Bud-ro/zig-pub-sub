@@ -50,3 +50,55 @@ test "percentOf with rounding" {
         try std.testing.expectEqual(@as(u8, 0), transform.percentOf(u8, 255, 0.0));
     }
 }
+
+test "percentOf rounds to nearest" {
+    comptime {
+        try std.testing.expectEqual(@as(u8, 100), transform.percentOf(u8, 1000, 10.0));
+        try std.testing.expectEqual(@as(u16, 33), transform.percentOf(u16, 100, 33.33));
+        try std.testing.expectEqual(@as(u16, 67), transform.percentOf(u16, 100, 66.67));
+    }
+}
+
+test "scaledNearest handles signed values" {
+    comptime {
+        try std.testing.expectEqual(@as(i16, -333), transform.scaledNearest(i16, 1000, -0.3333));
+        try std.testing.expectEqual(@as(i16, -1), transform.scaledNearest(i16, 100, -0.005));
+    }
+}
+
+test "fixedPoint signed extremes" {
+    comptime {
+        try std.testing.expectEqual(@as(i16, -32768), transform.fixedPoint(i16, 15, -1.0));
+        try std.testing.expectEqual(@as(i8, -128), transform.fixedPoint(i8, 0, -128.0));
+        try std.testing.expectEqual(@as(i8, 127), transform.fixedPoint(i8, 0, 127.0));
+    }
+}
+
+test "scaled zero is always representable" {
+    comptime {
+        try std.testing.expectEqual(@as(u16, 0), transform.scaled(u16, 1000, 0.0));
+        try std.testing.expectEqual(@as(i16, 0), transform.scaled(i16, 1000, 0.0));
+    }
+}
+
+test "scaled accepts values at the u16 boundary" {
+    comptime {
+        // 65.535 * 1000 = 65535, exactly fits in u16 max.
+        try std.testing.expectEqual(@as(u16, 65535), transform.scaled(u16, 1000, 65.535));
+    }
+}
+
+test "scaled accepts signed negative values" {
+    comptime {
+        try std.testing.expectEqual(@as(i16, -3300), transform.scaled(i16, 1000, -3.3));
+        try std.testing.expectEqual(@as(i16, -32768), transform.scaled(i16, 1, -32768.0));
+        try std.testing.expectEqual(@as(i8, -128), transform.scaled(i8, 1, -128.0));
+    }
+}
+
+test "scaledNearest at i16 boundaries" {
+    comptime {
+        try std.testing.expectEqual(@as(i16, 32767), transform.scaledNearest(i16, 1, 32767.0));
+        try std.testing.expectEqual(@as(i16, -32768), transform.scaledNearest(i16, 1, -32768.0));
+    }
+}
