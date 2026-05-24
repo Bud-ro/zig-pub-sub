@@ -64,7 +64,7 @@ pub fn TimerModuleStats(SystemDataType: type) type {
 
         fn onEnableChange(ctx: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
             const args: *const SystemDataType.OnChangeArgs = @ptrCast(@alignCast(_args.?));
-            var system_data: *SystemDataType = @ptrCast(@alignCast(publisher));
+            const system_data: *SystemDataType = @ptrCast(@alignCast(publisher));
             const self: *Self = @ptrCast(@alignCast(ctx));
             const is_enabled: *const bool = @ptrCast(args.data);
 
@@ -84,25 +84,6 @@ pub fn TimerModuleStats(SystemDataType: type) type {
         }
 
         // TODO: runtime_subscribe
-        fn innerInit(
-            self: *Self,
-            system_data: *SystemDataType,
-            timer_module: *TimerModule,
-            enable_erd_idx: u16,
-            output_erd_idx: u16,
-        ) void {
-            self.system_data = system_data;
-            self.timer_module = timer_module;
-            self.enable_erd_idx = enable_erd_idx;
-            self.output_erd_idx = output_erd_idx;
-
-            var is_enabled: bool = undefined;
-            system_data.runtimeRead(enable_erd_idx, &is_enabled);
-
-            const init_data: SystemDataType.OnChangeArgs = .{ .data = &is_enabled, .system_data_idx = enable_erd_idx };
-            onEnableChange(self, &init_data, system_data);
-        }
-
         /// Initialize the stats module and wire up the enable ERD subscription.
         pub fn init(
             self: *Self,
@@ -116,14 +97,22 @@ pub fn TimerModuleStats(SystemDataType: type) type {
                 std.debug.assert(SystemDataType.erdFromEnum(output_erd).T == StatMeasurement);
             }
 
+            const enable_erd_idx = SystemDataType.erdFromEnum(enable_erd).system_data_idx;
+            const output_erd_idx = SystemDataType.erdFromEnum(output_erd).system_data_idx;
+
+            self.system_data = system_data;
+            self.timer_module = timer_module;
+            self.enable_erd_idx = enable_erd_idx;
+            self.output_erd_idx = output_erd_idx;
+
             system_data.subscribe(enable_erd, self, onEnableChange);
 
-            self.innerInit(
-                system_data,
-                timer_module,
-                SystemDataType.erdFromEnum(enable_erd).system_data_idx,
-                SystemDataType.erdFromEnum(output_erd).system_data_idx,
-            );
+            // Fire onEnableChange synchronously to pick up the current enable
+            // value so the stats timers reflect ERD state at init time.
+            var is_enabled: bool = undefined;
+            system_data.runtimeRead(enable_erd_idx, &is_enabled);
+            const init_data: SystemDataType.OnChangeArgs = .{ .data = &is_enabled, .system_data_idx = enable_erd_idx };
+            onEnableChange(self, &init_data, system_data);
         }
     };
 }

@@ -69,7 +69,7 @@ pub const Timer = struct {
     /// Callback invoked when the timer expires.
     pub const TimerCallback = *const fn (ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void;
 
-    fn isPeriodic(self: *Timer) bool {
+    fn isPeriodic(self: *const Timer) bool {
         return (self.ctx & 1) == 1;
     }
 
@@ -81,7 +81,7 @@ pub const Timer = struct {
         }
     }
 
-    fn getCtxPtr(self: *Timer) ?*anyopaque {
+    fn getCtxPtr(self: *const Timer) ?*anyopaque {
         return @ptrFromInt(self.ctx & ~@as(usize, 1));
     }
 };
@@ -104,7 +104,7 @@ pub const TimerModule = struct {
         const time_at_start_of_rtc = self.safelyGetCurrentTime();
 
         if (self.active_timers.first) |next_expiring| {
-            var timer: *Timer = @fieldParentPtr("node", next_expiring);
+            const timer: *Timer = @fieldParentPtr("node", next_expiring);
 
             // Expired timers will have a `distance` in the range of [0, longest_delay_before_servicing_timer]
             // This calculation loops over from `std.math.maxInt(Ticks)` to 0.
@@ -147,7 +147,20 @@ pub const TimerModule = struct {
     /// If you get an error, declare your variable as `align(2)` or use a container
     /// struct with larger alignment
     pub fn startOneShot(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
-        sometimes.assert(&@src(), self.active_timers.first == &timer.node); // Re-starting a periodic as a one-shot
+        self.startInner(timer, duration, ctx, callback, false);
+    }
+
+    /// Starts a periodic timer, with first expiration set to current time + period
+    /// NOTE: `ctx` must be align(2) to allow an `bool` due to optimization reasons
+    /// If you get an error, declare your variable as `align(2)` or use a container
+    /// struct with larger alignment
+    pub fn startPeriodic(self: *TimerModule, timer: *Timer, period: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
+        self.startInner(timer, period, ctx, callback, true);
+    }
+
+    // zlinter-disable-next-line max_positional_args - thin private helper shared by startOneShot/startPeriodic
+    fn startInner(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback, is_periodic: bool) void {
+        sometimes.assert(&@src(), self.active_timers.first == &timer.node); // Re-starting the front-of-queue timer
         if (timer.callback != null or self.active_timers.first == &timer.node) {
             self.removeTimer(timer);
         }
@@ -156,29 +169,9 @@ pub const TimerModule = struct {
         timer.ctx = @intFromPtr(ctx);
         timer.callback = callback;
         timer.duration = duration;
-        timer.setIsPeriodic(false);
+        timer.setIsPeriodic(is_periodic);
 
         self.insertTimer(timer, duration);
-    }
-
-    /// Starts a periodic timer, with first expiration set to current time + period
-    /// NOTE: `ctx` must be align(2) to allow an `bool` due to optimization reasons
-    /// If you get an error, declare your variable as `align(2)` or use a container
-    /// struct with larger alignment
-    pub fn startPeriodic(self: *TimerModule, timer: *Timer, period: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
-        sometimes.assert(&@src(), self.active_timers.first == &timer.node); // Re-starting a periodic as a periodic
-        if (timer.callback != null or self.active_timers.first == &timer.node) {
-            self.removeTimer(timer);
-        }
-
-        std.debug.assert(period <= Timer.max_ticks);
-
-        timer.ctx = @intFromPtr(ctx);
-        timer.callback = callback;
-        timer.duration = period;
-        timer.setIsPeriodic(true);
-
-        self.insertTimer(timer, period);
     }
 
     /// Stops an active or paused timer
@@ -230,24 +223,18 @@ pub const TimerModule = struct {
 
     /// Returns true if a timer is active
     pub fn isActive(self: *TimerModule, timer: *Timer) bool {
-        var current_elem = self.active_timers.first;
-        while (current_elem != null) {
-            if (current_elem == &timer.node) {
-                return true;
-            }
-            current_elem = current_elem.?.next;
-        }
-        return false;
+        return listContains(&self.active_timers, &timer.node);
     }
 
     /// Returns true if a timer is paused
     pub fn isPaused(self: *TimerModule, timer: *Timer) bool {
-        var current_elem = self.paused_timers.first;
-        while (current_elem != null) {
-            if (current_elem == &timer.node) {
-                return true;
-            }
-            current_elem = current_elem.?.next;
+        return listContains(&self.paused_timers, &timer.node);
+    }
+
+    fn listContains(list: *const std.SinglyLinkedList, node: *const std.SinglyLinkedList.Node) bool {
+        var current_elem = list.first;
+        while (current_elem) |elem| : (current_elem = elem.next) {
+            if (elem == node) return true;
         }
         return false;
     }
@@ -274,13 +261,9 @@ pub const TimerModule = struct {
         return timer_module.safelyGetCurrentTime() -% timer_start;
     }
 
-    fn remainingTicksActiveTimer(timer: *Timer, current_time: Ticks) Ticks {
-        if ((timer.timer_data.expiration -% current_time) <= Timer.max_ticks) {
-            const duration = timer.timer_data.expiration -% current_time;
-            return duration;
-        } else {
-            return 0;
-        }
+    fn remainingTicksActiveTimer(timer: *const Timer, current_time: Ticks) Ticks {
+        const remaining = timer.timer_data.expiration -% current_time;
+        return if (remaining <= Timer.max_ticks) remaining else 0;
     }
 
     /// Returns the remaining ticks on a timer, returns 0 if the timer is not running
@@ -342,22 +325,21 @@ pub const TimerModule = struct {
 
     /// std.SinglyLinkedList remove, but returns a bool and is valid to call when the node isn't in the list
     fn tryRemove(list: *std.SinglyLinkedList, node: *std.SinglyLinkedList.Node) bool {
-        if (list.first == null) {
-            return false;
-        } else if (list.first == node) {
+        if (list.first == node) {
+            // Covers both the "node is at head" case and the "empty list and
+            // node happens to be null" case (the comparison is false against null).
             list.first = node.next;
             return true;
-        } else {
-            var current_elm = list.first.?;
-            while (current_elm.next) |next| {
-                if (next == node) {
-                    current_elm.next = node.next;
-                    return true;
-                }
-                current_elm = next;
-            }
-            return false;
         }
+        var current_elm = list.first orelse return false;
+        while (current_elm.next) |next| {
+            if (next == node) {
+                current_elm.next = node.next;
+                return true;
+            }
+            current_elm = next;
+        }
+        return false;
     }
 
     /// If this is called, a timer MUST be in either the active list or paused list

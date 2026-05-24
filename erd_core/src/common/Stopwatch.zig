@@ -16,12 +16,7 @@ running: bool = false,
 pub fn stop(this: *StopWatch, timer_module: *const TimerModule) void {
     if (this.running) {
         const elapsedTicks = timer_module.safelyGetCurrentTime() -% this.start_tick;
-        if (this.saved_ticks > std.math.maxInt(timer.Ticks) - elapsedTicks) {
-            this.saved_ticks = std.math.maxInt(timer.Ticks);
-        } else {
-            this.saved_ticks += elapsedTicks;
-        }
-
+        this.saved_ticks = this.saved_ticks +| elapsedTicks;
         this.running = false;
     }
 }
@@ -41,14 +36,10 @@ pub fn reset(this: *StopWatch, timer_module: *const TimerModule) void {
 }
 
 /// Reports the elapsed + saved ticks
-pub fn elapsed(this: *StopWatch, timer_module: *const TimerModule) timer.Ticks {
+pub fn elapsed(this: *const StopWatch, timer_module: *const TimerModule) timer.Ticks {
     if (this.running) {
         const elapsed_ticks_this_run = timer_module.safelyGetCurrentTime() -% this.start_tick;
-        if (this.saved_ticks > std.math.maxInt(timer.Ticks) - elapsed_ticks_this_run) {
-            return std.math.maxInt(timer.Ticks);
-        } else {
-            return this.saved_ticks + elapsed_ticks_this_run;
-        }
+        return this.saved_ticks +| elapsed_ticks_this_run;
     } else {
         return this.saved_ticks;
     }

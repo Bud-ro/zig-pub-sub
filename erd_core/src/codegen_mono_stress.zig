@@ -70,31 +70,12 @@ const MixedDefs = struct {
     // zig fmt: on
 };
 
-const mixed_erd = blk: {
-    var erds = MixedDefs{};
-    var component_counts = [_]u16{ 0, 0, 0 };
-    for (std.meta.fieldNames(MixedDefs), 0..) |name, i| {
-        const idx = @field(erds, name).component_idx;
-        @field(erds, name).data_component_idx = component_counts[idx];
-        @field(erds, name).system_data_idx = i;
-        component_counts[idx] += 1;
-    }
-    break :blk erds;
-};
-
+const mixed_erd = erd_core.erd_table.autofill(MixedDefs);
 const MixedEnum = std.meta.FieldEnum(MixedDefs);
 
-fn mixedRamErds() [5]Erd {
-    return .{ mixed_erd.ram_a, mixed_erd.ram_b, mixed_erd.ram_c, mixed_erd.ram_d, mixed_erd.ram_pair };
-}
-
-fn mixedIndErds() [2]Erd {
-    return .{ mixed_erd.ind_x, mixed_erd.ind_y };
-}
-
-fn mixedConvErds() [3]Erd {
-    return .{ mixed_erd.conv_sum, mixed_erd.conv_flag, mixed_erd.conv_wide };
-}
+const mixed_ram_erds = erd_core.erd_table.collectByComponent(mixed_erd, Ram);
+const mixed_ind_erds = erd_core.erd_table.collectByComponent(mixed_erd, Indirect);
+const mixed_conv_erds = erd_core.erd_table.collectByComponent(mixed_erd, Converted);
 
 fn indXFn(data: *u32) void {
     data.* = 0xBEEF;
@@ -130,13 +111,9 @@ const mixed_conv_mappings = [_]ConvertedMapping{
     .map(mixed_erd.conv_wide, convWideFn, &.{ mixed_erd.ram_a, mixed_erd.ram_d }),
 };
 
-const mixed_ram_defs = mixedRamErds();
-const mixed_ind_defs = mixedIndErds();
-const mixed_conv_defs = mixedConvErds();
-
-const MixedRam = erd_core.data_component.Ram(&mixed_ram_defs);
-const MixedInd = erd_core.data_component.Indirect(&mixed_ind_defs, mixed_ind_mappings);
-const MixedConv = erd_core.data_component.Converted(&mixed_conv_defs, mixed_conv_mappings);
+const MixedRam = erd_core.data_component.Ram(&mixed_ram_erds);
+const MixedInd = erd_core.data_component.Indirect(&mixed_ind_erds, mixed_ind_mappings);
+const MixedConv = erd_core.data_component.Converted(&mixed_conv_erds, mixed_conv_mappings);
 
 const MixedComponents = struct {
     ram: MixedRam,

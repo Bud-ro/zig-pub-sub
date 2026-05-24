@@ -25,20 +25,25 @@ callback: ?Callback,
 const Self = @This();
 
 /// Dispatch on-change callbacks to a contiguous subscription slot range.
+/// Iterates `slots` in index order and invokes every non-null callback.
+/// All callbacks see the same `OnChangeArgs` pointer (built once before
+/// the loop); the args live only for the duration of `publish`, so
+/// callbacks must not retain it. Empty slots are skipped.
 /// Shared across all DataComponent instantiations to avoid monomorphization.
 pub noinline fn publish(slots: []Self, system_data_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
-    for (slots) |sub| {
-        if (sub.callback) |cb| {
-            const args: OnChangeArgs = .{
-                .system_data_idx = system_data_idx,
-                .data = data,
-            };
-            cb(sub.context, @ptrCast(&args), publisher);
-        }
+    const args: OnChangeArgs = .{
+        .system_data_idx = system_data_idx,
+        .data = data,
+    };
+    for (slots) |*sub| {
+        const cb = sub.callback orelse continue;
+        cb(sub.context, @ptrCast(&args), publisher);
     }
 }
 
-/// Add a subscription callback. Deduplicates by callback identity.
+/// Add a subscription callback. Deduplicates by callback identity (a
+/// second subscribe with the same `callback` keeps the original `context`
+/// and does NOT consume another slot). Panics if `slots` is full.
 /// Shared across all DataComponentSubscription instantiations to avoid monomorphization.
 pub noinline fn subscribe(slots: []Self, context: ?*anyopaque, callback: Callback) void {
     var first_free: ?*Self = null;
@@ -52,15 +57,12 @@ pub noinline fn subscribe(slots: []Self, context: ?*anyopaque, callback: Callbac
         }
     }
 
-    if (first_free == null) {
-        @panic("ERD oversubscribed!");
-    }
-
-    first_free.?.context = context;
-    first_free.?.callback = callback;
+    const slot = first_free orelse @panic("ERD oversubscribed!");
+    slot.* = .{ .context = context, .callback = callback };
 }
 
-/// Remove a subscription callback by identity.
+/// Remove a subscription callback by identity. No-op if the callback isn't
+/// present in `slots` (and no-op when `slots` is empty).
 /// Shared across all DataComponentSubscription instantiations to avoid monomorphization.
 pub noinline fn unsubscribe(slots: []Self, callback: Callback) void {
     for (slots) |*sub| {
@@ -97,6 +99,12 @@ fn cbB(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
 }
 fn cbC(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
     cb_c_calls += 1;
+}
+
+fn resetCallCounts() void {
+    cb_a_calls = 0;
+    cb_b_calls = 0;
+    cb_c_calls = 0;
 }
 
 const empty: Self = .{ .context = null, .callback = null };
@@ -220,9 +228,7 @@ test "publish passes system_data_idx, data, publisher, and context to callback" 
 }
 
 test "publish tolerates a hole created by unsubscribe" {
-    cb_a_calls = 0;
-    cb_b_calls = 0;
-    cb_c_calls = 0;
+    resetCallCounts();
     var slots = [_]Self{empty} ** 3;
 
     subscribe(&slots, null, cbA);
@@ -256,4 +262,23 @@ test "subscribe then unsubscribe then subscribe reuses slot" {
 
     try expectEqual(cbB, slots[0].callback);
     try expectEqual(null, slots[1].callback);
+}
+
+test "unsubscribe on empty slot slice is a no-op" {
+    var slots = [_]Self{};
+    unsubscribe(&slots, cbA);
+    // No assertion needed: must simply not panic / OOB.
+}
+
+test "publish on all-empty slot slice invokes no callbacks" {
+    resetCallCounts();
+    var slots = [_]Self{empty} ** 3;
+    var publisher: u8 = 0;
+    var payload: u8 = 0;
+
+    publish(&slots, 0, &payload, &publisher);
+
+    try expectEqual(0, cb_a_calls);
+    try expectEqual(0, cb_b_calls);
+    try expectEqual(0, cb_c_calls);
 }
