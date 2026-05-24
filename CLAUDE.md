@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Structure
 
-This is a **multi-package monorepo** with five Zig packages:
+This is a **multi-package monorepo** with six Zig packages:
 
 | Package | Path | Description |
 |---------|------|-------------|
@@ -13,6 +13,7 @@ This is a **multi-package monorepo** with five Zig packages:
 | **data_gen** | `data_gen/` | Constraint-based data generation for property-based testing |
 | **app** | `app/` | Demo application - wires ERD definitions to concrete components |
 | **esp8266** | `esp8266/` | ESP8266 firmware via Zig C backend - WiFi scanning, erd_core integration, LED blink |
+| **elf_size** | `elf_size/` | ELF section-size reporter for embedded firmware builds |
 
 ## Build & Test Commands
 
@@ -43,12 +44,16 @@ This is a **typed publish-subscribe data system** for embedded/real-time Zig app
 
 **ERD (Entity-Reference-Designator)** - A named, typed data field with a 16-bit handle. Each ERD declares its type, owner, and subscription slot count at comptime.
 
-**SystemData** - Top-level aggregator that owns data components and subscription arrays. Provides the public API: `read`, `write`, `subscribe`, `unsubscribe`, `publish`. Also has `runtime_read`/`runtime_write` for dynamic ERD access.
+**SystemData** - Top-level aggregator that owns data components and subscription arrays. Provides the public API: `read`, `write`, `modify`, `subscribe`, `unsubscribe`. Also has `runtimeRead`/`runtimeWrite` for dynamic ERD access. SystemData's comptime block rejects duplicate `erd_number` values in the ERD table.
 
 **Data Components** own ERDs and provide storage:
 - **RamDataComponent** (`erd_core/src/ram_data_component.zig`) - Packed byte-array storage with comptime-optimized reads/writes and on-change subscriptions.
 - **IndirectDataComponent** (`erd_core/src/indirect_data_component.zig`) - Read-only computed values via function pointers.
 - **ConvertedDataComponent** (`erd_core/src/converted_data_component.zig`) - Derived data computed from other ERDs via mappings.
+
+**erd_table** (`erd_core/src/erd_table.zig`) - Comptime helpers for populating `ErdDefinitions` instances: `autofill` assigns `data_component_idx`/`system_data_idx`; `numErdsByComponent` and `collectByComponent` extract per-component ERD slices.
+
+**erd_mapping** (`erd_core/src/erd_mapping.zig`) - Comptime helpers shared by IndirectDataComponent and ConvertedDataComponent for resolving ERD-to-function-pointer mappings.
 
 **Subscription** - Fixed-size callback arrays per ERD, identity by function pointer.
 
@@ -62,7 +67,7 @@ This is a **typed publish-subscribe data system** for embedded/real-time Zig app
 
 ### Data Generation Framework (data_gen)
 
-`data_gen/src/` - Constraint-based data generation for property-based testing. Completely standalone (no dependencies beyond std).
+`data_gen/src/` - Constraint-based comptime validation of embedded system configurations. Provides four modules: `constraint` (primitive checks returning `?[]const u8`), `contract` (recursive `contractValidate` protocol on struct/array fields), `transform` (float->fixed-point/scaled-int conversions with exactness errors), `generator` (comptime array builders for lookup tables). Completely standalone (no dependencies beyond std).
 
 ### Application (app)
 
@@ -78,6 +83,7 @@ Each package has its own tests aggregated via `src/root.zig` test blocks. The ro
 - **erd_schema** depends on `erd_core` (path dep)
 - **data_gen** has no dependencies
 - **app** depends on `erd_core` and `erd_schema` (path deps)
+- **elf_size** has no dependencies (standalone CLI + library)
 - **esp8266** depends on `erd_core` (via C backend `--dep`/`-M` flags), ESP8266 NonOS SDK 2.2.1 (git cloned to `esp8266/sdk/`, gitignored), `xtensa-lx106-elf-gcc` (apt), `esptool` (apt)
 
 ## Code Style
@@ -96,4 +102,4 @@ Before committing, run `zig build lint` from the repo root to check for style vi
 
 ## Formatting
 
-After completing any code changes, run `zig fmt erd_core/src/ erd_schema/src/ data_gen/src/ app/src/ esp8266/src/ esp8266/build.zig` to format all packages before reporting results.
+After completing any code changes, run `zig fmt erd_core/src/ erd_schema/src/ data_gen/src/ app/src/ elf_size/src/ esp8266/src/ esp8266/build.zig` to format all packages before reporting results.

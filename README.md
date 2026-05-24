@@ -1,6 +1,6 @@
 # zig-pub-sub
 
-A typed publish-subscribe data system for embedded/real-time Zig applications. Uses comptime ERD (Entity-Reference-Descriptor) definitions to achieve zero-cost abstractions over static memory.
+A typed publish-subscribe data system for embedded/real-time Zig applications. Uses comptime ERD (Entity-Reference-Designator) definitions to achieve zero-cost abstractions over static memory.
 
 ## Packages
 
@@ -10,6 +10,8 @@ A typed publish-subscribe data system for embedded/real-time Zig applications. U
 | [`erd_schema`](erd_schema/) | ERD serialization - transforms ERD definitions into JSON |
 | [`data_gen`](data_gen/) | Constraint-based data generation |
 | [`app`](app/) | Demo application wiring ERD definitions to concrete components |
+| [`esp8266`](esp8266/) | ESP8266 firmware: erd_core on an embedded target via the Zig C backend |
+| [`elf_size`](elf_size/) | ELF section-size reporter for embedded firmware builds |
 
 ## Quick Start
 
