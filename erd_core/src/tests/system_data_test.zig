@@ -68,7 +68,7 @@ test "retain reference to system_data" {
 }
 
 fn turnOffBoolAndBumpVersion(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
-    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+    const system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
     system_data.write(.some_bool, false);
     system_data.write(.application_version, system_data.read(.application_version) + 1);
@@ -104,7 +104,7 @@ test "re-subscribe" {
 }
 
 fn forwardContext(context: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
-    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+    const system_data: *SystemData = @ptrCast(@alignCast(publisher));
     const a: *u8 = @ptrCast(context.?);
 
     system_data.write(.unaligned_u16, a.*);
@@ -122,7 +122,7 @@ test "subscription with context" {
 
 fn contextMustMatchArgs(context: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
     const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
-    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+    const system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
     const a: *u16 = @ptrCast(@alignCast(context.?));
     const b: *const u16 = @ptrCast(@alignCast(args.data));
@@ -149,7 +149,7 @@ test "subscription with args" {
 
 fn switchOnSystemDataIdx(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
     const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
-    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+    const system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
     if (args.system_data_idx != SystemData.erdFromEnum(.some_bool).system_data_idx) {
         system_data.write(.best_u16, system_data.read(.best_u16) + 1);
@@ -192,7 +192,7 @@ test "subscription args using system_data_idx" {
 }
 
 fn bumpSomeU16(_: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
-    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+    const system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
     system_data.write(.unaligned_u16, system_data.read(.unaligned_u16) + 1);
 }
@@ -231,12 +231,12 @@ test "exact subscription enforcement" {
     const exceptions = [_]SystemData.SubException{
         .{ .erd_enum = .some_bool, .missing = 1 },
     };
-    try system_data.verifyAllSubsAreSaturated(&exceptions);
+    try system_data.verifyAllSubsAreSaturated(&exceptions, null);
 }
 
 fn scratchAllocating(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
     const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
-    var system_data: *SystemData = @ptrCast(@alignCast(publisher));
+    const system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
     const val: *const u16 = @ptrCast(@alignCast(args.data));
     const allocated = system_data.scratchAlloc(u32, val.*);
@@ -267,4 +267,131 @@ test "scratch allocations" {
     // One must be very careful since this data is now considered freed, but there's no runtime check on it.
     // system_data.write(.application_version, more_allocation[0]);
     // try std.testing.expectEqual(0b10101010, system_data.read(.application_version));
+}
+
+// --- modify() end-to-end through SystemData ---
+
+const FourField = extern struct { a: u32, b: u32, c: u32, d: u32 };
+const ModifyTestSystem = SystemDataTestDouble.create(struct {
+    box: Erd = SystemDataTestDouble.ramErd(FourField, .{ .subs = 1 }),
+});
+const ModifySD = ModifyTestSystem.SystemData;
+
+var modify_publish_count: u32 = 0;
+var modify_last_value: FourField = undefined;
+
+fn captureBox(_: ?*anyopaque, _args: ?*const anyopaque, _: *anyopaque) void {
+    const args: *const ModifySD.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    const val: *const FourField = @ptrCast(@alignCast(args.data));
+    modify_publish_count += 1;
+    modify_last_value = val.*;
+}
+
+test "verifyAllSubsAreSaturated returns error when under-subscribed" {
+    var system_data = TestSystem.init();
+    // some_bool has 3 slots; only fill 1. No exceptions; expect under-sub error.
+    system_data.subscribe(.some_bool, null, whatever);
+    system_data.subscribe(.unaligned_u16, null, whatever);
+    system_data.subscribe(.cool_u16, null, whatever);
+
+    try std.testing.expectError(error.ErdWithUnexpectedSubCount, system_data.verifyAllSubsAreSaturated(&.{}, null));
+}
+
+test "verifyAllSubsAreSaturated errors when exception names a zero-sub ERD" {
+    var system_data = TestSystem.init();
+    // application_version has subs = 0; can't have a SubException for it.
+    const exceptions = [_]SystemData.SubException{
+        .{ .erd_enum = .application_version, .missing = 0 },
+    };
+    try std.testing.expectError(error.ErdWithNoSubsInExceptions, system_data.verifyAllSubsAreSaturated(&exceptions, null));
+}
+
+test "verifyAllSubsAreSaturated errors when an ERD is over-subscribed vs exception" {
+    var system_data = TestSystem.init();
+    // some_bool has 3 slots; subscribe 2 callbacks. With exception missing=2, the
+    // expected count is 1, so 2 subscribers reads as over-subscribed.
+    system_data.subscribe(.some_bool, null, whatever);
+    system_data.subscribe(.some_bool, null, bumpSomeU16);
+    system_data.subscribe(.unaligned_u16, null, whatever);
+    system_data.subscribe(.cool_u16, null, whatever);
+
+    const exceptions = [_]SystemData.SubException{
+        .{ .erd_enum = .some_bool, .missing = 2 },
+    };
+    try std.testing.expectError(error.ErdWithUnexpectedSubCount, system_data.verifyAllSubsAreSaturated(&exceptions, null));
+}
+
+test "verifyAllSubsAreSaturated writes diagnostics to provided writer" {
+    var system_data = TestSystem.init();
+    system_data.subscribe(.some_bool, null, whatever);
+    system_data.subscribe(.unaligned_u16, null, whatever);
+    system_data.subscribe(.cool_u16, null, whatever);
+
+    var buf: [256]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    try std.testing.expectError(error.ErdWithUnexpectedSubCount, system_data.verifyAllSubsAreSaturated(&.{}, &w));
+    try std.testing.expect(std.mem.find(u8, w.buffered(), "some_bool") != null);
+    try std.testing.expect(std.mem.find(u8, w.buffered(), "under-subscribing") != null);
+}
+
+test "SystemData accepts an ERD with erd_number = 0xFFFF" {
+    // Regression: the duplicate-erd_number BitSet used to be sized to
+    // `maxInt(ErdHandle) = 65535` bits (valid indices 0..65534), so an
+    // ERD declared with erd_number 0xFFFF indexed past the end of the
+    // bit set. Constructing this SystemData verifies that boundary
+    // works comptime-cleanly.
+    const MaxErd = SystemDataTestDouble.create(struct {
+        boundary: Erd = SystemDataTestDouble.ramErd(u8, .{ .erd_number = 0xFFFF }),
+    });
+    var sd = MaxErd.init();
+    sd.write(.boundary, 0xAB);
+    try std.testing.expectEqual(0xAB, sd.read(.boundary));
+}
+
+test "verifyAllSubsAreSaturated diagnostics name the zero-sub ERD exception" {
+    var system_data = TestSystem.init();
+    const exceptions = [_]SystemData.SubException{
+        .{ .erd_enum = .application_version, .missing = 0 },
+    };
+
+    var buf: [256]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    try std.testing.expectError(error.ErdWithNoSubsInExceptions, system_data.verifyAllSubsAreSaturated(&exceptions, &w));
+    try std.testing.expect(std.mem.find(u8, w.buffered(), "application_version") != null);
+}
+
+test "verifyAllSubsAreSaturated writes nothing on success even with writer" {
+    var system_data = TestSystem.init();
+    // Saturate the only ERDs with subs so verify returns successfully.
+    system_data.subscribe(.some_bool, null, whatever);
+    system_data.subscribe(.some_bool, null, bumpSomeU16);
+    system_data.subscribe(.some_bool, null, turnOffBoolAndBumpVersion);
+    system_data.subscribe(.unaligned_u16, null, whatever);
+    system_data.subscribe(.cool_u16, null, whatever);
+
+    var buf: [256]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    try system_data.verifyAllSubsAreSaturated(&.{}, &w);
+    try std.testing.expectEqual(@as(usize, 0), w.buffered().len);
+}
+
+test "modify publishes the mutated struct to subscribers" {
+    modify_publish_count = 0;
+    modify_last_value = std.mem.zeroes(FourField);
+
+    var sd: ModifySD = ModifyTestSystem.init();
+    sd.subscribe(.box, null, captureBox);
+
+    sd.modify(.box, struct {
+        fn m(box: *FourField) void {
+            box.a = 1;
+            box.b = 2;
+            box.c = 3;
+            box.d = 4;
+        }
+    }.m);
+
+    try std.testing.expectEqual(1, modify_publish_count);
+    try std.testing.expectEqual(FourField{ .a = 1, .b = 2, .c = 3, .d = 4 }, modify_last_value);
+    try std.testing.expectEqual(FourField{ .a = 1, .b = 2, .c = 3, .d = 4 }, sd.read(.box));
 }

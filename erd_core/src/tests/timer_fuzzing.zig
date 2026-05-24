@@ -152,5 +152,5 @@ fn startSomeTimerAsPeriodic(ctx: ?*anyopaque, _timer_module: *TimerModule, _: *T
     const duration = rng.intRangeAtMost(timer.Ticks, 0, Timer.longest_delay_before_servicing_timer);
     const callback = callbacks[rng.intRangeAtMost(u8, 0, callbacks.len - 1)];
 
-    _timer_module.startOneShot(some_timer, duration, rng, callback);
+    _timer_module.startPeriodic(some_timer, duration, rng, callback);
 }

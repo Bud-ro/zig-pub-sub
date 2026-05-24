@@ -110,12 +110,8 @@ test "structs" {
     try std.testing.expectEqual(@TypeOf(padded){ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF }, padded);
 }
 
-test "failure upon writing incorrect types" {
-    return error.SkipZigTest; // Test for compile error
-
-    // var ram_data = RamDataComponent.init();
-    // std.testing.expectError(, ram_data.write(erd_bool, 20, &dummy_publisher));
-}
+// NOTE: writing a value of the wrong type to a RAM ERD is a compile error
+// (the `write` API takes `data: erd.T`), and so cannot be tested at runtime.
 
 test "runtime reads" {
     var ram_data = RamDataComponent.init();
@@ -142,4 +138,78 @@ test "runtime writes" {
 
     ram_data.write(erd_bool, false, &dummy_publisher);
     try std.testing.expectEqual(false, ram_data.read(erd_bool));
+}
+
+// Exercise the > 16-byte change-detection path in `write` (separate from the
+// small-int readInt path that fits inside one [u128] compare).
+const BigBlob = extern struct { bytes: [24]u8, tag: u32 };
+
+const BigBlobErds = [_]Erd{
+    .{ .erd_number = null, .T = BigBlob, .component_idx = 0, .subs = 1, .data_component_idx = 0, .system_data_idx = 0 },
+};
+const BigBlobErd = BigBlobErds[0];
+const BigBlobRam = erd_core.data_component.Ram(&BigBlobErds);
+
+var big_blob_publish_count: u32 = 0;
+fn bigBlobPublishCounter(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
+    big_blob_publish_count += 1;
+}
+
+test "write detects change in > 16-byte struct" {
+    big_blob_publish_count = 0;
+    var ram = BigBlobRam.init();
+    ram.subs.subscribe(BigBlobErd, null, bigBlobPublishCounter);
+
+    // Storage is zero-initialized; first non-zero write must publish.
+    var blob = BigBlob{ .bytes = [_]u8{0} ** 24, .tag = 1 };
+    ram.write(BigBlobErd, blob, &dummy_publisher);
+    try std.testing.expectEqual(1, big_blob_publish_count);
+
+    // identical write -> no publish
+    ram.write(BigBlobErd, blob, &dummy_publisher);
+    try std.testing.expectEqual(1, big_blob_publish_count);
+
+    // change only in the trailing bytes after the first 16
+    blob.bytes[20] = 0xAB;
+    ram.write(BigBlobErd, blob, &dummy_publisher);
+    try std.testing.expectEqual(2, big_blob_publish_count);
+
+    // change only in `tag` (the 4-byte tail past the 8-byte chunks)
+    blob.tag = 2;
+    ram.write(BigBlobErd, blob, &dummy_publisher);
+    try std.testing.expectEqual(3, big_blob_publish_count);
+}
+
+// Exercise the partial-word tail branch of `bytesChanged` (len > 16 with
+// len % 8 != 0). 17 bytes is the smallest size that triggers both the
+// readInt(u64) chunk loop and the trailing partial-word read.
+const OddSizeBlob = extern struct { bytes: [17]u8 };
+
+const OddSizeErds = [_]Erd{
+    .{ .erd_number = null, .T = OddSizeBlob, .component_idx = 0, .subs = 1, .data_component_idx = 0, .system_data_idx = 0 },
+};
+const OddSizeErd = OddSizeErds[0];
+const OddSizeRam = erd_core.data_component.Ram(&OddSizeErds);
+
+var odd_blob_publish_count: u32 = 0;
+fn oddBlobPublishCounter(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
+    odd_blob_publish_count += 1;
+}
+
+test "write detects change in tail byte of 17-byte struct" {
+    odd_blob_publish_count = 0;
+    var ram = OddSizeRam.init();
+    ram.subs.subscribe(OddSizeErd, null, oddBlobPublishCounter);
+
+    var blob = OddSizeBlob{ .bytes = [_]u8{0} ** 17 };
+    blob.bytes[0] = 0x42;
+    ram.write(OddSizeErd, blob, &dummy_publisher);
+    try std.testing.expectEqual(1, odd_blob_publish_count);
+
+    // Change ONLY the tail byte (index 16). Previous bytes 0..15 are
+    // unchanged, so the readInt(u64) chunks compare equal; only the
+    // 1-byte tail read should detect this difference.
+    blob.bytes[16] = 0xFF;
+    ram.write(OddSizeErd, blob, &dummy_publisher);
+    try std.testing.expectEqual(2, odd_blob_publish_count);
 }

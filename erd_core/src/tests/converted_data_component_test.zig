@@ -20,45 +20,11 @@ const ErdDefs = struct {
     // zig fmt: on
 };
 
-const erd_instance = blk: {
-    var erds = ErdDefs{};
-    const max_component = 1;
-    var counts = [_]u16{0} ** (max_component + 1);
-    for (std.meta.fieldNames(ErdDefs), 0..) |name, i| {
-        const idx = @field(erds, name).component_idx;
-        @field(erds, name).data_component_idx = counts[idx];
-        counts[idx] += 1;
-        @field(erds, name).system_data_idx = i;
-    }
-    break :blk erds;
-};
-
+const erd_instance = erd_core.erd_table.autofill(ErdDefs);
 const ErdEnum = std.meta.FieldEnum(ErdDefs);
 
-fn collectComponentErds(component_idx: comptime_int) [countComponentErds(component_idx)]Erd {
-    var result: [countComponentErds(component_idx)]Erd = undefined;
-    var i: usize = 0;
-    for (std.meta.fieldNames(ErdDefs)) |name| {
-        if (@field(erd_instance, name).component_idx == component_idx) {
-            result[i] = @field(erd_instance, name);
-            i += 1;
-        }
-    }
-    return result;
-}
-
-fn countComponentErds(component_idx: comptime_int) comptime_int {
-    var count: comptime_int = 0;
-    for (std.meta.fieldNames(ErdDefs)) |name| {
-        if (@field(erd_instance, name).component_idx == component_idx) {
-            count += 1;
-        }
-    }
-    return count;
-}
-
-const ram_erds = collectComponentErds(Ram);
-const converted_erds = collectComponentErds(Converted);
+const ram_erds = erd_core.erd_table.collectByComponent(erd_instance, Ram);
+const converted_erds = erd_core.erd_table.collectByComponent(erd_instance, Converted);
 
 const RamComponent = RamDataComponent(&ram_erds);
 
@@ -165,6 +131,19 @@ test "unsubscribe from converted ERD" {
     try std.testing.expectEqual(1, subscriber_call_count);
 }
 
+test "re-subscribe to converted ERD reuses slot" {
+    subscriber_call_count = 0;
+    var sd: SystemData = undefined;
+    setupSystem(&sd);
+
+    sd.subscribe(.sum_ab, null, testSubscriber);
+    sd.unsubscribe(.sum_ab, testSubscriber);
+    sd.subscribe(.sum_ab, null, testSubscriber);
+
+    sd.write(.dep_a, 1);
+    try std.testing.expectEqual(1, subscriber_call_count);
+}
+
 test "converted ERD with no subscribers still computes on read" {
     var sd: SystemData = undefined;
     setupSystem(&sd);
@@ -178,7 +157,7 @@ var cascaded_value: u16 = 0;
 fn cascadeSubscriber(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
     const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     const val: *const u16 = @ptrCast(@alignCast(args.data));
-    var sd: *SystemData = @ptrCast(@alignCast(publisher));
+    const sd: *SystemData = @ptrCast(@alignCast(publisher));
 
     cascaded_value = val.*;
     sd.write(.dep_c, val.*);
@@ -195,4 +174,21 @@ test "converted subscriber can write other ERDs" {
     sd.write(.dep_b, 4);
     try std.testing.expectEqual(7, cascaded_value);
     try std.testing.expectEqual(7, sd.read(.dep_c));
+}
+
+test "runtimeRead recomputes converted ERD value" {
+    var sd: SystemData = undefined;
+    setupSystem(&sd);
+
+    sd.write(.dep_a, 11);
+    sd.write(.dep_b, 22);
+
+    var out: u16 = undefined;
+    sd.runtimeRead(SystemData.erdFromEnum(.sum_ab).system_data_idx, &out);
+    try std.testing.expectEqual(33, out);
+
+    // recomputes on each call
+    sd.write(.dep_a, 100);
+    sd.runtimeRead(SystemData.erdFromEnum(.sum_ab).system_data_idx, &out);
+    try std.testing.expectEqual(122, out);
 }
