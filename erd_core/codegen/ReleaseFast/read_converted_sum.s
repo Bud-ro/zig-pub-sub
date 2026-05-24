@@ -3,7 +3,7 @@
 ; PER-ERD: compute inlined. Cannot per-type share (unique fn).
 ;
 read_converted_sum:
-        mov	rcx, qword ptr [rdi + 168]
+        mov	rcx, qword ptr [rdi + 136]
         movzx	eax, word ptr [rcx + 5]
         add	eax, dword ptr [rcx]
         ret

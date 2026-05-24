@@ -14,9 +14,9 @@ write_then_read_converted:
         mov	rdi, rbx
         xor	esi, esi
         mov	rcx, rbx
-        call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
+        call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish"
 .L0:
-        mov	rcx, qword ptr [rbx + 168]
+        mov	rcx, qword ptr [rbx + 136]
         movzx	eax, word ptr [rcx + 5]
         add	eax, dword ptr [rcx]
         add	rsp, 16
@@ -25,7 +25,7 @@ write_then_read_converted:
 
 ; --- called functions ---
 
-"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish":
+"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish":
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si

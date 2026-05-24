@@ -15,7 +15,7 @@ write_ram_with_converted_deps:
         lea	rdx, [rsp + 4]
         xor	esi, esi
         mov	rcx, rdi
-        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
+        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish"
 .L1:
         pop	rax
         ret

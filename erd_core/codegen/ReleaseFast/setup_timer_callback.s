@@ -10,26 +10,26 @@ setup_timer_callback:
         sete	r9b
         or	r9b, r8b
         je	.L0
-        test	rcx, rcx
-        je	.L1
         mov	r8, rsi
         cmp	rcx, rax
+        je	.L1
+        test	rcx, rcx
         je	.L2
 .L3:
         mov	r9, qword ptr [rcx]
         test	r9, r9
-        je	.L1
+        je	.L2
         mov	r8, rcx
         mov	rcx, r9
         cmp	r9, rax
         jne	.L3
-        jmp	.L2
-.L1:
+        jmp	.L1
+.L2:
         mov	rcx, qword ptr [rsi + 8]
-        test	rcx, rcx
-        je	.L0
         cmp	rcx, rax
         je	.L4
+        test	rcx, rcx
+        je	.L0
 .L5:
         mov	r9, qword ptr [rcx]
         test	r9, r9
@@ -38,10 +38,10 @@ setup_timer_callback:
         mov	rcx, r9
         cmp	r9, rax
         jne	.L5
-        jmp	.L2
+        jmp	.L1
 .L4:
         lea	r8, [rsi + 8]
-.L2:
+.L1:
         mov	rcx, qword ptr [rax]
         mov	qword ptr [r8], rcx
 .L0:

@@ -12,14 +12,14 @@ write_ram_flag_with_converted_dep:
         pop	rsi
         lea	rdx, [rsp + 6]
         mov	rcx, rdi
-        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
+        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish"
 .L0:
         pop	rax
         ret
 
 ; --- called functions ---
 
-".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish":
+".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish":
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si

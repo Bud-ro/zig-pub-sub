@@ -69,24 +69,24 @@ setup_timer_callback:
 
 .Ltimer.TimerModule.tryRemove:
         mov	rax, qword ptr [rdi]
-        test	rax, rax
-        je	.L6
         cmp	rax, rsi
+        je	.L6
+        test	rax, rax
         je	.L7
 .L8:
         mov	rcx, qword ptr [rax]
         test	rcx, rcx
-        je	.L6
+        je	.L7
         mov	rdi, rax
         mov	rax, rcx
         cmp	rcx, rsi
         jne	.L8
-.L7:
+.L6:
         mov	rax, qword ptr [rsi]
         mov	qword ptr [rdi], rax
         mov	al, 1
         ret
-.L6:
+.L7:
         xor	eax, eax
         ret
 

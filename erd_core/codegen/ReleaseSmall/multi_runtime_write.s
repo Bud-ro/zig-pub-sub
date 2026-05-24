@@ -15,14 +15,12 @@ multi_runtime_write:
         push	r12
         push	rbx
         push	rax
-        movzx	eax, si
-        cmp	byte ptr [rax + .L__anon_0], 0
-        jne	.L1
         mov	rbx, rdx
         mov	r14, rdi
-        movzx	r15d, word ptr [rax + rax + .L__anon_2]
-        movzx	r12d, word ptr [r15 + r15 + .L__anon_3]
-        mov	r13, qword ptr [8*r15 + .L__anon_4]
+        movzx	eax, si
+        movzx	r15d, word ptr [rax + rax + .L__anon_0]
+        movzx	r12d, word ptr [r15 + r15 + .L__anon_1]
+        mov	r13, qword ptr [8*r15 + .L__anon_2]
         add	r13, rdi
         mov	rdi, rdx
         mov	rsi, r13
@@ -34,9 +32,9 @@ multi_runtime_write:
         mov	rdx, r12
         call	memcpy@PLT
         test	bpl, 1
-        jne	.L1
-        cmp	byte ptr [r15 + .L__anon_5], 0
-        je	.L1
+        jne	.L3
+        cmp	byte ptr [r15 + .L__anon_4], 0
+        je	.L3
         mov	rdi, r14
         mov	esi, r15d
         mov	rdx, rbx
@@ -48,8 +46,8 @@ multi_runtime_write:
         pop	r14
         pop	r15
         pop	rbp
-        jmp	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
-.L1:
+        jmp	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish"
+.L3:
         add	rsp, 8
         pop	rbx
         pop	r12
