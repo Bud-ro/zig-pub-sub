@@ -1,6 +1,7 @@
 const std = @import("std");
 const decode = @import("erd_schema").decode;
 const TypeDescriptor = decode.TypeDescriptor;
+const SchemaRegistry = decode.SchemaRegistry;
 
 const FormatResult = struct {
     str: []const u8,
@@ -247,6 +248,69 @@ test "tagged union struct prints only active variant" {
     var r2 = try format(&h.td, &.{ 0x01, 0x00, 0x2A, 0x00 });
     defer r2.deinit();
     try std.testing.expectEqualStrings("{ tag: err, payload.err: 42 }", r2.str);
+}
+
+test "signed primitive with bits=0 reads as zero" {
+    // Regression: signExtend(0, 0) used to compute `1 << (bits - 1)` which
+    // underflows when bits is a usize equal to 0.
+    var h = try parseTd(
+        \\{"kind":"primitive","name":"i0","size":0,"signedness":"signed","bits":0}
+    );
+    defer h.deinit();
+    var r = try format(&h.td, &.{});
+    defer r.deinit();
+    try std.testing.expectEqualStrings("0", r.str);
+}
+
+test "array with len=0 prints empty brackets" {
+    // Regression: zero-length array used to compute `a.size / a.len`, a div-by-zero.
+    var h = try parseTd(
+        \\{"kind":"array","len":0,"size":0,"element":{"kind":"primitive","name":"u8","size":1,"signedness":"unsigned","bits":8}}
+    );
+    defer h.deinit();
+    var r = try format(&h.td, &.{});
+    defer r.deinit();
+    try std.testing.expectEqualStrings("[]", r.str);
+}
+
+fn parseTdImpl(allocator: std.mem.Allocator, json_str: []const u8) !void {
+    const parsed = try std.json.parseFromSlice(std.json.Value, allocator, json_str, .{});
+    defer parsed.deinit();
+    var td = try TypeDescriptor.init(allocator, parsed);
+    td.deinit(allocator);
+}
+
+const struct_td_json =
+    \\{"kind":"struct","name":"S","layout":"extern","size":4,"fields":[{"name":"a","offset":0,"type_descriptor":{"kind":"primitive","name":"u8","size":1,"signedness":"unsigned","bits":8}},{"name":"b","offset":2,"type_descriptor":{"kind":"primitive","name":"u16","size":2,"signedness":"unsigned","bits":16}}]}
+;
+
+const union_td_json =
+    \\{"kind":"union","name":"U","layout":"extern","size":4,"fields":[{"name":"a","type_descriptor":{"kind":"primitive","name":"u32","size":4,"signedness":"unsigned","bits":32}},{"name":"b","type_descriptor":{"kind":"primitive","name":"i32","size":4,"signedness":"signed","bits":32}}]}
+;
+
+const registry_json =
+    \\{"erds":[{"name":"first","id":"0x0001","type":{"kind":"primitive","name":"u8","size":1,"signedness":"unsigned","bits":8}},{"name":"second","id":"0x0002","type":{"kind":"primitive","name":"u16","size":2,"signedness":"unsigned","bits":16}}]}
+;
+
+test "parseStructValue cleans up on OOM at every allocation point" {
+    try std.testing.checkAllAllocationFailures(std.testing.allocator, parseTdImpl, .{struct_td_json});
+}
+
+test "parseUnionValue cleans up on OOM at every allocation point" {
+    try std.testing.checkAllAllocationFailures(std.testing.allocator, parseTdImpl, .{union_td_json});
+}
+
+fn schemaRegistryImpl(allocator: std.mem.Allocator, json_str: []const u8) !void {
+    const parsed = try std.json.parseFromSlice(std.json.Value, allocator, json_str, .{});
+    var reg = SchemaRegistry.init(allocator, parsed) catch |err| {
+        parsed.deinit();
+        return err;
+    };
+    reg.deinit();
+}
+
+test "SchemaRegistry.init cleans up on OOM at every allocation point" {
+    try std.testing.checkAllAllocationFailures(std.testing.allocator, schemaRegistryImpl, .{registry_json});
 }
 
 test "tagged union with unknown tag value" {

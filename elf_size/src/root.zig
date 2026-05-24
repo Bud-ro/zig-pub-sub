@@ -26,6 +26,9 @@ pub fn parseRegion(spec: []const u8) ?MemoryRegion {
 
     const origin = std.fmt.parseInt(u32, origin_str, 16) catch return null;
     const length = std.fmt.parseInt(u32, length_str, 16) catch return null;
+    // A zero-length region matches no sections and almost certainly indicates
+    // an argument-ordering mistake at the call site.
+    if (length == 0) return null;
 
     return .{ .name = name, .origin = origin, .length = length };
 }
@@ -326,6 +329,10 @@ test "parseRegion rejects trailing parts" {
 
 test "parseRegion rejects empty name" {
     try testing.expectEqual(@as(?MemoryRegion, null), parseRegion(":1000:2000"));
+}
+
+test "parseRegion rejects zero length" {
+    try testing.expectEqual(@as(?MemoryRegion, null), parseRegion("RAM:1000:0"));
 }
 
 test "formatSummary rejects too many regions" {

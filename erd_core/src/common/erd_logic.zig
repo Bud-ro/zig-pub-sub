@@ -10,12 +10,10 @@ const std = @import("std");
 const ErdLogicOperator = enum {
     _and,
     _or,
-    _nor,
     _xor,
     _not,
     _bitwise_and,
     _bitwise_or,
-    _bitwise_nor,
     _bitwise_xor,
     _bitwise_not,
 };
@@ -73,29 +71,21 @@ pub fn ErdLogic(SystemDataType: type, comptime operator: ErdLogicOperator, compt
             } else if (erds.len > 1) {
                 var value = system_data.read(erds[0]);
 
-                // NOR reduces as OR here and negates once at the end -- naive
-                // left-fold `nor(nor(a, b), c)` is `(a or b) and !c`, NOT the
-                // n-ary NOR `!(a or b or c)`. Same reasoning for `_bitwise_nor`.
                 inline for (erds[1..]) |erd| {
                     const next = system_data.read(erd);
 
                     value = switch (operator) {
                         ._and => value and next,
-                        ._or, ._nor => value or next,
+                        ._or => value or next,
                         ._xor => value != next,
                         ._bitwise_and => value & next,
-                        ._bitwise_or, ._bitwise_nor => value | next,
+                        ._bitwise_or => value | next,
                         ._bitwise_xor => value ^ next,
                         else => comptime unreachable,
                     };
                 }
 
-                const output = switch (operator) {
-                    ._nor => !value,
-                    ._bitwise_nor => ~value,
-                    else => value,
-                };
-                system_data.write(outputErd, output);
+                system_data.write(outputErd, value);
             }
         }
 
@@ -186,45 +176,6 @@ test "_bitwise_xor toggles differing bits" {
     try std.testing.expectEqual(0, system_data.read(.output));
 }
 
-test "_bitwise_nor inverts the or of inputs" {
-    var system_data: SystemData = TestSystem.init();
-
-    const input_erds = &[_]ErdEnum{ .input_a, .input_b };
-    ErdLogic(SystemData, ._bitwise_nor, input_erds, .output).init(&system_data);
-
-    system_data.write(.input_a, 0);
-    system_data.write(.input_b, 0);
-    try std.testing.expectEqual(0xFFFF, system_data.read(.output));
-
-    system_data.write(.input_a, 0xFFFF);
-    system_data.write(.input_b, 0);
-    try std.testing.expectEqual(0, system_data.read(.output));
-}
-
-const TestSystem3 = SystemDataTestDouble.create(struct {
-    input_a: Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
-    input_b: Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
-    input_c: Erd = SystemDataTestDouble.ramErd(u16, .{ .subs = 1 }),
-    output: Erd = SystemDataTestDouble.ramErd(u16, .{}),
-});
-const SystemData3 = TestSystem3.SystemData;
-const ErdEnum3 = SystemData3.ErdEnumType;
-
-test "_bitwise_nor is n-ary, not naive left-fold" {
-    // Naive left-fold of `_bitwise_nor` over 3 inputs would yield
-    // `nor(nor(a, b), c)` = `(a | b) & ~c`, which is NOT the n-ary NOR.
-    // The correct semantics is `~(a | b | c)`. This test locks that in.
-    var system_data: SystemData3 = TestSystem3.init();
-    const inputs = &[_]ErdEnum3{ .input_a, .input_b, .input_c };
-    ErdLogic(SystemData3, ._bitwise_nor, inputs, .output).init(&system_data);
-
-    system_data.write(.input_a, 0x00F0);
-    system_data.write(.input_b, 0x0F00);
-    system_data.write(.input_c, 0xF000);
-    // ~(0x00F0 | 0x0F00 | 0xF000) = ~0xFFF0 = 0x000F
-    try std.testing.expectEqual(0x000F, system_data.read(.output));
-}
-
 const BoolTestSystem = SystemDataTestDouble.create(struct {
     input_a: Erd = SystemDataTestDouble.ramErd(bool, .{ .subs = 1 }),
     input_b: Erd = SystemDataTestDouble.ramErd(bool, .{ .subs = 1 }),
@@ -260,7 +211,7 @@ test "_or is true when any input is true" {
     try std.testing.expectEqual(true, system_data.read(.output));
 }
 
-test "_xor and _nor on bools" {
+test "_xor on bools" {
     var system_data: BoolSystemData = BoolTestSystem.init();
     const inputs = &[_]BoolErdEnum{ .input_a, .input_b };
     ErdLogic(BoolSystemData, ._xor, inputs, .output).init(&system_data);
