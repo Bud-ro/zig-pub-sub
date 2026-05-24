@@ -84,6 +84,17 @@ pub fn build(b: *std.Build) void {
     data_gen_tests.root_module.addImport("data_gen", data_gen_tests.root_module);
     test_step.dependOn(&b.addRunArtifact(data_gen_tests).step);
 
+    // elf_size tests
+    const elf_size_dep = b.dependency("elf_size", .{ .target = target, .optimize = optimize });
+    const elf_size_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = elf_size_dep.path("src/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    test_step.dependOn(&b.addRunArtifact(elf_size_tests).step);
+
     // --- Run step (forwards to app) ---
     const app_exe = app_dep.artifact("zig-pub-sub");
     const run_cmd = b.addRunArtifact(app_exe);

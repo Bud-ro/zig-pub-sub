@@ -12,6 +12,24 @@ pub const MemoryRegion = struct {
     length: u32,
 };
 
+/// Parse a CLI region spec of the form `name:origin:length` (hex, no `0x` prefix).
+/// Returns null on any parse failure (missing colon, non-hex digits, value too large).
+pub fn parseRegion(spec: []const u8) ?MemoryRegion {
+    var it = std.mem.splitScalar(u8, spec, ':');
+    const name = it.next() orelse return null;
+    const origin_str = it.next() orelse return null;
+    const length_str = it.next() orelse return null;
+    // Reject trailing parts (e.g. "RAM:1000:2000:extra") so callers
+    // can't silently lose data after a typo.
+    if (it.next() != null) return null;
+    if (name.len == 0) return null;
+
+    const origin = std.fmt.parseInt(u32, origin_str, 16) catch return null;
+    const length = std.fmt.parseInt(u32, length_str, 16) catch return null;
+
+    return .{ .name = name, .origin = origin, .length = length };
+}
+
 const SectionInfo = struct {
     name: [32]u8 = .{0} ** 32,
     addr: u32 = 0,
@@ -53,12 +71,16 @@ const Elf32_Shdr = extern struct {
 
 const SHF_ALLOC = 0x2;
 const MAX_SECTIONS_PER_REGION = 32;
-const MAX_REGIONS = 16;
+/// Maximum number of `MemoryRegion`s `formatSummary` will accept. Exposed
+/// for callers that want to size their region array consistently.
+pub const MAX_REGIONS = 16;
 // zlinter-enable declaration_naming
 
 /// Format a memory usage summary into the provided buffer. Returns the number of bytes written.
 // zlinter-disable-next-line no_inferred_error_unions
 pub fn formatSummary(elf_path: []const u8, regions: []const MemoryRegion, out: []u8) !usize {
+    if (regions.len > MAX_REGIONS) return error.TooManyRegions;
+
     const io = std.Io.Threaded.global_single_threaded.io();
     const file = try std.Io.Dir.cwd().openFile(io, elf_path, .{});
     defer file.close(io);
@@ -96,9 +118,11 @@ pub fn formatSummary(elf_path: []const u8, regions: []const MemoryRegion, out: [
         _ = try file.readPositionalAll(io, &name_buf, shstrtab_offset + shdr.sh_name);
 
         for (regions, 0..) |region, ri| {
-            const region_end = region.origin + region.length;
+            // Saturating add so a region near u32 max doesn't wrap to 0
+            // and silently exclude every section that falls in its tail.
+            const region_end = region.origin +| region.length;
             if (shdr.sh_addr >= region.origin and shdr.sh_addr < region_end) {
-                region_used[ri] += shdr.sh_size;
+                region_used[ri] +|= shdr.sh_size;
                 const dc = region_detail_count[ri];
                 if (dc < MAX_SECTIONS_PER_REGION) {
                     region_details[ri][dc] = .{
@@ -219,4 +243,95 @@ fn emitPct(buf: []u8, pct_x100: u64) usize {
         pos += 1;
     }
     return pos;
+}
+
+const testing = std.testing;
+
+test "emitU32 formats zero" {
+    var buf: [10]u8 = undefined;
+    const n = emitU32(&buf, 0);
+    try testing.expectEqualStrings("0", buf[0..n]);
+}
+
+test "emitU32 formats large values" {
+    var buf: [10]u8 = undefined;
+    const n = emitU32(&buf, 4294967295);
+    try testing.expectEqualStrings("4294967295", buf[0..n]);
+}
+
+test "emitU32Right pads with spaces to width" {
+    var buf: [10]u8 = undefined;
+    const n = emitU32Right(&buf, 42, 6);
+    try testing.expectEqualStrings("    42", buf[0..n]);
+}
+
+test "emitU32Right does not truncate when value exceeds width" {
+    var buf: [10]u8 = undefined;
+    const n = emitU32Right(&buf, 12345, 3);
+    try testing.expectEqualStrings("12345", buf[0..n]);
+}
+
+test "emitPct formats percentage with two decimal digits" {
+    var buf: [10]u8 = undefined;
+    // pct_x100 = 5293 means 52.93%
+    var n = emitPct(&buf, 5293);
+    try testing.expectEqualStrings("52.93%", buf[0..n]);
+
+    // pct_x100 = 5205 means 52.05% — exercises the leading-zero branch on `frac`
+    n = emitPct(&buf, 5205);
+    try testing.expectEqualStrings("52.05%", buf[0..n]);
+
+    // pct_x100 = 10000 means exactly 100%
+    n = emitPct(&buf, 10000);
+    try testing.expectEqualStrings("100.00%", buf[0..n]);
+}
+
+test "emitPadded right-pads short strings" {
+    var buf: [10]u8 = undefined;
+    const n = emitPadded(&buf, "abc", 6);
+    try testing.expectEqualStrings("abc   ", buf[0..n]);
+}
+
+test "parseRegion parses a valid name:origin:length spec" {
+    const r = parseRegion("RAM:3FFE8000:14000").?;
+    try testing.expectEqualStrings("RAM", r.name);
+    try testing.expectEqual(@as(u32, 0x3FFE8000), r.origin);
+    try testing.expectEqual(@as(u32, 0x14000), r.length);
+}
+
+test "parseRegion is case-insensitive on hex digits" {
+    const r = parseRegion("FLASH:deadbeef:cafe").?;
+    try testing.expectEqual(@as(u32, 0xDEADBEEF), r.origin);
+    try testing.expectEqual(@as(u32, 0xCAFE), r.length);
+}
+
+test "parseRegion rejects missing colons" {
+    try testing.expectEqual(@as(?MemoryRegion, null), parseRegion("RAM"));
+    try testing.expectEqual(@as(?MemoryRegion, null), parseRegion("RAM:3FFE8000"));
+}
+
+test "parseRegion rejects non-hex digits" {
+    try testing.expectEqual(@as(?MemoryRegion, null), parseRegion("RAM:notahex:14000"));
+    try testing.expectEqual(@as(?MemoryRegion, null), parseRegion("RAM:3FFE8000:zzz"));
+}
+
+test "parseRegion rejects overflow" {
+    // value larger than u32 max
+    try testing.expectEqual(@as(?MemoryRegion, null), parseRegion("RAM:100000000:1000"));
+}
+
+test "parseRegion rejects trailing parts" {
+    try testing.expectEqual(@as(?MemoryRegion, null), parseRegion("RAM:1000:2000:extra"));
+}
+
+test "parseRegion rejects empty name" {
+    try testing.expectEqual(@as(?MemoryRegion, null), parseRegion(":1000:2000"));
+}
+
+test "formatSummary rejects too many regions" {
+    const too_many: [MAX_REGIONS + 1]MemoryRegion = @splat(
+        MemoryRegion{ .name = "X", .origin = 0, .length = 0 },
+    );
+    var out: [16]u8 = undefined;
+    try testing.expectError(error.TooManyRegions, formatSummary("/dev/null", &too_many, &out));
 }
