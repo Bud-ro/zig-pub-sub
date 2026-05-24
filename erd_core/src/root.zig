@@ -4,6 +4,8 @@
 const std = @import("std");
 
 pub const Erd = @import("Erd.zig");
+pub const erd_mapping = @import("erd_mapping.zig");
+pub const erd_table = @import("erd_table.zig");
 pub const Subscription = @import("Subscription.zig");
 pub const SystemData = @import("system_data.zig").SystemData;
 

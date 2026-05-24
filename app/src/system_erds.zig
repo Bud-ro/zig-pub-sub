@@ -1,5 +1,4 @@
 const erd_core = @import("erd_core");
-const std = @import("std");
 const Erd = erd_core.Erd;
 const TimerStats = erd_core.common.timer_stats;
 
@@ -14,22 +13,12 @@ const Ram = @intFromEnum(ComponentId.ram);
 const Indirect = @intFromEnum(ComponentId.indirect);
 const Converted = @intFromEnum(ComponentId.converted);
 
-/// `ErdEnum` allows for use of decl literals which makes API use of ERDs *significantly* shorter
+/// `ErdEnum` allows for use of decl literals which makes API use of ERDs *significantly* shorter.
+/// Must match `ErdDefinitions` field names 1:1 in order. `std.meta.FieldEnum(ErdDefinitions)`
+/// would remove the duplication but loses LSP autocomplete.
 pub const ErdEnum = enum {
-    // This must match one to one with ErdDefinitions
-    //
-    // `std.meta.FieldEnum(ErdDefinitions)` would get rid of the duplication,
-    // but probably shouldn't be used until the LSP support would allow auto-complete
-    //
-    // for the meantime let's just throw a compile error if it fails to match
     comptime {
-        const erd_fields = std.meta.fieldNames(ErdDefinitions);
-        const erd_enum_names = std.meta.fieldNames(ErdEnum);
-        for (erd_fields, erd_enum_names) |field_name, enum_name| {
-            if (!std.mem.eql(u8, field_name, enum_name)) {
-                @compileError(std.fmt.comptimePrint("Field {s} does not match enum {s}", .{ field_name, enum_name }));
-            }
-        }
+        erd_core.erd_table.validateEnumMatchesDefs(ErdEnum, ErdDefinitions);
     }
 
     erd_application_version,
@@ -66,68 +55,17 @@ pub const ErdDefinitions = struct {
     // zig fmt: on
 };
 
-/// Erd Definitions with autofilled indexes
-pub const erd = blk: {
-    var _erds = ErdDefinitions{};
-
-    var max_component_idx: comptime_int = 0;
-    for (std.meta.fieldNames(ErdDefinitions)) |erd_field_name| {
-        const idx = @field(_erds, erd_field_name).component_idx;
-        if (idx > max_component_idx) max_component_idx = idx;
-    }
-
-    var owning_counts = std.mem.zeroes([max_component_idx + 1]u16);
-    for (std.meta.fieldNames(ErdDefinitions)) |erd_field_name| {
-        const idx = @field(_erds, erd_field_name).component_idx;
-        @field(_erds, erd_field_name).data_component_idx = owning_counts[idx];
-        owning_counts[idx] += 1;
-    }
-
-    // Assert because prints below assume this ERD size
-    std.debug.assert(0xffff == std.math.maxInt(Erd.ErdHandle));
-    var set: std.bit_set.ArrayBitSet(usize, std.math.maxInt(Erd.ErdHandle)) = .empty;
-
-    for (std.meta.fieldNames(ErdDefinitions), 0..) |erd_field_name, i| {
-        @field(_erds, erd_field_name).system_data_idx = i;
-
-        if (@field(_erds, erd_field_name).erd_number) |num| {
-            if (set.isSet(num)) {
-                @compileError(std.fmt.comptimePrint("Multiple ERD definitions with number 0x{x:0>4}", .{num}));
-            } else {
-                set.set(num);
-            }
-        }
-    }
-
-    break :blk _erds;
-};
+/// ERD definitions with `data_component_idx` and `system_data_idx` auto-assigned.
+pub const erd = erd_core.erd_table.autofill(ErdDefinitions);
 
 /// Count ERDs belonging to the given component.
 pub fn numErds(comptime id: ComponentId) comptime_int {
-    const component_idx = @intFromEnum(id);
-    var i = 0;
-    for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
-        if (@field(erd, erd_name).component_idx == component_idx) {
-            i += 1;
-        }
-    }
-    return i;
+    return erd_core.erd_table.numErdsByComponent(erd, @intFromEnum(id));
 }
 
 /// Extract ERD definitions for a specific component as an array.
 pub fn componentDefinitions(comptime id: ComponentId) [numErds(id)]Erd {
-    const component_idx = @intFromEnum(id);
-    var _erds: [numErds(id)]Erd = undefined;
-    var i = 0;
-
-    for (std.meta.fieldNames(ErdDefinitions)) |erd_name| {
-        if (@field(erd, erd_name).component_idx == component_idx) {
-            _erds[i] = @field(erd, erd_name);
-            i += 1;
-        }
-    }
-
-    return _erds;
+    return erd_core.erd_table.collectByComponent(erd, @intFromEnum(id));
 }
 
 // Array versions of ERDs. For easier iteration.
