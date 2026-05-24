@@ -30,6 +30,7 @@ const TdHandle = struct {
 
 fn parseTd(json_str: []const u8) !TdHandle {
     const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, json_str, .{});
+    errdefer parsed.deinit();
     const td = try TypeDescriptor.init(std.testing.allocator, parsed);
     return .{ .td = td, .parsed = parsed };
 }

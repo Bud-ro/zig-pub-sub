@@ -4,10 +4,11 @@
 //! pretty-prints field names and values. Useful for debug tools, protocol
 //! analyzers, and host-side ERD viewers that receive raw bytes over the wire.
 //!
-//! Lifetime: The root TypeDescriptor returned by `parse()` owns the JSON parse
-//! tree. All string fields (names, variant names, layout) point into that tree.
-//! Child TypeDescriptors allocated for nested types share this lifetime. Do not
-//! use any TypeDescriptor or its string fields after calling `deinit()` on the root.
+//! Lifetime: The root TypeDescriptor returned by `init()` (or
+//! `initFromValue()`) owns the JSON parse tree. All string fields (names,
+//! variant names, layout) point into that tree. Child TypeDescriptors
+//! allocated for nested types share this lifetime. Do not use any
+//! TypeDescriptor or its string fields after calling `deinit()` on the root.
 const builtin = @import("builtin");
 const std = @import("std");
 const native = builtin.cpu.arch.endian();
@@ -176,6 +177,7 @@ pub const TypeDescriptor = struct {
             };
         } else if (std.mem.eql(u8, kind_str, "array")) {
             const elem_td = try allocator.create(TypeDescriptor);
+            errdefer allocator.destroy(elem_td);
             elem_td.* = try fromValue(allocator, obj.get("element").?);
             return .{
                 .kind = .{ .array = .{
@@ -196,9 +198,19 @@ pub const TypeDescriptor = struct {
     fn parseStructValue(allocator: std.mem.Allocator, obj: std.json.ObjectMap) ParseError!TypeDescriptor {
         const fields_arr = obj.get("fields").?.array.items;
         const fields = try allocator.alloc(Field, fields_arr.len);
+        errdefer allocator.free(fields);
+
+        // Free any child TypeDescriptors already constructed if a later iteration fails.
+        var built: usize = 0;
+        errdefer for (fields[0..built]) |*f| {
+            f.type_desc.deinit(allocator);
+            allocator.destroy(f.type_desc);
+        };
+
         for (fields_arr, 0..) |field_val, i| {
             const fo = field_val.object;
             const child_td = try allocator.create(TypeDescriptor);
+            errdefer allocator.destroy(child_td);
             child_td.* = try fromValue(allocator, fo.get("type_descriptor").?);
             fields[i] = .{
                 .name = fo.get("name").?.string,
@@ -210,6 +222,7 @@ pub const TypeDescriptor = struct {
                 .bits = if (fo.get("bits")) |b| @as(?usize, @intCast(b.integer)) else null,
                 .type_desc = child_td,
             };
+            built = i + 1;
         }
         return .{
             .kind = .{ .structure = .{
@@ -240,14 +253,24 @@ pub const TypeDescriptor = struct {
     fn parseUnionValue(allocator: std.mem.Allocator, obj: std.json.ObjectMap) ParseError!TypeDescriptor {
         const fields_arr = obj.get("fields").?.array.items;
         const fields = try allocator.alloc(UnionField, fields_arr.len);
+        errdefer allocator.free(fields);
+
+        var built: usize = 0;
+        errdefer for (fields[0..built]) |*f| {
+            f.type_desc.deinit(allocator);
+            allocator.destroy(f.type_desc);
+        };
+
         for (fields_arr, 0..) |field_val, i| {
             const fo = field_val.object;
             const child_td = try allocator.create(TypeDescriptor);
+            errdefer allocator.destroy(child_td);
             child_td.* = try fromValue(allocator, fo.get("type_descriptor").?);
             fields[i] = .{
                 .name = fo.get("name").?.string,
                 .type_desc = child_td,
             };
+            built = i + 1;
         }
         return .{
             .kind = .{ .@"union" = .{
@@ -306,14 +329,16 @@ pub const TypeDescriptor = struct {
                 try writer.print("\"{s}\"", .{bytes[0..end]});
             },
             .array => |a| {
-                const elem_size = a.size / a.len;
                 try writer.print("[", .{});
-                for (0..a.len) |i| {
-                    if (i > 0) try writer.print(", ", .{});
-                    const start = i * elem_size;
-                    const end_pos = start + elem_size;
-                    if (end_pos <= bytes.len) {
-                        try a.element.formatBytesInner(bytes[start..end_pos], writer, indent);
+                if (a.len > 0) {
+                    const elem_size = a.size / a.len;
+                    for (0..a.len) |i| {
+                        if (i > 0) try writer.print(", ", .{});
+                        const start = i * elem_size;
+                        const end_pos = start + elem_size;
+                        if (end_pos <= bytes.len) {
+                            try a.element.formatBytesInner(bytes[start..end_pos], writer, indent);
+                        }
                     }
                 }
                 try writer.print("]", .{});
@@ -465,12 +490,14 @@ pub const TypeDescriptor = struct {
                 }
             },
             .array => |a| {
-                const elem_size = a.size / a.len;
-                for (0..a.len) |i| {
-                    const start = i * elem_size;
-                    const end = start + elem_size;
-                    if (end <= buf.len) {
-                        a.element.swapBigToNative(buf[start..end]);
+                if (a.len > 0) {
+                    const elem_size = a.size / a.len;
+                    for (0..a.len) |i| {
+                        const start = i * elem_size;
+                        const end = start + elem_size;
+                        if (end <= buf.len) {
+                            a.element.swapBigToNative(buf[start..end]);
+                        }
                     }
                 }
             },
@@ -576,7 +603,12 @@ fn readUnsignedIntGeneric(bytes: []const u8, bits: usize) u64 {
 
 /// Read a signed integer from native-endian bytes with sign extension.
 fn readSignedInt(bytes: []const u8, bits: usize) i64 {
-    const unsigned = readUnsignedInt(bytes, bits);
+    return signExtend(readUnsignedInt(bytes, bits), bits);
+}
+
+/// Sign-extend an N-bit unsigned value to a 64-bit signed value.
+fn signExtend(unsigned: u64, bits: usize) i64 {
+    if (bits == 0) return 0;
     if (bits >= 64) return @bitCast(unsigned);
     const sign_bit = @as(u64, 1) << @intCast(bits - 1);
     if (unsigned & sign_bit != 0) {
@@ -610,14 +642,7 @@ fn readUnsignedIntBig(bytes: []const u8, bits: usize) u64 {
 }
 
 fn readSignedIntBig(bytes: []const u8, bits: usize) i64 {
-    const unsigned = readUnsignedIntBig(bytes, bits);
-    if (bits >= 64) return @bitCast(unsigned);
-    const sign_bit = @as(u64, 1) << @intCast(bits - 1);
-    if (unsigned & sign_bit != 0) {
-        const mask = ~((@as(u64, 1) << @intCast(bits)) - 1);
-        return @bitCast(unsigned | mask);
-    }
-    return @intCast(unsigned);
+    return signExtend(readUnsignedIntBig(bytes, bits), bits);
 }
 
 fn readBits(bytes: []const u8, bit_offset: usize, bit_count: usize) u64 {
@@ -669,6 +694,10 @@ pub const SchemaRegistry = struct {
         const entries = try allocator.alloc(ErdInfo, erd_array.len);
         errdefer allocator.free(entries);
 
+        // If a later iteration fails, free any TypeDescriptors we've already built.
+        var created: usize = 0;
+        errdefer for (entries[0..created]) |*e| e.td.deinit(allocator);
+
         for (erd_array, 0..) |erd_val, i| {
             const obj = erd_val.object;
             const td = try TypeDescriptor.initFromValue(allocator, obj.get("type").?);
@@ -679,6 +708,7 @@ pub const SchemaRegistry = struct {
                 .td = td,
                 .size = td.getSize(),
             };
+            created = i + 1;
         }
 
         return .{ .entries = entries, .allocator = allocator, ._parsed = parsed };
