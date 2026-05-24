@@ -5,7 +5,7 @@ const system_erds = @import("system_erds.zig");
 /// Application entry point that dumps ERD definitions as JSON.
 // zlinter-disable-next-line no_inferred_error_unions
 pub fn main() !void {
-    const max_json_size = comptime std.fmt.parseIntSizeSuffix("1MiB", 10) catch unreachable; // zlinter-disable-current-line no_swallow_error
+    const max_json_size = 1 << 20; // 1 MiB
     var buf: [max_json_size]u8 = undefined;
 
     var out = std.Io.Writer.fixed(&buf);
