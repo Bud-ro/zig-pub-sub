@@ -12,6 +12,7 @@ subscribe_converted_flag:
         shl	rsi, 4
         add	rdi, rsi
         mov	esi, 2
-        mov	edx, offset codegen_harness.conv_sub_callback
+        mov	ecx, offset codegen_harness.conv_sub_callback
+        xor	edx, edx
         jmp	Subscription.subscribe
 

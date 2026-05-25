@@ -9,6 +9,7 @@ subscribe_callback:
 
 "data_component_subscription.DataComponentSubscription(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).subscribeInner":
         mov	esi, 1
-        mov	edx, offset codegen_harness.accumulate_callback
+        mov	ecx, offset codegen_harness.accumulate_callback
+        xor	edx, edx
         jmp	Subscription.subscribe
 

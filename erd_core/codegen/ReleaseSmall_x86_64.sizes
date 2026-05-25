@@ -1,6 +1,7 @@
 # size (bytes)	function
 2	multi_runtime_read
 2	multi_runtime_write
+2	pub_runtime_write
 2	runtime_read
 2	write_ram_with_converted_deps
 3	many_read_first
@@ -12,9 +13,11 @@
 4	triple_read_same_erd
 5	cross_system_read_write
 5	many_read_last
+5	pub_write_no_subs
 5	read_indirect_computed
 5	read_u16_unaligned
 5	runtime_write
+5	unpub_write_no_subs
 5	write_bool_with_subs
 5	write_ram_no_converted_dep
 5	write_u16_no_subs
@@ -26,7 +29,7 @@
 7	read_write_read
 7	write_u32_no_subs
 8	read_ram_then_indirect
-8	unsubscribe_converted
+8	subscribe_converted
 8	write_triggering_callback
 9	dual_read
 9	subscribe_converted_flag
@@ -36,7 +39,7 @@
 10	write_big_struct
 11	dual_write
 11	read_big_struct
-11	subscribe_converted
+11	unsubscribe_converted
 12	cross_erd_compute
 13	read_converted_flag_inv
 14	read_converted_sum
@@ -52,14 +55,19 @@
 24	write_then_read_converted
 25	read_medium_struct
 28	many_write_last_with_subs
+28	pub_write_with_subs
 29	double_write_same_value
 31	runtime_read_two
+31	unpub_write_with_subs
 32	triple_write_increment
 34	runtime_write_two
 35	cross_system_swap
 38	write_ram_flag_with_converted_dep
+46	pub_modify_struct_no_subs
 60	runtime_write_three
 61	modify_medium_no_subs
+62	pub_modify_struct_with_subs
+62	pub_register
 75	modify_medium_single_field
 98	modify_medium_two_fields
 155	double_modify_struct
