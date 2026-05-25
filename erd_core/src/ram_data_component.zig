@@ -2,13 +2,8 @@
 //! `storage` array. Per-ERD byte offsets are computed at comptime from the
 //! ERD slice, so comptime-dispatched `read`/`write`/`modify` compile to
 //! direct loads/stores into `storage` even through the higher-level
-//! `SystemData` wrappers.
-//!
-//! `write` does change-detection (a no-op when the new bytes match the old)
-//! and publishes to subscribers only when bytes change. `modify` skips
-//! change-detection (the caller asserts the value changed) and publishes
-//! unconditionally; preferred for struct ERDs with many fields where
-//! `write`'s value-copy + compare would balloon code size.
+//! `SystemData` wrappers. `write`'s trigger publishes when data
+//! is bit-for-bit different.
 
 const erd_core = @import("erd_core");
 const std = @import("std");

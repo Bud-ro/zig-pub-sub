@@ -1,13 +1,14 @@
 # data_gen
 
-Constraint-based data generation framework: compile-time validation,
-transformation, and generation of data tables. Often handy for embedded
-system configurations but not specific to them - any project that wants
-comptime-checked data tables can use it. No runtime dependencies.
+Constraint-based data generation framework.
+
+Provides compile-time validation, transformation, and generation of structured data. 
+Functions designed to be used at `comptime`, but can also be used in
+runtime contexts as well.
 
 ## Concepts
 
-- **constraint**: primitive comptime checks. Each returns `?[]const u8`
+- **constraint**: primitive checks. Each returns `?[]const u8`
   (null = passed, a string = error message).
 - **contract**: protocol for types that carry their own validation.
   A type opts in by declaring

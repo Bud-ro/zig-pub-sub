@@ -1,8 +1,6 @@
-//! Constraint-based data generation framework: comptime data validation,
-//! transformation, and generation. Often handy for embedded configurations
-//! but not specific to them - any project that wants comptime-checked
-//! data tables can use it. Four sub-modules:
-//!   - `constraint`: primitive comptime checks. Each returns `?[]const u8`
+//! Constraint-based data generation framework. Provides comptime data validation,
+//! transformation, and generation. Four sub-modules:
+//!   - `constraint`: primitive checks. Each returns `?[]const u8`
 //!     (null = passed, string = error message).
 //!   - `contract`: recursive `contractValidate` protocol that auto-walks struct
 //!     fields and array elements, calling each sub-value's `contractValidate`.
