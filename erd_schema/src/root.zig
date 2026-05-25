@@ -12,6 +12,7 @@ pub const swap = @import("erd_swap.zig");
 pub const type_gen = @import("erd_type_gen.zig");
 pub const TypeFromDescriptor = type_gen.TypeFromDescriptor;
 pub const SwapRules = swap.SwapRules;
+pub const WirePublisher = @import("wire_publisher.zig").WirePublisher;
 
 test {
     std.testing.refAllDecls(@This());
@@ -21,4 +22,5 @@ test {
     _ = @import("tests/erd_json_test.zig");
     _ = @import("tests/erd_swap_test.zig");
     _ = @import("tests/erd_type_gen_test.zig");
+    _ = @import("tests/wire_publisher_test.zig");
 }
