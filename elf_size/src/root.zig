@@ -125,7 +125,11 @@ pub fn formatSummary(elf_path: []const u8, regions: []const MemoryRegion, out: [
             // and silently exclude every section that falls in its tail.
             const region_end = region.origin +| region.length;
             if (shdr.sh_addr >= region.origin and shdr.sh_addr < region_end) {
-                region_used[ri] +|= shdr.sh_size;
+                // Sections of an in-range region can't sum past u32; if they
+                // did, the ELF would have overlapping sections. Assert rather
+                // than saturate so the bug surfaces instead of being hidden.
+                std.debug.assert(region_used[ri] <= std.math.maxInt(u32) - shdr.sh_size);
+                region_used[ri] += shdr.sh_size;
                 const dc = region_detail_count[ri];
                 if (dc < MAX_SECTIONS_PER_REGION) {
                     region_details[ri][dc] = .{

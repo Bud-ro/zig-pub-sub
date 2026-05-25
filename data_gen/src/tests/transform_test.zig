@@ -102,3 +102,16 @@ test "scaledNearest at i16 boundaries" {
         try std.testing.expectEqual(@as(i16, -32768), transform.scaledNearest(i16, 1, -32768.0));
     }
 }
+
+test "scaledNearest accepts fractional values that round to in-range max" {
+    comptime {
+        // Values just below max where @round stays in range must still pass:
+        // catches a regression where checkFitsIn rejects pre-round values.
+        try std.testing.expectEqual(@as(i16, 32767), transform.scaledNearest(i16, 1, 32767.4));
+        try std.testing.expectEqual(@as(i16, -32768), transform.scaledNearest(i16, 1, -32768.4));
+        try std.testing.expectEqual(@as(u8, 255), transform.scaledNearest(u8, 1, 255.4));
+    }
+    // Note: the symmetric overflow case (e.g. scaledNearest(i16, 1, 32767.5)
+    // where @round = 32768) is rejected by checkFitsIn at @compileError time
+    // and so can't be exercised by a runtime test. Verified manually.
+}
