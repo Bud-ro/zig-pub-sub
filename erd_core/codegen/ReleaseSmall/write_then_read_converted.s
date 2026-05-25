@@ -19,12 +19,12 @@ write_then_read_converted:
         mov	dword ptr [rsp + 4], esi
         cmp	dword ptr [rdi], esi
         mov	dword ptr [rdi], esi
-        je	.L1
+        je	.L0
         lea	rdx, [rsp + 4]
         xor	esi, esi
         mov	rcx, rdi
         call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish"
-.L1:
+.L0:
         pop	rax
         ret
 

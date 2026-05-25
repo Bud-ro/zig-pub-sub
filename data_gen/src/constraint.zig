@@ -52,12 +52,15 @@ pub fn isSorted(T: type, comptime arr: []const T) ?[]const u8 {
     return null;
 }
 
-/// Checks no duplicate values in the array.
+/// Checks no duplicate values in the array. Equality is by `std.meta.eql`
+/// so structs, optionals, arrays, and pointers (compared by address) all
+/// work; the offending value is not printed because not every `T` has a
+/// usable `{}` formatter.
 pub fn noDuplicates(T: type, comptime arr: []const T) ?[]const u8 {
     for (0..arr.len) |i| {
         for (i + 1..arr.len) |j| {
-            if (arr[i] == arr[j]) {
-                return std.fmt.comptimePrint("duplicate value {} at indices {} and {}", .{ arr[i], i, j });
+            if (std.meta.eql(arr[i], arr[j])) {
+                return std.fmt.comptimePrint("duplicate value at indices {} and {}", .{ i, j });
             }
         }
     }

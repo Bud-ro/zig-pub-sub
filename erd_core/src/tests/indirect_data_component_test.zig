@@ -1,3 +1,4 @@
+// zlinter-disable no_comment_out_code
 const erd_core = @import("erd_core");
 const std = @import("std");
 const Erd = erd_core.Erd;
@@ -36,9 +37,12 @@ test "indirect data component read" {
     try std.testing.expectEqual(42 + 1, indirect_data.read(erd_plus_one));
 }
 
-// NOTE: `write` and `runtimeWrite` on an Indirect data component are
-// `@compileError` stubs; they cannot be exercised from a regular test.
-// If you uncomment the calls, the build must fail to compile.
+test "indirect data component write" {
+    return error.SkipZigTest; // Test for compile error
+
+    // var indirect_data = IndirectDataComponent{};
+    // _ = indirect_data.write(erd_always_42, 41);
+}
 
 test "indirect data component runtime read" {
     var indirect_data = IndirectDataComponent{};
@@ -53,3 +57,9 @@ test "indirect data component runtime read" {
     try std.testing.expectEqual(42 + 1, should_be_43);
 }
 
+test "indirect data component runtime write" {
+    return error.SkipZigTest; // Test for compile error
+
+    // var indirect_data = IndirectDataComponent{};
+    // _ = indirect_data.runtimeWrite(erd_always_42.data_component_idx, &41);
+}

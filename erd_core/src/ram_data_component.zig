@@ -4,7 +4,7 @@
 //! direct loads/stores into `storage` even through the higher-level
 //! `SystemData` wrappers.
 //!
-//! `write` does change-detection — a no-op when the new bytes match the old —
+//! `write` does change-detection (a no-op when the new bytes match the old)
 //! and publishes to subscribers only when bytes change. `modify` skips
 //! change-detection (the caller asserts the value changed) and publishes
 //! unconditionally; preferred for struct ERDs with many fields where

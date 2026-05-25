@@ -102,7 +102,20 @@ fn isStdlibFunc(name: []const u8) bool {
     return false;
 }
 
-const IdMap = std.StringHashMapUnmanaged(u32);
+/// Separate counters per category so that branch labels and anonymous-symbol
+/// IDs don't share a number space (otherwise `.L3` can appear in a function
+/// whose first three IDs were spent on `__anon_*` / `__struct_*` symbols).
+const IdMap = struct {
+    lbb: std.StringHashMapUnmanaged(u32) = .empty,
+    sym: std.StringHashMapUnmanaged(u32) = .empty,
+
+    const empty: IdMap = .{};
+
+    fn deinit(self: *IdMap, gpa: std.mem.Allocator) void {
+        self.lbb.deinit(gpa);
+        self.sym.deinit(gpa);
+    }
+};
 
 fn resolveMode(mode_name: []const u8) ?snapshot_comments.Mode {
     if (std.mem.eql(u8, mode_name, "ReleaseFast")) return .release_fast;
@@ -197,8 +210,8 @@ fn appendNormalized(gpa: std.mem.Allocator, out: *std.ArrayList(u8), line: []con
                 while (end < line.len and std.ascii.isDigit(line[end])) : (end += 1) {}
                 if (end > d2) {
                     const original = line[lbb_start..end];
-                    const gop = try id_map.getOrPut(gpa, original);
-                    if (!gop.found_existing) gop.value_ptr.* = id_map.count() - 1;
+                    const gop = try id_map.lbb.getOrPut(gpa, original);
+                    if (!gop.found_existing) gop.value_ptr.* = id_map.lbb.count() - 1;
                     try out.appendSlice(gpa, ".L");
                     var num_buf: [20]u8 = undefined;
                     const num_str = try std.fmt.bufPrint(&num_buf, "{d}", .{gop.value_ptr.*});
@@ -217,8 +230,8 @@ fn appendNormalized(gpa: std.mem.Allocator, out: *std.ArrayList(u8), line: []con
                 while (digit_end < line.len and std.ascii.isDigit(line[digit_end])) : (digit_end += 1) {}
                 if (digit_end > digit_start) {
                     const original = line[pos..digit_end];
-                    const gop = try id_map.getOrPut(gpa, original);
-                    if (!gop.found_existing) gop.value_ptr.* = id_map.count() - 1;
+                    const gop = try id_map.sym.getOrPut(gpa, original);
+                    if (!gop.found_existing) gop.value_ptr.* = id_map.sym.count() - 1;
                     try out.appendSlice(gpa, needle);
                     var num_buf: [20]u8 = undefined;
                     const num_str = try std.fmt.bufPrint(&num_buf, "{d}", .{gop.value_ptr.*});

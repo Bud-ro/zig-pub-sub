@@ -280,7 +280,7 @@ test "emitPct formats percentage with two decimal digits" {
     var n = emitPct(&buf, 5293);
     try testing.expectEqualStrings("52.93%", buf[0..n]);
 
-    // pct_x100 = 5205 means 52.05% — exercises the leading-zero branch on `frac`
+    // pct_x100 = 5205 means 52.05% - exercises the leading-zero branch on `frac`
     n = emitPct(&buf, 5205);
     try testing.expectEqualStrings("52.05%", buf[0..n]);
 

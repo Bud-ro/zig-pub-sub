@@ -55,11 +55,11 @@ triple_write_increment:
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_4]
-        movzx	esi, byte ptr [rax + __anon_5]
+        mov	rdx, qword ptr [8*rax + __anon_0]
+        movzx	esi, byte ptr [rax + __anon_1]
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 16
-        movzx	edx, word ptr [rax + rax + __anon_6]
+        movzx	edx, word ptr [rax + rax + __anon_2]
         jmp	Subscription.publish
 

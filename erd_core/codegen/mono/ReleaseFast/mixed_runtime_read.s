@@ -12,18 +12,18 @@ mixed_runtime_read:
         movzx	edx, byte ptr [rcx + __anon_0]
         movzx	ecx, word ptr [rcx + rcx + __anon_1]
         cmp	edx, 2
-        je	.L2
+        je	.L0
         cmp	edx, 1
-        jne	.L3
+        jne	.L1
         mov	rdi, rax
-        jmp	qword ptr [8*rcx + __anon_4]
-.L2:
+        jmp	qword ptr [8*rcx + __anon_2]
+.L0:
         mov	rsi, qword ptr [rdi + 168]
         mov	rdi, rax
-        jmp	qword ptr [8*rcx + __anon_5]
-.L3:
-        add	rdi, qword ptr [8*rcx + __anon_6]
-        movzx	edx, word ptr [rcx + rcx + __anon_7]
+        jmp	qword ptr [8*rcx + __anon_3]
+.L1:
+        add	rdi, qword ptr [8*rcx + __anon_4]
+        movzx	edx, word ptr [rcx + rcx + __anon_5]
         mov	rsi, rdi
         mov	rdi, rax
         jmp	memcpy@PLT

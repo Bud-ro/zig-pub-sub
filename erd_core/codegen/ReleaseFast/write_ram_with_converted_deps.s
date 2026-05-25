@@ -22,11 +22,11 @@ write_ram_with_converted_deps:
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_1]
-        movzx	esi, byte ptr [rax + __anon_2]
+        mov	rdx, qword ptr [8*rax + __anon_0]
+        movzx	esi, byte ptr [rax + __anon_1]
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 8
-        movzx	edx, word ptr [rax + rax + __anon_3]
+        movzx	edx, word ptr [rax + rax + __anon_2]
         jmp	Subscription.publish
 

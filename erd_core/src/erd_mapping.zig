@@ -6,7 +6,7 @@ const std = @import("std");
 
 /// Resolve the function pointer for an ERD from a comptime mappings array.
 /// Each mapping must expose a `.erd` (an `Erd`) and a `.fn_ptr` field.
-/// Comptime error if no mapping covers the ERD — the user's data
+/// Comptime error if no mapping covers the ERD; the user's data
 /// component declares N ERDs but failed to supply a mapping for one of them.
 pub fn fnFromMappings(comptime erd: Erd, comptime mappings: anytype) @TypeOf(mappings[0].fn_ptr) {
     for (mappings) |mapping| {

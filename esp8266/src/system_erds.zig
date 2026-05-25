@@ -12,13 +12,10 @@ pub const WifiStatus = enum(u8) { disconnected, connecting, connected, got_ip };
 pub const ComponentId = enum(u8) { ram };
 const Ram = @intFromEnum(ComponentId.ram);
 
-/// Enum for referencing ESP8266 ERDs by name. Must match `ErdDefinitions`
-/// field names 1:1 in order.
+/// Enum for referencing ESP8266 ERDs by name.
+/// Variants are listed out manually (rather than via `std.meta.FieldEnum(ErdDefinitions)`)
+/// so LSP autocomplete works; ordering is checked against `ErdDefinitions` inside `SystemData`.
 pub const ErdEnum = enum {
-    comptime {
-        erd_core.erd_table.validateEnumMatchesDefs(ErdEnum, ErdDefinitions);
-    }
-
     erd_uptime_seconds,
     erd_led_state,
     erd_wifi_mode,

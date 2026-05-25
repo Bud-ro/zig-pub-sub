@@ -1,4 +1,4 @@
-// zlinter-disable declaration_naming
+// zlinter-disable declaration_naming no_comment_out_code
 const std = @import("std");
 const timer = @import("erd_core").timer;
 const TimerModule = timer.TimerModule;
@@ -15,22 +15,22 @@ fn expectTimerExpiresAfterExactly(timer_module: *TimerModule, ticks: timer.Ticks
 }
 
 fn timer1Callback(ctx: ?*anyopaque, _: *TimerModule, _: *Timer) void {
-    const calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx.?));
+    var calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx.?));
     calls.appendAssumeCapacity(1);
 }
 
 fn timer2Callback(ctx: ?*anyopaque, _: *TimerModule, _: *Timer) void {
-    const calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx.?));
+    var calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx.?));
     calls.appendAssumeCapacity(2);
 }
 
 fn timer3Callback(ctx: ?*anyopaque, _: *TimerModule, _: *Timer) void {
-    const calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx.?));
+    var calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx.?));
     calls.appendAssumeCapacity(3);
 }
 
 fn timer4Callback(ctx: ?*anyopaque, _: *TimerModule, _: *Timer) void {
-    const calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx.?));
+    var calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx.?));
     calls.appendAssumeCapacity(4);
 }
 
@@ -505,9 +505,23 @@ test "can pause timer during periodic callback" {
     try std.testing.expectEqual(2, local_ctx);
 }
 
-// NOTE: passing a null callback to `startOneShot`/`startPeriodic` is a
-// compile error -- `TimerCallback` is a non-optional `*const fn(...)` --
-// so this case cannot be exercised at runtime.
+test "One shot with null callback" {
+    // var timer_module = TimerModule{};
+    // var timer1 = Timer{};
+    // var context: u32 = 0;
+
+    return error.SkipZigTest; // Test for compile error
+    // timer_module.startOneShot(&timer1, 0, &context, null);
+}
+
+test "Periodic with null callback" {
+    // var timer_module = TimerModule{};
+    // var timer1 = Timer{};
+    // var context: u32 = 0;
+
+    return error.SkipZigTest; // Test for compile error
+    // timer_module.startPeriodic(&timer1, 0, &context, null);
+}
 
 test "IsRunning" {
     var call_buffer: [20]u8 = .{0} ** 20;
@@ -659,7 +673,7 @@ test "restart one shot from callback" {
 
     const A = struct {
         fn restartWithContext(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
-            const _calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx));
+            var _calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx));
             _calls.appendAssumeCapacity(11);
             _timer_module.startOneShot(_timer, 0, _calls, restartWithContext);
         }
@@ -688,7 +702,7 @@ test "restart periodic from callback" {
 
     const A = struct {
         fn restartWithContext(ctx: ?*anyopaque, _timer_module: *TimerModule, _timer: *Timer) void {
-            const _calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx));
+            var _calls: *std.ArrayList(u8) = @ptrCast(@alignCast(ctx));
             _calls.appendAssumeCapacity(13);
             _timer_module.startPeriodic(_timer, 1, _calls, timer1Callback);
         }
@@ -1582,5 +1596,15 @@ test "elapsed ticks from a callback" {
     try std.testing.expectEqual(observed_elapsed_ticks, 0);
 }
 
-// NOTE: `ticksSinceLastStarted` is documented as returning undefined for
-// a never-started timer, so there is nothing meaningful to test there.
+test "ticks since last started called without starting the timer" {
+    return error.SkipZigTest; // This test actually depends on optimization level as well
+
+    // var timer_module = TimerModule{};
+    // var timer1 = Timer{};
+
+    // // This is 100% dependent on the default value of timer.duration and timer.timer_data.
+    // try std.testing.expectEqual(0, timer_module.ticksSinceLastStarted(&timer1));
+
+    // timer_module.incrementCurrentTime(123);
+    // try std.testing.expectEqual(123, timer_module.ticksSinceLastStarted(&timer1));
+}

@@ -14,13 +14,9 @@ const Indirect = @intFromEnum(ComponentId.indirect);
 const Converted = @intFromEnum(ComponentId.converted);
 
 /// `ErdEnum` allows for use of decl literals which makes API use of ERDs *significantly* shorter.
-/// Must match `ErdDefinitions` field names 1:1 in order. `std.meta.FieldEnum(ErdDefinitions)`
-/// would remove the duplication but loses LSP autocomplete.
+/// Variants are listed out manually (rather than via `std.meta.FieldEnum(ErdDefinitions)`)
+/// so LSP autocomplete works; ordering is checked against `ErdDefinitions` inside `SystemData`.
 pub const ErdEnum = enum {
-    comptime {
-        erd_core.erd_table.validateEnumMatchesDefs(ErdEnum, ErdDefinitions);
-    }
-
     erd_application_version,
     erd_some_bool,
     erd_unaligned_u16,

@@ -1,7 +1,9 @@
 # data_gen
 
-Constraint-based data generation framework for compile-time validation
-of embedded system configurations. No runtime dependencies.
+Constraint-based data generation framework: compile-time validation,
+transformation, and generation of data tables. Often handy for embedded
+system configurations but not specific to them - any project that wants
+comptime-checked data tables can use it. No runtime dependencies.
 
 ## Concepts
 
@@ -10,8 +12,10 @@ of embedded system configurations. No runtime dependencies.
 - **contract**: protocol for types that carry their own validation.
   A type opts in by declaring
   `pub fn contractValidate(comptime self: T) ?[]const u8`.
-  `assertValid` / `validated` recursively walk struct fields and array
-  elements, invoking `contractValidate` on every nested type that has one.
+  `assertValid` / `validated` descend through struct fields, array and
+  slice elements, single-item pointers, present optionals, and the
+  active variant of tagged unions, invoking `contractValidate` on every
+  reachable type that has one.
 - **transform**: convert human-readable units (floats, percentages,
   frequencies) into machine representations (fixed-point, scaled
   integers, tick counts). Compile error if not exactly representable,
@@ -25,7 +29,7 @@ of embedded system configurations. No runtime dependencies.
 const constraint = @import("data_gen").constraint;
 const contract = @import("data_gen").contract;
 
-// Primitive constraints — comptime, return null on pass.
+// Primitive constraints - comptime, return null on pass.
 comptime {
     if (constraint.inRange(0, 100, 42)) |err| @compileError(err);
     if (constraint.isPowerOfTwo(1024)) |err| @compileError(err);

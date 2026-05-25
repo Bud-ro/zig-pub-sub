@@ -110,8 +110,12 @@ test "structs" {
     try std.testing.expectEqual(@TypeOf(padded){ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF }, padded);
 }
 
-// NOTE: writing a value of the wrong type to a RAM ERD is a compile error
-// (the `write` API takes `data: erd.T`), and so cannot be tested at runtime.
+test "failure upon writing incorrect types" {
+    return error.SkipZigTest; // Test for compile error
+
+    // var ram_data = RamDataComponent.init();
+    // std.testing.expectError(, ram_data.write(erd_bool, 20, &dummy_publisher));
+}
 
 test "runtime reads" {
     var ram_data = RamDataComponent.init();

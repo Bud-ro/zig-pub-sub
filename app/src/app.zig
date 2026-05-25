@@ -51,22 +51,12 @@ pub const Components = struct {
 
     comptime {
         const Id = system_erds.ComponentId;
-        const expected = .{
-            .{ Id.ram, RamDataComponent },
-            .{ Id.indirect, IndirectDataComponent },
-            .{ Id.converted, ConvertedDataComponent },
-        };
-        for (expected) |e| {
-            const id, const Expected = e;
-            const idx = @intFromEnum(id);
-            const Actual = std.meta.fields(Components)[idx].type;
-            if (Actual != Expected) {
-                @compileError(std.fmt.comptimePrint(
-                    "ComponentId.{s} (index {}) maps to {s}, expected {s}",
-                    .{ @tagName(id), idx, @typeName(Actual), @typeName(Expected) },
-                ));
-            }
-        }
+        if (std.meta.fields(Components)[@intFromEnum(Id.ram)].type != RamDataComponent)
+            @compileError("ComponentId.ram does not match RamDataComponent position in Components");
+        if (std.meta.fields(Components)[@intFromEnum(Id.indirect)].type != IndirectDataComponent)
+            @compileError("ComponentId.indirect does not match IndirectDataComponent position in Components");
+        if (std.meta.fields(Components)[@intFromEnum(Id.converted)].type != ConvertedDataComponent)
+            @compileError("ComponentId.converted does not match ConvertedDataComponent position in Components");
     }
 };
 

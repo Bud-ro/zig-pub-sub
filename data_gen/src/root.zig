@@ -1,5 +1,7 @@
-//! Comptime data validation and generation for embedded system configurations.
-//! Four sub-modules:
+//! Constraint-based data generation framework: comptime data validation,
+//! transformation, and generation. Often handy for embedded configurations
+//! but not specific to them - any project that wants comptime-checked
+//! data tables can use it. Four sub-modules:
 //!   - `constraint`: primitive comptime checks. Each returns `?[]const u8`
 //!     (null = passed, string = error message).
 //!   - `contract`: recursive `contractValidate` protocol that auto-walks struct

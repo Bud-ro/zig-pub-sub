@@ -32,9 +32,9 @@ mixed_runtime_write:
         mov	rdx, r12
         call	memcpy@PLT
         test	bpl, 1
-        jne	.L3
-        cmp	byte ptr [r15 + .L__anon_4], 0
-        je	.L3
+        jne	.L0
+        cmp	byte ptr [r15 + .L__anon_3], 0
+        je	.L0
         mov	rdi, r14
         mov	esi, r15d
         mov	rdx, rbx
@@ -47,7 +47,7 @@ mixed_runtime_write:
         pop	r15
         pop	rbp
         jmp	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish"
-.L3:
+.L0:
         add	rsp, 8
         pop	rbx
         pop	r12

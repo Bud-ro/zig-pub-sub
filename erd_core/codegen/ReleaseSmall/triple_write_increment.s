@@ -25,12 +25,12 @@ triple_write_increment:
         mov	word ptr [rsp + 6], si
         cmp	word ptr [rdi + 7], si
         mov	word ptr [rdi + 7], si
-        je	.L2
+        je	.L0
         lea	rdx, [rsp + 6]
         mov	esi, 3
         mov	rcx, rdi
         call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
-.L2:
+.L0:
         pop	rax
         ret
 

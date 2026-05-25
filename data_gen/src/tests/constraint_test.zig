@@ -117,8 +117,56 @@ test "noDuplicates passes on unique array" {
 test "noDuplicates error message" {
     comptime {
         try std.testing.expectEqualStrings(
-            "duplicate value 5 at indices 0 and 2",
+            "duplicate value at indices 0 and 2",
             constraint.noDuplicates(u8, &.{ 5, 3, 5 }).?,
+        );
+    }
+}
+
+test "noDuplicates works on struct elements" {
+    const Point = struct { x: i32, y: i32 };
+    comptime {
+        if (constraint.noDuplicates(Point, &.{
+            .{ .x = 0, .y = 0 },
+            .{ .x = 1, .y = 2 },
+            .{ .x = 3, .y = 4 },
+        })) |err| @compileError(err);
+
+        try std.testing.expectEqualStrings(
+            "duplicate value at indices 0 and 2",
+            constraint.noDuplicates(Point, &.{
+                .{ .x = 7, .y = 7 },
+                .{ .x = 1, .y = 2 },
+                .{ .x = 7, .y = 7 },
+            }).?,
+        );
+    }
+}
+
+test "noDuplicates works on pointer elements (address equality)" {
+    comptime {
+        const a: u8 = 1;
+        const b: u8 = 2;
+        if (constraint.noDuplicates(*const u8, &.{ &a, &b })) |err| @compileError(err);
+        try std.testing.expectEqualStrings(
+            "duplicate value at indices 0 and 2",
+            constraint.noDuplicates(*const u8, &.{ &a, &b, &a }).?,
+        );
+    }
+}
+
+test "noDuplicates works on optional and array elements" {
+    comptime {
+        if (constraint.noDuplicates(?u8, &.{ null, 1, 2 })) |err| @compileError(err);
+        try std.testing.expectEqualStrings(
+            "duplicate value at indices 0 and 2",
+            constraint.noDuplicates(?u8, &.{ null, 1, null }).?,
+        );
+
+        if (constraint.noDuplicates([2]u8, &.{ .{ 0, 0 }, .{ 0, 1 }, .{ 1, 0 } })) |err| @compileError(err);
+        try std.testing.expectEqualStrings(
+            "duplicate value at indices 0 and 2",
+            constraint.noDuplicates([2]u8, &.{ .{ 0, 0 }, .{ 0, 1 }, .{ 0, 0 } }).?,
         );
     }
 }
