@@ -7,8 +7,8 @@
 
 const erd_core = @import("erd_core");
 const std = @import("std");
+const system_data = @import("system_data.zig");
 const Erd = erd_core.Erd;
-const Subscription = erd_core.Subscription;
 const DataComponentSubscription = erd_core.data_component.subscription_mixin.DataComponentSubscription;
 
 /// Construct a RAM-backed data component with packed byte-array storage.
@@ -172,12 +172,15 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         }
 
         // noinline so the dispatch logic is shared across all call sites.
-        // Resolves per-type lookup tables then delegates to the shared Subscription.publish.
+        // Resolves per-type lookup tables, then tail-jumps into the shared
+        // OnChangeArgs dispatcher. Args fields are passed individually so the
+        // call site is a pure register-shuffle + jmp (struct-by-value would
+        // force a hidden indirect under the Zig ABI).
         // TODO: Add the option to binary search and avoid a large chunk of this cost
         noinline fn publish(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
             const offset = Subs.sub_offsets[data_component_idx];
             const count = subs_from_idx[data_component_idx];
-            Subscription.publish(
+            system_data.publishOnChange(
                 self.subs.slots[offset..][0..count],
                 system_data_idx_from_idx[data_component_idx],
                 data,

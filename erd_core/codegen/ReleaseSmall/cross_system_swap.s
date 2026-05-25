@@ -27,5 +27,5 @@ cross_system_swap:
         add	rdi, 16
         mov	esi, 1
         xor	edx, edx
-        jmp	.LSubscription.publish
+        jmp	.Lsystem_data.publishOnChange
 

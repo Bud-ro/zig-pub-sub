@@ -29,5 +29,5 @@ write_ram_flag_with_converted_dep:
         add	rdi, rdx
         add	rdi, 8
         movzx	edx, word ptr [rax + rax + .L__anon_2]
-        jmp	.LSubscription.publish
+        jmp	.Lsystem_data.publishOnChange
 

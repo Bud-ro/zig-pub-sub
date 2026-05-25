@@ -46,5 +46,5 @@ tiny_write_all:
         add	rdi, 16
         movzx	edx, word ptr [rax + rax + __anon_1]
         mov	esi, 1
-        jmp	Subscription.publish
+        jmp	system_data.publishOnChange
 

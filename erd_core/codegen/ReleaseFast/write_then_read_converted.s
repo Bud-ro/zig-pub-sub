@@ -35,5 +35,5 @@ write_then_read_converted:
         add	rdi, rdx
         add	rdi, 8
         movzx	edx, word ptr [rax + rax + __anon_2]
-        jmp	Subscription.publish
+        jmp	system_data.publishOnChange
 

@@ -1,10 +1,19 @@
-//! `Subscription` allows publishers to send events to multiple subscribers.
-//! On publish, each client's callback will receive user provided context (optional), args associated with the publication, and a pointer to the publisher.
-//! `Subscription`s are owned by the publisher, typically in a `comptime` sized array or slice.
+//! `Subscription` provides slot storage and subscribe/unsubscribe machinery
+//! for publishers that want to deliver events to multiple subscribers.
+//! `Subscription`s are owned by the publisher, typically in a `comptime` sized
+//! array or slice.
+//!
+//! Each publisher owns its own args type and its own dispatch helper (see
+//! e.g. `system_data.publishOnChange` and the wire-publisher equivalent),
+//! both of which call subscribers through `Subscription.Callback`. The args
+//! pointer delivered to each subscriber is opaque from `Subscription`'s
+//! perspective: subscribers cast based on the publisher they subscribed to.
+//! Args live only for the duration of dispatch; callbacks must not retain
+//! the pointer.
 //!
 //! The identity of a `Subscription` is solely based on its callback pointer.
 //! `Subscription`s with the same identity cannot be known to the same publisher.
-//! However `Subscription`s with the same identity may subscribe to several source.
+//! However `Subscription`s with the same identity may subscribe to several sources.
 //!
 //! NOTE: Identical Code Folding may break this assumption. If tests/subscriptions
 //!       don't work at higher levels of optimization then try ensuring uniqueness
@@ -13,33 +22,10 @@
 /// Function pointer type for subscription callbacks.
 pub const Callback = *const fn (context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void;
 
-/// Payload delivered to on-change callbacks with the ERD index and data pointer.
-pub const OnChangeArgs = struct {
-    system_data_idx: u16,
-    data: *const anyopaque,
-};
-
 context: ?*anyopaque,
 callback: ?Callback,
 
 const Self = @This();
-
-/// Dispatch on-change callbacks to a contiguous subscription slot range.
-/// Iterates `slots` in index order and invokes every non-null callback.
-/// All callbacks see the same `OnChangeArgs` pointer (built once before
-/// the loop); the args live only for the duration of `publish`, so
-/// callbacks must not retain it. Empty slots are skipped.
-/// Shared across all DataComponent instantiations to avoid monomorphization.
-pub noinline fn publish(slots: []Self, system_data_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
-    const args: OnChangeArgs = .{
-        .system_data_idx = system_data_idx,
-        .data = data,
-    };
-    for (slots) |*sub| {
-        const cb = sub.callback orelse continue;
-        cb(sub.context, @ptrCast(&args), publisher);
-    }
-}
 
 /// Add a subscription callback. Deduplicates by callback identity (a
 /// second subscribe with the same `callback` keeps the original `context`
@@ -101,31 +87,7 @@ fn cbC(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
     cb_c_calls += 1;
 }
 
-fn resetCallCounts() void {
-    cb_a_calls = 0;
-    cb_b_calls = 0;
-    cb_c_calls = 0;
-}
-
 const empty: Self = .{ .context = null, .callback = null };
-
-const CapturedArgs = struct {
-    invocations: u32 = 0,
-    system_data_idx: u16 = 0,
-    data: ?*const anyopaque = null,
-    publisher: ?*anyopaque = null,
-    context_seen: ?*anyopaque = null,
-};
-
-fn capturingCallback(context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void {
-    const captured: *CapturedArgs = @ptrCast(@alignCast(context.?));
-    const change: *const OnChangeArgs = @ptrCast(@alignCast(args));
-    captured.invocations += 1;
-    captured.system_data_idx = change.system_data_idx;
-    captured.data = change.data;
-    captured.publisher = publisher;
-    captured.context_seen = context;
-}
 
 test "subscribe stores callback in first free slot" {
     var slots = [_]Self{empty} ** 3;
@@ -195,64 +157,6 @@ test "unsubscribe is a no-op when callback is not present" {
     try expectEqual(null, slots[1].callback);
 }
 
-test "publish invokes every populated slot, skips empty slots" {
-    cb_a_calls = 0;
-    cb_c_calls = 0;
-    var slots = [_]Self{
-        .{ .context = null, .callback = cbA },
-        empty,
-        .{ .context = null, .callback = cbC },
-    };
-    var payload: u8 = 0;
-    var publisher: u8 = 0;
-
-    publish(&slots, 0, &payload, &publisher);
-
-    try expectEqual(1, cb_a_calls);
-    try expectEqual(1, cb_c_calls);
-}
-
-test "publish passes system_data_idx, data, publisher, and context to callback" {
-    var captured: CapturedArgs = .{};
-    var slots = [_]Self{.{ .context = &captured, .callback = capturingCallback }};
-    var payload: u32 = 0xABCD;
-    var publisher: u32 = 0;
-
-    publish(&slots, 7, &payload, &publisher);
-
-    try expectEqual(1, captured.invocations);
-    try expectEqual(7, captured.system_data_idx);
-    try expectEqual(@as(*const anyopaque, &payload), captured.data);
-    try expectEqual(@as(*anyopaque, &publisher), captured.publisher);
-    try expectEqual(@as(*anyopaque, &captured), captured.context_seen);
-}
-
-test "publish tolerates a hole created by unsubscribe" {
-    resetCallCounts();
-    var slots = [_]Self{empty} ** 3;
-
-    subscribe(&slots, null, cbA);
-    subscribe(&slots, null, cbB);
-    subscribe(&slots, null, cbC);
-    unsubscribe(&slots, cbB);
-
-    try expectEqual(null, slots[1].callback);
-
-    var payload: u8 = 0;
-    var publisher: u8 = 0;
-    publish(&slots, 0, &payload, &publisher);
-
-    try expectEqual(1, cb_a_calls);
-    try expectEqual(0, cb_b_calls);
-    try expectEqual(1, cb_c_calls);
-}
-
-test "publish on empty slot slice does nothing" {
-    var slots = [_]Self{};
-    var publisher: u32 = 0;
-    publish(&slots, 0, &publisher, &publisher);
-}
-
 test "subscribe then unsubscribe then subscribe reuses slot" {
     var slots = [_]Self{empty} ** 2;
 
@@ -268,17 +172,4 @@ test "unsubscribe on empty slot slice is a no-op" {
     var slots = [_]Self{};
     unsubscribe(&slots, cbA);
     // No assertion needed: must simply not panic / OOB.
-}
-
-test "publish on all-empty slot slice invokes no callbacks" {
-    resetCallCounts();
-    var slots = [_]Self{empty} ** 3;
-    var publisher: u8 = 0;
-    var payload: u8 = 0;
-
-    publish(&slots, 0, &payload, &publisher);
-
-    try expectEqual(0, cb_a_calls);
-    try expectEqual(0, cb_b_calls);
-    try expectEqual(0, cb_c_calls);
 }

@@ -55,5 +55,5 @@ double_write_same_value:
         add	rdi, rdx
         add	rdi, 16
         movzx	edx, word ptr [rax + rax + __anon_2]
-        jmp	Subscription.publish
+        jmp	system_data.publishOnChange
 

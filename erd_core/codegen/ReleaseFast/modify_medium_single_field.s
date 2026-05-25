@@ -16,5 +16,5 @@ modify_medium_single_field:
         add	rdi, 312
         mov	esi, 1
         mov	edx, 1
-        jmp	Subscription.publish
+        jmp	system_data.publishOnChange
 
