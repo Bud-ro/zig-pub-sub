@@ -321,7 +321,7 @@ export fn read_across_two_erds(sd: *SmallSD) u32 {
 // ===========================================================================
 
 fn accumulate_callback(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
-    const args: *const SmallSD.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    const args: *const erd_core.system_data.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     const sd: *SmallSD = @ptrCast(@alignCast(publisher));
     const written_val: *const bool = @ptrCast(args.data);
     if (written_val.*) {

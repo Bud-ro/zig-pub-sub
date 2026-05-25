@@ -7,7 +7,8 @@ pub const Erd = @import("Erd.zig");
 pub const erd_mapping = @import("erd_mapping.zig");
 pub const erd_table = @import("erd_table.zig");
 pub const Subscription = @import("Subscription.zig");
-pub const SystemData = @import("system_data.zig").SystemData;
+pub const system_data = @import("system_data.zig");
+pub const SystemData = system_data.SystemData;
 
 pub const data_component = struct {
     pub const Ram = @import("ram_data_component.zig").RamDataComponent;

@@ -3,13 +3,13 @@
 //! `Subscription`s are owned by the publisher, typically in a `comptime` sized
 //! array or slice.
 //!
-//! Each publisher owns its own args type and its own dispatch helper (see
-//! e.g. `system_data.publishOnChange` and the wire-publisher equivalent),
-//! both of which call subscribers through `Subscription.Callback`. The args
-//! pointer delivered to each subscriber is opaque from `Subscription`'s
-//! perspective: subscribers cast based on the publisher they subscribed to.
-//! Args live only for the duration of dispatch; callbacks must not retain
-//! the pointer.
+//! Each publisher defines its own args type and its own dispatch helper (see
+//! e.g. `system_data.publishOnChange`), both of which call subscribers
+//! through `Subscription.Callback`. The args pointer delivered to each subscriber
+//! is opaque from `Subscription`'s perspective: subscribers cast based on the
+//! publisher they subscribed to.
+//!
+//! NOTE: Callbacks must not retain the `args` pointer
 //!
 //! The identity of a `Subscription` is solely based on its callback pointer.
 //! `Subscription`s with the same identity cannot be known to the same publisher.
@@ -22,6 +22,8 @@
 /// Function pointer type for subscription callbacks.
 pub const Callback = *const fn (context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void;
 
+/// Client provided data that is known to `callback`, typically an instance struct. Allows for
+/// a shared `callback` for different instantiations of the same object (as opposed to static access).
 context: ?*anyopaque,
 callback: ?Callback,
 

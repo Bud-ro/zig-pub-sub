@@ -91,9 +91,6 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
     return struct {
         const Self = @This();
 
-        /// Arguments passed to on-change subscription callbacks.
-        pub const OnChangeArgs = @import("system_data.zig").OnChangeArgs;
-
         /// A test only type used with verifyAllSubsAreSaturated
         pub const SubException = struct { erd_enum: ErdEnum, missing: comptime_int };
 

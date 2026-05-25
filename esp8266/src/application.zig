@@ -49,7 +49,7 @@ pub fn init(app: *Application) void {
 }
 
 fn onLedStateChanged(_: ?*anyopaque, args: ?*const anyopaque, _: *anyopaque) void {
-    const on_change: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(args.?));
+    const on_change: *const erd_core.system_data.OnChangeArgs = @ptrCast(@alignCast(args.?));
     const led_state: *const bool = @ptrCast(@alignCast(on_change.data));
     hardware.setLed(led_state.*);
 }

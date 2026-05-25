@@ -83,7 +83,7 @@ var subscriber_received_value: u16 = 0;
 var subscriber_call_count: u32 = 0;
 
 fn testSubscriber(_: ?*anyopaque, _args: ?*const anyopaque, _: *anyopaque) void {
-    const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    const args: *const erd_core.system_data.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     const val: *const u16 = @ptrCast(@alignCast(args.data));
     subscriber_received_value = val.*;
     subscriber_call_count += 1;
@@ -155,7 +155,7 @@ test "converted ERD with no subscribers still computes on read" {
 var cascaded_value: u16 = 0;
 
 fn cascadeSubscriber(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
-    const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    const args: *const erd_core.system_data.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     const val: *const u16 = @ptrCast(@alignCast(args.data));
     const sd: *SystemData = @ptrCast(@alignCast(publisher));
 

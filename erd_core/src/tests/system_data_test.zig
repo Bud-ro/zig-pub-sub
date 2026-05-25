@@ -121,7 +121,7 @@ test "subscription with context" {
 }
 
 fn contextMustMatchArgs(context: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
-    const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    const args: *const erd_core.system_data.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     const system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
     const a: *u16 = @ptrCast(@alignCast(context.?));
@@ -148,7 +148,7 @@ test "subscription with args" {
 }
 
 fn switchOnSystemDataIdx(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
-    const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    const args: *const erd_core.system_data.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     const system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
     if (args.system_data_idx != SystemData.erdFromEnum(.some_bool).system_data_idx) {
@@ -235,7 +235,7 @@ test "exact subscription enforcement" {
 }
 
 fn scratchAllocating(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
-    const args: *const SystemData.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    const args: *const erd_core.system_data.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     const system_data: *SystemData = @ptrCast(@alignCast(publisher));
 
     const val: *const u16 = @ptrCast(@alignCast(args.data));
@@ -281,7 +281,7 @@ var modify_publish_count: u32 = 0;
 var modify_last_value: FourField = undefined;
 
 fn captureBox(_: ?*anyopaque, _args: ?*const anyopaque, _: *anyopaque) void {
-    const args: *const ModifySD.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+    const args: *const erd_core.system_data.OnChangeArgs = @ptrCast(@alignCast(_args.?));
     const val: *const FourField = @ptrCast(@alignCast(args.data));
     modify_publish_count += 1;
     modify_last_value = val.*;
