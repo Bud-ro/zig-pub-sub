@@ -1,9 +1,18 @@
-//! Top level system data
-//! This is a zero-cost wrapper around multiple data components
-//! It binds ERDs of multiple data components into one name space, and initializes them
-//! It is meant to be the top level component that you pass around your application.
-//! It is intended to pass by value NOT by reference since most of it will fall away at
-//! comptime and you want to ensure direct accesses to underlying function calls
+//! Top-level system data: a comptime-typed wrapper around a struct of data
+//! components. Binds the application's ERD definitions to concrete component
+//! storage, validates the ERD table at comptime (unique `erd_number`, ErdEnum
+//! field-name alignment, every component has the `subs` field + `supports_write`
+//! decl), and exposes:
+//!
+//!   - comptime-dispatched `read`/`write`/`modify`/`subscribe`/`unsubscribe`
+//!     (one comptime field access, no runtime dispatch table)
+//!   - runtime-dispatched `runtimeRead`/`runtimeWrite` for the case where the
+//!     ERD is known only by its `system_data_idx` (e.g. UART command handler)
+//!   - a per-RTC scratch allocator (`scratchAlloc`/`scratchReset`)
+//!
+//! Pass `SystemData` by value to the API so the comptime-known field offsets
+//! collapse to direct loads/stores rather than indirect access through a
+//! pointer; methods that mutate (`write`/`modify`/etc.) take `*Self`.
 
 const erd_core = @import("erd_core");
 const std = @import("std");
@@ -12,16 +21,21 @@ const Subscription = erd_core.Subscription;
 
 /// Construct a typed pub-sub system data aggregator from ERD definitions and components.
 pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, Components: type) type {
-    // Validate ErdEnum matches ErdDefs fields
     comptime {
-        const erd_fields = std.meta.fieldNames(ErdDefs);
-        const erd_enum_names = std.meta.fieldNames(ErdEnum);
-        if (erd_fields.len != erd_enum_names.len) {
-            @compileError("ErdEnum field count does not match ErdDefs field count");
-        }
-        for (erd_fields, erd_enum_names) |field_name, enum_name| {
-            if (!std.mem.eql(u8, field_name, enum_name)) {
-                @compileError(std.fmt.comptimePrint("ErdDefs field {s} does not match ErdEnum variant {s}", .{ field_name, enum_name }));
+        // Validate ErdEnum matches ErdDefs fields 1:1 in order.
+        erd_core.erd_table.validateEnumMatchesDefs(ErdEnum, ErdDefs);
+
+        // Reject duplicate erd_numbers up front so the callsite (system_erds.zig
+        // tables) does not have to repeat the check. The bit set needs one
+        // bit per representable handle value, so `maxInt(...) + 1` (NOT
+        // `maxInt(...)`) -- otherwise the largest valid handle is out of range.
+        var seen_numbers: std.bit_set.ArrayBitSet(usize, @as(usize, std.math.maxInt(Erd.ErdHandle)) + 1) = .empty;
+        for (std.meta.fieldNames(ErdDefs)) |field_name| {
+            if (@field(erd_instance, field_name).erd_number) |num| {
+                if (seen_numbers.isSet(num)) {
+                    @compileError(std.fmt.comptimePrint("Multiple ERD definitions with number 0x{x:0>4}", .{num}));
+                }
+                seen_numbers.set(num);
             }
         }
     }
@@ -31,6 +45,19 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
 
     comptime {
         erd_core.data_component.subscription_mixin.validateComponents(Components);
+
+        // Reject ERDs whose `component_idx` is out of range for `Components`.
+        // Without this check the user gets a confusing later error like
+        // "index out of bounds" from `component_fields[erd.component_idx]`.
+        for (std.meta.fieldNames(ErdDefs)) |erd_field_name| {
+            const erd = @field(erd_instance, erd_field_name);
+            if (erd.component_idx < 0 or erd.component_idx >= component_fields.len) {
+                @compileError(std.fmt.comptimePrint(
+                    "ERD {s} has component_idx {} but Components only has {} field(s) (valid range: 0..{})",
+                    .{ erd_field_name, erd.component_idx, component_fields.len, component_fields.len - 1 },
+                ));
+            }
+        }
     }
 
     return struct {
@@ -43,9 +70,14 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
         pub const SubException = struct { erd_enum: ErdEnum, missing: comptime_int };
 
         components: Components = undefined,
-        /// This is a bump allocator meant to be reset at the end of a run to complete
+        /// Bump allocator backed by `scratch_buf`. Reset at the end of each
+        /// run-to-complete via `scratchReset` so allocations don't accumulate.
         scratch: std.heap.FixedBufferAllocator = undefined,
-        scratch_buf: [2048]u8 align(@alignOf(usize)) = undefined, // TODO: Does this actually need to be aligned?
+        /// Backing storage for `scratch`. Aligned to `@alignOf(usize)` so the
+        /// FixedBufferAllocator can hand out usize-aligned (or smaller)
+        /// allocations without ever needing internal alignment padding from
+        /// the buffer base.
+        scratch_buf: [2048]u8 align(@alignOf(usize)) = undefined,
 
         /// Initialize SystemData with the given component instances.
         pub fn init(components: Components) Self {
@@ -90,12 +122,8 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
         /// Due to the performance and code size benefits, this should be preferred over `runtimeRead`.
         pub fn read(this: Self, comptime erd_enum: ErdEnum) erdFromEnum(erd_enum).T {
             const erd: Erd = erdFromEnum(erd_enum);
-            inline for (component_fields, 0..) |field, i| {
-                if (erd.component_idx == i) {
-                    return @field(this.components, field.name).read(erd);
-                }
-            }
-            unreachable;
+            const owner = comptime component_fields[erd.component_idx].name;
+            return @field(this.components, owner).read(erd);
         }
 
         /// Read an ERD into the provided `data` pointer, using the ERD's corresponding system_data_idx
@@ -107,11 +135,11 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
             const component_idx = component_idx_from_system_idx[system_data_idx];
             const data_component_idx = data_component_idx_from_system_idx[system_data_idx];
 
-            inline for (component_fields, 0..) |field, i| {
-                if (component_idx == i) {
-                    @field(this.components, field.name).runtimeRead(data_component_idx, data);
-                    return;
-                }
+            switch (component_idx) {
+                inline 0...component_fields.len - 1 => |i| {
+                    @field(this.components, component_fields[i].name).runtimeRead(data_component_idx, data);
+                },
+                else => unreachable,
             }
         }
 
@@ -123,20 +151,23 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
 
             comptime {
                 if (!supports_write_from_component_idx[erd.component_idx]) {
-                    @compileError("This ERD's data component does not support writes");
+                    @compileError(std.fmt.comptimePrint(
+                        "write({s}): this ERD's data component does not support writes",
+                        .{@tagName(erd_enum)},
+                    ));
                 }
                 if (@typeInfo(erd.T) == .@"struct" and std.meta.fields(erd.T).len >= 4) {
-                    @compileError("Use modify() for struct ERDs with 4 or more fields: " ++
-                        "comptime RMW on primitives and small structs already optimizes cleanly, " ++
-                        "but large structs benefit from modify()'s shared noinline body for code size");
+                    @compileError(std.fmt.comptimePrint(
+                        "write({s}, {s}): use modify() instead. " ++
+                            "Comptime RMW on primitives and small structs already optimizes cleanly, " ++
+                            "but a {}-field struct benefits from modify()'s shared noinline body for code size.",
+                        .{ @tagName(erd_enum), @typeName(erd.T), std.meta.fields(erd.T).len },
+                    ));
                 }
             }
 
-            inline for (component_fields, 0..) |field, i| {
-                if (erd.component_idx == i) {
-                    @field(this.components, field.name).write(erd, data, @ptrCast(this));
-                }
-            }
+            const owner = comptime component_fields[erd.component_idx].name;
+            @field(this.components, owner).write(erd, data, @ptrCast(this));
         }
 
         /// Modify a struct ERD in-place and always publish, skipping change detection.
@@ -147,20 +178,23 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
 
             comptime {
                 if (!supports_write_from_component_idx[erd.component_idx]) {
-                    @compileError("This ERD's data component does not support writes");
+                    @compileError(std.fmt.comptimePrint(
+                        "modify({s}): this ERD's data component does not support writes",
+                        .{@tagName(erd_enum)},
+                    ));
                 }
                 if (@typeInfo(erd.T) != .@"struct") {
-                    @compileError("modify() is only for struct ERDs: " ++
-                        "primitive RMW patterns already optimize cleanly via write() " ++
-                        "and modify() would bypass change detection without a code size benefit");
+                    @compileError(std.fmt.comptimePrint(
+                        "modify({s}, {s}): only valid for struct ERDs. " ++
+                            "Primitive RMW patterns already optimize cleanly via write(); " ++
+                            "modify() would bypass change detection without a code size benefit.",
+                        .{ @tagName(erd_enum), @typeName(erd.T) },
+                    ));
                 }
             }
 
-            inline for (component_fields, 0..) |field, i| {
-                if (erd.component_idx == i) {
-                    @field(this.components, field.name).modify(erd, modifier, @ptrCast(this));
-                }
-            }
+            const owner = comptime component_fields[erd.component_idx].name;
+            @field(this.components, owner).modify(erd, modifier, @ptrCast(this));
         }
 
         /// Write to an ERD from the provided `data` pointer, using the ERD's corresponding system_data_idx
@@ -168,19 +202,21 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
         /// - When mapping from an `ErdHandle` to system_data_idx, eg. in response to UART commands
         /// - Writing an ERD using info from an on-change callback (common for ERD multiplexers)
         ///
-        /// NOTE: `data` must be aligned!
+        /// `data` is copied byte-by-byte into storage; no specific alignment is
+        /// required on the pointer.
         // noinline so the dispatch logic is shared across all call sites.
         pub noinline fn runtimeWrite(this: *Self, system_data_idx: u16, data: *const anyopaque) void {
             const component_idx = component_idx_from_system_idx[system_data_idx];
             const data_component_idx = data_component_idx_from_system_idx[system_data_idx];
 
-            inline for (component_fields, 0..) |field, i| {
-                if (component_idx == i) {
+            switch (component_idx) {
+                inline 0...component_fields.len - 1 => |i| {
                     if (!supports_write_from_component_idx[i]) {
                         unreachable;
                     }
-                    @field(this.components, field.name).runtimeWrite(data_component_idx, data, @ptrCast(this));
-                }
+                    @field(this.components, component_fields[i].name).runtimeWrite(data_component_idx, data, @ptrCast(this));
+                },
+                else => unreachable,
             }
         }
 
@@ -195,30 +231,28 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
         ) void {
             const erd: Erd = erdFromEnum(erd_enum);
             comptime {
-                std.debug.assert(erd.subs > 0);
+                if (erd.subs == 0) @compileError(std.fmt.comptimePrint(
+                    "subscribe({s}): ERD declares subs = 0; raise its `.subs` to allow subscriptions",
+                    .{@tagName(erd_enum)},
+                ));
             }
 
-            inline for (component_fields, 0..) |field, i| {
-                if (erd.component_idx == i) {
-                    @field(this.components, field.name).subs.subscribe(erd, context, fn_ptr);
-                    return;
-                }
-            }
+            const owner = comptime component_fields[erd.component_idx].name;
+            @field(this.components, owner).subs.subscribe(erd, context, fn_ptr);
         }
 
         /// Remove a subscription from an ERD by callback identity.
         pub fn unsubscribe(this: *Self, comptime erd_enum: ErdEnum, fn_ptr: Subscription.Callback) void {
             const erd: Erd = erdFromEnum(erd_enum);
             comptime {
-                std.debug.assert(erd.subs > 0);
+                if (erd.subs == 0) @compileError(std.fmt.comptimePrint(
+                    "unsubscribe({s}): ERD declares subs = 0; no subscriptions are possible",
+                    .{@tagName(erd_enum)},
+                ));
             }
 
-            inline for (component_fields, 0..) |field, i| {
-                if (erd.component_idx == i) {
-                    @field(this.components, field.name).subs.unsubscribe(erd, fn_ptr);
-                    return;
-                }
-            }
+            const owner = comptime component_fields[erd.component_idx].name;
+            @field(this.components, owner).subs.unsubscribe(erd, fn_ptr);
         }
 
         /// Returns a slice allocated to the scratch buffer.
@@ -231,16 +265,43 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
             this.scratch.reset();
         }
 
-        /// A test only function used to verify that after initialization,
-        /// all of your subscriptions arrays are fully saturated
-        pub fn verifyAllSubsAreSaturated(this: *Self, comptime exceptions: []const SubException) error{ ErdWithNoSubsInExceptions, ErdWithUnexpectedSubCount }!void {
+        /// Verify that after initialization, every ERD's subscription slots
+        /// are filled (modulo `exceptions` which list ERDs that are
+        /// intentionally under-subscribed by `missing` slots). Intended
+        /// for use at the end of `Application.init` to catch
+        /// over-/under-subscribed ERDs before the main loop.
+        ///
+        /// Pass a non-null `diagnostics` writer to receive per-ERD failure
+        /// messages (which ERD, under vs over). Tests typically pass `null`
+        /// because they assert on the error return; production init paths
+        /// can pass a `std.Io.Writer` (e.g. backed by stderr) to learn
+        /// which ERD is wrong without crashing.
+        pub fn verifyAllSubsAreSaturated(
+            this: *Self,
+            comptime exceptions: []const SubException,
+            diagnostics: ?*std.Io.Writer,
+        ) error{ ErdWithNoSubsInExceptions, ErdWithUnexpectedSubCount, WriteFailed }!void {
+            comptime {
+                // Reject `missing > subs` at compile time so the runtime
+                // expected-count arithmetic stays in non-negative territory.
+                for (exceptions) |e| {
+                    const erd_subs = @field(erd_instance, @tagName(e.erd_enum)).subs;
+                    if (e.missing > erd_subs) {
+                        @compileError(std.fmt.comptimePrint(
+                            "SubException for {s}: missing ({}) cannot exceed declared subs ({})",
+                            .{ @tagName(e.erd_enum), e.missing, erd_subs },
+                        ));
+                    }
+                }
+            }
+
             var failed = false;
 
             inline for (exceptions) |e| {
                 const erd_name = @tagName(e.erd_enum);
                 const num_subs = @field(erd_instance, erd_name).subs;
                 if (num_subs == 0) {
-                    std.log.warn("Remove {s} from exceptions list since subscriptions are disabled for it", .{erd_name});
+                    if (diagnostics) |w| try w.print("Remove {s} from exceptions list since subscriptions are disabled for it\n", .{erd_name});
                     failed = true;
                 }
             }
@@ -269,27 +330,21 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
                     break :blk _expected;
                 };
 
-                const component_idx = erd.component_idx;
                 var actual_count: u16 = 0;
-
-                inline for (component_fields, 0..) |comp_field, ci| {
-                    if (component_idx == ci) {
-                        const sub_field = &@field(this.components, comp_field.name).subs;
-                        const SubscriptionType = @TypeOf(sub_field.*);
-                        const offset = SubscriptionType.sub_offsets[erd.data_component_idx];
-                        for (sub_field.slots[offset .. offset + num_subs]) |sub| {
-                            if (sub.callback != null) {
-                                actual_count += 1;
-                            }
-                        }
+                const sub_field = &@field(this.components, component_fields[erd.component_idx].name).subs;
+                const SubscriptionType = @TypeOf(sub_field.*);
+                const offset = SubscriptionType.sub_offsets[erd.data_component_idx];
+                for (sub_field.slots[offset .. offset + num_subs]) |sub| {
+                    if (sub.callback != null) {
+                        actual_count += 1;
                     }
                 }
 
                 if (actual_count < expected_count) {
-                    std.log.warn("ERD: {s} is under-subscribing after init. Decrease subs, or increase missing.", .{erd_name});
+                    if (diagnostics) |w| try w.print("ERD: {s} is under-subscribing after init. Decrease subs, or increase missing.\n", .{erd_name});
                     failed = true;
                 } else if (actual_count > expected_count) {
-                    std.log.warn("ERD: {s} is over-subscribed after init. Increase subs or decrease missing.", .{erd_name});
+                    if (diagnostics) |w| try w.print("ERD: {s} is over-subscribed after init. Increase subs or decrease missing.\n", .{erd_name});
                     failed = true;
                 }
             }

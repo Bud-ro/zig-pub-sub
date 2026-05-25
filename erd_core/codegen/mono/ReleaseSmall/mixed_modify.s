@@ -8,11 +8,11 @@ mixed_modify:
         push	4
         pop	rsi
         mov	rcx, rdi
-        jmp	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish"
+        jmp	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish"
 
 ; --- called functions ---
 
-".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish":
+".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish":
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si

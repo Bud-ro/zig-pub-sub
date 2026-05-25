@@ -7,30 +7,24 @@ mixed_runtime_read:
 ; --- called functions ---
 
 "system_data.SystemData(codegen_mono_stress.MixedDefs,meta.FieldEnum(codegen_mono_stress.MixedDefs),.{ .ram_a = .{ ... }, .ram_b = .{ ... }, .ram_c = .{ ... }, .ram_d = .{ ... }, .ind_x = .{ ... }, .ind_y = .{ ... }, .conv_sum = .{ ... }, .conv_flag = .{ ... }, .conv_wide = .{ ... }, .ram_pair = .{ ... } },codegen_mono_stress.MixedComponents).runtimeRead":
-        mov	rax, rdi
+        mov	rax, rdx
         movzx	ecx, si
-        movzx	esi, byte ptr [rcx + __anon_0]
+        movzx	edx, byte ptr [rcx + __anon_0]
         movzx	ecx, word ptr [rcx + rcx + __anon_1]
-        test	esi, esi
-        je	.L2
-        cmp	esi, 1
-        je	.L3
-        cmp	esi, 2
-        jne	.L4
-        mov	rcx, qword ptr [rax + 8*rcx + 120]
-        mov	rsi, qword ptr [rax + 208]
-        mov	rdi, rdx
-        jmp	rcx
-.L3:
-        mov	rdi, rdx
-        jmp	qword ptr [rax + 8*rcx + 104]
-.L2:
-        add	rax, qword ptr [8*rcx + __anon_5]
-        movzx	ecx, word ptr [rcx + rcx + __anon_6]
-        mov	rdi, rdx
-        mov	rsi, rax
-        mov	rdx, rcx
+        cmp	edx, 2
+        je	.L0
+        cmp	edx, 1
+        jne	.L1
+        mov	rdi, rax
+        jmp	qword ptr [8*rcx + __anon_2]
+.L0:
+        mov	rsi, qword ptr [rdi + 168]
+        mov	rdi, rax
+        jmp	qword ptr [8*rcx + __anon_3]
+.L1:
+        add	rdi, qword ptr [8*rcx + __anon_4]
+        movzx	edx, word ptr [rcx + rcx + __anon_5]
+        mov	rsi, rdi
+        mov	rdi, rax
         jmp	memcpy@PLT
-.L4:
-        ret
 

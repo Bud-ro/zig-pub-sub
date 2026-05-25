@@ -73,13 +73,15 @@ const Register = struct {
 const RegisterMap = struct {
     regs: []const Register,
 
-    /// Validate constraints for this type.
+    /// Validate constraints for this type. Per-register validation is
+    /// delegated to the framework's recursion through `regs`; this method
+    /// only enforces collection-level invariants (length, unique IDs, no
+    /// address overlap).
     pub fn contractValidate(comptime self: RegisterMap) ?[]const u8 {
         if (constraint.lenInRange(1, 128, self.regs.len)) |err| return err;
 
         var ids: [self.regs.len]u8 = undefined;
         for (self.regs, 0..) |reg, i| {
-            if (contract.check(reg, "")) |err| return err;
             ids[i] = reg.name_id;
         }
         if (constraint.noDuplicates(u8, &ids)) |err| return err;

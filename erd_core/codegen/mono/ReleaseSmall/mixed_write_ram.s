@@ -20,7 +20,7 @@ mixed_write_ram:
         mov	rdi, rbx
         xor	esi, esi
         mov	rcx, rbx
-        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish"
+        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish"
 .L0:
         mov	word ptr [rsp + 2], r15w
         cmp	word ptr [rbx + 4], r15w
@@ -31,7 +31,7 @@ mixed_write_ram:
         lea	rdx, [rsp + 2]
         mov	rdi, rbx
         mov	rcx, rbx
-        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish"
+        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish"
 .L1:
         and	bpl, 1
         mov	byte ptr [rbx + 6], bpl
@@ -44,7 +44,7 @@ mixed_write_ram:
         lea	rdx, [rsp + 8]
         mov	rdi, rbx
         mov	rcx, rbx
-        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish"
+        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish"
 .L2:
         add	rsp, 24
         pop	rbx
@@ -55,15 +55,15 @@ mixed_write_ram:
 
 ; --- called functions ---
 
-".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish":
+".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish":
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + .L__anon_3]
-        movzx	esi, byte ptr [rax + .L__anon_4]
+        mov	rdx, qword ptr [8*rax + .L__anon_0]
+        movzx	esi, byte ptr [rax + .L__anon_1]
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 24
-        movzx	edx, word ptr [rax + rax + .L__anon_5]
+        movzx	edx, word ptr [rax + rax + .L__anon_2]
         jmp	.LSubscription.publish
 

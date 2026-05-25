@@ -4,7 +4,7 @@
 //! generates a Zig type at comptime. This is idempotent: the same descriptor
 //! always produces a structurally identical type.
 //!
-//! Uses Zig 0.16 builtins: @Int, @Struct, @Enum, @Pointer for type creation.
+//! Uses Zig 0.16 builtins: @Int, @Struct, @Enum, @Union for type creation.
 
 const std = @import("std");
 

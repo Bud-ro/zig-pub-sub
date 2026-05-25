@@ -21,7 +21,7 @@ wide_runtime_write_all:
         mov	rdi, r14
         mov	esi, ebp
         mov	rdx, rbx
-        call	".Lsystem_data.SystemData(codegen_mono_stress.WideSystem__struct_2,meta.FieldEnum(codegen_mono_stress.WideSystem__struct_2),.{ .w00 = .{ ... }, .w01 = .{ ... }, .w02 = .{ ... }, .w03 = .{ ... }, .w04 = .{ ... }, .w05 = .{ ... }, .w06 = .{ ... }, .w07 = .{ ... }, .w08 = .{ ... }, .w09 = .{ ... }, .w10 = .{ ... }, .w11 = .{ ... }, .w12 = .{ ... }, .w13 = .{ ... }, .w14 = .{ ... }, .w15 = .{ ... }, .w_pair = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
+        call	".Lsystem_data.SystemData(codegen_mono_stress.WideSystem__struct_0,meta.FieldEnum(codegen_mono_stress.WideSystem__struct_0),.{ .w00 = .{ ... }, .w01 = .{ ... }, .w02 = .{ ... }, .w03 = .{ ... }, .w04 = .{ ... }, .w05 = .{ ... }, .w06 = .{ ... }, .w07 = .{ ... }, .w08 = .{ ... }, .w09 = .{ ... }, .w10 = .{ ... }, .w11 = .{ ... }, .w12 = .{ ... }, .w13 = .{ ... }, .w14 = .{ ... }, .w15 = .{ ... }, .w_pair = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
         inc	ebp
         jmp	.L0
 .L1:
@@ -32,7 +32,7 @@ wide_runtime_write_all:
 
 ; --- called functions ---
 
-".Lsystem_data.SystemData(codegen_mono_stress.WideSystem__struct_2,meta.FieldEnum(codegen_mono_stress.WideSystem__struct_2),.{ .w00 = .{ ... }, .w01 = .{ ... }, .w02 = .{ ... }, .w03 = .{ ... }, .w04 = .{ ... }, .w05 = .{ ... }, .w06 = .{ ... }, .w07 = .{ ... }, .w08 = .{ ... }, .w09 = .{ ... }, .w10 = .{ ... }, .w11 = .{ ... }, .w12 = .{ ... }, .w13 = .{ ... }, .w14 = .{ ... }, .w15 = .{ ... }, .w_pair = .{ ... } },system_data_test_double.create.Components).runtimeWrite":
+".Lsystem_data.SystemData(codegen_mono_stress.WideSystem__struct_0,meta.FieldEnum(codegen_mono_stress.WideSystem__struct_0),.{ .w00 = .{ ... }, .w01 = .{ ... }, .w02 = .{ ... }, .w03 = .{ ... }, .w04 = .{ ... }, .w05 = .{ ... }, .w06 = .{ ... }, .w07 = .{ ... }, .w08 = .{ ... }, .w09 = .{ ... }, .w10 = .{ ... }, .w11 = .{ ... }, .w12 = .{ ... }, .w13 = .{ ... }, .w14 = .{ ... }, .w15 = .{ ... }, .w_pair = .{ ... } },system_data_test_double.create.Components).runtimeWrite":
         push	rbp
         push	r15
         push	r14
@@ -43,9 +43,9 @@ wide_runtime_write_all:
         mov	rbx, rdx
         mov	r14, rdi
         movzx	eax, si
-        movzx	r15d, word ptr [rax + rax + .L__anon_3]
-        movzx	r12d, word ptr [r15 + r15 + .L__anon_4]
-        mov	r13, qword ptr [8*r15 + .L__anon_5]
+        movzx	r15d, word ptr [rax + rax + .L__anon_1]
+        movzx	r12d, word ptr [r15 + r15 + .L__anon_2]
+        mov	r13, qword ptr [8*r15 + .L__anon_3]
         add	r13, rdi
         mov	rdi, rdx
         mov	rsi, r13
@@ -57,9 +57,9 @@ wide_runtime_write_all:
         mov	rdx, r12
         call	memcpy@PLT
         test	bpl, 1
-        jne	.L6
-        cmp	byte ptr [r15 + .L__anon_7], 0
-        je	.L6
+        jne	.L2
+        cmp	byte ptr [r15 + .L__anon_4], 0
+        je	.L2
         mov	rdi, r14
         mov	esi, r15d
         mov	rdx, rbx
@@ -72,7 +72,7 @@ wide_runtime_write_all:
         pop	r15
         pop	rbp
         jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..17]).publish"
-.L6:
+.L2:
         add	rsp, 8
         pop	rbx
         pop	r12

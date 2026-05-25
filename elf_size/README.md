@@ -70,7 +70,7 @@ const regions = [_]elf_size.MemoryRegion{
 };
 
 var buf: [4096]u8 = undefined;
-const len = try elf_size.format_summary("firmware.elf", &regions, &buf);
+const len = try elf_size.formatSummary("firmware.elf", &regions, &buf);
 // buf[0..len] contains the formatted report
 ```
 

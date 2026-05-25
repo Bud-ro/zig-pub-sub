@@ -32,3 +32,30 @@ test "generateArray with struct type" {
         try std.testing.expectEqual(300, arr[3].value);
     }
 }
+
+test "generateArray with n=0 yields empty array" {
+    const noop = struct {
+        fn f(comptime _: usize) u32 {
+            return 0;
+        }
+    }.f;
+
+    comptime {
+        const arr = generator.generateArray(u32, 0, noop);
+        try std.testing.expectEqual(0, arr.len);
+    }
+}
+
+test "generateArray with n=1 invokes func once" {
+    const constant = struct {
+        fn f(comptime _: usize) u32 {
+            return 0xDEAD;
+        }
+    }.f;
+
+    comptime {
+        const arr = generator.generateArray(u32, 1, constant);
+        try std.testing.expectEqual(1, arr.len);
+        try std.testing.expectEqual(0xDEAD, arr[0]);
+    }
+}

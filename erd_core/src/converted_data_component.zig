@@ -9,18 +9,11 @@
 //! subscriptions. Public APIs assert that `postSystemDataInit` has been called.
 
 const erd_core = @import("erd_core");
+const erd_mapping = erd_core.erd_mapping;
 const std = @import("std");
 const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 const DataComponentSubscription = erd_core.data_component.subscription_mixin.DataComponentSubscription;
-
-/// Resolve the function pointer for an ERD from a comptime mappings array.
-fn fnFromMappings(comptime erd: Erd, comptime mappings: anytype) @TypeOf(mappings[0].fn_ptr) {
-    for (mappings) |mapping| {
-        if (mapping.erd.data_component_idx == erd.data_component_idx) return mapping.fn_ptr;
-    }
-    unreachable;
-}
 
 /// Binds a converted ERD to its compute function and dependency list.
 pub const Mapping = struct {
@@ -47,18 +40,17 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         pub const supports_write = false;
         const Subs = DataComponentSubscription(erds);
 
-        read_functions: [erds.len]*const anyopaque = initFunctions(),
         subs: Subs = .{},
+        /// Back-pointer to the owning SystemData. Set by `postSystemDataInit`.
+        /// Undefined until then; `read`/`runtimeRead` debug-assert that it has been wired up.
         system_data_ref: *anyopaque = undefined,
+        /// Latched true by `postSystemDataInit`. Read paths assert it so a missing
+        /// init call surfaces immediately in safety builds instead of dereferencing
+        /// `system_data_ref` while it is still `undefined`.
         is_fully_initialized: bool = false,
 
-        fn initFunctions() [erds.len]*const anyopaque {
-            var fns: [erds.len]*const anyopaque = undefined;
-            for (erd_mappings) |mapping| {
-                fns[mapping.erd.data_component_idx] = mapping.fn_ptr;
-            }
-            return fns;
-        }
+        /// Comptime function pointer table, lives in .rodata rather than per-instance RAM.
+        const read_functions: [erds.len]*const anyopaque = erd_mapping.buildFunctionTable(erds, erd_mappings);
 
         /// Wire up the SystemData back-pointer and subscribe to all dependency ERDs.
         /// Must be called after the SystemData is at its final memory location.
@@ -76,7 +68,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         /// Recompute and return the value of a converted ERD.
         pub fn read(self: Self, erd: Erd) erd.T {
             std.debug.assert(self.is_fully_initialized);
-            const fnPtr: *const fn (*erd.T, *anyopaque) void = @ptrCast(comptime fnFromMappings(erd, erd_mappings));
+            const fnPtr: *const fn (*erd.T, *anyopaque) void = @ptrCast(comptime erd_mapping.fnFromMappings(erd, erd_mappings));
             var temp: erd.T = undefined;
             fnPtr(&temp, self.system_data_ref);
             return temp;
@@ -85,30 +77,22 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         /// Runtime read using a dynamic data component index.
         pub fn runtimeRead(self: *const Self, data_component_idx: u16, data: *anyopaque) void {
             std.debug.assert(self.is_fully_initialized);
-            const fnPtr: *const fn ([*]u8, *anyopaque) void = @ptrCast(self.read_functions[data_component_idx]);
+            const fnPtr: *const fn ([*]u8, *anyopaque) void = @ptrCast(read_functions[data_component_idx]);
             fnPtr(@ptrCast(data), self.system_data_ref);
         }
 
         /// Compile error: converted ERDs do not support modify.
-        pub fn modify(self: *Self, erd: Erd, comptime modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
-            _ = self;
-            _ = modifier;
-            _ = publisher;
+        pub fn modify(_: *Self, erd: Erd, comptime _: *const fn (*erd.T) void, _: *anyopaque) void {
             @compileError("Converted ERD modifications are not allowed");
         }
 
         /// Compile error: converted ERDs do not support writes.
-        pub fn write(self: *Self, erd: Erd, data: erd.T) bool {
-            _ = self;
-            _ = data;
+        pub fn write(_: *Self, erd: Erd, _: erd.T, _: *anyopaque) void {
             @compileError("Converted ERD writes are not allowed");
         }
 
         /// Compile error: converted ERDs do not support runtime writes.
-        pub fn runtimeWrite(self: *Self, data_component_idx: u16, data: *const anyopaque) bool {
-            _ = self;
-            _ = data_component_idx;
-            _ = data;
+        pub fn runtimeWrite(_: *Self, _: u16, _: *const anyopaque, _: *anyopaque) void {
             @compileError("Converted ERD writes are not allowed");
         }
 
@@ -116,32 +100,24 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
         /// When a dependency changes, this callback recomputes the output
         /// and publishes to subscribers of the converted ERD.
         fn makeCallback(erd_data_component_idx: comptime_int) Subscription.Callback {
+            const erd = erds[erd_data_component_idx];
             return struct {
                 fn cb(context: ?*anyopaque, _: ?*const anyopaque, publisher: *anyopaque) void {
                     const self: *Self = @ptrCast(@alignCast(context.?));
-                    const T = erds[erd_data_component_idx].T;
-                    const fnPtr: *const fn (*T, *anyopaque) void = @ptrCast(comptime fnFromMappings(erds[erd_data_component_idx], erd_mappings));
-                    var val: T = undefined;
+                    const fnPtr: *const fn (*erd.T, *anyopaque) void = @ptrCast(comptime erd_mapping.fnFromMappings(erd, erd_mappings));
+                    var val: erd.T = undefined;
                     fnPtr(&val, publisher);
-                    if (erds[erd_data_component_idx].subs > 0) {
-                        self.doPublish(erd_data_component_idx, @ptrCast(&val), publisher);
+                    if (erd.subs > 0) {
+                        const offset = Subs.sub_offsets[erd_data_component_idx];
+                        Subscription.publish(
+                            self.subs.slots[offset..][0..erd.subs],
+                            erd.system_data_idx,
+                            @ptrCast(&val),
+                            publisher,
+                        );
                     }
                 }
             }.cb;
-        }
-
-        fn doPublish(self: *Self, erd_data_component_idx: comptime_int, data: *const anyopaque, publisher: *anyopaque) void {
-            const offset = Subs.sub_offsets[erd_data_component_idx];
-            const count = erds[erd_data_component_idx].subs;
-            for (self.subs.slots[offset .. offset + count]) |sub| {
-                if (sub.callback) |cb| {
-                    const args: Subscription.OnChangeArgs = .{
-                        .system_data_idx = erds[erd_data_component_idx].system_data_idx,
-                        .data = data,
-                    };
-                    cb(sub.context, @ptrCast(&args), publisher);
-                }
-            }
         }
     };
 }

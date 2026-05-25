@@ -20,7 +20,7 @@ mixed_write_ram:
         mov	rdi, rbx
         xor	esi, esi
         mov	rcx, rbx
-        call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish"
+        call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish"
 .L0:
         mov	word ptr [rsp + 2], r15w
         cmp	word ptr [rbx + 4], r15w
@@ -30,7 +30,7 @@ mixed_write_ram:
         mov	rdi, rbx
         mov	esi, 1
         mov	rcx, rbx
-        call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish"
+        call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish"
 .L1:
         and	bpl, 1
         mov	byte ptr [rbx + 6], bpl
@@ -42,7 +42,7 @@ mixed_write_ram:
         mov	rdi, rbx
         mov	esi, 3
         mov	rcx, rbx
-        call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish"
+        call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish"
 .L2:
         add	rsp, 24
         pop	rbx
@@ -53,15 +53,15 @@ mixed_write_ram:
 
 ; --- called functions ---
 
-"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_defs))[0..5]).publish":
+"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish":
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_3]
-        movzx	esi, byte ptr [rax + __anon_4]
+        mov	rdx, qword ptr [8*rax + __anon_0]
+        movzx	esi, byte ptr [rax + __anon_1]
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 24
-        movzx	edx, word ptr [rax + rax + __anon_5]
+        movzx	edx, word ptr [rax + rax + __anon_2]
         jmp	Subscription.publish
 

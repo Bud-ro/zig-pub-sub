@@ -45,6 +45,15 @@ const ThreeLevels = struct {
     id: u8,
 };
 
+const EmptyStruct = struct {}; // zlinter-disable-current-line declaration_naming
+
+const TaggedEmptyStruct = struct { // zlinter-disable-current-line declaration_naming
+    /// Validate constraints for this type.
+    pub fn contractValidate(comptime _: TaggedEmptyStruct) ?[]const u8 {
+        return "always fails";
+    }
+};
+
 test "assertValid passes valid BoundedPair" {
     comptime {
         contract.assertValid(BoundedPair{ .low = 10, .high = 100 });
@@ -54,6 +63,18 @@ test "assertValid passes valid BoundedPair" {
 test "assertValid passes plain struct (no contractValidate)" {
     comptime {
         contract.assertValid(PlainStruct{ .x = 42, .y = 99 });
+    }
+}
+
+test "check on empty struct returns null" {
+    comptime {
+        try std.testing.expectEqual(@as(?[]const u8, null), contract.check(EmptyStruct{}, ""));
+    }
+}
+
+test "check on empty struct with contractValidate runs it" {
+    comptime {
+        try std.testing.expectEqualStrings("always fails", contract.check(TaggedEmptyStruct{}, "").?);
     }
 }
 
@@ -201,6 +222,98 @@ test "check error message for bare array element failure" {
                 .{ .low = 50, .high = 5 },
                 .{ .low = 100, .high = 200 },
             }, "").?,
+        );
+    }
+}
+
+test "check follows single-item pointer to a struct with contractValidate" {
+    comptime {
+        var bad = BoundedPair{ .low = 50, .high = 10 };
+        try std.testing.expectEqualStrings(
+            ".ptr: low must be less than high",
+            contract.check(struct { ptr: *BoundedPair }{ .ptr = &bad }, "").?,
+        );
+    }
+}
+
+test "check follows pointer-to-array to inner element" {
+    comptime {
+        var items = [_]BoundedPair{
+            .{ .low = 1, .high = 10 },
+            .{ .low = 99, .high = 5 },
+        };
+        try std.testing.expectEqualStrings(
+            ".ptr[1]: low must be less than high",
+            contract.check(struct { ptr: *[2]BoundedPair }{ .ptr = &items }, "").?,
+        );
+    }
+}
+
+test "check iterates a slice of structs" {
+    comptime {
+        const items = [_]BoundedPair{
+            .{ .low = 1, .high = 10 },
+            .{ .low = 20, .high = 30 },
+            .{ .low = 100, .high = 2000 },
+        };
+        const slice: []const BoundedPair = &items;
+        try std.testing.expectEqualStrings(
+            "[2]: high exceeds 1000",
+            contract.check(slice, "").?,
+        );
+    }
+}
+
+test "check unwraps present optionals and skips null optionals" {
+    comptime {
+        const W = struct { maybe: ?BoundedPair };
+        try std.testing.expectEqualStrings(
+            ".maybe: low must be less than high",
+            contract.check(W{ .maybe = .{ .low = 50, .high = 10 } }, "").?,
+        );
+        try std.testing.expectEqual(
+            @as(?[]const u8, null),
+            contract.check(W{ .maybe = null }, ""),
+        );
+    }
+}
+
+test "check descends into the active variant of a tagged union" {
+    const Either = union(enum) {
+        pair: BoundedPair,
+        plain: u8,
+    };
+    comptime {
+        try std.testing.expectEqualStrings(
+            ".u.pair: low must be less than high",
+            contract.check(struct { u: Either }{
+                .u = .{ .pair = .{ .low = 50, .high = 10 } },
+            }, "").?,
+        );
+        try std.testing.expectEqual(
+            @as(?[]const u8, null),
+            contract.check(struct { u: Either }{ .u = .{ .plain = 7 } }, ""),
+        );
+    }
+}
+
+test "check runs contractValidate declared on a union type" {
+    const Tagged = union(enum) {
+        a: u8,
+        b: u16,
+
+        /// Validate constraints for this type.
+        pub fn contractValidate(comptime self: @This()) ?[]const u8 {
+            return switch (self) {
+                .a => |v| if (v == 0) "a must not be zero" else null,
+                .b => null,
+            };
+        }
+    };
+    comptime {
+        try std.testing.expectEqualStrings(
+            "a must not be zero",
+            contract.check(Tagged{ .a = 0 }, "").?,
         );
     }
 }

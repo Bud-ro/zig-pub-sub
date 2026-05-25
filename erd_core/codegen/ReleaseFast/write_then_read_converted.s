@@ -14,9 +14,9 @@ write_then_read_converted:
         mov	rdi, rbx
         xor	esi, esi
         mov	rcx, rbx
-        call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish"
+        call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish"
 .L0:
-        mov	rcx, qword ptr [rbx + 168]
+        mov	rcx, qword ptr [rbx + 136]
         movzx	eax, word ptr [rcx + 5]
         add	eax, dword ptr [rcx]
         add	rsp, 16
@@ -25,15 +25,15 @@ write_then_read_converted:
 
 ; --- called functions ---
 
-"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.ram_defs))[0..3]).publish":
+"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish":
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_1]
-        movzx	esi, byte ptr [rax + __anon_2]
+        mov	rdx, qword ptr [8*rax + __anon_0]
+        movzx	esi, byte ptr [rax + __anon_1]
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 8
-        movzx	edx, word ptr [rax + rax + __anon_3]
+        movzx	edx, word ptr [rax + rax + __anon_2]
         jmp	Subscription.publish
 

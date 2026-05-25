@@ -5,11 +5,14 @@
 //! between native and wire (big-endian) byte order.
 //!
 //! Usage:
-//!   const rules = comptime SwapRules(MyExternStruct);
-//!   var buf: [@sizeOf(MyExternStruct)]u8 = std.mem.toBytes(value);
-//!   rules.applyToNative(&buf);  // native -> big-endian
-//!   // ... send buf over wire ...
-//!   rules.applyToNative(&buf);  // big-endian -> native (same operation)
+//!   const Rules = SwapRules(MyExternStruct);
+//!   const wire_bytes = Rules.toBig(value);     // native -> big-endian
+//!   // ... send wire_bytes over wire ...
+//!   const native = Rules.fromBig(&wire_bytes); // big-endian -> native
+//!
+//! `toBig`/`fromBig` handle the static fields and the active tagged-union
+//! variant (when present). Lower-level: `apply(buf)` does only the static
+//! field swaps (idempotent), and is what `toBig`/`fromBig` call internally.
 //!
 //! Types with identical swap patterns share the same rule set at comptime.
 //! Single-byte fields (u8, bool, [N]u8 strings) produce no swap rules.
@@ -23,6 +26,18 @@ pub const SwapRule = struct {
     /// Number of bytes to reverse.
     size: u8,
 };
+
+/// Apply a list of swap rules to `buf` in-place. Each rule that fits within the
+/// buffer reverses its byte range; out-of-bounds rules are silently skipped.
+fn applyRules(comptime rules: []const SwapRule, buf: []u8) void {
+    for (rules) |rule| {
+        const start = rule.offset;
+        const end = start + rule.size;
+        if (end <= buf.len) {
+            std.mem.reverse(u8, buf[start..end]);
+        }
+    }
+}
 
 /// Generate swap rules for a specific union variant, offset within a parent struct.
 /// Usage for tagged union pattern (extern struct { tag: enum(u8), payload: extern union }):
@@ -47,13 +62,7 @@ pub fn SwapVariant(UnionType: type, comptime field_name: []const u8, comptime ba
 
         /// Apply byte swaps for this variant in-place.
         pub fn apply(buf: []u8) void {
-            for (swap_rules) |rule| {
-                const start = rule.offset;
-                const end = start + rule.size;
-                if (end <= buf.len) {
-                    std.mem.reverse(u8, buf[start..end]);
-                }
-            }
+            applyRules(&swap_rules, buf);
         }
 
         /// Number of swap rules for this variant.
@@ -74,13 +83,7 @@ pub fn SwapRules(T: type) type {
         /// Apply static byte swaps in-place. Idempotent.
         /// Does NOT handle tagged union variants. Use fromBig/toBig instead.
         pub fn apply(buf: []u8) void {
-            for (swap_rules) |rule| {
-                const start = rule.offset;
-                const end = start + rule.size;
-                if (end <= buf.len) {
-                    std.mem.reverse(u8, buf[start..end]);
-                }
-            }
+            applyRules(&swap_rules, buf);
         }
 
         fn applyTaggedUnions(buf: []u8) void {
@@ -121,13 +124,7 @@ pub fn SwapRules(T: type) type {
                     inline for (union_info.@"union".fields, 0..) |uf, i| {
                         if (tag_val == i) {
                             const variant_rules = comptime generateRules(uf.type, union_offset);
-                            inline for (variant_rules) |rule| {
-                                const start = rule.offset;
-                                const end = start + rule.size;
-                                if (end <= buf.len) {
-                                    std.mem.reverse(u8, buf[start..end]);
-                                }
-                            }
+                            applyRules(variant_rules, buf);
                         }
                     }
                 },

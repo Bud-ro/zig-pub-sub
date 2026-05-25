@@ -1,6 +1,9 @@
-//! This module provides a RAM data component, which stores data in a packed array.
-//! `comptime` makes it so ERD reads and writes are direct,
-//! even when performed through higher level abstractions like system_data
+//! RAM-backed data component: stores every owned ERD's bytes in one packed
+//! `storage` array. Per-ERD byte offsets are computed at comptime from the
+//! ERD slice, so comptime-dispatched `read`/`write`/`modify` compile to
+//! direct loads/stores into `storage` even through the higher-level
+//! `SystemData` wrappers. `write`'s trigger publishes when data
+//! is bit-for-bit different.
 
 const erd_core = @import("erd_core");
 const std = @import("std");
@@ -84,7 +87,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
 
         /// Runtime read using a dynamic data component index.
         pub fn runtimeRead(self: *const Self, data_component_idx: u16, data: *anyopaque) void {
-            var data_slice: [*]u8 = @ptrCast(data);
+            const data_slice: [*]u8 = @ptrCast(data);
             const size = data_size[data_component_idx];
 
             @memcpy(data_slice[0..size], self.storage[ram_offsets[data_component_idx] .. ram_offsets[data_component_idx] + size]);
@@ -111,7 +114,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             stored.* = data_bytes;
 
             if (changed) {
-                self.publish(erd.data_component_idx, &data, publisher);
+                self.publish(idx, &data, publisher);
             }
         }
 
@@ -120,17 +123,16 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         /// Debug-asserts that the value actually changed.
         pub fn modify(self: *Self, erd: Erd, comptime modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
-            const src: *align(1) const erd.T = @ptrCast(self.storage[ram_offsets[idx]..]);
-            const dst: *align(1) erd.T = @ptrCast(self.storage[ram_offsets[idx]..]);
+            const ptr: *align(1) erd.T = @ptrCast(self.storage[ram_offsets[idx]..]);
 
-            var value: erd.T = src.*;
+            var value: erd.T = ptr.*;
             const before = value;
             modifier(&value);
             std.debug.assert(!std.meta.eql(before, value));
-            dst.* = value;
+            ptr.* = value;
 
             if (erd.subs > 0) {
-                self.publish(erd.data_component_idx, dst, publisher);
+                self.publish(idx, ptr, publisher);
             }
         }
 

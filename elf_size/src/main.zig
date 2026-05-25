@@ -29,7 +29,7 @@ pub fn main(init: std.process.Init) !void {
     };
 
     var output_path: ?[]const u8 = null;
-    var regions: [16]elf_size.MemoryRegion = undefined;
+    var regions: [elf_size.MAX_REGIONS]elf_size.MemoryRegion = undefined;
     var count: usize = 0;
 
     while (args.next()) |arg| {
@@ -37,8 +37,11 @@ pub fn main(init: std.process.Init) !void {
             output_path = args.next();
             continue;
         }
-        if (count >= 16) break;
-        regions[count] = parseRegion(arg) orelse {
+        if (count >= elf_size.MAX_REGIONS) {
+            writeAll(io, "Too many regions specified\n");
+            return;
+        }
+        regions[count] = elf_size.parseRegion(arg) orelse {
             writeAll(io, "Invalid region spec\n");
             return;
         };
@@ -63,16 +66,4 @@ pub fn main(init: std.process.Init) !void {
         try w.interface.writeAll(buf[0..len]);
         try w.interface.flush();
     }
-}
-
-fn parseRegion(spec: []const u8) ?elf_size.MemoryRegion {
-    var it = std.mem.splitScalar(u8, spec, ':');
-    const name = it.next() orelse return null;
-    const origin_str = it.next() orelse return null;
-    const length_str = it.next() orelse return null;
-
-    const origin = std.fmt.parseInt(u32, origin_str, 16) catch return null;
-    const length = std.fmt.parseInt(u32, length_str, 16) catch return null;
-
-    return .{ .name = name, .origin = origin, .length = length };
 }

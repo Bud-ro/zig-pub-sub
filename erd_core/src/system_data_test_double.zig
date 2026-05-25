@@ -40,16 +40,8 @@ pub fn ramErd(T: type, comptime opts: RamErdOptions) Erd {
 
 /// Create a test SystemData type from ERD definitions backed by a single RAM component.
 pub fn create(ErdDefs: type) type { // zlinter-disable-current-line function_naming
-    const erd_instance = buildErdInstance(ErdDefs);
-    const erd_fields = std.meta.fieldNames(ErdDefs);
-
-    const all_erds: [erd_fields.len]Erd = blk: {
-        var erds: [erd_fields.len]Erd = undefined;
-        for (erd_fields, 0..) |name, i| {
-            erds[i] = @field(erd_instance, name);
-        }
-        break :blk erds;
-    };
+    const erd_instance = erd_core.erd_table.autofill(ErdDefs);
+    const all_erds = erd_core.erd_table.collectByComponent(erd_instance, 0);
 
     const RamDataComponentType = erd_core.data_component.Ram(&all_erds);
     const ErdEnum = std.meta.FieldEnum(ErdDefs);
@@ -71,17 +63,4 @@ pub fn create(ErdDefs: type) type { // zlinter-disable-current-line function_nam
             });
         }
     };
-}
-
-fn buildErdInstance(ErdDefs: type) ErdDefs {
-    var erds = ErdDefs{};
-
-    var data_component_idx: u16 = 0;
-    for (std.meta.fieldNames(ErdDefs), 0..) |name, i| {
-        @field(erds, name).data_component_idx = data_component_idx;
-        @field(erds, name).system_data_idx = i;
-        data_component_idx += 1;
-    }
-
-    return erds;
 }

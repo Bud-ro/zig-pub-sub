@@ -111,11 +111,11 @@ wide_write_all:
         mov	r8, rcx
         mov	rcx, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_8]
-        movzx	esi, byte ptr [rax + __anon_9]
+        mov	rdx, qword ptr [8*rax + __anon_0]
+        movzx	esi, byte ptr [rax + __anon_1]
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 64
-        movzx	edx, word ptr [rax + rax + __anon_10]
+        movzx	edx, word ptr [rax + rax + __anon_2]
         jmp	Subscription.publish
 

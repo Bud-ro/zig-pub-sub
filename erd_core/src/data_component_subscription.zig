@@ -16,11 +16,15 @@ const std = @import("std");
 const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 
-/// Validates that every component in `Components` has a `subs` field.
+/// Validates that every component in `Components` has the data-component interface:
+/// a `subs` field and a `supports_write` decl.
 pub fn validateComponents(Components: type) void {
     for (std.meta.fields(Components)) |field| {
         if (!@hasField(field.type, "subs")) {
             @compileError(std.fmt.comptimePrint("Component {s} must have a subs field (use DataComponentSubscription or Unsupported)", .{field.name}));
+        }
+        if (!@hasDecl(field.type, "supports_write")) {
+            @compileError(std.fmt.comptimePrint("Component {s} must declare `pub const supports_write` (true for writable components, false otherwise)", .{field.name}));
         }
     }
 }
@@ -30,8 +34,6 @@ pub fn validateComponents(Components: type) void {
 pub fn DataComponentSubscription(comptime erds: []const Erd) type {
     return struct {
         const Self = @This();
-        /// Whether this component supports subscriptions.
-        pub const supported = true;
 
         /// Comptime-computed offsets into the flat subscription slot array per ERD.
         pub const sub_offsets = blk: {
@@ -81,11 +83,6 @@ pub fn DataComponentSubscription(comptime erds: []const Erd) type {
 /// Stub for components that do not support subscriptions.
 /// Any attempt to subscribe or unsubscribe is a compile error.
 pub const Unsupported = struct { // zlinter-disable-current-line declaration_naming
-    /// Whether this component supports subscriptions.
-    pub const supported = false;
-    /// Empty offset array for interface compatibility.
-    pub const sub_offsets = [_]usize{};
-
     /// Compile error: this component does not support subscriptions.
     pub fn subscribe(_: *@This(), _: Erd, _: ?*anyopaque, _: Subscription.Callback) void {
         @compileError("This component does not support subscriptions");

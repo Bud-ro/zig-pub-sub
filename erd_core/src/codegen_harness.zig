@@ -322,7 +322,7 @@ export fn read_across_two_erds(sd: *SmallSD) u32 {
 
 fn accumulate_callback(_: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
     const args: *const SmallSD.OnChangeArgs = @ptrCast(@alignCast(_args.?));
-    var sd: *SmallSD = @ptrCast(@alignCast(publisher));
+    const sd: *SmallSD = @ptrCast(@alignCast(publisher));
     const written_val: *const bool = @ptrCast(args.data);
     if (written_val.*) {
         sd.write(.version, sd.read(.version) +% 1);
@@ -461,31 +461,12 @@ const MultiErdDefs = struct {
     // zig fmt: on
 };
 
-const multi_erd = blk: {
-    var erds = MultiErdDefs{};
-    var component_counts = [_]u16{ 0, 0, 0 };
-    for (std.meta.fieldNames(MultiErdDefs), 0..) |name, i| {
-        const idx = @field(erds, name).component_idx;
-        @field(erds, name).data_component_idx = component_counts[idx];
-        @field(erds, name).system_data_idx = i;
-        component_counts[idx] += 1;
-    }
-    break :blk erds;
-};
-
+const multi_erd = erd_core.erd_table.autofill(MultiErdDefs);
 const MultiErdEnum = std.meta.FieldEnum(MultiErdDefs);
 
-fn ramErds() [3]Erd {
-    return .{ multi_erd.ram_counter, multi_erd.ram_flag, multi_erd.ram_value };
-}
-
-fn indirectErds() [2]Erd {
-    return .{ multi_erd.ind_constant, multi_erd.ind_computed };
-}
-
-fn convertedErds() [2]Erd {
-    return .{ multi_erd.conv_sum, multi_erd.conv_flag_inv };
-}
+const multi_ram_erds = erd_core.erd_table.collectByComponent(multi_erd, Ram);
+const multi_indirect_erds = erd_core.erd_table.collectByComponent(multi_erd, Indirect);
+const multi_converted_erds = erd_core.erd_table.collectByComponent(multi_erd, Converted);
 
 fn indConstant(data: *u32) void {
     data.* = 0xCAFE;
@@ -515,13 +496,9 @@ const multi_converted_mappings = [_]ConvertedMapping{
     .map(multi_erd.conv_flag_inv, computeFlagInv, &.{multi_erd.ram_flag}),
 };
 
-const ram_defs = ramErds();
-const indirect_defs = indirectErds();
-const converted_defs = convertedErds();
-
-const MultiRam = erd_core.data_component.Ram(&ram_defs);
-const MultiIndirect = erd_core.data_component.Indirect(&indirect_defs, multi_indirect_mappings);
-const MultiConverted = erd_core.data_component.Converted(&converted_defs, multi_converted_mappings);
+const MultiRam = erd_core.data_component.Ram(&multi_ram_erds);
+const MultiIndirect = erd_core.data_component.Indirect(&multi_indirect_erds, multi_indirect_mappings);
+const MultiConverted = erd_core.data_component.Converted(&multi_converted_erds, multi_converted_mappings);
 
 const MultiComponents = struct {
     ram: MultiRam,

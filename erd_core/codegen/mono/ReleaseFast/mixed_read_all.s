@@ -7,7 +7,7 @@ mixed_read_all:
         add	rcx, rax
         movzx	eax, byte ptr [rdi + 6]
         and	eax, 1
-        mov	rdx, qword ptr [rdi + 208]
+        mov	rdx, qword ptr [rdi + 168]
         mov	esi, dword ptr [rdx]
         movzx	r8d, word ptr [rdx + 4]
         add	r8d, esi
