@@ -1,0 +1,66 @@
+; snapshot_comments.zig
+; Speed: Optimal | Size: Optimal
+;
+pub_runtime_write:
+        jmp	".Lsystem_data.SystemData(codegen_harness.PubSystem__struct_0,meta.FieldEnum(codegen_harness.PubSystem__struct_0),.{ .pub_with_subs = .{ ... }, .pub_no_subs = .{ ... }, .pub_struct_with_subs = .{ ... }, .pub_struct_no_subs = .{ ... }, .unpub_with_subs = .{ ... }, .unpub_no_subs = .{ ... } },system_data_test_double.create.Components).runtimeWrite"
+
+; --- called functions ---
+
+".Lsystem_data.SystemData(codegen_harness.PubSystem__struct_0,meta.FieldEnum(codegen_harness.PubSystem__struct_0),.{ .pub_with_subs = .{ ... }, .pub_no_subs = .{ ... }, .pub_struct_with_subs = .{ ... }, .pub_struct_no_subs = .{ ... }, .unpub_with_subs = .{ ... }, .unpub_no_subs = .{ ... } },system_data_test_double.create.Components).runtimeWrite":
+        push	rbp
+        push	r15
+        push	r14
+        push	r13
+        push	r12
+        push	rbx
+        push	rax
+        mov	rbx, rdx
+        movzx	r14d, si
+        movzx	r15d, word ptr [r14 + r14 + .L__anon_1]
+        movzx	r12d, word ptr [r15 + r15 + .L__anon_2]
+        mov	r13, qword ptr [8*r15 + .L__anon_3]
+        mov	qword ptr [rsp], rdi
+        add	r13, rdi
+        mov	rdi, rdx
+        mov	rsi, r13
+        mov	rdx, r12
+        call	.Lram_data_component.runtimeBytesEqual
+        mov	ebp, eax
+        mov	rdi, r13
+        mov	rsi, rbx
+        mov	rdx, r12
+        call	memcpy@PLT
+        test	bpl, 1
+        jne	.L0
+        cmp	byte ptr [r15 + .L__anon_4], 0
+        je	.L0
+        mov	rcx, qword ptr [rsp]
+        mov	rdi, rcx
+        mov	esi, r15d
+        mov	rdx, rbx
+        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..6]).publish"
+.L0:
+        movzx	esi, word ptr [r14 + r14 + .L__anon_5]
+        test	si, si
+        je	.L1
+        movzx	ecx, word ptr [r14 + r14 + .L__anon_2]
+        mov	rdi, qword ptr [rsp]
+        mov	rdx, rbx
+        add	rsp, 8
+        pop	rbx
+        pop	r12
+        pop	r13
+        pop	r14
+        pop	r15
+        pop	rbp
+        jmp	".Lsystem_data.SystemData(codegen_harness.PubSystem__struct_0,meta.FieldEnum(codegen_harness.PubSystem__struct_0),.{ .pub_with_subs = .{ ... }, .pub_no_subs = .{ ... }, .pub_struct_with_subs = .{ ... }, .pub_struct_no_subs = .{ ... }, .unpub_with_subs = .{ ... }, .unpub_no_subs = .{ ... } },system_data_test_double.create.Components).publishExternal"
+.L1:
+        add	rsp, 8
+        pop	rbx
+        pop	r12
+        pop	r13
+        pop	r14
+        pop	r15
+        pop	rbp
+        ret
+
