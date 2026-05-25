@@ -9,10 +9,12 @@
 //! `average_latency` = 0
 //! `maximum_latency` = 1
 
+const erd_core = @import("erd_core");
 const std = @import("std");
-const timer = @import("erd_core").timer;
+const timer = erd_core.timer;
 const Timer = timer.Timer;
 const TimerModule = timer.TimerModule;
+const OnChangeArgs = erd_core.system_data.OnChangeArgs;
 
 /// Throughput and latency measurement results for the timer module.
 pub const StatMeasurement = struct {
@@ -63,7 +65,7 @@ pub fn TimerModuleStats(SystemDataType: type) type {
         }
 
         fn onEnableChange(ctx: ?*anyopaque, _args: ?*const anyopaque, publisher: *anyopaque) void {
-            const args: *const SystemDataType.OnChangeArgs = @ptrCast(@alignCast(_args.?));
+            const args: *const OnChangeArgs = @ptrCast(@alignCast(_args.?));
             const system_data: *SystemDataType = @ptrCast(@alignCast(publisher));
             const self: *Self = @ptrCast(@alignCast(ctx));
             const is_enabled: *const bool = @ptrCast(args.data);
@@ -111,13 +113,12 @@ pub fn TimerModuleStats(SystemDataType: type) type {
             // value so the stats timers reflect ERD state at init time.
             var is_enabled: bool = undefined;
             system_data.runtimeRead(enable_erd_idx, &is_enabled);
-            const init_data: SystemDataType.OnChangeArgs = .{ .data = &is_enabled, .system_data_idx = enable_erd_idx };
+            const init_data: OnChangeArgs = .{ .data = &is_enabled, .system_data_idx = enable_erd_idx };
             onEnableChange(self, &init_data, system_data);
         }
     };
 }
 
-const erd_core = @import("erd_core");
 const Erd = erd_core.Erd;
 const SystemDataTestDouble = erd_core.testing.SystemDataTestDouble;
 

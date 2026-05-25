@@ -23,5 +23,5 @@ many_write_last_with_subs:
         add	rdi, 136
         mov	esi, 3
         mov	edx, 31
-        jmp	.LSubscription.publish
+        jmp	.Lsystem_data.publishOnChange
 

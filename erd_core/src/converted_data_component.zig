@@ -11,6 +11,7 @@
 const erd_core = @import("erd_core");
 const erd_mapping = erd_core.erd_mapping;
 const std = @import("std");
+const system_data = @import("system_data.zig");
 const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 const DataComponentSubscription = erd_core.data_component.subscription_mixin.DataComponentSubscription;
@@ -109,7 +110,7 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
                     fnPtr(&val, publisher);
                     if (erd.subs > 0) {
                         const offset = Subs.sub_offsets[erd_data_component_idx];
-                        Subscription.publish(
+                        system_data.publishOnChange(
                             self.subs.slots[offset..][0..erd.subs],
                             erd.system_data_idx,
                             @ptrCast(&val),

@@ -19,6 +19,34 @@ const std = @import("std");
 const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
 
+/// Args delivered to subscribers of data-component ERDs. Each publisher owns
+/// its own args type; this is SystemData's. Lives at file scope (not inside
+/// the SystemData generic) so data components and other modules can import
+/// the type without instantiating SystemData.
+pub const OnChangeArgs = struct {
+    /// system_data_idx of the ERD whose value changed.
+    system_data_idx: u16,
+    /// Pointer to the ERD's new value, as raw bytes.
+    data: *const anyopaque,
+};
+
+/// Shared noinline dispatcher for SystemData-shaped publishes. Takes the
+/// `OnChangeArgs` *fields* individually -- Zig's struct-by-value ABI tends
+/// to insert a hidden indirect pointer for `OnChangeArgs`, which prevents
+/// callers (RAM/Converted data components) from tail-jumping. Passing the
+/// fields as separate register-sized parameters keeps the call site a pure
+/// arg-shuffle + jmp.
+///
+/// The args struct is built inside this dispatcher; the pointer handed to
+/// each subscriber is valid only for the duration of the dispatch.
+pub noinline fn publishOnChange(slots: []Subscription, system_data_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
+    const args: OnChangeArgs = .{ .system_data_idx = system_data_idx, .data = data };
+    for (slots) |*sub| {
+        const cb = sub.callback orelse continue;
+        cb(sub.context, @ptrCast(&args), publisher);
+    }
+}
+
 /// Construct a typed pub-sub system data aggregator from ERD definitions and components.
 pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, Components: type) type {
     comptime {
@@ -62,9 +90,6 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
 
     return struct {
         const Self = @This();
-
-        /// Arguments passed to on-change subscription callbacks.
-        pub const OnChangeArgs = Subscription.OnChangeArgs;
 
         /// A test only type used with verifyAllSubsAreSaturated
         pub const SubException = struct { erd_enum: ErdEnum, missing: comptime_int };

@@ -28,5 +28,5 @@ write_ram_with_converted_deps:
         add	rdi, rdx
         add	rdi, 8
         movzx	edx, word ptr [rax + rax + __anon_2]
-        jmp	Subscription.publish
+        jmp	system_data.publishOnChange
 

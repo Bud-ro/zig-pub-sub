@@ -117,5 +117,5 @@ wide_write_all:
         add	rdi, rdx
         add	rdi, 64
         movzx	edx, word ptr [rax + rax + __anon_2]
-        jmp	Subscription.publish
+        jmp	system_data.publishOnChange
 

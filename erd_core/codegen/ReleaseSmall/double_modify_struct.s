@@ -29,5 +29,5 @@ double_modify_struct:
         add	rdi, 312
         mov	esi, 1
         mov	edx, 1
-        jmp	.LSubscription.publish
+        jmp	.Lsystem_data.publishOnChange
 
