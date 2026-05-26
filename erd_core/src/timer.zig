@@ -382,11 +382,23 @@ pub const TimerModule = struct {
         self.current_time +%= ticks_to_increment_by;
     }
 
-    /// Repeatedly reads the current_time until two consecutive reads are identical
+    /// Repeatedly reads the current_time until two consecutive reads are identical.
+    /// On targets that support atomic access to Ticks (32-bit+ architectures),
+    /// uses @atomicLoad. On narrower targets (e.g. MSP430, 16-bit usize), falls
+    /// back to a spin-loop that reads twice until the value is stable, which
+    /// handles the case where an ISR updates current_time mid-read.
     pub fn safelyGetCurrentTime(self: *const TimerModule) Ticks {
-        // TODO: A lot of embedded platforms won't support atomic access to a u32.
-        // The natural way to do so would be via a spin-loop, I just need to figure out
-        // how to specify that to where it isn't optimized away.
-        return @atomicLoad(Ticks, &self.current_time, .monotonic);
+        const ptr: *const volatile Ticks = @ptrCast(&self.current_time);
+        if (comptime @bitSizeOf(Ticks) <= @bitSizeOf(usize)) {
+            return @atomicLoad(Ticks, &self.current_time, .monotonic);
+        } else {
+            // Spin-loop: read until two consecutive samples agree.
+            var a = ptr.*;
+            while (true) {
+                const b = ptr.*;
+                if (a == b) return a;
+                a = b;
+            }
+        }
     }
 };
