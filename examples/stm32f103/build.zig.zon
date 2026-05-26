@@ -1,0 +1,16 @@
+.{
+    .name = .stm32f103,
+    .version = "0.0.0",
+    .fingerprint = 0xef21b789f2ed2dff,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .erd_core = .{ .path = "../../erd_core" },
+        .elf_size = .{ .path = "../../elf_size" },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "stm32f103.ld",
+        "src",
+    },
+}

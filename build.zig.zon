@@ -23,7 +23,7 @@
         "elf_size",
         "erd_core",
         "erd_schema",
-        "esp8266",
+        "examples",
         "LICENSE",
         "README.md",
     },

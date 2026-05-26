@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Structure
 
-This is a **multi-package monorepo** with six Zig packages:
+This is a **multi-package monorepo** with five core Zig packages and firmware examples:
 
 | Package | Path | Description |
 |---------|------|-------------|
@@ -12,8 +12,22 @@ This is a **multi-package monorepo** with six Zig packages:
 | **erd_schema** | `erd_schema/` | ERD serialization (JSON, future formats) - transforms Zig ERD types into consumable output |
 | **data_gen** | `data_gen/` | Constraint-based data generation for property-based testing |
 | **app** | `app/` | Demo application - wires ERD definitions to concrete components |
-| **esp8266** | `esp8266/` | ESP8266 firmware via Zig C backend - WiFi scanning, erd_core integration, LED blink |
 | **elf_size** | `elf_size/` | ELF section-size reporter for embedded firmware builds |
+
+The `examples/` directory contains firmware target packages demonstrating erd_core on various microcontrollers:
+
+| Target | Path | Description |
+|--------|------|-------------|
+| **esp8266** | `examples/esp8266/` | ESP8266 firmware via Zig C backend - WiFi scanning, erd_core integration, LED blink |
+| **stm32f103** | `examples/stm32f103/` | STM32F103 Blue Pill (ARM Cortex-M3) |
+| **stm32f407** | `examples/stm32f407/` | STM32F407 Discovery (ARM Cortex-M4F) |
+| **nrf52840** | `examples/nrf52840/` | nRF52840-DK (ARM Cortex-M4F) |
+| **rp2040** | `examples/rp2040/` | RP2040 Raspberry Pi Pico (ARM Cortex-M0+) |
+| **samd51** | `examples/samd51/` | ATSAMD51 Metro M4 (ARM Cortex-M4F) |
+| **stm32l072** | `examples/stm32l072/` | STM32L072 Nucleo (ARM Cortex-M0+) |
+| **gd32vf103** | `examples/gd32vf103/` | GD32VF103 Longan Nano (RISC-V RV32IMAC) |
+| **esp32c3** | `examples/esp32c3/` | ESP32-C3 (RISC-V RV32IMC) |
+| **msp430** | `examples/msp430/` | MSP430G2553 LaunchPad (16-bit) |
 
 ## Build & Test Commands
 
@@ -32,8 +46,9 @@ cd erd_core && zig build test           # Core tests only
 cd erd_schema && zig build test         # Schema tests only
 cd data_gen && zig build test           # Data gen tests only
 cd app && zig build run                 # Run app standalone
-cd esp8266 && zig build                 # Build ESP8266 firmware
-cd esp8266 && zig build flash           # Build and flash to ESP8266
+cd examples/esp8266 && zig build                 # Build ESP8266 firmware
+cd examples/esp8266 && zig build flash           # Build and flash to ESP8266
+cd examples/<target> && zig build                # Build any firmware target
 ```
 
 ## Architecture
@@ -84,7 +99,8 @@ Each package has its own tests aggregated via `src/root.zig` test blocks. The ro
 - **data_gen** has no dependencies
 - **app** depends on `erd_core` and `erd_schema` (path deps)
 - **elf_size** has no dependencies (standalone CLI + library)
-- **esp8266** depends on `erd_core` (via C backend `--dep`/`-M` flags), ESP8266 NonOS SDK 2.2.1 (git cloned to `esp8266/sdk/`, gitignored), `xtensa-lx106-elf-gcc` (apt), `esptool` (apt)
+- **examples/esp8266** depends on `erd_core` (via C backend `--dep`/`-M` flags), ESP8266 NonOS SDK 2.2.1 (git cloned to `examples/esp8266/sdk/`, gitignored), `xtensa-lx106-elf-gcc` (apt), `esptool` (apt)
+- **examples/<target>** - native LLVM firmware targets depend on `erd_core` and `elf_size` (path deps)
 
 ## Code Style
 
@@ -102,4 +118,4 @@ Before committing, run `zig build lint` from the repo root to check for style vi
 
 ## Formatting
 
-After completing any code changes, run `zig fmt erd_core/src/ erd_schema/src/ data_gen/src/ app/src/ elf_size/src/ esp8266/src/ esp8266/build.zig` to format all packages before reporting results.
+After completing any code changes, run `zig fmt erd_core/src/ erd_schema/src/ data_gen/src/ app/src/ elf_size/src/ examples/esp8266/src/ examples/esp8266/build.zig` to format all packages before reporting results.

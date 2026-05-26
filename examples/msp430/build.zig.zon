@@ -1,0 +1,15 @@
+.{
+    .name = .msp430,
+    .version = "0.0.0",
+    .fingerprint = 0x21359f74f214cb02,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .erd_core = .{ .path = "../../erd_core" },
+        .elf_size = .{ .path = "../../elf_size" },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
