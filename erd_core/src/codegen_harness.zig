@@ -18,6 +18,7 @@ const Erd = erd_core.Erd;
 const timer = erd_core.timer;
 const IndirectMapping = erd_core.data_component.IndirectMapping;
 const ConvertedMapping = erd_core.data_component.ConvertedMapping;
+const ExternalDataComponent = erd_core.data_component.External;
 
 // ---------------------------------------------------------------------------
 // System A: small system (4 ERDs, one with subs)
@@ -620,4 +621,75 @@ export fn unsubscribe_converted(sd: *MultiSD) void {
 
 export fn unsubscribe_converted_flag(sd: *MultiSD) void {
     sd.unsubscribe(.conv_flag_inv, conv_sub_callback);
+}
+
+// ===========================================================================
+// External publish scenarios - parallels the same names in PR #25 so the
+// generated assembly is directly comparable between the two approaches.
+// ===========================================================================
+
+const PubSystem = SystemDataTestDouble.create(struct {
+    pub_with_subs: Erd = SystemDataTestDouble.ramErd(u32, .{ .subs = 1, .erd_number = 0x2000, .published = true }),
+    pub_no_subs: Erd = SystemDataTestDouble.ramErd(u16, .{ .erd_number = 0x2001, .published = true }),
+    pub_struct_with_subs: Erd = SystemDataTestDouble.ramErd(MediumStruct, .{ .subs = 1, .erd_number = 0x2002, .published = true }),
+    pub_struct_no_subs: Erd = SystemDataTestDouble.ramErd(MediumStruct, .{ .erd_number = 0x2003, .published = true }),
+    unpub_with_subs: Erd = SystemDataTestDouble.ramErd(u32, .{ .subs = 1 }),
+    unpub_no_subs: Erd = SystemDataTestDouble.ramErd(u16, .{}),
+});
+const PubSD = PubSystem.SystemData;
+
+fn pubErds() [6]Erd {
+    const e = PubSD.erds;
+    return .{ e.pub_with_subs, e.pub_no_subs, e.pub_struct_with_subs, e.pub_struct_no_subs, e.unpub_with_subs, e.unpub_no_subs };
+}
+
+const PubExt = ExternalDataComponent(&pubErds());
+
+extern fn pubSendFn(erd_number: u16, data_ptr: [*]const u8, data_len: usize) void;
+
+fn pubSendShim(erd_number: u16, data: []const u8) void {
+    pubSendFn(erd_number, data.ptr, data.len);
+}
+
+export fn pub_register(sd: *PubSD, ext: *PubExt) void {
+    ext.* = PubExt.init(pubSendShim);
+    ext.postSystemDataInit(sd);
+}
+
+export fn pub_write_with_subs(sd: *PubSD, v: u32) void {
+    sd.write(.pub_with_subs, v);
+}
+
+export fn pub_write_no_subs(sd: *PubSD, v: u16) void {
+    sd.write(.pub_no_subs, v);
+}
+
+export fn pub_modify_struct_with_subs(sd: *PubSD) void {
+    sd.modify(.pub_struct_with_subs, struct {
+        fn m(val: *MediumStruct) void {
+            val.c +%= 1;
+        }
+    }.m);
+}
+
+export fn pub_modify_struct_no_subs(sd: *PubSD) void {
+    sd.modify(.pub_struct_no_subs, struct {
+        fn m(val: *MediumStruct) void {
+            val.c +%= 1;
+        }
+    }.m);
+}
+
+export fn pub_runtime_write(sd: *PubSD, idx: u16, data: *const anyopaque) void {
+    sd.runtimeWrite(idx, data);
+}
+
+// Control: same write shapes but to non-published ERDs. Diff vs the
+// pub_* variants shows the marginal cost of `.published = true`.
+export fn unpub_write_with_subs(sd: *PubSD, v: u32) void {
+    sd.write(.unpub_with_subs, v);
+}
+
+export fn unpub_write_no_subs(sd: *PubSD, v: u16) void {
+    sd.write(.unpub_no_subs, v);
 }

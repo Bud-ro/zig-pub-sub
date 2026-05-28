@@ -18,6 +18,10 @@ T: type,
 component_idx: comptime_int,
 /// The number of subscription slots that are available
 subs: comptime_int,
+/// Whether this ERD is published externally over the wire.
+/// When true, the ExternalDataComponent monitors it and subscribe_all includes it.
+/// Requires erd_number to be non-null.
+published: bool = false,
 /// Auto-filled by `erd_table.autofill`: zero-based index of this ERD within
 /// its owning data component (so RAM ERDs get 0, 1, 2, ... and Indirect ERDs
 /// independently get 0, 1, ...). Used by RAM/Indirect/Converted dispatch

@@ -13,6 +13,7 @@ subscribe_converted_flag:
         shl	rsi, 4
         add	rdi, rsi
         mov	esi, 2
-        mov	edx, offset .Lcodegen_harness.conv_sub_callback
+        mov	ecx, offset .Lcodegen_harness.conv_sub_callback
+        xor	edx, edx
         jmp	.LSubscription.subscribe
 
