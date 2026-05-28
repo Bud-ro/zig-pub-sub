@@ -38,6 +38,7 @@ test {
     _ = @import("tests/indirect_data_component_test.zig");
     _ = @import("tests/converted_data_component_test.zig");
     _ = @import("tests/timer_test.zig");
+    _ = @import("tests/external_publish_test.zig");
     _ = @import("tests/timer_fuzzing.zig");
     _ = @import("strip_asm.zig");
 }

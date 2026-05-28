@@ -1,6 +1,7 @@
 # size (bytes)	function
 2	multi_runtime_read
 2	multi_runtime_write
+2	pub_runtime_write
 2	runtime_read
 2	write_ram_with_converted_deps
 3	many_read_first
@@ -15,6 +16,7 @@
 5	read_indirect_computed
 5	read_u16_unaligned
 5	runtime_write
+5	unpub_write_no_subs
 5	write_bool_with_subs
 5	write_ram_no_converted_dep
 5	write_u16_no_subs
@@ -29,6 +31,7 @@
 8	unsubscribe_converted
 8	write_triggering_callback
 9	dual_read
+9	pub_register
 9	subscribe_converted_flag
 9	unsubscribe_converted_flag
 10	increment_n_times
@@ -54,13 +57,18 @@
 28	many_write_last_with_subs
 29	double_write_same_value
 31	runtime_read_two
+31	unpub_write_with_subs
 32	triple_write_increment
 34	runtime_write_two
 35	cross_system_swap
 38	write_ram_flag_with_converted_dep
+40	pub_write_no_subs
 60	runtime_write_three
 61	modify_medium_no_subs
+62	pub_write_with_subs
 75	modify_medium_single_field
+82	pub_modify_struct_no_subs
 98	modify_medium_two_fields
+116	pub_modify_struct_with_subs
 155	double_modify_struct
 172	setup_timer_callback
