@@ -217,3 +217,53 @@ test "swaps fields of an extern struct" {
     try std.testing.expectEqual(@as(u8, 0x22), event_log[0].bytes[5]);
     try std.testing.expectEqual(@as(u8, 0x33), event_log[0].bytes[6]);
 }
+
+test "swaps the active variant of a tagged-union ERD" {
+    // extern struct { tag, payload: extern union } is the tagged-union pattern
+    // recognized by erd_swap. The payload bytes must be reversed according to
+    // the *active* variant, which a static swap-rule table cannot express.
+    const Kind = enum(u8) { u32v = 0, u16v = 1 };
+    const Tagged = extern struct {
+        tag: Kind,
+        payload: extern union {
+            u32v: u32,
+            u16v: u16,
+        },
+    };
+    const TaggedSys = SystemDataTestDouble.create(struct {
+        reading: Erd = SystemDataTestDouble.ramErd(Tagged, .{ .subs = 1, .erd_number = 0x3000 }),
+    });
+    const TaggedSD = TaggedSys.SystemData;
+    const TaggedWire = WirePublisher(TaggedSD, &.{TaggedSD.erds.reading}, 1);
+
+    resetLog();
+    var sd = TaggedSys.init();
+    var wire = TaggedWire.init();
+    wire.postSystemDataInit(&sd);
+
+    const local = struct {
+        fn cb(_: ?*anyopaque, args: ?*const anyopaque, _: *anyopaque) void {
+            const out: *const TaggedWire.OnChangeArgs = @ptrCast(@alignCast(args.?));
+            if (event_count < max_events) {
+                var ev: Event = .{ .erd_number = out.erd_number, .bytes = .{ 0, 0, 0, 0, 0, 0, 0, 0 }, .len = @intCast(out.be_bytes.len) };
+                const n = @min(out.be_bytes.len, ev.bytes.len);
+                @memcpy(ev.bytes[0..n], out.be_bytes[0..n]);
+                event_log[event_count] = ev;
+                event_count += 1;
+            }
+        }
+    }.cb;
+    wire.subscribe(null, local);
+
+    sd.write(.reading, .{ .tag = .u32v, .payload = .{ .u32v = 0xAABBCCDD } });
+
+    try std.testing.expectEqual(1, event_count);
+    try std.testing.expectEqual(@as(u16, 0x3000), event_log[0].erd_number);
+    // tag (u8) at offset 0 is unswapped; payload (u32) lives at offset 4
+    // (extern union is 4-aligned) and must be reversed to big-endian.
+    try std.testing.expectEqual(@as(u8, 0x00), event_log[0].bytes[0]);
+    try std.testing.expectEqual(@as(u8, 0xAA), event_log[0].bytes[4]);
+    try std.testing.expectEqual(@as(u8, 0xBB), event_log[0].bytes[5]);
+    try std.testing.expectEqual(@as(u8, 0xCC), event_log[0].bytes[6]);
+    try std.testing.expectEqual(@as(u8, 0xDD), event_log[0].bytes[7]);
+}

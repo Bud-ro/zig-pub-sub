@@ -8,8 +8,10 @@
 //! on `Erd`. Users bump `.subs += 1` on the ERDs they want monitored.
 //!
 //! Dispatch is shared across all watched ERDs: one handler function reaches a
-//! sorted descriptor table by binary search on `system_data_idx`, applies the
-//! swap rules in-place to a stack-local copy, and republishes via
+//! sorted descriptor table by binary search on `system_data_idx`, copies the
+//! value into a stack-local buffer, applies a per-ERD comptime-specialized
+//! native->big-endian conversion (`erd_swap.SwapRules(T).applyToBig`, which
+//! also handles the active tagged-union variant), and republishes via
 //! `Subscription.publish` with `OnChangeArgs{erd_number, be_bytes}`.
 //!
 //! Usage:
@@ -21,21 +23,21 @@
 //! ```
 
 const erd_core = @import("erd_core");
-const std = @import("std");
 const swap = @import("erd_swap.zig");
 const Erd = erd_core.Erd;
 const Subscription = erd_core.Subscription;
-const SwapRule = swap.SwapRule;
 
 /// Comptime descriptor for a single watched ERD: the system_data_idx that
 /// identifies its incoming on-change event, the public erd_number to publish
-/// outward, the byte count, and an index range into the flat swap-rules table.
+/// outward, the byte count, and a pointer to a per-ERD comptime-specialized
+/// native->big-endian conversion. A flat swap-rule table cannot be used here
+/// because tagged-union ERDs need a runtime tag-dependent variant swap, which
+/// only the type-specialized `SwapRules(T).applyToBig` can express.
 const Descriptor = struct {
     system_data_idx: u16,
     erd_number: u16,
     size: u16,
-    rules_start: u16,
-    rules_len: u16,
+    swapToBig: *const fn (buf: []u8) void,
 };
 
 /// Build a wire-publisher type that watches the given ERDs in `SD` and
@@ -56,7 +58,6 @@ pub fn WirePublisher(SD: type, comptime watched_erds: []const Erd, n_subs: compt
         };
 
         const descriptors: [built.descriptors.len]Descriptor = built.descriptors[0..built.descriptors.len].*;
-        const all_rules: [built.all_rules.len]SwapRule = built.all_rules[0..built.all_rules.len].*;
         const max_size: usize = built.max_size;
 
         subs: [n_subs]Subscription = @splat(.{ .context = null, .callback = null }),
@@ -97,13 +98,12 @@ pub fn WirePublisher(SD: type, comptime watched_erds: []const Erd, n_subs: compt
             const desc = binarySearch(change.system_data_idx) orelse return;
 
             // Copy the native-endian bytes into a stack-local buffer sized to
-            // the largest watched ERD, then apply each swap rule in-place.
+            // the largest watched ERD, then convert to big-endian in-place via
+            // this ERD's specialized conversion (handles tagged-union variants).
             var buf: [max_size]u8 = undefined;
             const src: [*]const u8 = @ptrCast(change.data);
             @memcpy(buf[0..desc.size], src[0..desc.size]);
-            for (all_rules[desc.rules_start..][0..desc.rules_len]) |rule| {
-                std.mem.reverse(u8, buf[rule.offset..][0..rule.size]);
-            }
+            desc.swapToBig(buf[0..desc.size]);
 
             publishWire(&self.subs, desc.erd_number, buf[0..desc.size], publisher);
         }
@@ -147,6 +147,11 @@ fn validate(comptime watched: []const Erd) void {
         if (erd.subs == 0) {
             @compileError("WirePublisher watched ERD must have subs > 0; bump its `.subs` and rebuild");
         }
+        if (@typeInfo(erd.T) == .@"union") {
+            @compileError("WirePublisher cannot serialize a bare union ERD '" ++ @typeName(erd.T) ++
+                "': there is no tag to select the active variant. Wrap it in an extern struct " ++
+                "{ tag, payload } so the variant is known at swap time.");
+        }
         for (seen[0..i]) |prev_idx| {
             if (prev_idx == erd.system_data_idx) {
                 @compileError("WirePublisher watched_erds contains a duplicate ERD");
@@ -158,7 +163,6 @@ fn validate(comptime watched: []const Erd) void {
 
 const Built = struct {
     descriptors: []const Descriptor,
-    all_rules: []const SwapRule,
     max_size: usize,
 };
 
@@ -180,28 +184,21 @@ fn build(comptime watched: []const Erd) Built {
     }
 
     var descs: [watched.len]Descriptor = undefined;
-    var all_rules: []const SwapRule = &.{};
     var max_size: usize = 0;
     for (order, 0..) |src_idx, i| {
         const erd = watched[src_idx];
-        const rules = swap.SwapRules(erd.T).swap_rules;
-        const start: u16 = @intCast(all_rules.len);
-        all_rules = all_rules ++ rules[0..];
         descs[i] = .{
             .system_data_idx = erd.system_data_idx,
             .erd_number = erd.erd_number.?,
             .size = @sizeOf(erd.T),
-            .rules_start = start,
-            .rules_len = rules.len,
+            .swapToBig = &swap.SwapRules(erd.T).applyToBig,
         };
         if (@sizeOf(erd.T) > max_size) max_size = @sizeOf(erd.T);
     }
 
     const frozen_descs = descs;
-    const frozen_rules = all_rules[0..all_rules.len].*;
     return .{
         .descriptors = &frozen_descs,
-        .all_rules = &frozen_rules,
         .max_size = max_size,
     };
 }

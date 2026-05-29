@@ -148,6 +148,21 @@ pub fn SwapRules(T: type) type {
             return rules.len;
         }
 
+        /// Convert native-endian bytes to big-endian wire bytes in-place,
+        /// including the active tagged-union variant. This is the byte-buffer
+        /// equivalent of `toBig` for type-erased callers that already hold the
+        /// value as raw bytes (e.g. `WirePublisher`'s shared handler, which
+        /// cannot call the value-typed `toBig`). `buf` must be exactly
+        /// `@sizeOf(T)` bytes of a valid native-endian T. Operates purely on
+        /// bytes, so it imposes no alignment requirement on `buf`.
+        pub fn applyToBig(buf: []u8) void {
+            // Swap the active union variant first while the tag is still
+            // native-readable, then swap all static fields (including the
+            // tag). Mirrors the ordering in `toBig`.
+            applyTaggedUnions(buf);
+            apply(buf);
+        }
+
         /// Convert big-endian wire bytes to a native T in one shot.
         /// Handles tagged unions automatically.
         pub fn fromBig(be_bytes: *const [@sizeOf(T)]u8) T {
