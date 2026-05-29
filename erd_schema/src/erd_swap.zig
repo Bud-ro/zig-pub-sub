@@ -30,13 +30,34 @@ pub const SwapRule = struct {
 /// Apply a list of swap rules to `buf` in-place. Each rule that fits within the
 /// buffer reverses its byte range; out-of-bounds rules are silently skipped.
 fn applyRules(comptime rules: []const SwapRule, buf: []u8) void {
-    for (rules) |rule| {
-        const start = rule.offset;
-        const end = start + rule.size;
+    inline for (rules) |rule| {
+        const end = rule.offset + @as(usize, rule.size);
         if (end <= buf.len) {
-            std.mem.reverse(u8, buf[start..end]);
+            swapRange(buf, rule.offset, rule.size);
         }
     }
+}
+
+/// Reverse `size` bytes of `buf` starting at comptime `offset`. For native
+/// integer widths (2, 4, 8) this lowers to a single byte-swap instruction
+/// (`bswap` on x86, `rev` on ARM, etc.); other widths fall back to the generic
+/// element reverse. Using `@byteSwap` instead of `std.mem.reverse` avoids the
+/// SSE shuffle sequence LLVM emits for fixed reversals on x86 and, more
+/// importantly, the byte-at-a-time loop it emits on embedded targets that lack
+/// vector units. `buf` may be unaligned, so the load/store go through an
+/// align(1) pointer.
+inline fn swapRange(buf: []u8, comptime offset: u16, comptime size: u8) void {
+    switch (size) {
+        2 => swapInt(u16, buf, offset),
+        4 => swapInt(u32, buf, offset),
+        8 => swapInt(u64, buf, offset),
+        else => std.mem.reverse(u8, buf[offset .. offset + size]),
+    }
+}
+
+inline fn swapInt(Int: type, buf: []u8, comptime offset: u16) void {
+    const p: *align(1) Int = @ptrCast(buf[offset..][0..@sizeOf(Int)]);
+    p.* = @byteSwap(p.*);
 }
 
 /// Generate swap rules for a specific union variant, offset within a parent struct.
@@ -185,6 +206,41 @@ pub fn SwapRules(T: type) type {
             return buf;
         }
     };
+}
+
+/// Returns true if converting a `T` value between native and big-endian wire
+/// order can ever change its bytes -- i.e. `T` contains at least one multi-byte
+/// scalar, whether as a static field or inside a tagged-union variant.
+/// Single-byte-only types (u8/bool, all-byte structs, `[N]u8`) are wire-
+/// identical to native order, so callers can skip `applyToBig`/`toBig`/`fromBig`
+/// entirely. Mirrors the scan scope of `applyTaggedUnions`.
+pub fn needsSwap(T: type) bool {
+    if (generateRules(T, 0).len > 0) return true;
+    if (taggedVariantNeedsSwap(T)) return true;
+    const info = @typeInfo(T);
+    if (info == .@"struct" and info.@"struct".layout == .@"extern") {
+        inline for (info.@"struct".fields) |field| {
+            if (taggedVariantNeedsSwap(field.type)) return true;
+        }
+    }
+    return false;
+}
+
+/// True if `FieldType` is the recognized tagged-union pattern (extern struct
+/// `{ tag, payload: extern union }`) and some union variant has a multi-byte
+/// field that the variant swap would reverse.
+fn taggedVariantNeedsSwap(FieldType: type) bool {
+    const fi = @typeInfo(FieldType);
+    if (fi != .@"struct") return false;
+    const si = fi.@"struct";
+    if (si.layout != .@"extern" or si.fields.len != 2) return false;
+    if (!std.mem.eql(u8, si.fields[0].name, "tag")) return false;
+    const ui = @typeInfo(si.fields[1].type);
+    if (ui != .@"union") return false;
+    inline for (ui.@"union".fields) |uf| {
+        if (generateRules(uf.type, 0).len > 0) return true;
+    }
+    return false;
 }
 
 fn generateRules(T: type, comptime base_offset: u16) []const SwapRule {

@@ -33,11 +33,15 @@ const Subscription = erd_core.Subscription;
 /// native->big-endian conversion. A flat swap-rule table cannot be used here
 /// because tagged-union ERDs need a runtime tag-dependent variant swap, which
 /// only the type-specialized `SwapRules(T).applyToBig` can express.
+///
+/// `swapToBig` is null for ERDs whose value is wire-identical to native order
+/// (u8/bool, all-byte structs, `[N]u8`): the handler then skips the indirect
+/// call entirely instead of dispatching to a no-op conversion.
 const Descriptor = struct {
     system_data_idx: u16,
     erd_number: u16,
     size: u16,
-    swapToBig: *const fn (buf: []u8) void,
+    swapToBig: ?*const fn (buf: []u8) void,
 };
 
 /// Build a wire-publisher type that watches the given ERDs in `SD` and
@@ -86,12 +90,18 @@ pub fn WirePublisher(SD: type, comptime watched_erds: []const Erd, n_subs: compt
             Subscription.unsubscribe(&self.subs, cb);
         }
 
-        // Shared handler for every watched ERD. The SD-side subscription
-        // dedupes by callback identity per-ERD-slot-pool; since each watched
-        // ERD has its own slot pool, the same `handler` function can subscribe
-        // to all of them without dedup collisions. The `args.system_data_idx`
-        // distinguishes which ERD just fired.
-        fn handler(context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void {
+        /// Shared subscription callback installed on every watched ERD. The
+        /// SD-side subscription dedupes by callback identity per-ERD-slot-pool;
+        /// since each watched ERD has its own slot pool, the same `handler`
+        /// function can subscribe to all of them without dedup collisions. The
+        /// `args.system_data_idx` distinguishes which ERD just fired.
+        ///
+        /// Public so codegen snapshots and white-box tests can invoke the
+        /// dispatch/swap/republish core directly: the live call from
+        /// `SystemData` is indirect (through a `Subscription.Callback` pointer)
+        /// and so is invisible to call-graph-following tools. Not part of the
+        /// stable API.
+        pub fn handler(context: ?*anyopaque, args: ?*const anyopaque, publisher: *anyopaque) void {
             const self: *Self = @ptrCast(@alignCast(context.?));
             const change: *const erd_core.system_data.OnChangeArgs = @ptrCast(@alignCast(args.?));
 
@@ -103,7 +113,7 @@ pub fn WirePublisher(SD: type, comptime watched_erds: []const Erd, n_subs: compt
             var buf: [max_size]u8 = undefined;
             const src: [*]const u8 = @ptrCast(change.data);
             @memcpy(buf[0..desc.size], src[0..desc.size]);
-            desc.swapToBig(buf[0..desc.size]);
+            if (desc.swapToBig) |swapToBig| swapToBig(buf[0..desc.size]);
 
             publishWire(&self.subs, desc.erd_number, buf[0..desc.size], publisher);
         }
@@ -191,7 +201,7 @@ fn build(comptime watched: []const Erd) Built {
             .system_data_idx = erd.system_data_idx,
             .erd_number = erd.erd_number.?,
             .size = @sizeOf(erd.T),
-            .swapToBig = &swap.SwapRules(erd.T).applyToBig,
+            .swapToBig = if (swap.needsSwap(erd.T)) &swap.SwapRules(erd.T).applyToBig else null,
         };
         if (@sizeOf(erd.T) > max_size) max_size = @sizeOf(erd.T);
     }
