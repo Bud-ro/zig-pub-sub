@@ -35,6 +35,7 @@
 14	dual_write
 14	read_converted_flag_inv
 14	read_converted_sum
+14	setup_timer_callback
 17	read_then_branch
 18	read_ram_then_converted
 19	read_big_struct
@@ -63,4 +64,3 @@
 109	double_write_same_value
 114	write_junk_read_write
 173	triple_write_increment
-222	setup_timer_callback

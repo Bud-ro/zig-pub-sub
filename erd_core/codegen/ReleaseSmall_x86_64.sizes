@@ -40,6 +40,7 @@
 12	cross_erd_compute
 13	read_converted_flag_inv
 14	read_converted_sum
+14	setup_timer_callback
 17	read_then_branch
 18	read_ram_then_converted
 20	conditional_write_chain
@@ -63,4 +64,3 @@
 75	modify_medium_single_field
 98	modify_medium_two_fields
 155	double_modify_struct
-172	setup_timer_callback

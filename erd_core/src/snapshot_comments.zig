@@ -160,6 +160,32 @@ pub const ratings = [_]Rating{
     .{ .func = "write_u16_with_subs",                       .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "write_u16_with_subs",                       .mode = .release_small, .speed = .near_optimal,},
     .{ .func = "write_u32_no_subs",                                                                         .size = .{ .until = 4 }           },
+    // ---- Timer module harness (codegen_timer.zig) ----
+    // The app_* aggregates call the now-noinline TimerModule methods once each
+    // instead of inlining a copy per call site; near_optimal speed (extra
+    // calls) buys one shared body per method (size optimal in every mode).
+    .{ .func = "app_control_burst",                                                 .speed = .near_optimal,                                   },
+    .{ .func = "app_init",                                                          .speed = .near_optimal,                                   },
+    .{ .func = "app_pause_all",                                                     .speed = .near_optimal,                                   },
+    .{ .func = "app_query_remaining",                                               .speed = .near_optimal,                                   },
+    .{ .func = "app_query_running",                                                 .speed = .near_optimal,                                   },
+    .{ .func = "app_stop_all",                                                      .speed = .near_optimal,                                   },
+    .{ .func = "app_unpause_all",                                                   .speed = .near_optimal,                                   },
+    .{ .func = "run_until_idle",                                                                                                              },
+    .{ .func = "timer_elapsed",                                                                                                               },
+    .{ .func = "timer_increment",                                                                                                             },
+    .{ .func = "timer_is_active",                                                                                                             },
+    .{ .func = "timer_is_paused",                                                                                                             },
+    .{ .func = "timer_is_running",                                                                                                            },
+    .{ .func = "timer_pause",                                                                                                                 },
+    .{ .func = "timer_remaining",                                                                                                             },
+    .{ .func = "timer_run",                                                                                                                   },
+    .{ .func = "timer_start_oneshot",                                                                                                         },
+    .{ .func = "timer_start_periodic",                                                                                                        },
+    .{ .func = "timer_stop",                                                                                                                  },
+    .{ .func = "timer_ticks_since",                                                                                                           },
+    .{ .func = "timer_unpause",                                                                                                               },
+    .{ .func = "timer_until_next",                                                                                                            },
 };
 // zig fmt: on
 
@@ -298,5 +324,29 @@ pub const comments = [_]Comment{
     .{ .func = "read_converted_both",                                           .text = "PER-ERD: two converted reads, each unique compute function." },
     .{ .func = "read_all_component_types",                                      .text = "PER-ERD: RAM + indirect (const-folded) + converted inlined." },
     .{ .func = "read_ram_then_converted",                                       .text = "PER-ERD: RAM load + converted compute inlined."     },
+
+    // ==================================================================
+    // Timer module noinline analysis
+    //
+    // TimerModule is one concrete type, so before the noinline pass every
+    // inlined method was duplicated per call site. ReleaseFast paid for a
+    // full copy of insertTimer/removeTimer/tryRemove at every start/stop/
+    // pause site, while ReleaseSmall already shared them. Marking the 11
+    // methods that ReleaseSmall left out-of-line (called from 2+ sites)
+    // `noinline` consolidates them to one copy in BOTH modes:
+    //
+    //   app_init         1812 -> 201 bytes (RF)
+    //   app_unpause_all  2225 -> 121 bytes (RF)
+    //   app_pause_all    1444 -> 121 bytes (RF)
+    //   app_control_burst 1672 -> 158 bytes (RF)
+    //
+    // The leaf helpers (safelyGetCurrentTime, remainingTicksActiveTimer,
+    // incrementCurrentTime, isActive/isPaused) stay inlinable -- they never
+    // spilled out-of-line and a call would cost more than the body.
+    // ==================================================================
+    .{ .func = "app_init",          .text = "8 starts -> 8 calls to shared startPeriodic/startOneShot (was 1812 bytes of inlined copies in RF)." },
+    .{ .func = "app_unpause_all",   .text = "8 unpause calls to shared bodies (was 2225 bytes of inlined tryRemove/insertTimer in RF)." },
+    .{ .func = "timer_start_periodic", .text = "Tail call into shared, noinline startPeriodic (was 196 bytes inlined in RF)." },
+    .{ .func = "run_until_idle",    .text = "Main-loop pattern: calls the shared, noinline run() until it returns false." },
 };
 // zig fmt: on

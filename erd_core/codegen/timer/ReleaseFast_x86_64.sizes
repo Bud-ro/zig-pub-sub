@@ -1,0 +1,23 @@
+# size (bytes)	function
+4	timer_increment
+5	timer_is_running
+5	timer_pause
+5	timer_remaining
+5	timer_run
+5	timer_stop
+5	timer_unpause
+15	timer_start_oneshot
+15	timer_start_periodic
+27	timer_elapsed
+30	run_until_idle
+34	timer_until_next
+36	timer_is_active
+36	timer_is_paused
+62	timer_ticks_since
+121	app_pause_all
+121	app_stop_all
+121	app_unpause_all
+147	app_query_remaining
+158	app_control_burst
+163	app_query_running
+201	app_init
