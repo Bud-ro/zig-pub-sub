@@ -1,9 +1,9 @@
 //! RAM-backed data component: stores every owned ERD's bytes in one packed
 //! `storage` array. Per-ERD byte offsets are computed at comptime from the
-//! ERD slice, so comptime-dispatched `read`/`write`/`modify` compile to
+//! ERD slice, so comptime-dispatched `read`/`write` compile to
 //! direct loads/stores into `storage` even through the higher-level
-//! `SystemData` wrappers. `write`'s trigger publishes when data
-//! is bit-for-bit different.
+//! `SystemData` wrappers. `write` publishes when the value actually changed
+//! (field-aware for structs, so read-modify-write stays cheap and correct).
 
 const erd_core = @import("erd_core");
 const std = @import("std");
@@ -110,7 +110,16 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             @memcpy(data_slice[0..size], self.storage[ram_offsets[data_component_idx] .. ram_offsets[data_component_idx] + size]);
         }
 
-        /// Write and publish if the value changed. When subs == 0, skips publish and comparison entirely.
+        /// Write and publish if the value changed. When subs == 0, skips the
+        /// comparison entirely. Two strategies:
+        /// - structs: field-by-field via std.meta.eql, which lets LLVM fold
+        ///   provably-unchanged fields and prove changed fields, so a
+        ///   read-modify-write (read, tweak a field, write) compiles to an
+        ///   in-place update plus a guaranteed publish -- no full-struct compare
+        ///   and no separate "assert changed" path. Ignores padding bytes.
+        /// - everything else (and structs std.meta.eql cannot compare, e.g.
+        ///   those with an extern union -- see fieldComparable): integer
+        ///   comparison via readInt (a single cmp).
         pub fn write(self: *Self, erd: Erd, data: erd.T, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
             const n = @sizeOf(erd.T);
@@ -122,7 +131,17 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             }
 
             const stored: *[n]u8 = self.storage[ram_offsets[idx]..][0..n];
-            const changed = bytesChanged(stored, &data_bytes);
+            // Field-aware change detection for structs: comparing the typed
+            // old/new values (not raw bytes) lets LLVM fold provably-unchanged
+            // fields and prove changed fields in read-modify-write patterns, so
+            // write(read-modify-write) reduces to an in-place update plus a
+            // publish that is guaranteed (or a single-field check) -- never a
+            // full-struct byte comparison, and with no "assert changed" hack.
+            // It also ignores padding bytes (a byte compare would not).
+            const changed = if (comptime @typeInfo(erd.T) == .@"struct" and fieldComparable(erd.T))
+                !std.meta.eql(@as(erd.T, @bitCast(stored.*)), data)
+            else
+                bytesChanged(stored, &data_bytes);
             stored.* = data_bytes;
 
             if (changed) {
@@ -134,25 +153,32 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             }
         }
 
-        /// Modify a struct ERD in-place and always publish. Skips change detection
-        /// since the caller guarantees the modification always produces a new value.
-        /// Debug-asserts that the value actually changed.
-        pub fn modify(self: *Self, erd: Erd, comptime modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
-            const idx = erd.data_component_idx;
-            // Forward-aligned storage offset, so this is the natural alignment
-            // of erd.T (not align(1)): faster in-place R/W and a publishable
-            // aligned pointer.
-            const ptr: *erd.T = @ptrCast(@alignCast(self.storage[ram_offsets[idx]..]));
-
-            var value: erd.T = ptr.*;
-            const before = value;
-            modifier(&value);
-            std.debug.assert(!std.meta.eql(before, value));
-            ptr.* = value;
-
-            if (erd.subs > 0) {
-                self.publish(idx, publisher);
-            }
+        /// True if `std.meta.eql` can compare values of `T` -- i.e. `T` contains
+        /// no untagged (bare/extern) union anywhere. Field-aware comparison is
+        /// what lets LLVM fold unchanged fields and prove changed fields in
+        /// read-modify-write patterns; types it cannot handle fall back to a raw
+        /// byte compare.
+        fn fieldComparable(T: type) bool {
+            return switch (@typeInfo(T)) {
+                .int, .float, .bool, .@"enum", .void => true,
+                .optional => |o| fieldComparable(o.child),
+                .array => |a| fieldComparable(a.child),
+                .vector => |v| fieldComparable(v.child),
+                .@"struct" => |s| {
+                    inline for (s.fields) |f| {
+                        if (!fieldComparable(f.type)) return false;
+                    }
+                    return true;
+                },
+                .@"union" => |u| {
+                    if (u.tag_type == null) return false;
+                    inline for (u.fields) |f| {
+                        if (!fieldComparable(f.type)) return false;
+                    }
+                    return true;
+                },
+                else => false,
+            };
         }
 
         fn bytesChanged(a: anytype, b: anytype) bool {

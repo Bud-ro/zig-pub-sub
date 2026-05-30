@@ -229,29 +229,25 @@ export fn write_big_struct(sd: *HugeSD, val: *const BigStruct) void {
     sd.write(.big, val.*);
 }
 
-export fn modify_medium_single_field(sd: *HugeSD) void {
-    sd.modify(.medium, struct {
-        fn m(val: *MediumStruct) void {
-            val.c +%= 1;
-        }
-    }.m);
+// Read-modify-write of a struct ERD: field-aware change detection collapses
+// these to an in-place update + a guaranteed publish (no separate modify()).
+export fn rmw_medium_single_field(sd: *HugeSD) void {
+    var v = sd.read(.medium);
+    v.c +%= 1;
+    sd.write(.medium, v);
 }
 
-export fn modify_medium_two_fields(sd: *HugeSD) void {
-    sd.modify(.medium, struct {
-        fn m(val: *MediumStruct) void {
-            val.a +%= 1;
-            val.c +%= 1;
-        }
-    }.m);
+export fn rmw_medium_two_fields(sd: *HugeSD) void {
+    var v = sd.read(.medium);
+    v.a +%= 1;
+    v.c +%= 1;
+    sd.write(.medium, v);
 }
 
-export fn modify_medium_no_subs(sd: *HugeSD) void {
-    sd.modify(.medium_no_subs, struct {
-        fn m(val: *MediumStruct) void {
-            val.c +%= 1;
-        }
-    }.m);
+export fn rmw_medium_no_subs(sd: *HugeSD) void {
+    var v = sd.read(.medium_no_subs);
+    v.c +%= 1;
+    sd.write(.medium_no_subs, v);
 }
 
 export fn read_modify_write_big(sd: *HugeSD) void {
@@ -425,18 +421,14 @@ export fn triple_write_increment(sd: *SmallSD) void {
 }
 
 // Modify twice on a struct: change different fields each time.
-export fn double_modify_struct(sd: *HugeSD) void {
-    sd.modify(.medium, struct {
-        fn m(val: *MediumStruct) void {
-            val.c +%= 1;
-        }
-    }.m);
+export fn double_rmw_struct(sd: *HugeSD) void {
+    var v1 = sd.read(.medium);
+    v1.c +%= 1;
+    sd.write(.medium, v1);
 
-    sd.modify(.medium, struct {
-        fn m(val: *MediumStruct) void {
-            val.a +%= 1;
-        }
-    }.m);
+    var v2 = sd.read(.medium);
+    v2.a +%= 1;
+    sd.write(.medium, v2);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,17 +1,11 @@
 ; snapshot_comments.zig
 ; Speed: Near-optimal | Size: Optimal (until 2 calls)
-; NOINLINE-PUB. Two in-place modifies, each publishes.
+; NOINLINE-PUB. Read-modify-write: field-aware detection proves the field changed -> in-place update + guaranteed publish.
 ;
-double_modify_struct:
-        push	rbx
-        mov	rbx, rdi
+rmw_medium_two_fields:
+        add	qword ptr [rdi + 256], 1
         add	dword ptr [rdi + 272], 1
         mov	rsi, rdi
-        call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
-        add	qword ptr [rbx + 256], 1
-        mov	rdi, rbx
-        mov	rsi, rbx
-        pop	rbx
         jmp	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
 
 ; --- called functions ---

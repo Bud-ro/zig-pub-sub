@@ -1,12 +1,21 @@
 ; snapshot_comments.zig
 ; Speed: Near-optimal | Size: Optimal
-; NOINLINE-PUB. In-place modify.
+; NOINLINE-PUB. Read-modify-write of a struct field (proven change).
 ;
-wide_modify:
-        add	dword ptr [rdi + 60], 1
+wide_rmw:
+        mov	rax, qword ptr [rdi + 60]
+        movabs	rcx, -4294967296
+        and	rcx, rax
+        lea	edx, [rax + 1]
+        or	rdx, rcx
+        mov	qword ptr [rdi + 60], rdx
+        cmp	rdx, rax
+        je	.L0
         mov	esi, 16
         mov	rdx, rdi
         jmp	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..17]).publish"
+.L0:
+        ret
 
 ; --- called functions ---
 

@@ -14,10 +14,10 @@
 6	wide_unsubscribe
 9	mixed_subscribe_ram
 10	tiny_read_all
-11	mixed_modify
-11	tiny_modify
-11	wide_modify
 40	wide_runtime_write_all
+41	mixed_rmw
+41	tiny_rmw
+41	wide_rmw
 65	mixed_read_all
 68	tiny_write_all
 105	wide_read_all

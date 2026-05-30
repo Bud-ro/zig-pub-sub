@@ -82,11 +82,6 @@ pub fn ConvertedDataComponent(comptime erds: []const Erd, comptime erd_mappings:
             fnPtr(@ptrCast(data), self.system_data_ref);
         }
 
-        /// Compile error: converted ERDs do not support modify.
-        pub fn modify(_: *Self, erd: Erd, comptime _: *const fn (*erd.T) void, _: *anyopaque) void {
-            @compileError("Converted ERD modifications are not allowed");
-        }
-
         /// Compile error: converted ERDs do not support writes.
         pub fn write(_: *Self, erd: Erd, _: erd.T, _: *anyopaque) void {
             @compileError("Converted ERD writes are not allowed");

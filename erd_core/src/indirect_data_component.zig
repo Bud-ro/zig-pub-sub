@@ -3,7 +3,7 @@
 //! `read` (comptime-dispatched) and `runtimeRead` both invoke the mapped
 //! function and return its result. No storage, no subscriptions.
 //!
-//! `modify`/`write`/`runtimeWrite` are `@compileError` stubs since indirect
+//! `write`/`runtimeWrite` are `@compileError` stubs since indirect
 //! values are not user-mutable. For "run on write" behavior, subscribe to the
 //! source ERD or use `ConvertedDataComponent` (which recomputes when its
 //! dependencies change).
@@ -49,11 +49,6 @@ pub fn IndirectDataComponent(comptime erds: []const Erd, comptime erd_mappings: 
         pub fn runtimeRead(_: *const Self, data_component_idx: u16, data: *anyopaque) void {
             const fnPtr: *const fn ([*]u8) void = @ptrCast(read_functions[data_component_idx]);
             fnPtr(@ptrCast(data));
-        }
-
-        /// Compile error: indirect ERDs do not support modify.
-        pub fn modify(_: *Self, erd: Erd, comptime _: *const fn (*erd.T) void, _: *anyopaque) void {
-            @compileError("Indirect ERD modifications are not allowed");
         }
 
         /// Compile error: indirect ERDs do not support writes.

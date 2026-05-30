@@ -1,12 +1,21 @@
 ; snapshot_comments.zig
 ; Speed: Near-optimal | Size: Optimal
-; NOINLINE-PUB. In-place modify.
+; NOINLINE-PUB. Read-modify-write of a struct field (proven change).
 ;
-mixed_modify:
-        add	dword ptr [rdi + 16], 1
+mixed_rmw:
+        mov	rax, qword ptr [rdi + 16]
+        movabs	rcx, -4294967296
+        and	rcx, rax
+        lea	edx, [rax + 1]
+        or	rdx, rcx
+        mov	qword ptr [rdi + 16], rdx
+        cmp	rdx, rax
+        je	.L0
         mov	esi, 4
         mov	rdx, rdi
         jmp	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_mono_stress.mixed_ram_erds))[0..5]).publish"
+.L0:
+        ret
 
 ; --- called functions ---
 
