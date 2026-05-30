@@ -116,7 +116,7 @@ pub fn SwapRules(T: type) type {
             const info = @typeInfo(T);
             switch (info) {
                 .@"struct" => |si| {
-                    if (si.layout == .@"extern") {
+                    if (comptime si.layout == .@"extern") {
                         inline for (si.fields) |field| {
                             applyTaggedUnionsInField(field.type, @offsetOf(T, field.name), buf);
                         }
@@ -130,10 +130,14 @@ pub fn SwapRules(T: type) type {
             const fi = @typeInfo(FieldType);
             switch (fi) {
                 .@"struct" => |si| {
-                    if (si.layout != .@"extern" or si.fields.len != 2) return;
-                    if (!std.mem.eql(u8, si.fields[0].name, "tag")) return;
+                    // These are pure comptime type predicates. Force them to fold
+                    // so an out-of-line `applyToBig` (ReleaseSmall) does not emit a
+                    // runtime `std.mem.eql("tag", ...)` call, a string constant, or
+                    // layout checks for a shape that is fixed at compile time.
+                    if (comptime (si.layout != .@"extern" or si.fields.len != 2)) return;
+                    if (comptime !std.mem.eql(u8, si.fields[0].name, "tag")) return;
                     const union_info = @typeInfo(si.fields[1].type);
-                    if (union_info != .@"union") return;
+                    if (comptime union_info != .@"union") return;
 
                     const tag_offset = field_offset + @as(u16, @intCast(@offsetOf(FieldType, "tag")));
                     const union_offset = field_offset + @as(u16, @intCast(@offsetOf(FieldType, si.fields[1].name)));
