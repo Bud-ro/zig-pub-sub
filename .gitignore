@@ -27,6 +27,6 @@ objects
 refs
 esp8266/sdk/
 
-# Combined codegen snapshots (generated alongside per-function splits)
-erd_core/codegen/*_x86_64.s
-erd_core/codegen/mono/*_x86_64.s
+# Combined codegen snapshots (generated alongside per-function splits, not
+# checked by codegen-check). Covers every harness subdir (mono/, wire/, ...).
+erd_core/codegen/**/*_x86_64.s

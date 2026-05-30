@@ -40,11 +40,13 @@ fn applyRules(comptime rules: []const SwapRule, buf: []u8) void {
 
 /// Reverse `size` bytes of `buf` starting at comptime `offset`. For native
 /// integer widths (2, 4, 8) this lowers to a single byte-swap instruction
-/// (`bswap` on x86, `rev` on ARM, etc.); other widths fall back to the generic
-/// element reverse. Using `@byteSwap` instead of `std.mem.reverse` avoids the
-/// SSE shuffle sequence LLVM emits for fixed reversals on x86 and, more
-/// importantly, the byte-at-a-time loop it emits on embedded targets that lack
-/// vector units. `buf` may be unaligned, so the load/store go through an
+/// (`bswap` on x86, `rev` on ARM, etc.). Wider fields (16-byte `u128`/`i128`/
+/// `f128`) fall back to the generic element reverse; smaller odd widths never
+/// occur because rule sizes come from `@sizeOf`, which rounds every scalar up
+/// to a power-of-two ABI size. Using `@byteSwap` instead of `std.mem.reverse`
+/// avoids the SSE shuffle sequence LLVM emits for fixed reversals on x86 and,
+/// more importantly, the byte-at-a-time loop it emits on embedded targets that
+/// lack vector units. `buf` may be unaligned, so the load/store go through an
 /// align(1) pointer.
 inline fn swapRange(buf: []u8, comptime offset: u16, comptime size: u8) void {
     switch (size) {
@@ -208,12 +210,16 @@ pub fn SwapRules(T: type) type {
     };
 }
 
-/// Returns true if converting a `T` value between native and big-endian wire
-/// order can ever change its bytes -- i.e. `T` contains at least one multi-byte
-/// scalar, whether as a static field or inside a tagged-union variant.
-/// Single-byte-only types (u8/bool, all-byte structs, `[N]u8`) are wire-
-/// identical to native order, so callers can skip `applyToBig`/`toBig`/`fromBig`
-/// entirely. Mirrors the scan scope of `applyTaggedUnions`.
+/// Returns true if `applyToBig` can change the bytes of a `T` value, so the
+/// wire publisher can skip the conversion for types that are already
+/// wire-identical (u8/bool, all-byte structs, `[N]u8`). This is defined to
+/// mirror `applyToBig` EXACTLY: a swap is reported iff `T` has a multi-byte
+/// static field (`generateRules`) or a multi-byte tagged-union variant within
+/// the SAME scan scope `applyTaggedUnions` walks -- the top-level type and the
+/// direct fields of a top-level extern struct. A tagged union nested deeper
+/// than that is not swapped by `applyToBig` and is likewise reported as
+/// no-swap here, so the two stay consistent: skipping never drops a swap that
+/// `applyToBig` would have performed.
 pub fn needsSwap(T: type) bool {
     if (generateRules(T, 0).len > 0) return true;
     if (taggedVariantNeedsSwap(T)) return true;

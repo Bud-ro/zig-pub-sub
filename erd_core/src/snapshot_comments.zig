@@ -145,7 +145,6 @@ pub const ratings = [_]Rating{
     .{ .func = "wide_subscribe",                                                                            .size = .{ .until = 6 }           },
     .{ .func = "wide_unsubscribe",                                                                          .size = .{ .until = 6 }           },
     .{ .func = "wide_write_all",                                                    .speed = .near_optimal, .size = .suboptimal               },
-    // ---- WirePublisher harness (codegen_wire_publisher.zig) ----
     .{ .func = "wire_pair_handler",                                                 .speed = .near_optimal,                                   },
     .{ .func = "wire_pair_post_init",                                                                                                         },
     .{ .func = "wire_single_handler",                                                                                                         },
