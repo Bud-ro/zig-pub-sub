@@ -28,6 +28,7 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
         const harnesses = [_]Harness{
             .{ .source = "src/codegen_harness.zig", .prefix = "", .obj_tag = "harness" },
             .{ .source = "src/codegen_mono_stress.zig", .prefix = "mono/", .obj_tag = "mono" },
+            .{ .source = "src/codegen_timer.zig", .prefix = "timer/", .obj_tag = "timer" },
         };
 
         for (modes, mode_names) |mode, mode_name| {
@@ -116,6 +117,7 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
     const emit_sources = [_]struct { source: []const u8, output: []const u8 }{
         .{ .source = "src/codegen_harness.zig", .output = "codegen_harness.s" },
         .{ .source = "src/codegen_mono_stress.zig", .output = "codegen_mono_stress.s" },
+        .{ .source = "src/codegen_timer.zig", .output = "codegen_timer.s" },
     };
     for (emit_sources) |src| {
         const mod = b.createModule(.{

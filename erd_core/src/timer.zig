@@ -98,9 +98,21 @@ pub const TimerModule = struct {
     active_timers: std.SinglyLinkedList = .{},
     paused_timers: std.SinglyLinkedList = .{},
 
+    // noinline policy: TimerModule is a single concrete type (no generic
+    // monomorphization), so an inlined method is duplicated once per call site.
+    // Codegen snapshots (codegen_timer.zig) show that under ReleaseSmall LLVM
+    // already leaves the functions below out-of-line and calls them from 2+
+    // sites, while under ReleaseFast it inlines them everywhere -- an app that
+    // drives many timers paid for a full copy of insertTimer/removeTimer/etc.
+    // at every start/stop/pause site (e.g. app_init was 1812 bytes). Forcing
+    // these `noinline` guarantees one shared copy in every optimization mode.
+    // The trivial leaf helpers (safelyGetCurrentTime, remainingTicksActiveTimer,
+    // incrementCurrentTime, the isActive/isPaused scans, the Timer bit-ops) are
+    // left inlinable: they never spilled out-of-line and are smaller than a call.
+
     /// Services the callbacks for a single expired timer
     /// Returns `true` if a `Timer` expired, otherwise returns `false`
-    pub fn run(self: *TimerModule) bool {
+    pub noinline fn run(self: *TimerModule) bool {
         const time_at_start_of_rtc = self.safelyGetCurrentTime();
 
         if (self.active_timers.first) |next_expiring| {
@@ -146,7 +158,7 @@ pub const TimerModule = struct {
     /// NOTE: `ctx` must be align(2) to allow an `bool` due to optimization reasons
     /// If you get an error, declare your variable as `align(2)` or use a container
     /// struct with larger alignment
-    pub fn startOneShot(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
+    pub noinline fn startOneShot(self: *TimerModule, timer: *Timer, duration: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
         sometimes.assert(&@src(), self.active_timers.first == &timer.node); // Re-starting a periodic as a one-shot
         if (timer.callback != null or self.active_timers.first == &timer.node) {
             self.removeTimer(timer);
@@ -165,7 +177,7 @@ pub const TimerModule = struct {
     /// NOTE: `ctx` must be align(2) to allow an `bool` due to optimization reasons
     /// If you get an error, declare your variable as `align(2)` or use a container
     /// struct with larger alignment
-    pub fn startPeriodic(self: *TimerModule, timer: *Timer, period: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
+    pub noinline fn startPeriodic(self: *TimerModule, timer: *Timer, period: Ticks, ctx: ?*align(2) anyopaque, callback: Timer.TimerCallback) void {
         sometimes.assert(&@src(), self.active_timers.first == &timer.node); // Re-starting a periodic as a periodic
         if (timer.callback != null or self.active_timers.first == &timer.node) {
             self.removeTimer(timer);
@@ -182,7 +194,7 @@ pub const TimerModule = struct {
     }
 
     /// Stops an active or paused timer
-    pub fn stop(self: *TimerModule, timer: *Timer) void {
+    pub noinline fn stop(self: *TimerModule, timer: *Timer) void {
         timer.setIsPeriodic(false);
         if (timer.callback != null) {
             self.removeTimer(timer);
@@ -192,7 +204,7 @@ pub const TimerModule = struct {
     /// Pauses a timer
     /// If the timer is already paused or is not started then this does nothing
     /// NOTE: It is invalid to pause a timer from its own callback.
-    pub fn pause(self: *TimerModule, timer: *Timer) void {
+    pub noinline fn pause(self: *TimerModule, timer: *Timer) void {
         if (timer.callback == null) {
             return;
         }
@@ -209,7 +221,7 @@ pub const TimerModule = struct {
 
     /// Unpauses a timer
     /// If the timer is already active or is not present then this does nothing
-    pub fn unpause(self: *TimerModule, timer: *Timer) void {
+    pub noinline fn unpause(self: *TimerModule, timer: *Timer) void {
         if (timer.callback == null) {
             return;
         }
@@ -224,7 +236,7 @@ pub const TimerModule = struct {
     }
 
     /// Returns true if a timer is active or paused
-    pub fn isRunning(self: *TimerModule, timer: *Timer) bool {
+    pub noinline fn isRunning(self: *TimerModule, timer: *Timer) bool {
         return isActive(self, timer) or isPaused(self, timer);
     }
 
@@ -284,7 +296,7 @@ pub const TimerModule = struct {
     }
 
     /// Returns the remaining ticks on a timer, returns 0 if the timer is not running
-    pub fn remainingTicks(timer_module: *TimerModule, timer: *Timer) Ticks {
+    pub noinline fn remainingTicks(timer_module: *TimerModule, timer: *Timer) Ticks {
         if (timer.callback == null) {
             return 0;
         } else {
@@ -309,7 +321,7 @@ pub const TimerModule = struct {
 
     /// Inserts a timer after all other timers with equal or less remaining ticks
     /// Inserting after timers with equal remaining ticks improves fairness
-    fn insertTimer(self: *TimerModule, timer: *Timer, ticks: Ticks) void {
+    noinline fn insertTimer(self: *TimerModule, timer: *Timer, ticks: Ticks) void {
         std.debug.assert(ticks <= Timer.max_ticks);
 
         const current_time = self.safelyGetCurrentTime();
@@ -341,7 +353,7 @@ pub const TimerModule = struct {
     }
 
     /// std.SinglyLinkedList remove, but returns a bool and is valid to call when the node isn't in the list
-    fn tryRemove(list: *std.SinglyLinkedList, node: *std.SinglyLinkedList.Node) bool {
+    noinline fn tryRemove(list: *std.SinglyLinkedList, node: *std.SinglyLinkedList.Node) bool {
         if (list.first == null) {
             return false;
         } else if (list.first == node) {
@@ -361,7 +373,7 @@ pub const TimerModule = struct {
     }
 
     /// If this is called, a timer MUST be in either the active list or paused list
-    fn removeTimer(self: *TimerModule, timer: *Timer) void {
+    noinline fn removeTimer(self: *TimerModule, timer: *Timer) void {
         std.debug.assert(timer.callback != null or self.active_timers.first == &timer.node);
         const removed_from_active = tryRemove(&self.active_timers, &timer.node);
         if (!removed_from_active) {
