@@ -2,6 +2,6 @@
 ; Speed: Optimal | Size: Optimal
 ;
 read_u16_unaligned:
-        movzx	eax, word ptr [rdi + 5]
+        movzx	eax, word ptr [rdi + 6]
         ret
 

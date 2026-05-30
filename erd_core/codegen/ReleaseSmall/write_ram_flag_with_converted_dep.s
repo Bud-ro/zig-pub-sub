@@ -2,32 +2,29 @@
 ; Speed: Near-optimal | Size: Optimal (until 2 calls)
 ;
 write_ram_flag_with_converted_dep:
-        push	rax
-        and	sil, 1
-        mov	byte ptr [rsp + 6], sil
+        and	esi, 1
         cmp	byte ptr [rdi + 4], sil
         mov	byte ptr [rdi + 4], sil
         je	.L0
-        push	1
-        pop	rsi
-        lea	rdx, [rsp + 6]
-        mov	rcx, rdi
-        call	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish"
+        mov	esi, 1
+        mov	rdx, rdi
+        jmp	".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish"
 .L0:
-        pop	rax
         ret
 
 ; --- called functions ---
 
 ".Lram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish":
-        mov	r8, rcx
-        mov	rcx, rdx
+        mov	r8, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + .L__anon_0]
-        movzx	esi, byte ptr [rax + .L__anon_1]
-        shl	rdx, 4
-        add	rdi, rdx
+        movzx	esi, byte ptr [rax + .L__anon_0]
+        movzx	edx, word ptr [rax + rax + .L__anon_1]
+        shl	eax, 3
+        mov	r9, qword ptr [rax + .L__anon_2]
+        mov	rcx, qword ptr [rax + .L__anon_3]
+        add	rcx, rdi
+        shl	r9, 4
+        add	rdi, r9
         add	rdi, 8
-        movzx	edx, word ptr [rax + rax + .L__anon_2]
         jmp	.Lsystem_data.publishOnChange
 

@@ -4,36 +4,34 @@
 ;
 write_then_read_converted:
         push	rbx
-        sub	rsp, 16
         mov	rbx, rdi
-        mov	dword ptr [rsp + 12], esi
         cmp	dword ptr [rdi], esi
         mov	dword ptr [rdi], esi
         je	.L0
-        lea	rdx, [rsp + 12]
         mov	rdi, rbx
         xor	esi, esi
-        mov	rcx, rbx
+        mov	rdx, rbx
         call	"ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish"
 .L0:
         mov	rcx, qword ptr [rbx + 136]
-        movzx	eax, word ptr [rcx + 5]
+        movzx	eax, word ptr [rcx + 6]
         add	eax, dword ptr [rcx]
-        add	rsp, 16
         pop	rbx
         ret
 
 ; --- called functions ---
 
 "ram_data_component.RamDataComponent(@as([*]const Erd, @ptrCast(&codegen_harness.multi_ram_erds))[0..3]).publish":
-        mov	r8, rcx
-        mov	rcx, rdx
+        mov	r8, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_0]
-        movzx	esi, byte ptr [rax + __anon_1]
-        shl	rdx, 4
-        add	rdi, rdx
+        movzx	esi, byte ptr [rax + __anon_0]
+        movzx	edx, word ptr [rax + rax + __anon_1]
+        shl	eax, 3
+        mov	r9, qword ptr [rax + __anon_2]
+        mov	rcx, qword ptr [rax + __anon_3]
+        add	rcx, rdi
+        shl	r9, 4
+        add	rdi, r9
         add	rdi, 8
-        movzx	edx, word ptr [rax + rax + __anon_2]
         jmp	system_data.publishOnChange
 

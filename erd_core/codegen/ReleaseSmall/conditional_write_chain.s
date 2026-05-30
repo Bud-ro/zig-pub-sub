@@ -6,7 +6,7 @@ conditional_write_chain:
         je	.L0
         add	dword ptr [rdi], 10
 .L0:
-        cmp	word ptr [rdi + 5], 100
+        cmp	word ptr [rdi + 6], 100
         jbe	.L1
         add	dword ptr [rdi], 20
 .L1:

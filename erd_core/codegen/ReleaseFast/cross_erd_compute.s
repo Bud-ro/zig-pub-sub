@@ -3,32 +3,30 @@
 ; NOINLINE-PUB. PER-ERD write portion.
 ;
 cross_erd_compute:
-        push	rax
-        movzx	eax, word ptr [rdi + 5]
+        movzx	eax, word ptr [rdi + 6]
         add	ax, word ptr [rdi]
-        mov	word ptr [rsp + 6], ax
-        cmp	word ptr [rdi + 7], ax
-        mov	word ptr [rdi + 7], ax
+        cmp	word ptr [rdi + 8], ax
+        mov	word ptr [rdi + 8], ax
         je	.L0
-        lea	rdx, [rsp + 6]
         mov	esi, 3
-        mov	rcx, rdi
-        call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
+        mov	rdx, rdi
+        jmp	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
 .L0:
-        pop	rax
         ret
 
 ; --- called functions ---
 
 "ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2":
-        mov	r8, rcx
-        mov	rcx, rdx
+        mov	r8, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_0]
-        movzx	esi, byte ptr [rax + __anon_1]
-        shl	rdx, 4
-        add	rdi, rdx
+        movzx	esi, byte ptr [rax + __anon_0]
+        movzx	edx, word ptr [rax + rax + __anon_1]
+        shl	eax, 3
+        mov	r9, qword ptr [rax + __anon_2]
+        mov	rcx, qword ptr [rax + __anon_3]
+        add	rcx, rdi
+        shl	r9, 4
+        add	rdi, r9
         add	rdi, 16
-        movzx	edx, word ptr [rax + rax + __anon_2]
         jmp	system_data.publishOnChange
 

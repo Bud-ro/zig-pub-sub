@@ -4,15 +4,14 @@
 ;
 modify_medium_single_field:
         inc	dword ptr [rdi + 272]
-        lea	rsi, [rdi + 256]
-        mov	rdx, rdi
+        mov	rsi, rdi
         jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish"
 
 ; --- called functions ---
 
 ".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish":
-        mov	r8, rdx
-        mov	rcx, rsi
+        mov	r8, rsi
+        lea	rcx, [rdi + 256]
         add	rdi, 312
         mov	esi, 1
         mov	edx, 1

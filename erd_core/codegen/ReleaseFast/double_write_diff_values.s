@@ -7,36 +7,30 @@ double_write_diff_values:
         push	rbx
         sub	rsp, 16
         mov	rbx, rdi
-        mov	byte ptr [rsp + 12], 1
-        mov	al, 1
         cmp	byte ptr [rdi + 4], 1
         mov	byte ptr [rdi + 4], 1
-        jne	.L0
-        mov	byte ptr [rsp + 13], 0
-        mov	byte ptr [rbx + 4], 0
-        cmp	al, 0
-        jne	.L1
-.L2:
-        add	rsp, 16
-        pop	rbx
-        ret
-.L0:
-        lea	rdx, [rsp + 12]
+        je	.L0
         mov	rdi, rbx
         mov	esi, 1
-        mov	rcx, rbx
+        mov	rdx, rbx
         call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
         movzx	eax, byte ptr [rbx + 4]
-        mov	byte ptr [rsp + 13], 0
         mov	byte ptr [rbx + 4], 0
         cmp	al, 0
-        je	.L2
-.L1:
-        lea	rdx, [rsp + 13]
+        je	.L1
+.L2:
         mov	rdi, rbx
         mov	esi, 1
-        mov	rcx, rbx
-        call	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
+        mov	rdx, rbx
+        add	rsp, 16
+        pop	rbx
+        jmp	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2"
+.L0:
+        mov	al, 1
+        mov	byte ptr [rbx + 4], 0
+        cmp	al, 0
+        jne	.L2
+.L1:
         add	rsp, 16
         pop	rbx
         ret
@@ -44,14 +38,16 @@ double_write_diff_values:
 ; --- called functions ---
 
 "ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..4]).publish.2":
-        mov	r8, rcx
-        mov	rcx, rdx
+        mov	r8, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_0]
-        movzx	esi, byte ptr [rax + __anon_1]
-        shl	rdx, 4
-        add	rdi, rdx
+        movzx	esi, byte ptr [rax + __anon_0]
+        movzx	edx, word ptr [rax + rax + __anon_1]
+        shl	eax, 3
+        mov	r9, qword ptr [rax + __anon_2]
+        mov	rcx, qword ptr [rax + __anon_3]
+        add	rcx, rdi
+        shl	r9, 4
+        add	rdi, r9
         add	rdi, 16
-        movzx	edx, word ptr [rax + rax + __anon_2]
         jmp	system_data.publishOnChange
 

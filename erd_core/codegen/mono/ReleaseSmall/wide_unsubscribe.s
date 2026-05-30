@@ -2,7 +2,7 @@
 ; Speed: Optimal | Size: Optimal (until 6 calls)
 ;
 wide_unsubscribe:
-        add	rdi, 64
+        add	rdi, 72
         jmp	".Ldata_component_subscription.DataComponentSubscription(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..17]).unsubscribeInner"
 
 ; --- called functions ---

@@ -20,9 +20,14 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         pub const supports_write = true;
         const Subs = DataComponentSubscription(erds);
 
-        // TODO: Add a flag that reorders fields to efficiently pack this
-        // and another that guarantees alignment for faster R/W.
-        storage: [storeSize()]u8 align(@alignOf(usize)) = undefined,
+        // Storage offsets are forward-aligned per ERD (see `ram_offsets`) and
+        // the array is aligned to the widest owned ERD, so `&storage[offset]`
+        // is always aligned to that ERD's type. This lets `write`/`modify`
+        // publish a pointer straight into storage (no aligned stack copy) and
+        // lets subscribers `@alignCast` the on-change pointer safely.
+        // TODO: an opt-in flag could reorder fields to minimize the alignment
+        // padding; users can also just order their SystemData ERDs largest-first.
+        storage: [storeSize()]u8 align(storageAlign()) = undefined,
         subs: Subs = .{},
 
         /// Initialize storage to zero.
@@ -34,8 +39,9 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
 
         const ram_offsets = blk: {
             var _ram_offsets: [erds.len]usize = undefined;
-            var cur_offset = 0;
+            var cur_offset: usize = 0;
             for (erds, 0..) |erd, i| {
+                cur_offset = std.mem.alignForward(usize, cur_offset, @alignOf(erd.T));
                 _ram_offsets[i] = cur_offset;
                 cur_offset += @sizeOf(erd.T);
             }
@@ -55,9 +61,26 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         fn storeSize() usize {
             var size: usize = 0;
             for (erds) |erd| {
+                size = std.mem.alignForward(usize, size, @alignOf(erd.T));
                 size += @sizeOf(erd.T);
             }
             return size;
+        }
+
+        /// Alignment for `storage`: the widest alignment of any owned ERD type,
+        /// floored at `@alignOf(usize)`. Combined with forward-aligned per-ERD
+        /// offsets, this guarantees `&storage[ram_offsets[i]]` is aligned to
+        /// `erds[i].T`. The `@alignOf(usize)` floor keeps `storage` at least as
+        /// aligned as the `subs` field, so the struct layout (and thus every
+        /// load/store offset) matches the pre-alignment version -- otherwise a
+        /// component whose widest ERD is narrower than a pointer would let Zig
+        /// reorder `subs` ahead of `storage` and shift every offset.
+        fn storageAlign() usize {
+            var a: usize = @alignOf(usize);
+            for (erds) |erd| {
+                a = @max(a, @alignOf(erd.T));
+            }
+            return a;
         }
 
         const subs_from_idx: [erds.len]u8 = blk: {
@@ -114,7 +137,11 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             stored.* = data_bytes;
 
             if (changed) {
-                self.publish(idx, &data, publisher);
+                @branchHint(.likely);
+                // `publish` reads the value back from storage; we just wrote it
+                // there. Subscribers must not write this same ERD from the
+                // callback (it would mutate the bytes being published).
+                self.publish(idx, publisher);
             }
         }
 
@@ -123,7 +150,10 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         /// Debug-asserts that the value actually changed.
         pub fn modify(self: *Self, erd: Erd, comptime modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
-            const ptr: *align(1) erd.T = @ptrCast(self.storage[ram_offsets[idx]..]);
+            // Forward-aligned storage offset, so this is the natural alignment
+            // of erd.T (not align(1)): faster in-place R/W and a publishable
+            // aligned pointer.
+            const ptr: *erd.T = @ptrCast(@alignCast(self.storage[ram_offsets[idx]..]));
 
             var value: erd.T = ptr.*;
             const before = value;
@@ -132,7 +162,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             ptr.* = value;
 
             if (erd.subs > 0) {
-                self.publish(idx, ptr, publisher);
+                self.publish(idx, publisher);
             }
         }
 
@@ -167,16 +197,23 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             @memcpy(self.storage[ram_offsets[idx] .. ram_offsets[idx] + size], data_slice[0..size]);
 
             if (data_changed and subs_from_idx[data_component_idx] != 0) {
-                self.publish(data_component_idx, data, publisher);
+                self.publish(data_component_idx, publisher);
             }
         }
 
         // noinline so the dispatch logic is shared across all call sites.
         // TODO: Add the option to binary search to save space in `subs_from_idx`
         //   for ERDs with no subscribers
-        noinline fn publish(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
+        noinline fn publish(self: *Self, data_component_idx: u16, publisher: *anyopaque) void {
             const offset = Subs.sub_offsets[data_component_idx];
             const count = subs_from_idx[data_component_idx];
+            // Read the just-written value straight from storage. The offset is
+            // forward-aligned, so the pointer is aligned to the ERD type (safe
+            // for subscribers to `@alignCast`). Computing it here -- in the one
+            // shared publish body -- keeps every write/modify/runtimeWrite call
+            // site to "store + call" with no per-site address materialization,
+            // and means subscribers always see the canonical in-storage bytes.
+            const data: *const anyopaque = @ptrCast(self.storage[ram_offsets[data_component_idx]..].ptr);
             system_data.publishOnChange(
                 self.subs.slots[offset..][0..count],
                 system_data_idx_from_idx[data_component_idx],

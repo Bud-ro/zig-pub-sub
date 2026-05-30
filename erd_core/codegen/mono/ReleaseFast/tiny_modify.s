@@ -3,23 +3,24 @@
 ; NOINLINE-PUB. In-place modify.
 ;
 tiny_modify:
-        lea	rdx, [rdi + 5]
-        add	dword ptr [rdi + 5], 1
+        add	dword ptr [rdi + 8], 1
         mov	esi, 2
-        mov	rcx, rdi
+        mov	rdx, rdi
         jmp	"ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
 
 ; --- called functions ---
 
 "ram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish":
-        mov	r8, rcx
-        mov	rcx, rdx
+        mov	r8, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + __anon_0]
+        lea	ecx, [8*rax]
+        mov	rdx, qword ptr [rcx + __anon_0]
+        mov	rcx, qword ptr [rcx + __anon_1]
+        add	rcx, rdi
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 16
-        movzx	edx, word ptr [rax + rax + __anon_1]
+        movzx	edx, word ptr [rax + rax + __anon_2]
         mov	esi, 1
         jmp	system_data.publishOnChange
 
