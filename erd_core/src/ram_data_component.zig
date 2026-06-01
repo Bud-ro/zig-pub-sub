@@ -123,33 +123,47 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         pub fn write(self: *Self, erd: Erd, data: erd.T, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
             const n = @sizeOf(erd.T);
-            const data_bytes = std.mem.toBytes(data);
+            const stored: *[n]u8 = self.storage[ram_offsets[idx]..][0..n];
 
             if (comptime erd.subs == 0) {
-                self.storage[ram_offsets[idx]..][0..n].* = data_bytes;
+                stored.* = std.mem.toBytes(data);
                 return;
             }
 
-            const stored: *[n]u8 = self.storage[ram_offsets[idx]..][0..n];
-            // Field-aware change detection for structs: comparing the typed
-            // old/new values (not raw bytes) lets LLVM fold provably-unchanged
-            // fields and prove changed fields in read-modify-write patterns, so
-            // write(read-modify-write) reduces to an in-place update plus a
-            // publish that is guaranteed (or a single-field check) -- never a
-            // full-struct byte comparison, and with no "assert changed" hack.
-            // It also ignores padding bytes (a byte compare would not).
-            const changed = if (comptime @typeInfo(erd.T) == .@"struct" and fieldComparable(erd.T))
-                !std.meta.eql(@as(erd.T, @bitCast(stored.*)), data)
-            else
-                bytesChanged(stored, &data_bytes);
-            stored.* = data_bytes;
-
-            if (changed) {
-                // Most of the time we'll be publishing. This branch hint
-                // helps push the optimizer to determine if `changed` is
-                // a constant in some situations. (ie: write(read() + 1))
-                @branchHint(.likely);
-                self.publish(idx, publisher);
+            if (comptime @typeInfo(erd.T) == .@"struct" and fieldComparable(erd.T)) {
+                // Field-aware path for structs: compare the typed old/new values
+                // (not raw bytes) so LLVM can fold provably-unchanged fields and
+                // prove changed ones, and store the TYPED value (not a
+                // pre-materialized byte array). The typed store is essential: a
+                // byte-array store coalesces `data` into one opaque word, which
+                // severs LLVM's field-level view and forces a full-width
+                // reconstruct/compare for register-sized structs (an 8-byte
+                // {u32,u32}). Together these reduce a read-modify-write to an
+                // in-place field update plus a guaranteed publish -- never a
+                // full-struct compare, no "assert changed" hack. std.meta.eql
+                // also ignores padding bytes (a byte compare would not).
+                const changed = !std.meta.eql(@as(erd.T, @bitCast(stored.*)), data);
+                @as(*align(1) erd.T, @ptrCast(stored)).* = data;
+                if (changed) {
+                    @branchHint(.likely);
+                    // `publish` reads the value back from storage; we just wrote
+                    // it there. Subscribers must not write this same ERD from the
+                    // callback (it would mutate the bytes being published).
+                    self.publish(idx, publisher);
+                }
+            } else {
+                // Primitives (and structs std.meta.eql cannot compare): a single
+                // readInt compare and a byte store -- the typed store gives these
+                // no benefit and can cost a byte (e.g. bool masking). The
+                // @branchHint keeps publish on the hot path so a function with
+                // many inlined writes does not tail-duplicate its change-checks.
+                const data_bytes = std.mem.toBytes(data);
+                const changed = bytesChanged(stored, &data_bytes);
+                stored.* = data_bytes;
+                if (changed) {
+                    @branchHint(.likely);
+                    self.publish(idx, publisher);
+                }
             }
         }
 

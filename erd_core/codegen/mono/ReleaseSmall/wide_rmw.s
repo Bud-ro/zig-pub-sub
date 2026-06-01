@@ -3,20 +3,11 @@
 ; NOINLINE-PUB. Read-modify-write of a struct field (proven change).
 ;
 wide_rmw:
-        mov	rax, qword ptr [rdi + 60]
-        movabs	rcx, -4294967296
-        and	rcx, rax
-        lea	edx, [rax + 1]
-        or	rdx, rcx
-        mov	qword ptr [rdi + 60], rdx
-        cmp	rdx, rax
-        je	.L0
+        inc	dword ptr [rdi + 60]
         push	16
         pop	rsi
         mov	rdx, rdi
         jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..17]).publish"
-.L0:
-        ret
 
 ; --- called functions ---
 

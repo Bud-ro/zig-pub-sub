@@ -14,9 +14,9 @@
 6	wide_unsubscribe
 9	mixed_subscribe_ram
 10	tiny_read_all
-43	mixed_rmw
-43	tiny_rmw
-43	wide_rmw
+14	mixed_rmw
+14	tiny_rmw
+14	wide_rmw
 65	mixed_read_all
 70	tiny_write_all
 105	wide_read_all

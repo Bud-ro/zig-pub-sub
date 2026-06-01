@@ -37,10 +37,10 @@ rmw_medium_two_fields:
         movzx	ecx, byte ptr [rsi + 23]
         xor	cl, byte ptr [rdi + 279]
         cmp	r15, qword ptr [rsi]
-        mov	r15, qword ptr [rsi + 16]
         movups	xmm0, xmmword ptr [rsi]
         movups	xmmword ptr [rdi + 256], xmm0
-        mov	qword ptr [rdi + 272], r15
+        mov	rsi, qword ptr [rsi + 16]
+        mov	qword ptr [rdi + 272], rsi
         jne	.L0
         cmp	r11, r14
         jne	.L0
