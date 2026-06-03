@@ -44,7 +44,7 @@ This is a **typed publish-subscribe data system** for embedded/real-time Zig app
 
 **ERD (Entity-Reference-Designator)** - A named, typed data field with a 16-bit handle. Each ERD declares its type, owner, and subscription slot count at comptime.
 
-**SystemData** - Top-level aggregator that owns data components and subscription arrays. Provides the public API: `read`, `write`, `modify`, `subscribe`, `unsubscribe`. Also has `runtimeRead`/`runtimeWrite` for dynamic ERD access. SystemData's comptime block rejects duplicate `erd_number` values in the ERD table.
+**SystemData** - Top-level aggregator that owns data components and subscription arrays. Provides the public API: `read`, `write`, `subscribe`, `unsubscribe`. Also has `runtimeRead`/`runtimeWrite` for dynamic ERD access. SystemData's comptime block rejects duplicate `erd_number` values in the ERD table.
 
 **Data Components** own ERDs and provide storage:
 - **RamDataComponent** (`erd_core/src/ram_data_component.zig`) - Packed byte-array storage with comptime-optimized reads/writes and on-change subscriptions.

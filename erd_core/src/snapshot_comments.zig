@@ -177,7 +177,7 @@ pub const comments = [_]Comment{
     // ==================================================================
     // Subscription.publish noinline analysis
     //
-    // Every write/modify that triggers subscribers goes through this chain:
+    // Every write/runtimeWrite that triggers subscribers goes through this chain:
     //   call RamDataComponent.publish  (noinline, per-DataComponent)
     //     jmp Subscription.publish     (noinline, single shared copy)
     //       call rax                   (indirect call to subscriber)

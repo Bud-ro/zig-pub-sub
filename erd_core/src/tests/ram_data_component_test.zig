@@ -210,6 +210,171 @@ test "write detects change in tail byte of 17-byte struct" {
     try std.testing.expectEqual(2, odd_blob_publish_count);
 }
 
+// Regression: an ordinary AUTO-layout struct ERD with a subscriber must
+// compile and publish. The struct path reads the old value through a typed
+// pointer (not @bitCast, which rejects auto-layout structs at compile time);
+// before that fix this whole component failed to build.
+const AutoStruct = struct { a: u32, b: u32 };
+
+const AutoStructErds = [_]Erd{
+    .{ .erd_number = null, .T = AutoStruct, .component_idx = 0, .subs = 1, .data_component_idx = 0, .system_data_idx = 0 },
+};
+const AutoStructErd = AutoStructErds[0];
+const AutoStructRam = erd_core.data_component.Ram(&AutoStructErds);
+
+var auto_struct_publish_count: u32 = 0;
+fn autoStructPublishCounter(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
+    auto_struct_publish_count += 1;
+}
+
+test "auto-layout struct ERD with a subscriber compiles and detects change" {
+    auto_struct_publish_count = 0;
+    var ram = AutoStructRam.init();
+    ram.subs.subscribe(AutoStructErd, null, autoStructPublishCounter);
+
+    ram.write(AutoStructErd, .{ .a = 1, .b = 2 }, &dummy_publisher);
+    try std.testing.expectEqual(1, auto_struct_publish_count);
+
+    // identical write -> no publish
+    ram.write(AutoStructErd, .{ .a = 1, .b = 2 }, &dummy_publisher);
+    try std.testing.expectEqual(1, auto_struct_publish_count);
+
+    // change one field -> publish
+    ram.write(AutoStructErd, .{ .a = 1, .b = 3 }, &dummy_publisher);
+    try std.testing.expectEqual(2, auto_struct_publish_count);
+}
+
+// A struct-embedded float must publish a +0.0 -> -0.0 change (different bits,
+// equal under `==`). Float-bearing types take the bit-exact byte path so a
+// struct float behaves the same as a scalar float ERD.
+const FloatStruct = extern struct { f: f32, n: u32 };
+
+const FloatStructErds = [_]Erd{
+    .{ .erd_number = null, .T = FloatStruct, .component_idx = 0, .subs = 1, .data_component_idx = 0, .system_data_idx = 0 },
+};
+const FloatStructErd = FloatStructErds[0];
+const FloatStructRam = erd_core.data_component.Ram(&FloatStructErds);
+
+var float_struct_publish_count: u32 = 0;
+fn floatStructPublishCounter(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
+    float_struct_publish_count += 1;
+}
+
+test "struct-embedded float publishes a +0.0 -> -0.0 (bit-exact) change" {
+    float_struct_publish_count = 0;
+    var ram = FloatStructRam.init();
+    ram.subs.subscribe(FloatStructErd, null, floatStructPublishCounter);
+
+    const pos_zero: f32 = @bitCast(@as(u32, 0x0000_0000));
+    const neg_zero: f32 = @bitCast(@as(u32, 0x8000_0000));
+
+    ram.write(FloatStructErd, .{ .f = pos_zero, .n = 1 }, &dummy_publisher);
+    try std.testing.expectEqual(1, float_struct_publish_count);
+
+    // identical write -> no publish
+    ram.write(FloatStructErd, .{ .f = pos_zero, .n = 1 }, &dummy_publisher);
+    try std.testing.expectEqual(1, float_struct_publish_count);
+
+    // +0.0 -> -0.0: equal under `==`, different bits -> must publish
+    ram.write(FloatStructErd, .{ .f = neg_zero, .n = 1 }, &dummy_publisher);
+    try std.testing.expectEqual(2, float_struct_publish_count);
+}
+
+// A struct containing an extern (untagged) union is not std.meta.eql-comparable,
+// so it falls back to the byte-compare path. It must still publish on change.
+const ExternPayload = extern union { as_u32: u32, as_f32: f32 };
+const HasExternUnion = extern struct { payload: ExternPayload, tag: u8 };
+
+const UnionStructErds = [_]Erd{
+    .{ .erd_number = null, .T = HasExternUnion, .component_idx = 0, .subs = 1, .data_component_idx = 0, .system_data_idx = 0 },
+};
+const UnionStructErd = UnionStructErds[0];
+const UnionStructRam = erd_core.data_component.Ram(&UnionStructErds);
+
+var union_struct_publish_count: u32 = 0;
+fn unionStructPublishCounter(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
+    union_struct_publish_count += 1;
+}
+
+test "struct with an extern union uses the byte fallback and detects change" {
+    union_struct_publish_count = 0;
+    var ram = UnionStructRam.init();
+    ram.subs.subscribe(UnionStructErd, null, unionStructPublishCounter);
+
+    ram.write(UnionStructErd, .{ .payload = .{ .as_u32 = 7 }, .tag = 1 }, &dummy_publisher);
+    try std.testing.expectEqual(1, union_struct_publish_count);
+
+    ram.write(UnionStructErd, .{ .payload = .{ .as_u32 = 7 }, .tag = 1 }, &dummy_publisher);
+    try std.testing.expectEqual(1, union_struct_publish_count);
+
+    ram.write(UnionStructErd, .{ .payload = .{ .as_u32 = 8 }, .tag = 1 }, &dummy_publisher);
+    try std.testing.expectEqual(2, union_struct_publish_count);
+}
+
+// A tagged union ERD is std.meta.eql-comparable, so it takes the field-aware
+// path (compare tag, then active field). Changing the active variant publishes.
+const TaggedErd = union(enum) { a: u32, b: u16 };
+
+const TaggedErds = [_]Erd{
+    .{ .erd_number = null, .T = TaggedErd, .component_idx = 0, .subs = 1, .data_component_idx = 0, .system_data_idx = 0 },
+};
+const TaggedErdErd = TaggedErds[0];
+const TaggedRam = erd_core.data_component.Ram(&TaggedErds);
+
+var tagged_publish_count: u32 = 0;
+fn taggedPublishCounter(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
+    tagged_publish_count += 1;
+}
+
+test "tagged union ERD uses the field-aware path and detects variant change" {
+    tagged_publish_count = 0;
+    var ram = TaggedRam.init();
+    ram.subs.subscribe(TaggedErdErd, null, taggedPublishCounter);
+
+    ram.write(TaggedErdErd, .{ .a = 5 }, &dummy_publisher);
+    try std.testing.expectEqual(1, tagged_publish_count);
+
+    ram.write(TaggedErdErd, .{ .a = 5 }, &dummy_publisher);
+    try std.testing.expectEqual(1, tagged_publish_count);
+
+    // switch active variant (same numeric value) -> publish
+    ram.write(TaggedErdErd, .{ .b = 5 }, &dummy_publisher);
+    try std.testing.expectEqual(2, tagged_publish_count);
+}
+
+// A padded struct ERD with a subscriber: a real field change publishes and a
+// no-op write does not. (Whether a padding-only difference publishes is
+// optimizer-dependent -- the field compare ignores padding only when LLVM keeps
+// it field-level -- so it is deliberately not asserted here.)
+const PaddedSubErds = [_]Erd{
+    .{ .erd_number = null, .T = PaddedStruct, .component_idx = 0, .subs = 1, .data_component_idx = 0, .system_data_idx = 0 },
+};
+const PaddedSubErd = PaddedSubErds[0];
+const PaddedSubRam = erd_core.data_component.Ram(&PaddedSubErds);
+
+var padded_publish_count: u32 = 0;
+fn paddedPublishCounter(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
+    padded_publish_count += 1;
+}
+
+test "padded struct ERD: field change publishes, no-op does not" {
+    padded_publish_count = 0;
+    var ram = PaddedSubRam.init();
+    ram.subs.subscribe(PaddedSubErd, null, paddedPublishCounter);
+
+    const val = PaddedStruct{ .a = 0x12, .b = 0x3456, .c = true, .d = 0x09ABCDEF };
+    ram.write(PaddedSubErd, val, &dummy_publisher);
+    try std.testing.expectEqual(1, padded_publish_count);
+
+    // identical write -> no publish
+    ram.write(PaddedSubErd, val, &dummy_publisher);
+    try std.testing.expectEqual(1, padded_publish_count);
+
+    // a real field change publishes
+    ram.write(PaddedSubErd, .{ .a = 0x99, .b = 0x3456, .c = true, .d = 0x09ABCDEF }, &dummy_publisher);
+    try std.testing.expectEqual(2, padded_publish_count);
+}
+
 // An over-aligned ERD (u128, align 16) preceded by a narrow ERD exercises
 // storageAlign()'s @max branch (storage over-aligned to 16) and forward-align
 // padding. The subscriber @alignCasts the published pointer to *const u128;
