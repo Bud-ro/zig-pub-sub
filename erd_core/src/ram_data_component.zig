@@ -126,10 +126,10 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             stored.* = data_bytes;
 
             if (changed) {
+                // Most of the time we'll be publishing. This branch hint
+                // helps push the optimizer to determine if `changed` is
+                // a constant in some situations. (ie: write(read() + 1))
                 @branchHint(.likely);
-                // `publish` reads the value back from storage; we just wrote it
-                // there. Subscribers must not write this same ERD from the
-                // callback (it would mutate the bytes being published).
                 self.publish(idx, publisher);
             }
         }
@@ -196,12 +196,9 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         noinline fn publish(self: *Self, data_component_idx: u16, publisher: *anyopaque) void {
             const offset = Subs.sub_offsets[data_component_idx];
             const count = subs_from_idx[data_component_idx];
-            // Read the just-written value straight from storage. The offset is
-            // forward-aligned, so the pointer is aligned to the ERD type (safe
-            // for subscribers to `@alignCast`). Computing it here -- in the one
-            // shared publish body -- keeps every write/modify/runtimeWrite call
-            // site to "store + call" with no per-site address materialization,
-            // and means subscribers always see the canonical in-storage bytes.
+
+            // Read the just-written value straight from storage. This is safe
+            // to publish as-is assuming forward-alignment was applied.
             const data: *const anyopaque = @ptrCast(self.storage[ram_offsets[data_component_idx]..].ptr);
             system_data.publishOnChange(
                 self.subs.slots[offset..][0..count],
