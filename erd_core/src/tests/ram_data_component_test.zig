@@ -217,3 +217,64 @@ test "write detects change in tail byte of 17-byte struct" {
     ram.write(OddSizeErd, blob, &dummy_publisher);
     try std.testing.expectEqual(2, odd_blob_publish_count);
 }
+
+// An over-aligned ERD (u128, align 16) preceded by a narrow ERD exercises
+// storageAlign()'s @max branch (storage over-aligned to 16) and forward-align
+// padding. The subscriber @alignCasts the published pointer to *const u128;
+// in safety builds that traps if the pointer is not 16-aligned.
+const OverAlignedErds = [_]Erd{
+    .{ .erd_number = null, .T = u8, .component_idx = 0, .subs = 0, .data_component_idx = 0, .system_data_idx = 0 },
+    .{ .erd_number = null, .T = u128, .component_idx = 0, .subs = 1, .data_component_idx = 1, .system_data_idx = 1 },
+};
+const OverAlignedU8 = OverAlignedErds[0];
+const OverAlignedU128 = OverAlignedErds[1];
+const OverAlignedRam = erd_core.data_component.Ram(&OverAlignedErds);
+
+var over_aligned_seen: u128 = 0;
+fn overAlignedSubscriber(_: ?*anyopaque, args: ?*const anyopaque, _: *anyopaque) void {
+    const oc: *const erd_core.system_data.OnChangeArgs = @ptrCast(@alignCast(args.?));
+    // @alignCast to *const u128 traps in safety builds if oc.data (a pointer
+    // straight into storage) is not 16-aligned.
+    const p: *const u128 = @ptrCast(@alignCast(oc.data));
+    over_aligned_seen = p.*;
+}
+
+test "over-aligned (u128) ERD publishes an aligned pointer subscribers can @alignCast" {
+    try std.testing.expectEqual(16, @alignOf(OverAlignedRam));
+
+    over_aligned_seen = 0;
+    var ram = OverAlignedRam.init();
+    ram.subs.subscribe(OverAlignedU128, null, overAlignedSubscriber);
+
+    // Write the narrow ERD first so the u128 lives past forward-align padding.
+    ram.write(OverAlignedU8, 0xAB, &dummy_publisher);
+
+    const big: u128 = 0x1122_3344_5566_7788_99AA_BBCC_DDEE_FF00;
+    ram.write(OverAlignedU128, big, &dummy_publisher);
+    // The @alignCast inside the subscriber would trap in safety builds if the
+    // published pointer were misaligned; reaching here with the right value
+    // proves it is 16-aligned.
+    try std.testing.expectEqual(big, over_aligned_seen);
+    try std.testing.expectEqual(0xAB, ram.read(OverAlignedU8));
+}
+
+// The RAM-layout report quantifies forward-align padding so a pessimal ERD
+// order (here alternating u8/u64 -> ~78% growth) is visible and CI-gateable.
+test "ramLayout reports padding and the optimal packed size" {
+    const PessimalErds = [_]Erd{
+        .{ .erd_number = null, .T = u8, .component_idx = 0, .subs = 0, .data_component_idx = 0, .system_data_idx = 0 },
+        .{ .erd_number = null, .T = u64, .component_idx = 0, .subs = 0, .data_component_idx = 1, .system_data_idx = 1 },
+        .{ .erd_number = null, .T = u8, .component_idx = 0, .subs = 0, .data_component_idx = 2, .system_data_idx = 2 },
+        .{ .erd_number = null, .T = u64, .component_idx = 0, .subs = 0, .data_component_idx = 3, .system_data_idx = 3 },
+    };
+    const report = erd_core.data_component.ramLayout(&PessimalErds);
+
+    try std.testing.expectEqual(18, report.payload_bytes); // 1 + 8 + 1 + 8
+    try std.testing.expectEqual(32, report.storage_bytes); // 1,(7 pad),8,1,(7 pad),8
+    try std.testing.expectEqual(14, report.padding_bytes);
+    try std.testing.expectEqual(18, report.packed_bytes); // u64,u64,u8,u8 -> no padding
+
+    // The component exposes the same report.
+    const PessimalRam = erd_core.data_component.Ram(&PessimalErds);
+    try std.testing.expectEqual(32, PessimalRam.layout.storage_bytes);
+}

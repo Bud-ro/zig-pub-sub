@@ -9,7 +9,17 @@
 //! is opaque from `Subscription`'s perspective: subscribers cast based on the
 //! publisher they subscribed to.
 //!
-//! NOTE: Callbacks must not retain the `args` pointer
+//! NOTE: Callbacks must not retain the `args` pointer.
+//!
+//! NOTE: The `args` pointer may alias live storage owned by the publisher (the
+//!       RAM data component publishes a pointer straight into its `storage`).
+//!       A subscriber therefore must NOT write the same ERD it is being
+//!       notified about from inside its callback -- doing so mutates the bytes
+//!       currently being published and can be observed by later subscribers in
+//!       the same dispatch (and a publish cycle A->B->...->A re-enters the same
+//!       slot). Writing a DIFFERENT ERD is fine. This contract is currently
+//!       documented but not enforced; see the re-entrancy TODO in
+//!       ram_data_component.zig's write().
 //!
 //! The identity of a `Subscription` is solely based on its callback pointer.
 //! `Subscription`s with the same identity cannot be known to the same publisher.

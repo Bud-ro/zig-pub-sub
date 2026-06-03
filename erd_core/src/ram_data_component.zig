@@ -11,6 +11,67 @@ const system_data = @import("system_data.zig");
 const Erd = erd_core.Erd;
 const DataComponentSubscription = erd_core.data_component.subscription_mixin.DataComponentSubscription;
 
+/// Comptime description of how much RAM a RAM data component spends on a given
+/// ERD list. Forward-aligning each ERD's offset (so `publish` can hand out a
+/// pointer straight into storage) costs alignment padding, and a pessimal
+/// declaration order can nearly double the storage (e.g. alternating u8/u64 is
+/// 32 bytes for 18 bytes of payload). This report makes that cost visible; see
+/// `RamDataComponent.layout` and `RamDataComponent.assertPaddingAtMost`.
+pub const RamLayout = struct {
+    /// Sum of `@sizeOf` over every ERD -- the irreducible data size.
+    payload_bytes: usize,
+    /// Actual storage size, each ERD forward-aligned in declaration order.
+    storage_bytes: usize,
+    /// `storage_bytes - payload_bytes`: alignment padding paid for the declared
+    /// order. Zero when ERDs are declared largest-alignment-first.
+    padding_bytes: usize,
+    /// Storage size achievable by reordering ERDs largest-alignment-first --
+    /// the ordering Zig's auto struct layout would pick. The floor on what any
+    /// ordering can reach (`packed_bytes - payload_bytes` is the unavoidable
+    /// padding, usually 0).
+    packed_bytes: usize,
+};
+
+/// Compute the `RamLayout` for `erds` at comptime (zero runtime cost).
+pub fn ramLayout(comptime erds: []const Erd) RamLayout {
+    return comptime blk: {
+        var payload: usize = 0;
+        var storage: usize = 0;
+        for (erds) |erd| {
+            storage = std.mem.alignForward(usize, storage, @alignOf(erd.T));
+            storage += @sizeOf(erd.T);
+            payload += @sizeOf(erd.T);
+        }
+
+        // Optimal-ish packing: place ERDs largest-alignment-first (a tiny
+        // selection sort). This removes essentially all interior padding and is
+        // the order users should prefer when RAM is tight.
+        var order: [erds.len]usize = undefined;
+        for (0..erds.len) |i| order[i] = i;
+        for (0..erds.len) |i| {
+            var best = i;
+            for (i + 1..erds.len) |j| {
+                if (@alignOf(erds[order[j]].T) > @alignOf(erds[order[best]].T)) best = j;
+            }
+            const tmp = order[i];
+            order[i] = order[best];
+            order[best] = tmp;
+        }
+        var packed_size: usize = 0;
+        for (order) |idx| {
+            packed_size = std.mem.alignForward(usize, packed_size, @alignOf(erds[idx].T));
+            packed_size += @sizeOf(erds[idx].T);
+        }
+
+        break :blk RamLayout{
+            .payload_bytes = payload,
+            .storage_bytes = storage,
+            .padding_bytes = storage - payload,
+            .packed_bytes = packed_size,
+        };
+    };
+}
+
 /// Construct a RAM-backed data component with packed byte-array storage.
 pub fn RamDataComponent(comptime erds: []const Erd) type {
     return struct {
@@ -25,10 +86,34 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         // is always aligned to that ERD's type. This lets `write`/`modify`
         // publish a pointer straight into storage (no aligned stack copy) and
         // lets subscribers `@alignCast` the on-change pointer safely.
-        // TODO: an opt-in flag could reorder fields to minimize the alignment
-        // padding; users can also just order their SystemData ERDs largest-first.
+        // Order ERDs largest-alignment-first to avoid padding (a pessimal
+        // order can nearly double storage). `layout` reports the cost and
+        // `assertPaddingAtMost` can fail the build when it grows too large.
+        // TODO: an opt-in flag could auto-reorder fields to minimize padding.
         storage: [storeSize()]u8 align(storageAlign()) = undefined,
         subs: Subs = .{},
+
+        /// Comptime RAM-layout report for this component's ERDs (payload vs
+        /// alignment padding vs the optimal largest-first packing). Inspect it
+        /// in tests/tooling, or gate on it with `assertPaddingAtMost`.
+        pub const layout = ramLayout(erds);
+
+        /// Comptime guard: `@compileError` if alignment padding exceeds
+        /// `max_bytes`. Call it from your SystemData/app wiring to stay aware of
+        /// RAM spent on padding, e.g. `comptime Components.Ram.assertPaddingAtMost(8);`.
+        /// The error reports the smaller size reachable by ordering ERDs
+        /// largest-alignment-first.
+        pub fn assertPaddingAtMost(comptime max_bytes: usize) void {
+            comptime {
+                if (layout.padding_bytes > max_bytes) {
+                    @compileError(std.fmt.comptimePrint(
+                        "RAM data component spends {d} padding bytes ({d} storage for {d} of payload), " ++
+                            "over the {d}-byte budget. Order ERDs largest-alignment-first to reach {d} bytes.",
+                        .{ layout.padding_bytes, layout.storage_bytes, layout.payload_bytes, max_bytes, layout.packed_bytes },
+                    ));
+                }
+            }
+        }
 
         /// Initialize storage to zero.
         pub fn init() Self {

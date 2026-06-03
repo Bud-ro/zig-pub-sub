@@ -264,12 +264,13 @@ pub const comments = [_]Comment{
         .func = "wide_write_all",
         .text =
         \\NOINLINE-PUB. PER-ERD: 8 subscribable writes plus 8 non-subscribable
-        \\stores, all monomorphized inline. 422 bytes RF / 275 bytes RS.
+        \\stores, all monomorphized inline. 289 bytes RF / 275 bytes RS.
         \\Since publish reads the value back from storage, the 8 publish calls
-        \\are now uniform (just an index), so ReleaseFast sinks them into a
-        \\forward jne chain and tail-duplicates the change-checks to keep the
-        \\all-unchanged hot path tight -- a deliberate speed-for-size trade that
-        \\grows RF but lets ReleaseSmall (which declines the duplication) shrink.
+        \\are now uniform (just an index). Without a hint ReleaseFast sank them
+        \\into a forward jne chain and tail-duplicated the change-checks (422
+        \\bytes); the @branchHint(.likely) on the changed->publish edge keeps
+        \\publish on the fall-through hot path and stops that duplication,
+        \\shrinking RF to 289 -- below the pre-alignment master baseline of 358.
         \\Size is still not optimal: the runtime-dispatch counterpart
         \\wide_runtime_write_all is 264 bytes RF / 40 bytes RS using the same
         \\shared runtimeWrite path, so a memcpy-and-publish helper produces
