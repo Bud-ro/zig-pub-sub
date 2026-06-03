@@ -20,9 +20,15 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         pub const supports_write = true;
         const Subs = DataComponentSubscription(erds);
 
-        // TODO: Add a flag that reorders fields to efficiently pack this
-        // and another that guarantees alignment for faster R/W.
-        storage: [storeSize()]u8 align(@alignOf(usize)) = undefined,
+        // TODO: an opt-in flag could auto-reorder fields to minimize padding.
+        /// Array of bytes where all ERDs are stored back-to-back.
+        ///
+        /// Depending on strategy, the ERDs may be aligned or not.
+        /// For the best codegen, forward-alignment is recommended. Users are expected
+        /// to size optimize by arranging RAM ERDs like they would for a struct.
+        ///
+        /// `sizeReport` gives info on how efficient `storage` is.
+        storage: [storeSize()]u8 align(storageAlign()) = undefined,
         subs: Subs = .{},
 
         /// Initialize storage to zero.
@@ -34,14 +40,16 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
 
         const ram_offsets = blk: {
             var _ram_offsets: [erds.len]usize = undefined;
-            var cur_offset = 0;
+            var cur_offset: usize = 0;
             for (erds, 0..) |erd, i| {
+                cur_offset = std.mem.alignForward(usize, cur_offset, @alignOf(erd.T));
                 _ram_offsets[i] = cur_offset;
                 cur_offset += @sizeOf(erd.T);
             }
 
             break :blk _ram_offsets;
         };
+
         const data_size: [erds.len]u16 = blk: {
             var _data_size: [erds.len]u16 = undefined;
 
@@ -55,9 +63,18 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         fn storeSize() usize {
             var size: usize = 0;
             for (erds) |erd| {
+                size = std.mem.alignForward(usize, size, @alignOf(erd.T));
                 size += @sizeOf(erd.T);
             }
             return size;
+        }
+
+        fn storageAlign() usize {
+            var a: usize = @alignOf(usize);
+            for (erds) |erd| {
+                a = @max(a, @alignOf(erd.T));
+            }
+            return a;
         }
 
         const subs_from_idx: [erds.len]u8 = blk: {
@@ -93,12 +110,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             @memcpy(data_slice[0..size], self.storage[ram_offsets[data_component_idx] .. ram_offsets[data_component_idx] + size]);
         }
 
-        /// Write and publish if the value changed. When subs == 0, skips comparison entirely.
-        /// Uses two comparison strategies depending on type size:
-        /// - <= 8 bytes: integer comparison via readInt (single cmp instruction)
-        /// - > 8 bytes: typed comparison via std.meta.eql, which lets LLVM see
-        ///   field-level relationships and eliminate unchanged field comparisons
-        ///   in read-modify-write patterns
+        /// Write and publish if the value changed. When subs == 0, skips publish and comparison entirely.
         pub fn write(self: *Self, erd: Erd, data: erd.T, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
             const n = @sizeOf(erd.T);
@@ -114,7 +126,11 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             stored.* = data_bytes;
 
             if (changed) {
-                self.publish(idx, &data, publisher);
+                // Most of the time we'll be publishing. This branch hint
+                // helps push the optimizer to determine if `changed` is
+                // a constant in some situations. (ie: write(read() + 1))
+                @branchHint(.likely);
+                self.publish(idx, publisher);
             }
         }
 
@@ -123,7 +139,10 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         /// Debug-asserts that the value actually changed.
         pub fn modify(self: *Self, erd: Erd, comptime modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
-            const ptr: *align(1) erd.T = @ptrCast(self.storage[ram_offsets[idx]..]);
+            // Forward-aligned storage offset, so this is the natural alignment
+            // of erd.T (not align(1)): faster in-place R/W and a publishable
+            // aligned pointer.
+            const ptr: *erd.T = @ptrCast(@alignCast(self.storage[ram_offsets[idx]..]));
 
             var value: erd.T = ptr.*;
             const before = value;
@@ -132,7 +151,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             ptr.* = value;
 
             if (erd.subs > 0) {
-                self.publish(idx, ptr, publisher);
+                self.publish(idx, publisher);
             }
         }
 
@@ -167,16 +186,20 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             @memcpy(self.storage[ram_offsets[idx] .. ram_offsets[idx] + size], data_slice[0..size]);
 
             if (data_changed and subs_from_idx[data_component_idx] != 0) {
-                self.publish(data_component_idx, data, publisher);
+                self.publish(data_component_idx, publisher);
             }
         }
 
         // noinline so the dispatch logic is shared across all call sites.
         // TODO: Add the option to binary search to save space in `subs_from_idx`
         //   for ERDs with no subscribers
-        noinline fn publish(self: *Self, data_component_idx: u16, data: *const anyopaque, publisher: *anyopaque) void {
+        noinline fn publish(self: *Self, data_component_idx: u16, publisher: *anyopaque) void {
             const offset = Subs.sub_offsets[data_component_idx];
             const count = subs_from_idx[data_component_idx];
+
+            // Read the just-written value straight from storage. This is safe
+            // to publish as-is assuming forward-alignment was applied.
+            const data: *const anyopaque = @ptrCast(self.storage[ram_offsets[data_component_idx]..].ptr);
             system_data.publishOnChange(
                 self.subs.slots[offset..][0..count],
                 system_data_idx_from_idx[data_component_idx],
@@ -185,37 +208,30 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             );
         }
 
-        // TODO: This is a neat way of gaining automatic optimized alignment, but MAN
-        //       it sucks for actually accessing fields, particularly using runtime info
-        //       see if it can eventually be used?
-        // const ram_fields: [erds.len]std.builtin.Type.StructField = blk: {
-        //     var _fields: [erds.len]std.builtin.Type.StructField = undefined;
-        //
-        //     for (erds, 0..) |erd, i| {
-        //         // Fields have the name of "_number"
-        //         const fieldName = std.fmt.comptimePrint("_{}", .{erd.data_component_idx});
-        //         _fields[i] = .{
-        //             .name = fieldName,
-        //             .type = erd.T,
-        //             .default_value_ptr = null,
-        //             .is_comptime = false,
-        //             // Proper alignment is the default. If you want denser memory
-        //             // then set alignment to 1.
-        //             .alignment = 0,
-        //         };
-        //     }
-        //
-        //     break :blk _fields;
-        // };
-        //
-        // const StoreStruct = @Type(.{
-        //     .@"struct" = .{
-        //         .layout = .auto,
-        //         .fields = ram_fields[0..],
-        //         .decls = &[_]std.builtin.Type.Declaration{},
-        //         .is_tuple = false,
-        //     },
-        // });
+        /// RAM size report for the given `erds` used to construct this type
+        pub fn sizeReport(_: *const Self) SizeReport {
+            return comptime blk: {
+                var payload: usize = 0;
+                for (erds) |erd| {
+                    payload += @sizeOf(erd.T);
+                }
+                break :blk SizeReport{
+                    .storage_bytes = storeSize(),
+                    .payload_bytes = payload,
+                };
+            };
+        }
+
+        /// Description of memory usage for a RAM Data Component.
+        ///
+        /// Usage varies depending on strategy (packed, forward aligned, auto-arranged, etc.).
+        /// Total overhead is given by `storage_bytes - payload_bytes`
+        pub const SizeReport = struct {
+            /// Actual size of `storage`.
+            storage_bytes: usize,
+            /// Sum of `@sizeOf` over every ERD. Minimum size for representation.
+            payload_bytes: usize,
+        };
     };
 }
 

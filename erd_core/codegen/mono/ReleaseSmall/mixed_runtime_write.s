@@ -15,12 +15,12 @@ mixed_runtime_write:
         push	r12
         push	rbx
         push	rax
-        mov	rbx, rdx
-        mov	r14, rdi
+        mov	r15, rdx
+        mov	rbx, rdi
         movzx	eax, si
-        movzx	r15d, word ptr [rax + rax + .L__anon_0]
-        movzx	r12d, word ptr [r15 + r15 + .L__anon_1]
-        mov	r13, qword ptr [8*r15 + .L__anon_2]
+        movzx	r14d, word ptr [rax + rax + .L__anon_0]
+        movzx	r12d, word ptr [r14 + r14 + .L__anon_1]
+        mov	r13, qword ptr [8*r14 + .L__anon_2]
         add	r13, rdi
         mov	rdi, rdx
         mov	rsi, r13
@@ -28,17 +28,16 @@ mixed_runtime_write:
         call	.Lram_data_component.runtimeBytesEqual
         mov	ebp, eax
         mov	rdi, r13
-        mov	rsi, rbx
+        mov	rsi, r15
         mov	rdx, r12
         call	memcpy@PLT
         test	bpl, 1
         jne	.L0
-        cmp	byte ptr [r15 + .L__anon_3], 0
+        cmp	byte ptr [r14 + .L__anon_3], 0
         je	.L0
-        mov	rdi, r14
-        mov	esi, r15d
+        mov	rdi, rbx
+        mov	esi, r14d
         mov	rdx, rbx
-        mov	rcx, r14
         add	rsp, 8
         pop	rbx
         pop	r12

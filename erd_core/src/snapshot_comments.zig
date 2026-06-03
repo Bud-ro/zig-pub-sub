@@ -264,8 +264,14 @@ pub const comments = [_]Comment{
         .func = "wide_write_all",
         .text =
         \\NOINLINE-PUB. PER-ERD: 8 subscribable writes plus 8 non-subscribable
-        \\stores, all monomorphized inline. 358 bytes RF / 311 bytes RS.
-        \\Size is not optimal: the runtime-dispatch counterpart
+        \\stores, all monomorphized inline. 289 bytes RF / 275 bytes RS.
+        \\Since publish reads the value back from storage, the 8 publish calls
+        \\are now uniform (just an index). Without a hint ReleaseFast sank them
+        \\into a forward jne chain and tail-duplicated the change-checks (422
+        \\bytes); the @branchHint(.likely) on the changed->publish edge keeps
+        \\publish on the fall-through hot path and stops that duplication,
+        \\shrinking RF to 289 -- below the pre-alignment master baseline of 358.
+        \\Size is still not optimal: the runtime-dispatch counterpart
         \\wide_runtime_write_all is 264 bytes RF / 40 bytes RS using the same
         \\shared runtimeWrite path, so a memcpy-and-publish helper produces
         \\dramatically smaller code. The size cost here is the deliberate

@@ -4,7 +4,7 @@
 ;
 read_converted_both:
         mov	rax, qword ptr [rdi + 136]
-        movzx	ecx, word ptr [rax + 5]
+        movzx	ecx, word ptr [rax + 6]
         add	ecx, dword ptr [rax]
         mov	eax, dword ptr [rax + 4]
         not	eax

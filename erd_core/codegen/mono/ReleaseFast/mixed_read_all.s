@@ -11,12 +11,12 @@ mixed_read_all:
         mov	esi, dword ptr [rdx]
         movzx	r8d, word ptr [rdx + 4]
         add	r8d, esi
-        add	rcx, qword ptr [rdi + 7]
+        add	rcx, qword ptr [rdi + 8]
         add	rax, rsi
         add	rax, rcx
         cmp	rsi, 101
         sbb	rax, -1
-        add	rax, qword ptr [rdx + 7]
+        add	rax, qword ptr [rdx + 8]
         add	rax, r8
         add	rax, 48921
         ret

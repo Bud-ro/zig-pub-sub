@@ -5,32 +5,31 @@
 tiny_write_all:
         push	rbp
         push	rbx
-        sub	rsp, 24
+        push	rax
         mov	ebp, edx
         mov	rbx, rdi
-        mov	dword ptr [rsp + 16], esi
         cmp	dword ptr [rdi], esi
         mov	dword ptr [rdi], esi
         je	.L0
-        lea	rdx, [rsp + 16]
         mov	rdi, rbx
         xor	esi, esi
-        mov	rcx, rbx
+        mov	rdx, rbx
         call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
 .L0:
         and	bpl, 1
-        mov	byte ptr [rsp + 15], bpl
         cmp	byte ptr [rbx + 4], bpl
         mov	byte ptr [rbx + 4], bpl
         je	.L1
         push	1
         pop	rsi
-        lea	rdx, [rsp + 15]
         mov	rdi, rbx
-        mov	rcx, rbx
-        call	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
+        mov	rdx, rbx
+        add	rsp, 8
+        pop	rbx
+        pop	rbp
+        jmp	".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish"
 .L1:
-        add	rsp, 24
+        add	rsp, 8
         pop	rbx
         pop	rbp
         ret
@@ -38,14 +37,16 @@ tiny_write_all:
 ; --- called functions ---
 
 ".Lram_data_component.RamDataComponent(&.{ .{ ... }, .{ ... }, .{ ... } }[0..3]).publish":
-        mov	r8, rcx
-        mov	rcx, rdx
+        mov	r8, rdx
         movzx	eax, si
-        mov	rdx, qword ptr [8*rax + .L__anon_0]
+        lea	ecx, [8*rax]
+        mov	rdx, qword ptr [rcx + .L__anon_0]
+        mov	rcx, qword ptr [rcx + .L__anon_1]
+        add	rcx, rdi
         shl	rdx, 4
         add	rdi, rdx
         add	rdi, 16
-        movzx	edx, word ptr [rax + rax + .L__anon_1]
+        movzx	edx, word ptr [rax + rax + .L__anon_2]
         mov	esi, 1
         jmp	.Lsystem_data.publishOnChange
 

@@ -5,7 +5,7 @@
 read_ram_then_converted:
         mov	rcx, qword ptr [rdi + 136]
         mov	eax, dword ptr [rcx]
-        movzx	ecx, word ptr [rcx + 5]
+        movzx	ecx, word ptr [rcx + 6]
         add	eax, dword ptr [rdi]
         add	eax, ecx
         ret

@@ -2,7 +2,7 @@
 ; Speed: Optimal | Size: Optimal (until 6 calls)
 ;
 wide_subscribe:
-        add	rdi, 64
+        add	rdi, 72
         jmp	"data_component_subscription.DataComponentSubscription(&.{ .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... }, .{ ... } }[0..17]).subscribeInner"
 
 ; --- called functions ---

@@ -9,7 +9,12 @@
 //! is opaque from `Subscription`'s perspective: subscribers cast based on the
 //! publisher they subscribed to.
 //!
-//! NOTE: Callbacks must not retain the `args` pointer
+//! NOTE: Callbacks must not retain the `args` pointer.
+//!
+//! NOTE: The `args` pointer may alias live storage owned by the publisher.
+//!       A subscriber therefore must be careful not to trigger effects which would
+//!       cause a separate publish. Doing so could mutate the bytes currently being
+//!       published and can be observed by later subscribers in the same dispatch.
 //!
 //! The identity of a `Subscription` is solely based on its callback pointer.
 //! `Subscription`s with the same identity cannot be known to the same publisher.
@@ -45,7 +50,7 @@ pub noinline fn subscribe(slots: []Self, context: ?*anyopaque, callback: Callbac
         }
     }
 
-    const slot = first_free orelse @panic("ERD oversubscribed!");
+    const slot = first_free orelse @panic("Oversubscribed!");
     slot.* = .{ .context = context, .callback = callback };
 }
 
