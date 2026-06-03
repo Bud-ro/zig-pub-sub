@@ -11,67 +11,6 @@ const system_data = @import("system_data.zig");
 const Erd = erd_core.Erd;
 const DataComponentSubscription = erd_core.data_component.subscription_mixin.DataComponentSubscription;
 
-/// Comptime description of how much RAM a RAM data component spends on a given
-/// ERD list. Forward-aligning each ERD's offset (so `publish` can hand out a
-/// pointer straight into storage) costs alignment padding, and a pessimal
-/// declaration order can nearly double the storage (e.g. alternating u8/u64 is
-/// 32 bytes for 18 bytes of payload). This report makes that cost visible; see
-/// `RamDataComponent.layout` and `RamDataComponent.assertPaddingAtMost`.
-pub const RamLayout = struct {
-    /// Sum of `@sizeOf` over every ERD -- the irreducible data size.
-    payload_bytes: usize,
-    /// Actual storage size, each ERD forward-aligned in declaration order.
-    storage_bytes: usize,
-    /// `storage_bytes - payload_bytes`: alignment padding paid for the declared
-    /// order. Zero when ERDs are declared largest-alignment-first.
-    padding_bytes: usize,
-    /// Storage size achievable by reordering ERDs largest-alignment-first --
-    /// the ordering Zig's auto struct layout would pick. The floor on what any
-    /// ordering can reach (`packed_bytes - payload_bytes` is the unavoidable
-    /// padding, usually 0).
-    packed_bytes: usize,
-};
-
-/// Compute the `RamLayout` for `erds` at comptime (zero runtime cost).
-pub fn ramLayout(comptime erds: []const Erd) RamLayout {
-    return comptime blk: {
-        var payload: usize = 0;
-        var storage: usize = 0;
-        for (erds) |erd| {
-            storage = std.mem.alignForward(usize, storage, @alignOf(erd.T));
-            storage += @sizeOf(erd.T);
-            payload += @sizeOf(erd.T);
-        }
-
-        // Optimal-ish packing: place ERDs largest-alignment-first (a tiny
-        // selection sort). This removes essentially all interior padding and is
-        // the order users should prefer when RAM is tight.
-        var order: [erds.len]usize = undefined;
-        for (0..erds.len) |i| order[i] = i;
-        for (0..erds.len) |i| {
-            var best = i;
-            for (i + 1..erds.len) |j| {
-                if (@alignOf(erds[order[j]].T) > @alignOf(erds[order[best]].T)) best = j;
-            }
-            const tmp = order[i];
-            order[i] = order[best];
-            order[best] = tmp;
-        }
-        var packed_size: usize = 0;
-        for (order) |idx| {
-            packed_size = std.mem.alignForward(usize, packed_size, @alignOf(erds[idx].T));
-            packed_size += @sizeOf(erds[idx].T);
-        }
-
-        break :blk RamLayout{
-            .payload_bytes = payload,
-            .storage_bytes = storage,
-            .padding_bytes = storage - payload,
-            .packed_bytes = packed_size,
-        };
-    };
-}
-
 /// Construct a RAM-backed data component with packed byte-array storage.
 pub fn RamDataComponent(comptime erds: []const Erd) type {
     return struct {
@@ -81,39 +20,16 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         pub const supports_write = true;
         const Subs = DataComponentSubscription(erds);
 
-        // Storage offsets are forward-aligned per ERD (see `ram_offsets`) and
-        // the array is aligned to the widest owned ERD, so `&storage[offset]`
-        // is always aligned to that ERD's type. This lets `write`/`modify`
-        // publish a pointer straight into storage (no aligned stack copy) and
-        // lets subscribers `@alignCast` the on-change pointer safely.
-        // Order ERDs largest-alignment-first to avoid padding (a pessimal
-        // order can nearly double storage). `layout` reports the cost and
-        // `assertPaddingAtMost` can fail the build when it grows too large.
         // TODO: an opt-in flag could auto-reorder fields to minimize padding.
+        /// Array of bytes where all ERDs are stored back-to-back.
+        ///
+        /// Depending on strategy, the ERDs may be aligned or not.
+        /// For the best codegen, forward-alignment is recommended. Users are expected
+        /// to size optimize by arranging RAM ERDs like they would for a struct.
+        ///
+        /// `sizeReport` gives info on how efficient `storage` is.
         storage: [storeSize()]u8 align(storageAlign()) = undefined,
         subs: Subs = .{},
-
-        /// Comptime RAM-layout report for this component's ERDs (payload vs
-        /// alignment padding vs the optimal largest-first packing). Inspect it
-        /// in tests/tooling, or gate on it with `assertPaddingAtMost`.
-        pub const layout = ramLayout(erds);
-
-        /// Comptime guard: `@compileError` if alignment padding exceeds
-        /// `max_bytes`. Call it from your SystemData/app wiring to stay aware of
-        /// RAM spent on padding, e.g. `comptime Components.Ram.assertPaddingAtMost(8);`.
-        /// The error reports the smaller size reachable by ordering ERDs
-        /// largest-alignment-first.
-        pub fn assertPaddingAtMost(comptime max_bytes: usize) void {
-            comptime {
-                if (layout.padding_bytes > max_bytes) {
-                    @compileError(std.fmt.comptimePrint(
-                        "RAM data component spends {d} padding bytes ({d} storage for {d} of payload), " ++
-                            "over the {d}-byte budget. Order ERDs largest-alignment-first to reach {d} bytes.",
-                        .{ layout.padding_bytes, layout.storage_bytes, layout.payload_bytes, max_bytes, layout.packed_bytes },
-                    ));
-                }
-            }
-        }
 
         /// Initialize storage to zero.
         pub fn init() Self {
@@ -133,6 +49,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
 
             break :blk _ram_offsets;
         };
+
         const data_size: [erds.len]u16 = blk: {
             var _data_size: [erds.len]u16 = undefined;
 
@@ -152,14 +69,6 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             return size;
         }
 
-        /// Alignment for `storage`: the widest alignment of any owned ERD type,
-        /// floored at `@alignOf(usize)`. Combined with forward-aligned per-ERD
-        /// offsets, this guarantees `&storage[ram_offsets[i]]` is aligned to
-        /// `erds[i].T`. The `@alignOf(usize)` floor keeps `storage` at least as
-        /// aligned as the `subs` field, so the struct layout (and thus every
-        /// load/store offset) matches the pre-alignment version -- otherwise a
-        /// component whose widest ERD is narrower than a pointer would let Zig
-        /// reorder `subs` ahead of `storage` and shift every offset.
         fn storageAlign() usize {
             var a: usize = @alignOf(usize);
             for (erds) |erd| {
@@ -201,12 +110,7 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             @memcpy(data_slice[0..size], self.storage[ram_offsets[data_component_idx] .. ram_offsets[data_component_idx] + size]);
         }
 
-        /// Write and publish if the value changed. When subs == 0, skips comparison entirely.
-        /// Uses two comparison strategies depending on type size:
-        /// - <= 8 bytes: integer comparison via readInt (single cmp instruction)
-        /// - > 8 bytes: typed comparison via std.meta.eql, which lets LLVM see
-        ///   field-level relationships and eliminate unchanged field comparisons
-        ///   in read-modify-write patterns
+        /// Write and publish if the value changed. When subs == 0, skips publish and comparison entirely.
         pub fn write(self: *Self, erd: Erd, data: erd.T, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
             const n = @sizeOf(erd.T);
@@ -307,37 +211,30 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             );
         }
 
-        // TODO: This is a neat way of gaining automatic optimized alignment, but MAN
-        //       it sucks for actually accessing fields, particularly using runtime info
-        //       see if it can eventually be used?
-        // const ram_fields: [erds.len]std.builtin.Type.StructField = blk: {
-        //     var _fields: [erds.len]std.builtin.Type.StructField = undefined;
-        //
-        //     for (erds, 0..) |erd, i| {
-        //         // Fields have the name of "_number"
-        //         const fieldName = std.fmt.comptimePrint("_{}", .{erd.data_component_idx});
-        //         _fields[i] = .{
-        //             .name = fieldName,
-        //             .type = erd.T,
-        //             .default_value_ptr = null,
-        //             .is_comptime = false,
-        //             // Proper alignment is the default. If you want denser memory
-        //             // then set alignment to 1.
-        //             .alignment = 0,
-        //         };
-        //     }
-        //
-        //     break :blk _fields;
-        // };
-        //
-        // const StoreStruct = @Type(.{
-        //     .@"struct" = .{
-        //         .layout = .auto,
-        //         .fields = ram_fields[0..],
-        //         .decls = &[_]std.builtin.Type.Declaration{},
-        //         .is_tuple = false,
-        //     },
-        // });
+        /// RAM size report for the given `erds` used to construct this type
+        pub fn sizeReport(_: *const Self) SizeReport {
+            return comptime blk: {
+                var payload: usize = 0;
+                for (erds) |erd| {
+                    payload += @sizeOf(erd.T);
+                }
+                break :blk SizeReport{
+                    .storage_bytes = storeSize(),
+                    .payload_bytes = payload,
+                };
+            };
+        }
+
+        /// Description of memory usage for a RAM Data Component.
+        ///
+        /// Usage varies depending on strategy (packed, forward aligned, auto-arranged, etc.).
+        /// Total overhead is given by `storage_bytes - payload_bytes`
+        pub const SizeReport = struct {
+            /// Actual size of `storage`.
+            storage_bytes: usize,
+            /// Sum of `@sizeOf` over every ERD. Minimum size for representation.
+            payload_bytes: usize,
+        };
     };
 }
 

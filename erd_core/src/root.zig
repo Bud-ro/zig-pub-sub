@@ -12,9 +12,6 @@ pub const SystemData = system_data.SystemData;
 
 pub const data_component = struct {
     pub const Ram = @import("ram_data_component.zig").RamDataComponent;
-    /// Comptime RAM-layout report (payload vs alignment padding) for a Ram ERD list.
-    pub const ramLayout = @import("ram_data_component.zig").ramLayout;
-    pub const RamLayout = @import("ram_data_component.zig").RamLayout;
 
     pub const IndirectMapping = @import("indirect_data_component.zig").Mapping;
     pub const Indirect = @import("indirect_data_component.zig").IndirectDataComponent;

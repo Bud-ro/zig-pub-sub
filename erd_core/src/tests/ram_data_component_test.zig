@@ -258,23 +258,21 @@ test "over-aligned (u128) ERD publishes an aligned pointer subscribers can @alig
     try std.testing.expectEqual(0xAB, ram.read(OverAlignedU8));
 }
 
-// The RAM-layout report quantifies forward-align padding so a pessimal ERD
-// order (here alternating u8/u64 -> ~78% growth) is visible and CI-gateable.
-test "ramLayout reports padding and the optimal packed size" {
+// sizeReport() exposes the forward-align cost (storage vs payload) so a
+// pessimal ERD order (here alternating u8/u64 -> ~78% growth) is visible and
+// CI-gateable. Callers compute overhead themselves as storage - payload.
+test "sizeReport reports storage and payload bytes" {
     const PessimalErds = [_]Erd{
         .{ .erd_number = null, .T = u8, .component_idx = 0, .subs = 0, .data_component_idx = 0, .system_data_idx = 0 },
         .{ .erd_number = null, .T = u64, .component_idx = 0, .subs = 0, .data_component_idx = 1, .system_data_idx = 1 },
         .{ .erd_number = null, .T = u8, .component_idx = 0, .subs = 0, .data_component_idx = 2, .system_data_idx = 2 },
         .{ .erd_number = null, .T = u64, .component_idx = 0, .subs = 0, .data_component_idx = 3, .system_data_idx = 3 },
     };
-    const report = erd_core.data_component.ramLayout(&PessimalErds);
+    const PessimalRam = erd_core.data_component.Ram(&PessimalErds);
+    const ram = PessimalRam.init();
+    const report = ram.sizeReport();
 
     try std.testing.expectEqual(18, report.payload_bytes); // 1 + 8 + 1 + 8
     try std.testing.expectEqual(32, report.storage_bytes); // 1,(7 pad),8,1,(7 pad),8
-    try std.testing.expectEqual(14, report.padding_bytes);
-    try std.testing.expectEqual(18, report.packed_bytes); // u64,u64,u8,u8 -> no padding
-
-    // The component exposes the same report.
-    const PessimalRam = erd_core.data_component.Ram(&PessimalErds);
-    try std.testing.expectEqual(32, PessimalRam.layout.storage_bytes);
+    try std.testing.expectEqual(14, report.storage_bytes - report.payload_bytes); // overhead
 }
