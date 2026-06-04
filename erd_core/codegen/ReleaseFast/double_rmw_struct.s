@@ -1,6 +1,6 @@
 ; snapshot_comments.zig
 ; Speed: Near-optimal | Size: Optimal (until 2 calls)
-; NOINLINE-PUB. Two read-modify-writes, each a proven change -> guaranteed publish.
+; NOINLINE-PUB. Two read-modify-writes. ReleaseFast proves each change (branchless publishes); ReleaseSmall calls out-of-line write, retaining the runtime compares.
 ;
 double_rmw_struct:
         push	rbx

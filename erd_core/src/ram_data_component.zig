@@ -111,23 +111,26 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
         }
 
         /// Write and publish if the value changed. When subs == 0, skips the
-        /// comparison entirely. Two strategies:
-        /// - structs: field-by-field via std.meta.eql, which lets LLVM fold
-        ///   provably-unchanged fields and prove changed fields, so a
-        ///   read-modify-write (read, tweak a field, write) compiles to an
+        /// comparison entirely. Two strategies (see useTypedCompare):
+        /// - aggregates with don't-care bytes (structs, optionals, tagged
+        ///   unions, arrays of them): typed field-by-field std.meta.eql, which
+        ///   lets LLVM fold provably-unchanged fields and prove changed fields,
+        ///   so a read-modify-write (read, tweak a field, write) compiles to an
         ///   in-place update plus a guaranteed publish -- no full-struct compare
-        ///   and no separate "assert changed" path. (When LLVM keeps the compare
-        ///   field-level it also ignores padding; for fully-traceable values it
-        ///   may fold to a byte compare instead -- either way it never misses a
-        ///   real change.)
-        /// - everything else (primitives, float-bearing types, and structs
-        ///   std.meta.eql cannot compare, e.g. those with an extern union --
-        ///   see fieldComparable): integer comparison via readInt (a single
-        ///   cmp). Floats deliberately take this bit-exact path so a
-        ///   struct-embedded float behaves the same as a scalar float ERD
-        ///   (std.meta.eql would compare floats with `==`, treating +0.0 and
-        ///   -0.0 as equal and any NaN as unequal -- inconsistent and a missed
-        ///   publish for a real +0.0 -> -0.0 change).
+        ///   and no separate "assert changed" path. The typed compare is also
+        ///   the only SOUND one for these types: their padding / null-payload /
+        ///   inactive-variant bytes are undefined, so a byte compare could
+        ///   report a phantom change on a no-op write (e.g. null -> null).
+        ///   (Padded structs pay a few mask instructions vs a flat byte
+        ///   compare; arrange fields to minimize padding.)
+        /// - everything else (ints, bools, enums, floats, pointers, and
+        ///   aggregates std.meta.eql cannot compare, e.g. those with an extern
+        ///   union): bit-exact integer comparison via readInt (a single cmp);
+        ///   these have no don't-care bytes. Floats deliberately take this
+        ///   path so a struct-embedded float behaves the same as a scalar
+        ///   float ERD (std.meta.eql would compare floats with `==`, treating
+        ///   +0.0 and -0.0 as equal and any NaN as unequal -- inconsistent and
+        ///   a missed publish for a real +0.0 -> -0.0 change).
         pub fn write(self: *Self, erd: Erd, data: erd.T, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
             const n = @sizeOf(erd.T);
@@ -138,8 +141,8 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
                 return;
             }
 
-            if (comptime @typeInfo(erd.T) == .@"struct" and fieldComparable(erd.T)) {
-                // Field-aware path for structs: compare the typed old/new values
+            if (comptime useTypedCompare(erd.T)) {
+                // Field-aware path: compare the typed old/new values
                 // (not raw bytes) so LLVM can fold provably-unchanged fields and
                 // prove changed ones, and store the TYPED value (not a
                 // pre-materialized byte array). The typed store is essential: a
@@ -181,11 +184,12 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
                     self.publish(idx, publisher);
                 }
             } else {
-                // Primitives (and structs std.meta.eql cannot compare): a single
-                // readInt compare and a byte store -- the typed store gives these
-                // no benefit and can cost a byte (e.g. bool masking). The
-                // @branchHint keeps publish on the hot path so a function with
-                // many inlined writes does not tail-duplicate its change-checks.
+                // Primitives and types std.meta.eql cannot compare: a single
+                // readInt compare and a byte store -- every bit is meaningful
+                // here, and the typed store gives these no benefit and can cost
+                // a byte (e.g. bool masking). The @branchHint keeps publish on
+                // the hot path so a function with many inlined writes does not
+                // tail-duplicate its change-checks.
                 const data_bytes = std.mem.toBytes(data);
                 const changed = bytesChanged(stored, &data_bytes);
                 stored.* = data_bytes;
@@ -196,10 +200,33 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             }
         }
 
-        /// True if a value of `T` should use the field-aware std.meta.eql path:
-        /// `T` must be std.meta.eql-comparable (no untagged/bare/extern union
-        /// anywhere) AND contain no float (floats use the bit-exact byte path
-        /// for consistent +0.0/-0.0/NaN handling -- see write). Field-aware
+        /// True if `T` should use the typed std.meta.eql path in `write`:
+        /// aggregates that can contain "don't-care" bytes (struct padding, an
+        /// optional's payload while null, a tagged union's inactive variant,
+        /// arrays of those), provided std.meta.eql can compare them correctly
+        /// (see fieldComparable). A byte compare of don't-care bytes is unsound:
+        /// std.mem.toBytes(null) leaves the payload undefined, so a no-op
+        /// null -> null write could spuriously publish (and whether it does
+        /// varies by optimize mode). Scalars, floats, and pointers have no
+        /// don't-care bytes and keep the cheaper bit-exact byte compare.
+        ///
+        /// Known niche wart: a float-bearing aggregate (e.g. `?f32`) fails
+        /// fieldComparable, so it stays on the byte path where its null payload
+        /// is still don't-care -- neither path is fully correct for it (the
+        /// typed path would miss a real +0.0 -> -0.0 change instead). The byte
+        /// path errs toward a phantom publish, never a missed one.
+        fn useTypedCompare(T: type) bool {
+            return switch (@typeInfo(T)) {
+                .@"struct", .optional, .@"union" => fieldComparable(T),
+                .array => |a| useTypedCompare(a.child),
+                else => false,
+            };
+        }
+
+        /// True if a value of `T` is correctly comparable with std.meta.eql:
+        /// no untagged/bare/extern union anywhere (meta.eql @compileErrors on
+        /// those) AND no float (floats use the bit-exact byte path for
+        /// consistent +0.0/-0.0/NaN handling -- see write). Field-aware
         /// comparison is what lets LLVM fold unchanged fields and prove changed
         /// fields in read-modify-write patterns; everything else falls back to a
         /// raw byte compare.

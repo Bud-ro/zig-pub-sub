@@ -1,6 +1,6 @@
 ; snapshot_comments.zig
 ; Speed: Near-optimal | Size: Optimal (until 2 calls)
-; NOINLINE-PUB. Read-modify-write: field-aware detection proves the field changed -> in-place update + guaranteed publish.
+; NOINLINE-PUB. Read-modify-write. ReleaseFast inlines write and proves the fields changed -> in-place update + branchless publish. ReleaseSmall keeps write out-of-line, retaining the runtime field compare.
 ;
 rmw_medium_two_fields:
         add	qword ptr [rdi + 256], 1

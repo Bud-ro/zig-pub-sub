@@ -27,6 +27,12 @@ pub const OnChangeArgs = struct {
     /// system_data_idx of the ERD whose value changed.
     system_data_idx: u16,
     /// Pointer to the ERD's new value, as raw bytes.
+    ///
+    /// NOTE: may alias the publisher's live storage (the RAM data component
+    /// publishes a pointer straight into `storage`). Do not write the SAME ERD
+    /// from the callback -- it would mutate the bytes being published, and
+    /// later subscribers in the dispatch would observe the new value. Writing
+    /// a different ERD is fine. See the contract note in Subscription.zig.
     data: *const anyopaque,
 };
 

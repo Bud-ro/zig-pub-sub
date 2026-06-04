@@ -136,8 +136,9 @@ test "runtime writes" {
     try std.testing.expectEqual(false, ram_data.read(erd_bool));
 }
 
-// Exercise the > 16-byte change-detection path in `write` (separate from the
-// small-int readInt path that fits inside one [u128] compare).
+// A > 16-byte struct through `write`. BigBlob is fieldComparable, so this
+// exercises the typed std.meta.eql path on a large struct (the raw
+// bytesChanged > 16-byte path is exercised by BigUnionBlob further down).
 const BigBlob = extern struct { bytes: [24]u8, tag: u32 };
 
 const BigBlobErds = [_]Erd{
@@ -176,9 +177,10 @@ test "write detects change in > 16-byte struct" {
     try std.testing.expectEqual(3, big_blob_publish_count);
 }
 
-// Exercise the partial-word tail branch of `bytesChanged` (len > 16 with
-// len % 8 != 0). 17 bytes is the smallest size that triggers both the
-// readInt(u64) chunk loop and the trailing partial-word read.
+// A 17-byte (non-power-of-2) struct through `write`. OddSizeBlob is
+// fieldComparable, so this exercises the typed std.meta.eql path on an
+// odd size (the bytesChanged chunk-loop + partial-word tail is exercised
+// by BigUnionBlob further down).
 const OddSizeBlob = extern struct { bytes: [17]u8 };
 
 const OddSizeErds = [_]Erd{
@@ -432,4 +434,129 @@ test "sizeReport reports storage and payload bytes" {
     try std.testing.expectEqual(18, report.payload_bytes); // 1 + 8 + 1 + 8
     try std.testing.expectEqual(32, report.storage_bytes); // 1,(7 pad),8,1,(7 pad),8
     try std.testing.expectEqual(14, report.storage_bytes - report.payload_bytes); // overhead
+}
+
+// A > 16-byte type that is NOT fieldComparable (extern union member), so it
+// takes the raw bytesChanged path: 20 bytes = two readInt(u64) chunks plus a
+// 4-byte partial-word tail, with no padding (4 + 16 at align 4), so the byte
+// compare is deterministic.
+const BigUnionBlob = extern struct { payload: ExternPayload, bytes: [16]u8 };
+
+const BigUnionErds = [_]Erd{
+    .{ .erd_number = null, .T = BigUnionBlob, .component_idx = 0, .subs = 1, .data_component_idx = 0, .system_data_idx = 0 },
+};
+const BigUnionErd = BigUnionErds[0];
+const BigUnionRam = erd_core.data_component.Ram(&BigUnionErds);
+
+var big_union_publish_count: u32 = 0;
+fn bigUnionPublishCounter(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
+    big_union_publish_count += 1;
+}
+
+test "bytesChanged chunk loop and tail detect changes in a >16-byte non-fieldComparable type" {
+    big_union_publish_count = 0;
+    var ram = BigUnionRam.init();
+    ram.subs.subscribe(BigUnionErd, null, bigUnionPublishCounter);
+
+    var blob = BigUnionBlob{ .payload = .{ .as_u32 = 1 }, .bytes = [_]u8{0} ** 16 };
+    ram.write(BigUnionErd, blob, &dummy_publisher);
+    try std.testing.expectEqual(1, big_union_publish_count);
+
+    // identical write -> no publish
+    ram.write(BigUnionErd, blob, &dummy_publisher);
+    try std.testing.expectEqual(1, big_union_publish_count);
+
+    // change inside the second u64 chunk (byte offset 4 + 10 = 14)
+    blob.bytes[10] = 0xAB;
+    ram.write(BigUnionErd, blob, &dummy_publisher);
+    try std.testing.expectEqual(2, big_union_publish_count);
+
+    // change ONLY in the 4-byte tail past the chunks (byte offset 4 + 14 = 18)
+    blob.bytes[14] = 0xCD;
+    ram.write(BigUnionErd, blob, &dummy_publisher);
+    try std.testing.expectEqual(3, big_union_publish_count);
+}
+
+// Regression: a non-pointer optional has UNDEFINED payload bytes while null
+// (std.mem.toBytes(null)), so a raw byte compare could see a phantom change on
+// a no-op null write (and whether it fired varied by optimize mode). Optionals
+// therefore take the typed std.meta.eql path (see useTypedCompare), which
+// compares presence first.
+const OptErds = [_]Erd{
+    .{ .erd_number = null, .T = ?u32, .component_idx = 0, .subs = 1, .data_component_idx = 0, .system_data_idx = 0 },
+};
+const OptErd = OptErds[0];
+const OptRam = erd_core.data_component.Ram(&OptErds);
+
+var opt_publish_count: u32 = 0;
+fn optPublishCounter(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
+    opt_publish_count += 1;
+}
+
+test "optional ERD: null -> null does not publish; presence changes do" {
+    opt_publish_count = 0;
+    var ram = OptRam.init(); // zeroed storage == null
+    ram.subs.subscribe(OptErd, null, optPublishCounter);
+
+    // null -> null: no logical change, must NOT publish
+    ram.write(OptErd, null, &dummy_publisher);
+    try std.testing.expectEqual(0, opt_publish_count);
+
+    ram.write(OptErd, 5, &dummy_publisher);
+    try std.testing.expectEqual(1, opt_publish_count);
+
+    // same value -> no publish
+    ram.write(OptErd, 5, &dummy_publisher);
+    try std.testing.expectEqual(1, opt_publish_count);
+
+    // value -> null is a real change
+    ram.write(OptErd, null, &dummy_publisher);
+    try std.testing.expectEqual(2, opt_publish_count);
+}
+
+// Primitive change detection with a live subscriber: write/runtimeWrite must
+// publish on a real change and stay silent on a no-op. runtimeWrite has its
+// own compare path (runtimeBytesEqual), separate from write's.
+const PrimErds = [_]Erd{
+    .{ .erd_number = null, .T = u32, .component_idx = 0, .subs = 1, .data_component_idx = 0, .system_data_idx = 0 },
+};
+const PrimErd = PrimErds[0];
+const PrimRam = erd_core.data_component.Ram(&PrimErds);
+
+var prim_publish_count: u32 = 0;
+fn primPublishCounter(_: ?*anyopaque, _: ?*const anyopaque, _: *anyopaque) void {
+    prim_publish_count += 1;
+}
+
+test "primitive ERD: no-op write does not publish" {
+    prim_publish_count = 0;
+    var ram = PrimRam.init();
+    ram.subs.subscribe(PrimErd, null, primPublishCounter);
+
+    ram.write(PrimErd, 5, &dummy_publisher);
+    try std.testing.expectEqual(1, prim_publish_count);
+
+    ram.write(PrimErd, 5, &dummy_publisher);
+    try std.testing.expectEqual(1, prim_publish_count);
+
+    ram.write(PrimErd, 6, &dummy_publisher);
+    try std.testing.expectEqual(2, prim_publish_count);
+}
+
+test "runtimeWrite publishes on change and skips no-ops" {
+    prim_publish_count = 0;
+    var ram = PrimRam.init();
+    ram.subs.subscribe(PrimErd, null, primPublishCounter);
+
+    const v1: u32 = 7;
+    ram.runtimeWrite(PrimErd.data_component_idx, &v1, &dummy_publisher);
+    try std.testing.expectEqual(1, prim_publish_count);
+
+    // identical bytes -> no publish
+    ram.runtimeWrite(PrimErd.data_component_idx, &v1, &dummy_publisher);
+    try std.testing.expectEqual(1, prim_publish_count);
+
+    const v2: u32 = 8;
+    ram.runtimeWrite(PrimErd.data_component_idx, &v2, &dummy_publisher);
+    try std.testing.expectEqual(2, prim_publish_count);
 }
