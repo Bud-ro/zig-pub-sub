@@ -1,8 +1,8 @@
 ; snapshot_comments.zig
 ; Speed: Near-optimal | Size: Optimal
-; NOINLINE-PUB. In-place modify.
+; NOINLINE-PUB. Read-modify-write of a struct field (proven change).
 ;
-mixed_modify:
+mixed_rmw:
         add	dword ptr [rdi + 16], 1
         mov	esi, 4
         mov	rdx, rdi

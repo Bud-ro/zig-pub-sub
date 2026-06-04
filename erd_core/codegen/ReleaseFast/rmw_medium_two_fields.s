@@ -1,8 +1,8 @@
 ; snapshot_comments.zig
 ; Speed: Near-optimal | Size: Optimal (until 2 calls)
-; NOINLINE-PUB. In-place modify + unconditional publish.
+; NOINLINE-PUB. Read-modify-write. ReleaseFast inlines write and proves the fields changed -> in-place update + branchless publish. ReleaseSmall keeps write out-of-line, retaining the runtime field compare.
 ;
-modify_medium_two_fields:
+rmw_medium_two_fields:
         add	qword ptr [rdi + 256], 1
         add	dword ptr [rdi + 272], 1
         mov	rsi, rdi

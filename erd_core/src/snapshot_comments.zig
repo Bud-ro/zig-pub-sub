@@ -64,7 +64,7 @@ pub const ratings = [_]Rating{
     .{ .func = "cross_system_read_add",                                                                     .size = .{ .until = 2 }           },
     .{ .func = "cross_system_read_write",                                                                                                     },
     .{ .func = "cross_system_swap",                                                 .speed = .near_optimal, .size = .{ .until = 2 }           },
-    .{ .func = "double_modify_struct",                                              .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "double_rmw_struct",                                              .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "double_write_diff_values",                  .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "double_write_diff_values",                  .mode = .release_small,                         .size = .{ .until = 2 }           },
     .{ .func = "double_write_same_value",                   .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
@@ -78,7 +78,7 @@ pub const ratings = [_]Rating{
     .{ .func = "many_read_middle",                                                                                                            },
     .{ .func = "many_write_last_with_subs",                                         .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "many_write_middle_no_subs",                                                                                                   },
-    .{ .func = "mixed_modify",                                                      .speed = .near_optimal,                                   },
+    .{ .func = "mixed_rmw",                                                      .speed = .near_optimal,                                   },
     .{ .func = "mixed_read_all",                                                                            .size = .{ .until = 2 }           },
     .{ .func = "mixed_runtime_read",                                                                                                          },
     .{ .func = "mixed_runtime_write",                                               .speed = .near_optimal,                                   },
@@ -87,9 +87,9 @@ pub const ratings = [_]Rating{
     .{ .func = "mixed_unsubscribe_conv",                                                                    .size = .{ .until = 3 }           },
     .{ .func = "mixed_unsubscribe_ram",                                                                     .size = .{ .until = 6 }           },
     .{ .func = "mixed_write_ram",                                                   .speed = .near_optimal, .size = .{ .until = 2 }           },
-    .{ .func = "modify_medium_no_subs",                                                                                                       },
-    .{ .func = "modify_medium_single_field",                                        .speed = .near_optimal, .size = .{ .until = 2 }           },
-    .{ .func = "modify_medium_two_fields",                                          .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "rmw_medium_no_subs",                                                                                                       },
+    .{ .func = "rmw_medium_single_field",                                        .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "rmw_medium_two_fields",                                          .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "multi_runtime_read",                                                                                                          },
     .{ .func = "multi_runtime_write",                                               .speed = .near_optimal,                                   },
     .{ .func = "read_across_two_erds",                                                                      .size = .{ .until = 2 }           },
@@ -124,7 +124,7 @@ pub const ratings = [_]Rating{
     .{ .func = "subscribe_converted",                                                                       .size = .{ .until = 2 }           },
     .{ .func = "subscribe_converted_flag",                  .mode = .release_fast,                          .size = .{ .until = 2 }           },
     .{ .func = "subscribe_converted_flag",                  .mode = .release_small,                         .size = .{ .until = 3 }           },
-    .{ .func = "tiny_modify",                                                       .speed = .near_optimal,                                   },
+    .{ .func = "tiny_rmw",                                                       .speed = .near_optimal,                                   },
     .{ .func = "tiny_read_all",                                                                             .size = .{ .until = 2 }           },
     .{ .func = "tiny_runtime_read",                                                                                                           },
     .{ .func = "tiny_runtime_write",                                                .speed = .near_optimal,                                   },
@@ -137,7 +137,7 @@ pub const ratings = [_]Rating{
     .{ .func = "unsubscribe_converted",                                                                     .size = .{ .until = 3 }           },
     .{ .func = "unsubscribe_converted_flag",                .mode = .release_fast,                          .size = .{ .until = 2 }           },
     .{ .func = "unsubscribe_converted_flag",                .mode = .release_small,                         .size = .{ .until = 3 }           },
-    .{ .func = "wide_modify",                                                       .speed = .near_optimal,                                   },
+    .{ .func = "wide_rmw",                                                       .speed = .near_optimal,                                   },
     .{ .func = "wide_read_all",                                                                             .size = .{ .until = 2 }           },
     .{ .func = "wide_runtime_read",                                                                                                           },
     .{ .func = "wide_runtime_write",                                                .speed = .near_optimal,                                   },
@@ -177,7 +177,7 @@ pub const comments = [_]Comment{
     // ==================================================================
     // Subscription.publish noinline analysis
     //
-    // Every write/modify that triggers subscribers goes through this chain:
+    // Every write/runtimeWrite that triggers subscribers goes through this chain:
     //   call RamDataComponent.publish  (noinline, per-DataComponent)
     //     jmp Subscription.publish     (noinline, single shared copy)
     //       call rax                   (indirect call to subscriber)
@@ -249,16 +249,16 @@ pub const comments = [_]Comment{
     .{ .func = "write_then_read_converted",                                     .text = "NOINLINE-PUB. PER-ERD write + converted read inlined." },
     .{ .func = "write_junk_read_write",                                         .text = "NOINLINE-PUB. PER-ERD: two writes, junk read eliminated." },
     .{ .func = "triple_write_increment",                                        .text = "NOINLINE-PUB. PER-ERD: three writes."               },
-    .{ .func = "modify_medium_single_field",                                    .text = "NOINLINE-PUB. In-place modify + unconditional publish." },
-    .{ .func = "modify_medium_two_fields",                                      .text = "NOINLINE-PUB. In-place modify + unconditional publish." },
-    .{ .func = "double_modify_struct",                                          .text = "NOINLINE-PUB. Two in-place modifies, each publishes." },
+    .{ .func = "rmw_medium_single_field",                                    .text = "NOINLINE-PUB. Read-modify-write. ReleaseFast inlines write and proves the field changed -> in-place update + branchless publish. ReleaseSmall keeps write out-of-line, so the runtime field compare (with a skip-publish path) remains -- same behavior, not branchless." },
+    .{ .func = "rmw_medium_two_fields",                                      .text = "NOINLINE-PUB. Read-modify-write. ReleaseFast inlines write and proves the fields changed -> in-place update + branchless publish. ReleaseSmall keeps write out-of-line, retaining the runtime field compare." },
+    .{ .func = "double_rmw_struct",                                          .text = "NOINLINE-PUB. Two read-modify-writes. ReleaseFast proves each change (branchless publishes); ReleaseSmall calls out-of-line write, retaining the runtime compares." },
     .{ .func = "runtime_write",                                                 .text = "NOINLINE-PUB. Shared runtime dispatch path."        },
     .{ .func = "runtime_write_two",                                             .text = "NOINLINE-PUB. Two runtime writes."                  },
     .{ .func = "runtime_write_three",                                           .text = "NOINLINE-PUB. Three runtime writes."                },
     .{ .func = "multi_runtime_write",                                           .text = "NOINLINE-PUB. Multi-component runtime write."       },
     // ---- NOINLINE-PUB: mono stress test ----
     .{ .func = "tiny_write_all",                                                .text = "NOINLINE-PUB. PER-ERD: 2 writes inlined."           },
-    .{ .func = "tiny_modify",                                                   .text = "NOINLINE-PUB. In-place modify."                     },
+    .{ .func = "tiny_rmw",                                                   .text = "NOINLINE-PUB. Read-modify-write of a struct field (proven change)."                     },
     .{ .func = "tiny_runtime_write",                                            .text = "NOINLINE-PUB. Shared runtime dispatch path."        },
     .{
         .func = "wide_write_all",
@@ -279,7 +279,7 @@ pub const comments = [_]Comment{
         \\static type checks and PER-ERD store widths in exchange for ROM.
         ,
     },
-    .{ .func = "wide_modify",                                                   .text = "NOINLINE-PUB. In-place modify."                     },
+    .{ .func = "wide_rmw",                                                   .text = "NOINLINE-PUB. Read-modify-write of a struct field (proven change)."                     },
     .{ .func = "wide_runtime_write",                                            .text = "NOINLINE-PUB. Shared runtime dispatch path."        },
     .{
         .func = "wide_runtime_write_all",
@@ -294,7 +294,7 @@ pub const comments = [_]Comment{
         ,
     },
     .{ .func = "mixed_write_ram",                                               .text = "NOINLINE-PUB. PER-ERD: 4 writes, 3 with subs."      },
-    .{ .func = "mixed_modify",                                                  .text = "NOINLINE-PUB. In-place modify."                     },
+    .{ .func = "mixed_rmw",                                                  .text = "NOINLINE-PUB. Read-modify-write of a struct field (proven change)."                     },
     .{ .func = "mixed_runtime_write",                                           .text = "NOINLINE-PUB. Shared runtime dispatch path."        },
     // ---- Per-ERD reads >5 bytes ----
     .{ .func = "read_big_struct",                                               .text = "PER-ERD: 256-byte copy. runtimeRead would share the logic." },

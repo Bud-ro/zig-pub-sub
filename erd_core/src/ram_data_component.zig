@@ -1,9 +1,9 @@
 //! RAM-backed data component: stores every owned ERD's bytes in one packed
 //! `storage` array. Per-ERD byte offsets are computed at comptime from the
-//! ERD slice, so comptime-dispatched `read`/`write`/`modify` compile to
+//! ERD slice, so comptime-dispatched `read`/`write` compile to
 //! direct loads/stores into `storage` even through the higher-level
-//! `SystemData` wrappers. `write`'s trigger publishes when data
-//! is bit-for-bit different.
+//! `SystemData` wrappers. `write` publishes when the value actually changed
+//! (field-aware for structs, so read-modify-write stays cheap and correct).
 
 const erd_core = @import("erd_core");
 const std = @import("std");
@@ -110,49 +110,151 @@ pub fn RamDataComponent(comptime erds: []const Erd) type {
             @memcpy(data_slice[0..size], self.storage[ram_offsets[data_component_idx] .. ram_offsets[data_component_idx] + size]);
         }
 
-        /// Write and publish if the value changed. When subs == 0, skips publish and comparison entirely.
+        /// Write and publish if the value changed. When subs == 0, skips the
+        /// comparison entirely. Two strategies (see useTypedCompare):
+        /// - aggregates with don't-care bytes (structs, optionals, tagged
+        ///   unions, arrays of them): typed field-by-field std.meta.eql, which
+        ///   lets LLVM fold provably-unchanged fields and prove changed fields,
+        ///   so a read-modify-write (read, tweak a field, write) compiles to an
+        ///   in-place update plus a guaranteed publish -- no full-struct compare
+        ///   and no separate "assert changed" path. The typed compare is also
+        ///   the only SOUND one for these types: their padding / null-payload /
+        ///   inactive-variant bytes are undefined, so a byte compare could
+        ///   report a phantom change on a no-op write (e.g. null -> null).
+        ///   (Padded structs pay a few mask instructions vs a flat byte
+        ///   compare; arrange fields to minimize padding.)
+        /// - everything else (ints, bools, enums, floats, pointers, and
+        ///   aggregates std.meta.eql cannot compare, e.g. those with an extern
+        ///   union): bit-exact integer comparison via readInt (a single cmp);
+        ///   these have no don't-care bytes. Floats deliberately take this
+        ///   path so a struct-embedded float behaves the same as a scalar
+        ///   float ERD (std.meta.eql would compare floats with `==`, treating
+        ///   +0.0 and -0.0 as equal and any NaN as unequal -- inconsistent and
+        ///   a missed publish for a real +0.0 -> -0.0 change).
         pub fn write(self: *Self, erd: Erd, data: erd.T, publisher: *anyopaque) void {
             const idx = erd.data_component_idx;
             const n = @sizeOf(erd.T);
-            const data_bytes = std.mem.toBytes(data);
+            const stored: *[n]u8 = self.storage[ram_offsets[idx]..][0..n];
 
             if (comptime erd.subs == 0) {
-                self.storage[ram_offsets[idx]..][0..n].* = data_bytes;
+                stored.* = std.mem.toBytes(data);
                 return;
             }
 
-            const stored: *[n]u8 = self.storage[ram_offsets[idx]..][0..n];
-            const changed = bytesChanged(stored, &data_bytes);
-            stored.* = data_bytes;
-
-            if (changed) {
-                // Most of the time we'll be publishing. This branch hint
-                // helps push the optimizer to determine if `changed` is
-                // a constant in some situations. (ie: write(read() + 1))
-                @branchHint(.likely);
-                self.publish(idx, publisher);
+            if (comptime useTypedCompare(erd.T)) {
+                // Field-aware path: compare the typed old/new values
+                // (not raw bytes) so LLVM can fold provably-unchanged fields and
+                // prove changed ones, and store the TYPED value (not a
+                // pre-materialized byte array). The typed store is essential: a
+                // byte-array store coalesces `data` into one opaque word, which
+                // severs LLVM's field-level view and forces a full-width
+                // reconstruct/compare for register-sized structs (an 8-byte
+                // {u32,u32}). Together these reduce a read-modify-write to an
+                // in-place field update plus a guaranteed publish -- never a
+                // full-struct compare, no "assert changed" hack. When LLVM
+                // keeps this field-level the compare also ignores padding; for
+                // fully-traceable values it may fold to a byte compare (padding
+                // included) -- harmless, since a real field change is always
+                // detected either way.
+                //
+                // The old value is read through a typed (align-1) POINTER rather
+                // than `@bitCast(stored.*)`: @bitCast to erd.T requires a
+                // guaranteed in-memory layout, so it rejects ordinary
+                // auto-layout structs (the common case) at compile time, while a
+                // pointer cast + load works for any layout and keeps the same
+                // field-level view for LLVM.
+                const changed = !std.meta.eql(@as(*align(1) const erd.T, @ptrCast(stored)).*, data);
+                @as(*align(1) erd.T, @ptrCast(stored)).* = data;
+                if (changed) {
+                    // .likely is a block-layout hint (matching the else branch):
+                    // it keeps publish as the fall-through so a function with
+                    // many inlined writes does not tail-duplicate its
+                    // change-checks. On cores without a branch predictor this is
+                    // a code-size effect, not a speed one.
+                    @branchHint(.likely);
+                    // `publish` reads the value back from storage; we just wrote
+                    // it there. Subscribers must not write this same ERD from the
+                    // callback (it would mutate the bytes being published).
+                    // TODO(re-entrancy): forbidding a subscriber from writing its
+                    // own ERD is currently only documented, not enforced. Come
+                    // back and add a debug-only per-ERD "publishing" guard (in
+                    // the spirit of assert_sometimes) so a self-write or a
+                    // publish cycle trips an assertion in safety builds. See the
+                    // contract note in Subscription.zig.
+                    self.publish(idx, publisher);
+                }
+            } else {
+                // Primitives and types std.meta.eql cannot compare: a single
+                // readInt compare and a byte store -- every bit is meaningful
+                // here, and the typed store gives these no benefit and can cost
+                // a byte (e.g. bool masking). The @branchHint keeps publish on
+                // the hot path so a function with many inlined writes does not
+                // tail-duplicate its change-checks.
+                const data_bytes = std.mem.toBytes(data);
+                const changed = bytesChanged(stored, &data_bytes);
+                stored.* = data_bytes;
+                if (changed) {
+                    @branchHint(.likely);
+                    self.publish(idx, publisher);
+                }
             }
         }
 
-        /// Modify a struct ERD in-place and always publish. Skips change detection
-        /// since the caller guarantees the modification always produces a new value.
-        /// Debug-asserts that the value actually changed.
-        pub fn modify(self: *Self, erd: Erd, comptime modifier: *const fn (*erd.T) void, publisher: *anyopaque) void {
-            const idx = erd.data_component_idx;
-            // Forward-aligned storage offset, so this is the natural alignment
-            // of erd.T (not align(1)): faster in-place R/W and a publishable
-            // aligned pointer.
-            const ptr: *erd.T = @ptrCast(@alignCast(self.storage[ram_offsets[idx]..]));
+        /// True if `T` should use the typed std.meta.eql path in `write`:
+        /// aggregates that can contain "don't-care" bytes (struct padding, an
+        /// optional's payload while null, a tagged union's inactive variant,
+        /// arrays of those), provided std.meta.eql can compare them correctly
+        /// (see fieldComparable). A byte compare of don't-care bytes is unsound:
+        /// std.mem.toBytes(null) leaves the payload undefined, so a no-op
+        /// null -> null write could spuriously publish (and whether it does
+        /// varies by optimize mode). Scalars, floats, and pointers have no
+        /// don't-care bytes and keep the cheaper bit-exact byte compare.
+        ///
+        /// Known niche wart: a float-bearing aggregate (e.g. `?f32`) fails
+        /// fieldComparable, so it stays on the byte path where its null payload
+        /// is still don't-care -- neither path is fully correct for it (the
+        /// typed path would miss a real +0.0 -> -0.0 change instead). The byte
+        /// path errs toward a phantom publish, never a missed one.
+        fn useTypedCompare(T: type) bool {
+            return switch (@typeInfo(T)) {
+                .@"struct", .optional, .@"union" => fieldComparable(T),
+                .array => |a| useTypedCompare(a.child),
+                else => false,
+            };
+        }
 
-            var value: erd.T = ptr.*;
-            const before = value;
-            modifier(&value);
-            std.debug.assert(!std.meta.eql(before, value));
-            ptr.* = value;
-
-            if (erd.subs > 0) {
-                self.publish(idx, publisher);
-            }
+        /// True if a value of `T` is correctly comparable with std.meta.eql:
+        /// no untagged/bare/extern union anywhere (meta.eql @compileErrors on
+        /// those) AND no float (floats use the bit-exact byte path for
+        /// consistent +0.0/-0.0/NaN handling -- see write). Field-aware
+        /// comparison is what lets LLVM fold unchanged fields and prove changed
+        /// fields in read-modify-write patterns; everything else falls back to a
+        /// raw byte compare.
+        fn fieldComparable(T: type) bool {
+            return switch (@typeInfo(T)) {
+                .int, .bool, .@"enum", .void => true,
+                // Floats fall back to the bit-exact byte compare (see write):
+                // std.meta.eql compares them with `==`, which is inconsistent
+                // with scalar float ERDs and misses a real +0.0 -> -0.0 change.
+                .float => false,
+                .optional => |o| fieldComparable(o.child),
+                .array => |a| fieldComparable(a.child),
+                .vector => |v| fieldComparable(v.child),
+                .@"struct" => |s| {
+                    inline for (s.fields) |f| {
+                        if (!fieldComparable(f.type)) return false;
+                    }
+                    return true;
+                },
+                .@"union" => |u| {
+                    if (u.tag_type == null) return false;
+                    inline for (u.fields) |f| {
+                        if (!fieldComparable(f.type)) return false;
+                    }
+                    return true;
+                },
+                else => false,
+            };
         }
 
         fn bytesChanged(a: anytype, b: anytype) bool {

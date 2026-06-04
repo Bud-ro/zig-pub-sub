@@ -4,7 +4,7 @@
 //! field-name alignment, every component has the `subs` field + `supports_write`
 //! decl), and exposes:
 //!
-//!   - comptime-dispatched `read`/`write`/`modify`/`subscribe`/`unsubscribe`
+//!   - comptime-dispatched `read`/`write`/`subscribe`/`unsubscribe`
 //!     (one comptime field access, no runtime dispatch table)
 //!   - runtime-dispatched `runtimeRead`/`runtimeWrite` for the case where the
 //!     ERD is known only by its `system_data_idx` (e.g. UART command handler)
@@ -12,7 +12,7 @@
 //!
 //! Pass `SystemData` by value to the API so the comptime-known field offsets
 //! collapse to direct loads/stores rather than indirect access through a
-//! pointer; methods that mutate (`write`/`modify`/etc.) take `*Self`.
+//! pointer; methods that mutate (`write`/`subscribe`/etc.) take `*Self`.
 
 const erd_core = @import("erd_core");
 const std = @import("std");
@@ -27,6 +27,12 @@ pub const OnChangeArgs = struct {
     /// system_data_idx of the ERD whose value changed.
     system_data_idx: u16,
     /// Pointer to the ERD's new value, as raw bytes.
+    ///
+    /// NOTE: may alias the publisher's live storage (the RAM data component
+    /// publishes a pointer straight into `storage`). Do not write the SAME ERD
+    /// from the callback -- it would mutate the bytes being published, and
+    /// later subscribers in the dispatch would observe the new value. Writing
+    /// a different ERD is fine. See the contract note in Subscription.zig.
     data: *const anyopaque,
 };
 
@@ -181,45 +187,10 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
                         .{@tagName(erd_enum)},
                     ));
                 }
-                if (@typeInfo(erd.T) == .@"struct" and std.meta.fields(erd.T).len >= 4) {
-                    @compileError(std.fmt.comptimePrint(
-                        "write({s}, {s}): use modify() instead. " ++
-                            "Comptime RMW on primitives and small structs already optimizes cleanly, " ++
-                            "but a {}-field struct benefits from modify()'s shared noinline body for code size.",
-                        .{ @tagName(erd_enum), @typeName(erd.T), std.meta.fields(erd.T).len },
-                    ));
-                }
             }
 
             const owner = comptime component_fields[erd.component_idx].name;
             @field(this.components, owner).write(erd, data, @ptrCast(this));
-        }
-
-        /// Modify a struct ERD in-place and always publish, skipping change detection.
-        /// Use when the modification is guaranteed to produce a new value.
-        /// Debug-asserts that the value actually changed.
-        pub fn modify(this: *Self, comptime erd_enum: ErdEnum, comptime modifier: *const fn (*erdFromEnum(erd_enum).T) void) void {
-            const erd: Erd = erdFromEnum(erd_enum);
-
-            comptime {
-                if (!supports_write_from_component_idx[erd.component_idx]) {
-                    @compileError(std.fmt.comptimePrint(
-                        "modify({s}): this ERD's data component does not support writes",
-                        .{@tagName(erd_enum)},
-                    ));
-                }
-                if (@typeInfo(erd.T) != .@"struct") {
-                    @compileError(std.fmt.comptimePrint(
-                        "modify({s}, {s}): only valid for struct ERDs. " ++
-                            "Primitive RMW patterns already optimize cleanly via write(); " ++
-                            "modify() would bypass change detection without a code size benefit.",
-                        .{ @tagName(erd_enum), @typeName(erd.T) },
-                    ));
-                }
-            }
-
-            const owner = comptime component_fields[erd.component_idx].name;
-            @field(this.components, owner).modify(erd, modifier, @ptrCast(this));
         }
 
         /// Write to an ERD from the provided `data` pointer, using the ERD's corresponding system_data_idx

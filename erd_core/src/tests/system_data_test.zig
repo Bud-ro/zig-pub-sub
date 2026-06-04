@@ -269,7 +269,7 @@ test "scratch allocations" {
     // try std.testing.expectEqual(0b10101010, system_data.read(.application_version));
 }
 
-// --- modify() end-to-end through SystemData ---
+// --- read-modify-write of a struct ERD end-to-end through SystemData ---
 
 const FourField = extern struct { a: u32, b: u32, c: u32, d: u32 };
 const ModifyTestSystem = SystemDataTestDouble.create(struct {
@@ -375,23 +375,32 @@ test "verifyAllSubsAreSaturated writes nothing on success even with writer" {
     try std.testing.expectEqual(@as(usize, 0), w.buffered().len);
 }
 
-test "modify publishes the mutated struct to subscribers" {
+test "read-modify-write publishes the mutated struct, and a no-op write does not" {
     modify_publish_count = 0;
     modify_last_value = std.mem.zeroes(FourField);
 
     var sd: ModifySD = ModifyTestSystem.init();
     sd.subscribe(.box, null, captureBox);
 
-    sd.modify(.box, struct {
-        fn m(box: *FourField) void {
-            box.a = 1;
-            box.b = 2;
-            box.c = 3;
-            box.d = 4;
-        }
-    }.m);
+    var box = sd.read(.box);
+    box.a = 1;
+    box.b = 2;
+    box.c = 3;
+    box.d = 4;
+    sd.write(.box, box);
 
     try std.testing.expectEqual(1, modify_publish_count);
     try std.testing.expectEqual(FourField{ .a = 1, .b = 2, .c = 3, .d = 4 }, modify_last_value);
     try std.testing.expectEqual(FourField{ .a = 1, .b = 2, .c = 3, .d = 4 }, sd.read(.box));
+
+    // Writing the same value must NOT publish: field-aware change detection
+    // sees every field is unchanged. This is the semantic modify() could not
+    // provide (it always published).
+    sd.write(.box, box);
+    try std.testing.expectEqual(1, modify_publish_count);
+
+    // Changing a single field publishes again.
+    box.c = 99;
+    sd.write(.box, box);
+    try std.testing.expectEqual(2, modify_publish_count);
 }

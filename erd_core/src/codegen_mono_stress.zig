@@ -166,12 +166,10 @@ export fn tiny_unsubscribe(sd: *TinySD) void {
     sd.unsubscribe(.counter, tiny_callback);
 }
 
-export fn tiny_modify(sd: *TinySD) void {
-    sd.modify(.pair, struct {
-        fn m(val: *Pair) void {
-            val.x +%= 1;
-        }
-    }.m);
+export fn tiny_rmw(sd: *TinySD) void {
+    var v = sd.read(.pair);
+    v.x +%= 1;
+    sd.write(.pair, v);
 }
 
 // ===========================================================================
@@ -244,12 +242,10 @@ export fn wide_unsubscribe(sd: *WideSD) void {
     sd.unsubscribe(.w02, wide_callback);
 }
 
-export fn wide_modify(sd: *WideSD) void {
-    sd.modify(.w_pair, struct {
-        fn m(val: *Pair) void {
-            val.x +%= 1;
-        }
-    }.m);
+export fn wide_rmw(sd: *WideSD) void {
+    var v = sd.read(.w_pair);
+    v.x +%= 1;
+    sd.write(.w_pair, v);
 }
 
 // ===========================================================================
@@ -301,10 +297,8 @@ export fn mixed_unsubscribe_conv(sd: *MixedSD) void {
     sd.unsubscribe(.conv_sum, mixed_callback);
 }
 
-export fn mixed_modify(sd: *MixedSD) void {
-    sd.modify(.ram_pair, struct {
-        fn m(val: *Pair) void {
-            val.x +%= 1;
-        }
-    }.m);
+export fn mixed_rmw(sd: *MixedSD) void {
+    var v = sd.read(.ram_pair);
+    v.x +%= 1;
+    sd.write(.ram_pair, v);
 }

@@ -1,8 +1,8 @@
 ; snapshot_comments.zig
 ; Speed: Near-optimal | Size: Optimal
-; NOINLINE-PUB. In-place modify.
+; NOINLINE-PUB. Read-modify-write of a struct field (proven change).
 ;
-tiny_modify:
+tiny_rmw:
         inc	dword ptr [rdi + 8]
         push	2
         pop	rsi
