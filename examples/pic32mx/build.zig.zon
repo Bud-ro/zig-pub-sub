@@ -1,0 +1,15 @@
+.{
+    .name = .pic32mx,
+    .version = "0.0.0",
+    .fingerprint = 0xcb91d60f15ef5884,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .erd_core = .{ .path = "../../erd_core" },
+        .elf_size = .{ .path = "../../elf_size" },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
