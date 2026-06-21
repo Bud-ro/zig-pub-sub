@@ -145,6 +145,23 @@ pub const ratings = [_]Rating{
     .{ .func = "wide_subscribe",                                                                            .size = .{ .until = 6 }           },
     .{ .func = "wide_unsubscribe",                                                                          .size = .{ .until = 6 }           },
     .{ .func = "wide_write_all",                                                    .speed = .near_optimal, .size = .suboptimal               },
+    .{ .func = "wire_pair_handler",                                                 .speed = .near_optimal,                                   },
+    .{ .func = "wire_pair_post_init",                                                                                                         },
+    .{ .func = "wire_single_handler",                                                                                                         },
+    .{ .func = "wire_single_post_init",                                                                                                       },
+    .{ .func = "wire_swap_bytes4",                                                                                                            },
+    .{ .func = "wire_swap_reading",                                                 .speed = .near_optimal,                                   },
+    .{ .func = "wire_swap_sample",                                                                                                            },
+    .{ .func = "wire_swap_u16",                                                                                                               },
+    .{ .func = "wire_swap_u32",                                                                                                               },
+    .{ .func = "wire_swap_u64",                                                                                                               },
+    .{ .func = "wire_wide_handler",                                                 .speed = .near_optimal,                                   },
+    .{ .func = "wire_wide_init",                                                                                                              },
+    .{ .func = "wire_wide_post_init",                                                                       .size = .suboptimal               },
+    .{ .func = "wire_wide_subscribe",                                                                       .size = .{ .until = 6 }           },
+    .{ .func = "wire_wide_unsubscribe",                                                                     .size = .{ .until = 6 }           },
+    .{ .func = "wire_write_converted_dep",                                          .speed = .near_optimal, .size = .{ .until = 2 }           },
+    .{ .func = "wire_write_ram",                                                    .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "write_big_struct",                                                                          .size = .{ .until = 2 }           },
     .{ .func = "write_bool_with_subs",                      .mode = .release_fast,  .speed = .near_optimal, .size = .{ .until = 2 }           },
     .{ .func = "write_bool_with_subs",                      .mode = .release_small, .speed = .near_optimal,},
@@ -304,5 +321,62 @@ pub const comments = [_]Comment{
     .{ .func = "read_converted_both",                                           .text = "PER-ERD: two converted reads, each unique compute function." },
     .{ .func = "read_all_component_types",                                      .text = "PER-ERD: RAM + indirect (const-folded) + converted inlined." },
     .{ .func = "read_ram_then_converted",                                       .text = "PER-ERD: RAM load + converted compute inlined."     },
+
+    // ==================================================================
+    // WirePublisher (erd_schema) republish path
+    //
+    // The publisher installs ONE shared `handler` on every watched ERD.
+    // When an ERD changes, SystemData calls handler indirectly (through a
+    // Subscription.Callback pointer), so the live call is invisible to the
+    // snapshot tool -- the harness invokes the handler directly instead.
+    //
+    // The shared handler does, in order:
+    //   1. dispatch: binary search the sorted descriptor table by
+    //      system_data_idx to find the changed ERD's descriptor
+    //   2. copy: memcpy desc.size bytes into a stack buffer (size is a
+    //      runtime field, so this lowers to a memcpy call)
+    //   3. swap: native->big-endian, but ONLY if desc.swapToBig != null
+    //      (no-swap byte ERDs skip the indirect call entirely)
+    //   4. republish: tail into the noinline publishWire dispatcher
+    //
+    // Two optimizations are visible in these snapshots:
+    //   * erd_swap now uses @byteSwap for 2/4/8-byte fields, so scalar
+    //     swaps are a single bswap instead of an SSE shuffle (x86) or a
+    //     byte loop (embedded). See wire_swap_u32/u64.
+    //   * The descriptor's swap pointer is null for wire-identical types
+    //     (u8/bool, all-byte structs); the handler's `test rax,rax; je`
+    //     drops the indirect swap call for them. See wire_swap_bytes4.
+    // ==================================================================
+    .{
+        .func = "wire_wide_handler",
+        .text =
+        \\Shared dispatcher for 8 watched ERDs: binary search + memcpy
+        \\(runtime size -> memcpy call) + conditional swap + publishWire.
+        \\One copy regardless of watched-ERD count; the swap fn pointer is
+        \\null-checked so no-swap ERDs (flags u8, raw_bytes [4]u8) skip the
+        \\indirect call.
+        ,
+    },
+    .{
+        .func = "wire_single_handler",
+        .text =
+        \\Degenerate dispatch: with one watched ERD the binary search folds
+        \\to a single idx compare and the swap fn pointer is devirtualized
+        \\and inlined (rol for u16) -- no table, no indirect call, no memcpy
+        \\call. The shared-handler design specializes for free at N=1.
+        ,
+    },
+    .{
+        .func = "wire_pair_handler",
+        .text = "Two watched ERDs (u8 no-swap + u32 swap): tiny binary search, conditional swap.",
+    },
+    .{ .func = "wire_swap_u32", .text = "@byteSwap -> single bswap (was a 26-byte SSE shuffle)." },
+    .{ .func = "wire_swap_u64", .text = "@byteSwap -> single bswap (was a 36-byte SSE shuffle)." },
+    .{ .func = "wire_swap_sample", .text = "extern struct: bswap u32 field + rol u16 field; u8 field untouched." },
+    .{ .func = "wire_swap_bytes4", .text = "All-byte struct: wire-identical, applyToBig is a bare ret (needsSwap=false)." },
+    .{ .func = "wire_swap_reading", .text = "Tagged union: swap the active variant payload based on the runtime tag." },
+    .{ .func = "wire_write_ram", .text = "NOINLINE-PUB. PER-ERD store + publish into the wire handler (indirect)." },
+    .{ .func = "wire_write_converted_dep", .text = "NOINLINE-PUB. Writes a RAM dep that recomputes/republishes a watched converted ERD." },
+    .{ .func = "wire_wide_post_init", .text = "Unrolled per-ERD: one subscribeInner per watched ERD (comptime erd_enum forces the unroll)." },
 };
 // zig fmt: on

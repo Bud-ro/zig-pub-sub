@@ -11,6 +11,16 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
     });
     b.installArtifact(strip_asm);
 
+    // WirePublisher lives in the sibling erd_schema package. Build its module
+    // from source so the wire-publisher harness can import it; this only
+    // resolves inside the monorepo, where codegen tooling actually runs.
+    const schema_mod = b.createModule(.{
+        .root_source_file = b.path("../erd_schema/src/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    schema_mod.addImport("erd_core", core_mod);
+
     const codegen_update_step = b.step("codegen-update", "Regenerate codegen/ assembly snapshots and sizes (Linux only)");
     const codegen_check_step = b.step("codegen-check", "Verify codegen/ snapshots are up-to-date (Linux only, used in CI)");
 
@@ -24,10 +34,11 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
             .os_tag = .linux,
         });
 
-        const Harness = struct { source: []const u8, prefix: []const u8, obj_tag: []const u8 };
+        const Harness = struct { source: []const u8, prefix: []const u8, obj_tag: []const u8, needs_schema: bool = false };
         const harnesses = [_]Harness{
             .{ .source = "src/codegen_harness.zig", .prefix = "", .obj_tag = "harness" },
             .{ .source = "src/codegen_mono_stress.zig", .prefix = "mono/", .obj_tag = "mono" },
+            .{ .source = "src/codegen_wire_publisher.zig", .prefix = "wire/", .obj_tag = "wire", .needs_schema = true },
         };
 
         for (modes, mode_names) |mode, mode_name| {
@@ -46,6 +57,7 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
                 });
                 codegen_mod.addImport("sometimes", sometimes_dep.module("sometimes"));
                 codegen_mod.addImport("erd_core", core_mod);
+                if (harness.needs_schema) codegen_mod.addImport("erd_schema", schema_mod);
 
                 const codegen_obj = b.addObject(.{
                     .name = b.fmt("codegen_{s}_{s}", .{ harness.obj_tag, mode_name }),
@@ -113,9 +125,10 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
     const emit_optimize = if (optimize == .Debug) .ReleaseFast else optimize;
     const emit_asm_step = b.step("emit-asm", "Emit raw assembly for single optimization level");
 
-    const emit_sources = [_]struct { source: []const u8, output: []const u8 }{
+    const emit_sources = [_]struct { source: []const u8, output: []const u8, needs_schema: bool = false }{
         .{ .source = "src/codegen_harness.zig", .output = "codegen_harness.s" },
         .{ .source = "src/codegen_mono_stress.zig", .output = "codegen_mono_stress.s" },
+        .{ .source = "src/codegen_wire_publisher.zig", .output = "codegen_wire_publisher.s", .needs_schema = true },
     };
     for (emit_sources) |src| {
         const mod = b.createModule(.{
@@ -126,6 +139,7 @@ pub fn setup(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
         });
         mod.addImport("sometimes", sometimes_disabled_mod);
         mod.addImport("erd_core", core_mod);
+        if (src.needs_schema) mod.addImport("erd_schema", schema_mod);
         const obj = b.addObject(.{
             .name = std.Io.Dir.path.stem(src.source),
             .root_module = mod,

@@ -457,3 +457,65 @@ test "tagged union round-trip for all variants" {
     const i16_rt = erd_swap.SwapRules(Msg).fromBig(&erd_swap.SwapRules(Msg).toBig(i16_msg));
     try std.testing.expectEqual(@as(i16, -1), i16_rt.payload.i16_val);
 }
+
+test "needsSwap truth table mirrors applyToBig no-op types" {
+    // Wire-identical types: single-byte scalars, all-byte aggregates, and a
+    // tagged union whose every variant is single-byte. applyToBig is a no-op
+    // for these, so needsSwap must report false.
+    const AllByteStruct = extern struct { a: u8, b: u8, c: u8, d: u8 };
+    const AllByteTagged = extern struct {
+        tag: enum(u8) { a = 0, b = 1 },
+        payload: extern union { a: u8, b: bool },
+    };
+    try std.testing.expect(comptime !erd_swap.needsSwap(u8));
+    try std.testing.expect(comptime !erd_swap.needsSwap(bool));
+    try std.testing.expect(comptime !erd_swap.needsSwap([4]u8));
+    try std.testing.expect(comptime !erd_swap.needsSwap(AllByteStruct));
+    try std.testing.expect(comptime !erd_swap.needsSwap(AllByteTagged));
+
+    // Types applyToBig would mutate: any multi-byte scalar, a struct with a
+    // multi-byte field, and a tagged union with a multi-byte variant.
+    const MixedStruct = extern struct { a: u32, b: u16, c: u8 };
+    const MultiByteTagged = extern struct {
+        tag: enum(u8) { a = 0, b = 1 },
+        payload: extern union { a: u32, b: u16 },
+    };
+    try std.testing.expect(comptime erd_swap.needsSwap(u16));
+    try std.testing.expect(comptime erd_swap.needsSwap(u32));
+    try std.testing.expect(comptime erd_swap.needsSwap(u64));
+    try std.testing.expect(comptime erd_swap.needsSwap(u128));
+    try std.testing.expect(comptime erd_swap.needsSwap(MixedStruct));
+    try std.testing.expect(comptime erd_swap.needsSwap(MultiByteTagged));
+}
+
+test "u64 swap is a single full-width reversal" {
+    const Rules = erd_swap.SwapRules(u64);
+    var buf = std.mem.toBytes(@as(u64, 0x0102030405060708));
+    Rules.apply(&buf);
+    // big-endian: most-significant byte first
+    try std.testing.expectEqual(@as(u8, 0x01), buf[0]);
+    try std.testing.expectEqual(@as(u8, 0x08), buf[7]);
+    Rules.apply(&buf); // idempotent round-trip
+    try std.testing.expectEqual(@as(u64, 0x0102030405060708), std.mem.bytesToValue(u64, &buf));
+}
+
+test "u128 falls back to generic reverse and round-trips" {
+    // 16-byte fields are wider than the @byteSwap fast path, exercising the
+    // std.mem.reverse fallback in swapRange.
+    const value: u128 = 0x0102030405060708090A0B0C0D0E0F10;
+    const big = erd_swap.SwapRules(u128).toBig(value);
+    try std.testing.expectEqual(@as(u8, 0x01), big[0]);
+    try std.testing.expectEqual(@as(u8, 0x10), big[15]);
+    try std.testing.expectEqual(value, erd_swap.SwapRules(u128).fromBig(&big));
+}
+
+test "unaligned multi-byte field swaps correctly through align(1)" {
+    // b (u32) lives at offset 1, so the swap must not assume alignment.
+    const S = extern struct { lead: u8, val: u32 align(1) };
+    const v = S{ .lead = 0xAA, .val = 0xDEADBEEF };
+    const big = erd_swap.SwapRules(S).toBig(v);
+    try std.testing.expectEqual(@as(u8, 0xAA), big[0]);
+    try std.testing.expectEqual(@as(u8, 0xDE), big[1]);
+    try std.testing.expectEqual(@as(u8, 0xEF), big[4]);
+    try std.testing.expectEqual(v.val, erd_swap.SwapRules(S).fromBig(&big).val);
+}

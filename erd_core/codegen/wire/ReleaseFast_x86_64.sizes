@@ -1,0 +1,18 @@
+# size (bytes)	function
+1	wire_swap_bytes4
+2	wire_wide_unsubscribe
+5	wire_swap_u16
+7	wire_swap_u32
+10	wire_swap_u64
+12	wire_swap_sample
+15	wire_wide_init
+17	wire_wide_subscribe
+19	wire_single_post_init
+27	wire_swap_reading
+31	wire_write_ram
+33	wire_write_converted_dep
+52	wire_single_handler
+57	wire_pair_post_init
+171	wire_wide_handler
+177	wire_pair_handler
+179	wire_wide_post_init
