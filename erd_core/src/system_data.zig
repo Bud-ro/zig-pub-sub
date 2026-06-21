@@ -54,16 +54,17 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
         erd_core.erd_table.validateEnumMatchesDefs(ErdEnum, ErdDefs);
 
         // Reject duplicate erd_numbers up front so the callsite (system_erds.zig
-        // tables) does not have to repeat the check. The bit set needs one
-        // bit per representable handle value, so `maxInt(...) + 1` (NOT
-        // `maxInt(...)`) -- otherwise the largest valid handle is out of range.
-        var seen_numbers: std.bit_set.ArrayBitSet(usize, @as(usize, std.math.maxInt(Erd.ErdHandle)) + 1) = .empty;
-        for (std.meta.fieldNames(ErdDefs)) |field_name| {
-            if (@field(erd_instance, field_name).erd_number) |num| {
-                if (seen_numbers.isSet(num)) {
-                    @compileError(std.fmt.comptimePrint("Multiple ERD definitions with number 0x{x:0>4}", .{num}));
+        // tables) does not have to repeat the check. Uses pairwise comparison
+        // instead of a bitset so this works on 16-bit targets where
+        // ArrayBitSet(_, 65536) would overflow usize.
+        const field_names = std.meta.fieldNames(ErdDefs);
+        for (field_names, 0..) |name_a, idx| {
+            const num_a = @field(erd_instance, name_a).erd_number orelse continue;
+            for (field_names[idx + 1 ..]) |name_b| {
+                const num_b = @field(erd_instance, name_b).erd_number orelse continue;
+                if (num_a == num_b) {
+                    @compileError(std.fmt.comptimePrint("Multiple ERD definitions with number 0x{x:0>4}", .{num_a}));
                 }
-                seen_numbers.set(num);
             }
         }
     }
@@ -101,8 +102,11 @@ pub fn SystemData(ErdDefs: type, ErdEnum: type, comptime erd_instance: ErdDefs, 
         /// Backing storage for `scratch`. Aligned to `@alignOf(usize)` so the
         /// FixedBufferAllocator can hand out usize-aligned (or smaller)
         /// allocations without ever needing internal alignment padding from
-        /// the buffer base.
-        scratch_buf: [2048]u8 align(@alignOf(usize)) = undefined,
+        /// the buffer base. Sized down to 64 bytes on 16-bit targets to
+        /// fit in constrained RAM (e.g. MSP430G2553 with 512B total).
+        scratch_buf: [scratch_buf_size]u8 align(@alignOf(usize)) = undefined,
+
+        const scratch_buf_size: usize = if (@sizeOf(usize) <= 2) 64 else 2048;
 
         /// Initialize SystemData with the given component instances.
         pub fn init(components: Components) Self {
