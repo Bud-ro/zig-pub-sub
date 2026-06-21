@@ -25,7 +25,7 @@ config
 hooks
 objects
 refs
-esp8266/sdk/
+examples/esp8266/sdk/
 
 # Combined codegen snapshots (generated alongside per-function splits)
 erd_core/codegen/*_x86_64.s
